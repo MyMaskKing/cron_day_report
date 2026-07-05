@@ -174,4 +174,157 @@ window.viewUser = viewUser; window.toggleRole = toggleRole; window.toggleStatus 
 loadUsers();
 `;
 
-export { COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS };
+// 定时任务管理 JS
+const MONITOR_JS = `
+${COMMON_JS}
+bindLogout();
+var channels = [];
+
+function channelName(id) {
+  if (!id) return '<span class="muted">未设置</span>';
+  var c = channels.filter(function(x){ return x.id === id; })[0];
+  return c ? esc(c.name) : ('#' + id);
+}
+function channelOptions(sel) {
+  var opts = '<option value="">（不发送通知）</option>';
+  channels.forEach(function(c) {
+    opts += '<option value="' + c.id + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.name) + ' [' + c.type + ']</option>';
+  });
+  return opts;
+}
+
+// ---------- 通知渠道 ----------
+async function loadChannels() {
+  var data = await api('/api/notify/channels');
+  channels = data.channels;
+  var tb = document.getElementById('chTbody');
+  tb.innerHTML = channels.map(function(c) {
+    return '<tr><td>' + esc(c.name) + '</td><td>' + c.type + '</td>' +
+      '<td class="muted" style="word-break:break-all;">' + esc(c.url) + '</td>' +
+      '<td>' + (c.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag disabled">停用</span>') + '</td>' +
+      '<td><button class="btn sm gray" onclick="editCh(' + c.id + ')">编辑</button> ' +
+      '<button class="btn sm danger" onclick="delCh(' + c.id + ')">删除</button></td></tr>';
+  }).join('') || '<tr><td colspan="5" class="muted">暂无渠道</td></tr>';
+}
+function chForm(c) {
+  c = c || {};
+  document.getElementById('chId').value = c.id || '';
+  document.getElementById('chName').value = c.name || '';
+  document.getElementById('chType').value = c.type || 'wechat';
+  document.getElementById('chUrl').value = c.url || '';
+  document.getElementById('chMethod').value = c.method || 'POST';
+  document.getElementById('chHeaders').value = c.headers_json || '';
+  document.getElementById('chBody').value = c.body_template || '';
+  document.getElementById('chEnabled').checked = c.enabled !== 0 && c.enabled !== false;
+  document.getElementById('chFormWrap').style.display = 'block';
+}
+window.editCh = function(id){ chForm(channels.filter(function(x){return x.id===id;})[0]); };
+window.delCh = async function(id){
+  if (!confirm('确认删除该渠道?')) return;
+  try { await api('/api/notify/channels/' + id, { method:'DELETE' }); await loadChannels(); await loadTasks(); }
+  catch(e){ alert(e.message); }
+};
+document.getElementById('chSave').addEventListener('click', async function(){
+  var id = document.getElementById('chId').value;
+  var payload = {
+    name: document.getElementById('chName').value,
+    type: document.getElementById('chType').value,
+    url: document.getElementById('chUrl').value,
+    method: document.getElementById('chMethod').value,
+    headers_json: document.getElementById('chHeaders').value || null,
+    body_template: document.getElementById('chBody').value || null,
+    enabled: document.getElementById('chEnabled').checked
+  };
+  try {
+    if (id) await api('/api/notify/channels/' + id, { method:'PUT', body: payload });
+    else await api('/api/notify/channels', { method:'POST', body: payload });
+    document.getElementById('chFormWrap').style.display = 'none';
+    await loadChannels(); await loadTasks();
+  } catch(e){ alert(e.message); }
+});
+document.getElementById('chNew').addEventListener('click', function(){ chForm({}); });
+document.getElementById('chCancel').addEventListener('click', function(){ document.getElementById('chFormWrap').style.display='none'; });
+
+// ---------- 监控任务 ----------
+async function loadTasks() {
+  var data = await api('/api/monitor/tasks');
+  var tb = document.getElementById('taskTbody');
+  tb.innerHTML = data.tasks.map(function(t) {
+    return '<tr><td>' + esc(t.name) + '</td>' +
+      '<td class="muted" style="word-break:break-all;">' + esc(t.url) + '</td>' +
+      '<td>' + t.return_type + '</td>' +
+      '<td>' + channelName(t.channel_id) + '</td>' +
+      '<td>' + (t.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag disabled">停用</span>') + '</td>' +
+      '<td><button class="btn sm gray" onclick="editTask(' + t.id + ')">编辑</button> ' +
+      '<button class="btn sm" onclick="viewLogs(' + t.id + ")," + '"' + esc(t.name).replace(/"/g,'') + '")>日志</button> ' +
+      '<button class="btn sm danger" onclick="delTask(' + t.id + ')">删除</button></td></tr>';
+  }).join('') || '<tr><td colspan="6" class="muted">暂无任务</td></tr>';
+  window._tasks = data.tasks;
+}
+function taskForm(t) {
+  t = t || {};
+  document.getElementById('tId').value = t.id || '';
+  document.getElementById('tName').value = t.name || '';
+  document.getElementById('tUrl').value = t.url || '';
+  document.getElementById('tType').value = t.return_type || 'text';
+  document.getElementById('tChannel').innerHTML = channelOptions(t.channel_id || '');
+  document.getElementById('tEnabled').checked = t.enabled !== 0 && t.enabled !== false;
+  document.getElementById('taskFormWrap').style.display = 'block';
+}
+window.editTask = function(id){ taskForm((window._tasks||[]).filter(function(x){return x.id===id;})[0]); };
+window.delTask = async function(id){
+  if (!confirm('确认删除该任务?')) return;
+  try { await api('/api/monitor/tasks/' + id, { method:'DELETE' }); await loadTasks(); }
+  catch(e){ alert(e.message); }
+};
+window.viewLogs = async function(id, name){
+  try {
+    var data = await api('/api/monitor/tasks/' + id + '/logs');
+    var box = document.getElementById('logBox');
+    box.style.display = 'block';
+    box.innerHTML = '<h2>执行日志 · ' + esc(name) + '</h2>' +
+      '<table><thead><tr><th>时间</th><th>结果</th><th>状态</th><th>耗时</th><th>大小</th></tr></thead><tbody>' +
+      (data.logs.map(function(l){
+        return '<tr><td class="muted">' + esc(l.created_at) + '</td>' +
+          '<td>' + (l.success ? '<span class="tag ok">成功</span>' : '<span class="tag fail">失败</span>') + '</td>' +
+          '<td>' + esc(l.status) + ' ' + esc(l.status_text||'') + '</td>' +
+          '<td>' + (l.response_time||0) + 'ms</td><td>' + (l.response_size||0) + '</td></tr>';
+      }).join('') || '<tr><td colspan="5" class="muted">暂无日志</td></tr>') + '</tbody></table>';
+    box.scrollIntoView({ behavior:'smooth' });
+  } catch(e){ alert(e.message); }
+};
+document.getElementById('tSave').addEventListener('click', async function(){
+  var id = document.getElementById('tId').value;
+  var payload = {
+    name: document.getElementById('tName').value,
+    url: document.getElementById('tUrl').value,
+    return_type: document.getElementById('tType').value,
+    channel_id: document.getElementById('tChannel').value || null,
+    enabled: document.getElementById('tEnabled').checked
+  };
+  try {
+    if (id) await api('/api/monitor/tasks/' + id, { method:'PUT', body: payload });
+    else await api('/api/monitor/tasks', { method:'POST', body: payload });
+    document.getElementById('taskFormWrap').style.display = 'none';
+    await loadTasks();
+  } catch(e){ alert(e.message); }
+});
+document.getElementById('tNew').addEventListener('click', function(){ taskForm({}); });
+document.getElementById('tCancel').addEventListener('click', function(){ document.getElementById('taskFormWrap').style.display='none'; });
+document.getElementById('runNow').addEventListener('click', async function(){
+  var btn = this; btn.disabled = true; btn.textContent = '执行中...';
+  try {
+    var r = await api('/api/monitor/run', { method:'POST' });
+    alert(r.message + '（任务数: ' + (r.results ? r.results.length : 0) + '）');
+    await loadTasks();
+  } catch(e){ alert(e.message); }
+  finally { btn.disabled = false; btn.textContent = '立即执行全部'; }
+});
+
+(async function(){
+  try { await loadChannels(); await loadTasks(); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+})();
+`;
+
+export { COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS };

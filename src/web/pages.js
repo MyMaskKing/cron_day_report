@@ -4,7 +4,7 @@
  */
 
 import { renderPage, renderTopbar } from './layout.js';
-import { LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS } from './assets.js';
+import { LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS } from './assets.js';
 
 /** 初始化超管页 */
 function setupPage() {
@@ -93,4 +93,79 @@ function adminPage(user) {
   return renderPage({ title: '用户管理', body, script: ADMIN_JS });
 }
 
-export { loginPage, dashboardPage, adminPage, setupPage };
+/** 定时任务管理页 */
+function monitorPage(user) {
+  const body = renderTopbar(user, 'monitor') + `<div class="container">
+    <div class="card">
+      <h2>监控任务
+        <button class="btn sm" id="tNew" style="float:right;margin-left:8px;">+ 新建任务</button>
+        <button class="btn sm gray" id="runNow" style="float:right;">立即执行全部</button>
+      </h2>
+      <table>
+        <thead><tr><th>名称</th><th>URL</th><th>格式</th><th>通知渠道</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="taskTbody"></tbody>
+      </table>
+    </div>
+
+    <div class="card" id="taskFormWrap" style="display:none;">
+      <h2>任务编辑</h2>
+      <input type="hidden" id="tId">
+      <label>任务名称</label><input id="tName">
+      <label>URL</label><input id="tUrl" placeholder="https://...">
+      <div class="row">
+        <div><label>返回格式</label>
+          <select id="tType"><option value="text">text</option><option value="html">html</option></select>
+        </div>
+        <div><label>通知渠道</label><select id="tChannel"></select></div>
+      </div>
+      <label><input type="checkbox" id="tEnabled" style="width:auto;" checked> 启用</label>
+      <div style="margin-top:12px;">
+        <button class="btn" id="tSave">保存</button>
+        <button class="btn gray" id="tCancel">取消</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>通知渠道
+        <button class="btn sm" id="chNew" style="float:right;">+ 新建渠道</button>
+      </h2>
+      <table>
+        <thead><tr><th>名称</th><th>类型</th><th>URL</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="chTbody"></tbody>
+      </table>
+    </div>
+
+    <div class="card" id="chFormWrap" style="display:none;">
+      <h2>渠道编辑</h2>
+      <input type="hidden" id="chId">
+      <label>渠道名称</label><input id="chName">
+      <div class="row">
+        <div><label>类型</label>
+          <select id="chType">
+            <option value="wechat">企业微信机器人</option>
+            <option value="webhook">通用 Webhook</option>
+            <option value="email">邮件(webhook转发)</option>
+          </select>
+        </div>
+        <div><label>请求方法</label>
+          <select id="chMethod"><option value="POST">POST</option><option value="PUT">PUT</option><option value="GET">GET</option></select>
+        </div>
+      </div>
+      <label>URL</label><input id="chUrl" placeholder="https://...">
+      <label>自定义请求头 JSON（可选，webhook/email 用）</label>
+      <textarea id="chHeaders" rows="2" placeholder='{"Authorization":"Bearer xxx"}'></textarea>
+      <label>Body 模板（可选，含 {{content}} 占位符，仅 webhook）</label>
+      <textarea id="chBody" rows="2" placeholder='{"msgtype":"text","text":{"content":"{{content}}"}}'></textarea>
+      <label><input type="checkbox" id="chEnabled" style="width:auto;" checked> 启用</label>
+      <div style="margin-top:12px;">
+        <button class="btn" id="chSave">保存</button>
+        <button class="btn gray" id="chCancel">取消</button>
+      </div>
+    </div>
+
+    <div class="card" id="logBox" style="display:none;"></div>
+  </div>`;
+  return renderPage({ title: '定时任务', body, script: MONITOR_JS });
+}
+
+export { loginPage, dashboardPage, adminPage, setupPage, monitorPage };

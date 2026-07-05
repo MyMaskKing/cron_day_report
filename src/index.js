@@ -16,9 +16,11 @@ import { sendNotification } from './services/notify.service.js';
 // API handlers
 import { register, login, logout, me, bootstrap, setupStatus } from './api/auth.api.js';
 import { listUsers, getUserDetail, updateUserRole, updateUserStatus } from './api/users.api.js';
+import { listChannels, createChannel, updateChannel, removeChannel } from './api/notify.api.js';
+import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
 
 // Pages
-import { loginPage, dashboardPage, adminPage, setupPage } from './web/pages.js';
+import { loginPage, dashboardPage, adminPage, setupPage, monitorPage } from './web/pages.js';
 
 // ==================== 路由注册 ====================
 const router = new Router();
@@ -41,6 +43,19 @@ router.put('/api/admin/users/:id/status', updateUserStatus);
 router.get('/api/monitor/run', runMyMonitors);
 router.post('/api/monitor/run', runMyMonitors);
 
+// --- 通知渠道 API ---
+router.get('/api/notify/channels', listChannels);
+router.post('/api/notify/channels', createChannel);
+router.put('/api/notify/channels/:id', updateChannel);
+router.delete('/api/notify/channels/:id', removeChannel);
+
+// --- 监控任务 API ---
+router.get('/api/monitor/tasks', listTasks);
+router.post('/api/monitor/tasks', createTask);
+router.get('/api/monitor/tasks/:id/logs', listTaskLogs);
+router.put('/api/monitor/tasks/:id', updateTask);
+router.delete('/api/monitor/tasks/:id', removeTask);
+
 /**
  * 页面路由处理（需登录的页面统一校验会话）
  * @param {Request} request
@@ -58,6 +73,7 @@ async function handlePages(request, env) {
   // 需登录页面
   const pageMap = {
     '/': 'dashboard', '/dashboard': 'dashboard',
+    '/monitor': 'monitor',
     '/admin': 'admin'
   };
   if (path in pageMap) {
@@ -71,6 +87,8 @@ async function handlePages(request, env) {
     switch (pageMap[path]) {
       case 'dashboard':
         return html(dashboardPage(user));
+      case 'monitor':
+        return html(monitorPage(user));
       case 'admin':
         if (user.role !== 'admin') return html(dashboardPage(user));
         return html(adminPage(user));
