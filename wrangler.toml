@@ -3,7 +3,10 @@ main = "src/index.js"
 compatibility_date = "2024-01-01"
 
 [triggers]
-crons = ["0 22 * * *"]  # 每天早上6点执行（UTC时间需要-8,目标[中国]时间为6点，UTC时间为22点）
+# 时间为 UTC，北京时间需 -8 换算
+# "0 22 * * *"  -> 北京 06:00  监控任务
+# "50 6 * * *"  -> 北京 14:50  基金日报
+crons = ["0 22 * * *", "50 6 * * *"]
 
 # D1 数据库绑定（在 Cloudflare Dashboard 创建后填入 database_id）
 [[d1_databases]]
@@ -23,6 +26,10 @@ id = "4f5ab7db7ea14d5bb5f7165d25d90ce3"
 
 # 存储驱动选择：d1（默认）| mysql（预留）
 STORAGE_DRIVER = "d1"
+
+# 站点公开访问地址（用于 cron 日报中拼接免密加仓链接的绝对 URL）
+# 部署后改为你的 Worker 域名，如 https://cron-send-request.xxx.workers.dev
+PUBLIC_BASE_URL = "https://cron-send-request.mymaskking139-speedup.workers.dev"
 
 # 环境变量示例（旧版全局监控，已由数据库管理取代，保留兼容说明）
 # ACCESS_URL1 = "https://example1.com"

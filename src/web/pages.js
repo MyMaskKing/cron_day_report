@@ -4,7 +4,7 @@
  */
 
 import { renderPage, renderTopbar } from './layout.js';
-import { LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS } from './assets.js';
+import { LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS } from './assets.js';
 
 /** 初始化超管页 */
 function setupPage() {
@@ -222,8 +222,63 @@ function fundPage(user) {
         <button class="btn gray" id="rcSend">立即发送日报</button>
       </div>
     </div>
+
+    <div class="card">
+      <h2>持仓分析 <span class="muted" style="font-size:12px;font-weight:normal;">（规则化提示，非投资建议）</span></h2>
+      <div class="row">
+        <div><label>止损线(%)</label><input id="anStopLoss" type="number" value="-10"></div>
+        <div><label>止盈线(%)</label><input id="anTakeProfit" type="number" value="20"></div>
+        <div><label>集中度告警(%)</label><input id="anConcentration" type="number" value="50"></div>
+      </div>
+      <button class="btn" id="anRun">生成分析</button>
+      <div id="anResult" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>情景测算 <span class="muted" style="font-size:12px;font-weight:normal;">（按你的假设推演，非市场预测）</span></h2>
+      <div class="row">
+        <div><label>基金代码（可选，留空则用买入净值）</label><input id="scCode" placeholder="如 000001"></div>
+        <div><label>计划投入金额(元)</label><input id="scAmount" type="number" step="0.01" placeholder="如 10000"></div>
+        <div><label>买入净值（留空则按代码取实时估值）</label><input id="scNav" type="number" step="0.0001"></div>
+      </div>
+      <div class="row">
+        <div><label>止盈假设(%)</label><input id="scTakeProfit" type="number" value="20"></div>
+        <div><label>止损假设(%)</label><input id="scStopLoss" type="number" value="-10"></div>
+      </div>
+      <button class="btn" id="scRun">开始测算</button>
+      <div id="scResult" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="card" id="shareBox" style="display:none;"></div>
   </div>`;
   return renderPage({ title: '基金追踪', body, script: FUND_JS });
 }
 
-export { loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage };
+/** 免密快速加仓公开页（无需登录） */
+function publicBuyPage() {
+  const body = `<div class="login-wrap" style="max-width:420px;">
+    <div class="card">
+      <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:16px;">➕ 快速加仓</h1>
+      <div id="msg" class="msg"></div>
+      <div id="content" style="display:none;">
+        <h2 id="fundName" style="font-size:16px;"></h2>
+        <div class="grid-stats" style="margin:12px 0;">
+          <div class="stat"><div class="num" id="curNav" style="font-size:18px;"></div><div class="lbl">当前净值(估)</div></div>
+          <div class="stat"><div class="num" id="curShares" style="font-size:18px;"></div><div class="lbl">当前份额</div></div>
+          <div class="stat"><div class="num" id="curCost" style="font-size:18px;"></div><div class="lbl">成本净值</div></div>
+        </div>
+        <form id="buyForm">
+          <label>买入金额(元)</label>
+          <input id="amount" type="number" step="0.01" required placeholder="如 1000">
+          <label>买入净值（默认当前估值，可改）</label>
+          <input id="buyNav" type="number" step="0.0001">
+          <button class="btn" style="width:100%;" type="submit">确认加仓</button>
+        </form>
+        <p class="muted" style="font-size:12px;margin-top:10px;">按金额买入：份额=金额/净值，系统自动累计并重算持仓成本净值。</p>
+      </div>
+    </div>
+  </div>`;
+  return renderPage({ title: '快速加仓', body, script: PUBLIC_BUY_JS });
+}
+
+export { loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage };

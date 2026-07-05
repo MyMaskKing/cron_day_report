@@ -6,7 +6,11 @@
 import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
-import { fetchFundNav, fetchNavBatch, buildPortfolio, buildFundReport } from '../services/fund.service.js';
+import { generateToken } from '../auth/password.js';
+import {
+  fetchFundNav, fetchNavBatch, buildPortfolio, buildFundReport,
+  analyzePortfolio, calcScenarios, applyBuy
+} from '../services/fund.service.js';
 import { sendNotification } from '../services/notify.service.js';
 
 /** 校验持仓字段 */
@@ -126,7 +130,7 @@ async function setReportConfig({ request, env }) {
 }
 
 /** POST /api/fund/report/send  手动发送一次日报 */
-async function sendReport({ request, env }) {
+async function sendReport({ request, env, url }) {
   const auth = await requireAuth(request, env);
   if (auth instanceof Response) return auth;
   const storage = getStorage(env);
@@ -142,12 +146,147 @@ async function sendReport({ request, env }) {
   const navMap = await fetchNavBatch(funds.map(f => f.code));
   const portfolio = buildPortfolio(funds, navMap);
   const format = config.format || 'text';
-  const message = buildFundReport(portfolio, format);
+
+  // 生成每只基金的免密加仓链接（无 token 则生成持久化）
+  const base = env.PUBLIC_BASE_URL || url.origin;
+  const linkMap = {};
+  for (const f of funds) {
+    let token = f.share_token;
+    if (!token) { token = generateToken(); await storage.fund.setShareToken(f.id, token); }
+    linkMap[f.id] = `${base}/f/${token}`;
+  }
+  const message = buildFundReport(portfolio, format, linkMap);
   const result = await sendNotification(message, channel, format);
   return json({ success: result.success, message: result.message });
 }
 
+/** GET /api/fund/analysis  规则化持仓分析（可带 stopLoss/takeProfit/concentration 查询参数） */
+async function fundAnalysis({ request, env, url }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const funds = await storage.fund.listByUser(auth.user_id);
+  if (funds.length === 0) {
+    return json({ success: true, items: [], summary: [], rules: {}, disclaimer: '暂无持仓' });
+  }
+  const navMap = await fetchNavBatch(funds.map(f => f.code));
+  const portfolio = buildPortfolio(funds, navMap);
+
+  // 阈值可通过查询参数覆盖，非法则用默认
+  const rules = {};
+  const sl = parseFloat(url.searchParams.get('stopLoss'));
+  const tp = parseFloat(url.searchParams.get('takeProfit'));
+  const cc = parseFloat(url.searchParams.get('concentration'));
+  if (!isNaN(sl)) rules.stopLoss = sl;
+  if (!isNaN(tp)) rules.takeProfit = tp;
+  if (!isNaN(cc)) rules.concentration = cc;
+
+  const analysis = analyzePortfolio(portfolio, rules);
+  return json({ success: true, ...analysis });
+}
+
+/** GET /api/fund/:id/share-link  获取/生成某持仓的免密加仓链接 */
+async function getShareLink({ request, env, params, url }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const id = parseInt(params.id, 10);
+  const fund = await storage.fund.findById(id);
+  if (!fund || fund.user_id !== auth.user_id) return error('持仓不存在', 404);
+
+  let token = fund.share_token;
+  if (!token) {
+    token = generateToken();
+    await storage.fund.setShareToken(id, token);
+  }
+  const base = env.PUBLIC_BASE_URL || url.origin;
+  return json({ success: true, token, link: `${base}/f/${token}` });
+}
+
+/** POST /api/fund/scenario  情景测算（登录用户，非预测）
+ * body: { amount, nav?, code?, scenarios?, takeProfit?, stopLoss? }
+ * nav 缺省时用 code 实时拉取
+ */
+async function fundScenario({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const amount = parseFloat(body.amount);
+  if (isNaN(amount) || amount <= 0) return error('请填写有效的投入金额');
+
+  let nav = parseFloat(body.nav);
+  if (isNaN(nav) || nav <= 0) {
+    if (!body.code) return error('请填写买入净值或基金代码');
+    const info = await fetchFundNav(body.code);
+    if (!info) return error('无法获取该基金净值，请手动填写买入净值');
+    nav = info.gsz || info.nav;
+  }
+
+  const opts = {};
+  if (Array.isArray(body.scenarios) && body.scenarios.length) {
+    opts.scenarios = body.scenarios.map(Number).filter(n => !isNaN(n));
+  }
+  if (body.takeProfit != null && !isNaN(parseFloat(body.takeProfit))) opts.takeProfit = parseFloat(body.takeProfit);
+  if (body.stopLoss != null && !isNaN(parseFloat(body.stopLoss))) opts.stopLoss = parseFloat(body.stopLoss);
+
+  const result = calcScenarios(amount, nav, opts);
+  return json({ success: true, ...result });
+}
+
+/** GET /api/public/fund/:token  免密查看基金信息（供加仓页展示） */
+async function publicFundInfo({ env, params }) {
+  const storage = getStorage(env);
+  const fund = await storage.fund.findByShareToken(params.token);
+  if (!fund) return error('链接无效或已失效', 404);
+
+  const info = await fetchFundNav(fund.code);
+  const currentNav = info ? (info.gsz || info.nav) : 0;
+  return json({
+    success: true,
+    fund: {
+      code: fund.code,
+      name: (info && info.name) || fund.name || fund.code,
+      shares: fund.shares,
+      cost_nav: fund.cost_nav,
+      current_nav: currentNav,
+      gszzl: info ? info.gszzl : 0
+    }
+  });
+}
+
+/** POST /api/public/fund/:token/buy  免密加仓（按金额买入，累计份额并重算成本）
+ * body: { amount, buyNav? }  buyNav 缺省用实时净值
+ */
+async function publicFundBuy({ request, env, params }) {
+  const storage = getStorage(env);
+  const fund = await storage.fund.findByShareToken(params.token);
+  if (!fund) return error('链接无效或已失效', 404);
+
+  const body = await request.json().catch(() => ({}));
+  const amount = parseFloat(body.amount);
+  if (isNaN(amount) || amount <= 0) return error('请填写有效的买入金额');
+
+  let buyNav = parseFloat(body.buyNav);
+  if (isNaN(buyNav) || buyNav <= 0) {
+    const info = await fetchFundNav(fund.code);
+    if (!info) return error('无法获取净值，请手动填写买入净值');
+    buyNav = info.gsz || info.nav;
+  }
+
+  const res = applyBuy(fund, amount, buyNav);
+  await storage.fund.updateHolding(fund.id, res.newShares, res.newCostNav);
+  return json({
+    success: true,
+    message: '加仓成功',
+    addShares: res.addShares,
+    newShares: res.newShares,
+    newCostNav: res.newCostNav,
+    buyNav
+  });
+}
+
 export {
   listFunds, createFund, updateFund, removeFund,
-  fundReport, getReportConfig, setReportConfig, sendReport
+  fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
+  getShareLink, fundScenario, publicFundInfo, publicFundBuy
 };

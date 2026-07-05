@@ -147,6 +147,10 @@ function createD1Adapter(env) {
         ).bind(userId).all();
         return results || [];
       },
+      async listAllCodes() {
+        const { results } = await db.prepare('SELECT DISTINCT code FROM funds').all();
+        return (results || []).map(r => r.code);
+      },
       async findById(id) {
         return await db.prepare('SELECT * FROM funds WHERE id = ?').bind(id).first();
       },
@@ -163,6 +167,15 @@ function createD1Adapter(env) {
       },
       async remove(id, userId) {
         await db.prepare('DELETE FROM funds WHERE id=? AND user_id=?').bind(id, userId).run();
+      },
+      async findByShareToken(token) {
+        return await db.prepare('SELECT * FROM funds WHERE share_token = ?').bind(token).first();
+      },
+      async setShareToken(id, token) {
+        await db.prepare('UPDATE funds SET share_token=? WHERE id=?').bind(token, id).run();
+      },
+      async updateHolding(id, shares, costNav) {
+        await db.prepare('UPDATE funds SET shares=?, cost_nav=? WHERE id=?').bind(shares, costNav, id).run();
       },
       async upsertNav(code, nav) {
         await db.prepare(

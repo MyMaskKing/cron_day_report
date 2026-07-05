@@ -4,18 +4,36 @@
 
 // 通用 API 请求与工具函数（所有页面共用）
 const COMMON_JS = `
+var _loadingCount = 0;
+function showLoading() {
+  _loadingCount++;
+  var el = document.getElementById('globalLoading');
+  if (el) el.style.display = 'flex';
+}
+function hideLoading() {
+  _loadingCount = Math.max(0, _loadingCount - 1);
+  if (_loadingCount === 0) {
+    var el = document.getElementById('globalLoading');
+    if (el) el.style.display = 'none';
+  }
+}
 async function api(path, opts) {
   opts = opts || {};
-  const res = await fetch(path, {
-    method: opts.method || 'GET',
-    headers: opts.body ? { 'Content-Type': 'application/json' } : {},
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-    credentials: 'same-origin'
-  });
-  let data = {};
-  try { data = await res.json(); } catch (e) {}
-  if (!res.ok) throw new Error(data.message || ('请求失败: ' + res.status));
-  return data;
+  showLoading();
+  try {
+    const res = await fetch(path, {
+      method: opts.method || 'GET',
+      headers: opts.body ? { 'Content-Type': 'application/json' } : {},
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      credentials: 'same-origin'
+    });
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error(data.message || ('请求失败: ' + res.status));
+    return data;
+  } finally {
+    hideLoading();
+  }
 }
 function showMsg(el, text, ok) {
   el.className = 'msg ' + (ok ? 'ok' : 'err');
@@ -383,6 +401,7 @@ async function loadReport() {
       '<td>' + it.value + '</td>' +
       '<td style="color:' + colorOf(it.profit) + '">' + sign(it.profit) + '<br>(' + sign(it.rate) + '%)</td>' +
       '<td><button class="btn sm gray" onclick="editFund(' + it.id + ')">编辑</button> ' +
+      '<button class="btn sm" onclick="shareLink(' + it.id + ')">加仓链接</button> ' +
       '<button class="btn sm danger" onclick="delFund(' + it.id + ')">删除</button></td></tr>';
   }).join('') || '<tr><td colspan="8" class="muted">暂无持仓</td></tr>';
   window._items = data.items;
@@ -419,6 +438,23 @@ window.delFund = async function(id){
   if (!confirm('确认删除该持仓?')) return;
   try { await api('/api/fund/' + id, { method:'DELETE' }); await loadReport(); }
   catch(e){ alert(e.message); }
+};
+window.shareLink = async function(id){
+  try {
+    var d = await api('/api/fund/' + id + '/share-link');
+    var box = document.getElementById('shareBox');
+    box.style.display = 'block';
+    box.innerHTML = '<h2>免密加仓链接</h2>' +
+      '<p class="muted">此链接长期有效，任何人打开无需登录即可为该基金补录买入（自动累计份额并重算成本）。请妥善保管。</p>' +
+      '<input id="shareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
+      '<button class="btn sm" onclick="copyShare()">复制链接</button>';
+    box.scrollIntoView({ behavior:'smooth' });
+  } catch(e){ alert(e.message); }
+};
+window.copyShare = function(){
+  var el = document.getElementById('shareUrl');
+  el.select();
+  try { document.execCommand('copy'); alert('已复制'); } catch(e) { alert('请手动复制'); }
 };
 document.getElementById('fSave').addEventListener('click', async function(){
   var id = document.getElementById('fId').value;
@@ -466,10 +502,107 @@ document.getElementById('rcSend').addEventListener('click', async function(){
   finally { btn.disabled = false; btn.textContent = '立即发送日报'; }
 });
 
+// ---------- 持仓分析 ----------
+var SIGNAL_COLOR = { danger:'#cf1322', warn:'#d46b08', success:'#389e0d', info:'#666' };
+document.getElementById('anRun').addEventListener('click', async function(){
+  var q = '?stopLoss=' + encodeURIComponent(document.getElementById('anStopLoss').value) +
+    '&takeProfit=' + encodeURIComponent(document.getElementById('anTakeProfit').value) +
+    '&concentration=' + encodeURIComponent(document.getElementById('anConcentration').value);
+  try {
+    var d = await api('/api/fund/analysis' + q);
+    var box = document.getElementById('anResult');
+    if (!d.items || !d.items.length) { box.innerHTML = '<p class="muted">' + esc(d.disclaimer||'暂无持仓') + '</p>'; return; }
+    var html = '';
+    if (d.summary && d.summary.length) {
+      html += '<div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:6px;padding:10px;margin-bottom:12px;">' +
+        '<b>组合提示</b><ul style="margin:6px 0 0 18px;">' +
+        d.summary.map(function(s){ return '<li>' + esc(s) + '</li>'; }).join('') + '</ul></div>';
+    }
+    html += d.items.map(function(it){
+      var sig = it.signals.map(function(s){
+        return '<div style="color:' + (SIGNAL_COLOR[s.level]||'#666') + ';font-size:14px;">• ' + esc(s.text) + '</div>';
+      }).join('');
+      return '<div style="background:#f8f9fa;border-radius:6px;padding:12px;margin-bottom:10px;">' +
+        '<div><b>' + esc(it.name) + ' (' + it.code + ')</b> · 占比 ' + it.weight + '%</div>' +
+        sig +
+        '<div class="muted" style="font-size:13px;margin-top:6px;">' +
+          '止损参考净值: ' + it.targets.stopLossNav + ' · 止盈参考净值: ' + it.targets.takeProfitNav + '</div>' +
+        '</div>';
+    }).join('');
+    html += '<p class="muted" style="font-size:12px;margin-top:8px;">' + esc(d.disclaimer) + '</p>';
+    box.innerHTML = html;
+  } catch(e){ alert(e.message); }
+});
+
+// ---------- 情景测算 ----------
+document.getElementById('scRun').addEventListener('click', async function(){
+  var payload = {
+    code: document.getElementById('scCode').value.trim() || undefined,
+    amount: document.getElementById('scAmount').value,
+    nav: document.getElementById('scNav').value || undefined,
+    takeProfit: document.getElementById('scTakeProfit').value,
+    stopLoss: document.getElementById('scStopLoss').value
+  };
+  try {
+    var d = await api('/api/fund/scenario', { method:'POST', body: payload });
+    var box = document.getElementById('scResult');
+    var rows = d.scenarios.map(function(s){
+      return '<tr><td>' + sign(s.changePct) + '%</td>' +
+        '<td>' + s.targetNav + '</td>' +
+        '<td>' + s.value + '</td>' +
+        '<td style="color:' + colorOf(s.profit) + '">' + sign(s.profit) + '</td></tr>';
+    }).join('');
+    box.innerHTML =
+      '<p>投入 <b>' + d.amount + '</b> 元 · 买入净值 <b>' + d.buyNav + '</b> · 可得约 <b>' + d.shares + '</b> 份</p>' +
+      '<table><thead><tr><th>假设涨幅</th><th>对应净值</th><th>持仓现值</th><th>盈亏</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<div style="margin-top:10px;background:#f8f9ff;border-radius:6px;padding:10px;font-size:14px;">' +
+        '🎯 止盈 ' + sign(d.targets.takeProfitPct) + '% → 净值 ' + d.targets.takeProfitNav + '，盈利约 ' + d.targets.takeProfitProfit + ' 元<br>' +
+        '🛑 止损 ' + sign(d.targets.stopLossPct) + '% → 净值 ' + d.targets.stopLossNav + '，亏损约 ' + d.targets.stopLossProfit + ' 元' +
+      '</div>' +
+      '<p class="muted" style="font-size:12px;margin-top:8px;">' + esc(d.disclaimer) + '</p>';
+  } catch(e){ alert(e.message); }
+});
+
 (async function(){
   try { await loadReport(); await loadReportConfig(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
 })();
 `;
 
-export { COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS };
+// 免密加仓公开页 JS（无需登录，通过 URL 中的 token 操作）
+const PUBLIC_BUY_JS = `
+${COMMON_JS}
+var token = location.pathname.split('/').filter(Boolean).pop();
+var msg = document.getElementById('msg');
+
+async function loadInfo() {
+  try {
+    var d = await api('/api/public/fund/' + token);
+    var f = d.fund;
+    document.getElementById('fundName').textContent = f.name + ' (' + f.code + ')';
+    document.getElementById('curNav').textContent = f.current_nav + ' (' + (f.gszzl>=0?'+':'') + f.gszzl + '%)';
+    document.getElementById('curShares').textContent = f.shares;
+    document.getElementById('curCost').textContent = f.cost_nav;
+    document.getElementById('buyNav').value = f.current_nav || '';
+    document.getElementById('content').style.display = 'block';
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>';
+  }
+}
+document.getElementById('buyForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  var payload = {
+    amount: document.getElementById('amount').value,
+    buyNav: document.getElementById('buyNav').value || undefined
+  };
+  try {
+    var r = await api('/api/public/fund/' + token + '/buy', { method:'POST', body: payload });
+    showMsg(msg, '加仓成功！新增 ' + r.addShares + ' 份，当前共 ' + r.newShares + ' 份，成本净值 ' + r.newCostNav, true);
+    await loadInfo();
+    document.getElementById('amount').value = '';
+  } catch(err) { showMsg(msg, err.message, false); }
+});
+loadInfo();
+`;
+
+export { COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS };

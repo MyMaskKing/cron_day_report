@@ -18,6 +18,9 @@ function renderPage({ title = '控制台', body = '', script = '' }) {
 <style>${BASE_CSS}</style>
 </head>
 <body>
+<div id="globalLoading">
+  <div class="spinner"></div>
+</div>
 ${body}
 <script>${script}</script>
 </body>
@@ -69,6 +72,9 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .stat { background: #f8f9ff; border-radius: 8px; padding: 16px; text-align: center; }
 .stat .num { font-size: 28px; font-weight: 700; color: #4a6cf7; }
 .stat .lbl { font-size: 13px; color: #666; margin-top: 4px; }
+#globalLoading { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.55); backdrop-filter: blur(1px); z-index: 9999; align-items: center; justify-content: center; }
+#globalLoading .spinner { width: 46px; height: 46px; border: 4px solid #d9d9d9; border-top-color: #4a6cf7; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 `;
 
 /**

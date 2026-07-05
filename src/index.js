@@ -10,6 +10,7 @@ import { Router, json, html, error } from './router.js';
 import { getTimeoutConfig } from './config.js';
 import { getStorage } from './storage/adapter.js';
 import { getSession, getTokenFromRequest } from './auth/session.js';
+import { generateToken } from './auth/password.js';
 import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
@@ -20,12 +21,13 @@ import { listChannels, createChannel, updateChannel, removeChannel } from './api
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
 import {
   listFunds, createFund, updateFund, removeFund,
-  fundReport, getReportConfig, setReportConfig, sendReport
+  fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
+  getShareLink, fundScenario, publicFundInfo, publicFundBuy
 } from './api/fund.api.js';
 import { fetchNavBatch, buildPortfolio, buildFundReport } from './services/fund.service.js';
 
 // Pages
-import { loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage } from './web/pages.js';
+import { loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage } from './web/pages.js';
 
 // ==================== 路由注册 ====================
 const router = new Router();
@@ -66,10 +68,17 @@ router.get('/api/fund/list', listFunds);
 router.get('/api/fund/report', fundReport);
 router.get('/api/fund/report-config', getReportConfig);
 router.put('/api/fund/report-config', setReportConfig);
+router.get('/api/fund/analysis', fundAnalysis);
+router.post('/api/fund/scenario', fundScenario);
 router.post('/api/fund/report/send', sendReport);
+router.get('/api/fund/:id/share-link', getShareLink);
 router.post('/api/fund', createFund);
 router.put('/api/fund/:id', updateFund);
 router.delete('/api/fund/:id', removeFund);
+
+// --- 免密加仓公开 API（无需登录，靠 token）---
+router.get('/api/public/fund/:token', publicFundInfo);
+router.post('/api/public/fund/:token/buy', publicFundBuy);
 
 /**
  * 页面路由处理（需登录的页面统一校验会话）
@@ -84,6 +93,10 @@ async function handlePages(request, env) {
   // 公开页
   if (path === '/login') return html(loginPage());
   if (path === '/setup') return html(setupPage());
+  // 免密加仓公开页 /f/:token
+  if (path.startsWith('/f/') && path.split('/').filter(Boolean).length === 2) {
+    return html(publicBuyPage());
+  }
 
   // 需登录页面
   const pageMap = {
@@ -176,34 +189,61 @@ async function executeTasksAndNotify(env, storage, tasks) {
 }
 
 /**
- * 定时任务：执行所有用户启用的监控任务 + 推送启用日报的用户基金日报
- * 两部分独立执行，互不阻断
+ * 定时任务分流：按触发的 cron 表达式决定执行监控任务还是基金日报
+ * - MONITOR_CRON: 执行所有用户启用的监控任务
+ * - FUND_CRON: 推送启用日报的用户基金日报
+ * 手动调用（cron 为空）时两者都执行
+ * @param {string} cron - 触发的 cron 表达式（event.cron）
  * @param {Object} env
  * @param {Object} ctx
  * @returns {Promise<Response>}
  */
-async function handleScheduled(env, ctx) {
+const MONITOR_CRON = '0 22 * * *';   // 北京早上 6 点
+const FUND_CRON = '50 6 * * *';      // 北京 14:50
+
+async function handleScheduled(cron, env, ctx) {
   const storage = getStorage(env);
-  const summary = { monitor: null, fundReport: null };
+  const summary = { cron: cron || 'manual', monitor: null, fundReport: null };
+
+  const runMonitor = !cron || cron === MONITOR_CRON;
+  const runFund = !cron || cron === FUND_CRON;
 
   // 1. 监控任务
-  try {
-    const tasks = await storage.monitor.listEnabledAll();
-    if (tasks.length > 0) {
-      const result = await executeTasksAndNotify(env, storage, tasks);
-      summary.monitor = { count: tasks.length, notified: result.notified };
-    } else {
-      summary.monitor = { count: 0 };
+  if (runMonitor) {
+    try {
+      const tasks = await storage.monitor.listEnabledAll();
+      if (tasks.length > 0) {
+        const result = await executeTasksAndNotify(env, storage, tasks);
+        summary.monitor = { count: tasks.length, notified: result.notified };
+      } else {
+        summary.monitor = { count: 0 };
+      }
+    } catch (err) {
+      summary.monitor = { error: err.message };
     }
-  } catch (err) {
-    summary.monitor = { error: err.message };
   }
 
   // 2. 基金日报
-  try {
-    summary.fundReport = await sendFundReports(env, storage);
-  } catch (err) {
-    summary.fundReport = { error: err.message };
+  if (runFund) {
+    // 2.1 无条件刷新所有被持有基金的净值到缓存（即使用户未启用日报）
+    try {
+      const codes = await storage.fund.listAllCodes();
+      if (codes.length > 0) {
+        const navMap = await fetchNavBatch(codes);
+        for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
+        summary.navRefreshed = navMap.size;
+      } else {
+        summary.navRefreshed = 0;
+      }
+    } catch (err) {
+      summary.navRefreshed = { error: err.message };
+    }
+    // 2.2 推送启用日报用户的基金日报
+    try {
+      summary.fundReport = await sendFundReports(env, storage);
+    } catch (err) {
+      summary.fundReport = { error: err.message };
+    }
   }
 
   return json({ success: true, message: '定时任务执行完成', ...summary });
@@ -229,11 +269,34 @@ async function sendFundReports(env, storage) {
     for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
     const portfolio = buildPortfolio(funds, navMap);
     const format = cfg.format || 'text';
-    const message = buildFundReport(portfolio, format);
+    const linkMap = await buildShareLinkMap(env, storage, funds);
+    const message = buildFundReport(portfolio, format, linkMap);
     const r = await sendNotification(message, channel, format);
     sent.push({ user_id: cfg.user_id, ...r });
   }
   return { sent };
+}
+
+/**
+ * 为一批持仓生成 { fundId: 免密加仓链接 }，无 token 的自动生成并持久化
+ * @param {Object} env
+ * @param {Object} storage
+ * @param {Array} funds
+ * @returns {Promise<Object>}
+ */
+async function buildShareLinkMap(env, storage, funds) {
+  const base = env.PUBLIC_BASE_URL || '';
+  if (!base) return null; // 未配置站点地址则不附链接
+  const map = {};
+  for (const f of funds) {
+    let token = f.share_token;
+    if (!token) {
+      token = generateToken();
+      await storage.fund.setShareToken(f.id, token);
+    }
+    map[f.id] = `${base}/f/${token}`;
+  }
+  return map;
 }
 
 export default {
@@ -255,6 +318,6 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(handleScheduled(env, ctx));
+    ctx.waitUntil(handleScheduled(event.cron, env, ctx));
   }
 };

@@ -97,6 +97,7 @@ function buildPortfolio(funds, navMap) {
       name: (nav && nav.name) || f.name || f.code,
       shares: f.shares,
       cost_nav: f.cost_nav,
+      share_token: f.share_token || null,
       current_nav: currentNav,
       gszzl: nav ? nav.gszzl : 0,
       nav_date: nav ? nav.navDate : '',
@@ -120,19 +121,20 @@ function buildPortfolio(funds, navMap) {
  * 生成基金日报文本
  * @param {Object} portfolio - buildPortfolio 结果
  * @param {string} format - 'text' | 'html'
+ * @param {Object} linkMap - 可选, { [fundId]: 加仓链接URL }, 有则在每只基金后附上快速加仓链接
  * @returns {string}
  */
-function buildFundReport(portfolio, format = 'text') {
+function buildFundReport(portfolio, format = 'text', linkMap = null) {
   const { items, totals } = portfolio;
-  if (format === 'html') return buildFundReportHTML(items, totals);
-  return buildFundReportText(items, totals);
+  if (format === 'html') return buildFundReportHTML(items, totals, linkMap);
+  return buildFundReportText(items, totals, linkMap);
 }
 
 function fmtSign(n) {
   return (n >= 0 ? '+' : '') + n;
 }
 
-function buildFundReportText(items, totals) {
+function buildFundReportText(items, totals, linkMap) {
   let t = `📈 基金持仓日报 (${new Date().toLocaleString('zh-CN')})\n\n`;
   t += `💰 总本金: ${totals.cost}  现值: ${totals.value}\n`;
   t += `📊 总收益: ${fmtSign(totals.profit)}  收益率: ${fmtSign(totals.rate)}%\n\n`;
@@ -141,11 +143,12 @@ function buildFundReportText(items, totals) {
     t += `${i + 1}. ${icon} ${it.name} (${it.code})\n`;
     t += `   持仓: ${it.shares} 份 · 现价: ${it.current_nav} (${fmtSign(it.gszzl)}%)\n`;
     t += `   收益: ${fmtSign(it.profit)} (${fmtSign(it.rate)}%)\n`;
+    if (linkMap && linkMap[it.id]) t += `   ➕ 快速加仓: ${linkMap[it.id]}\n`;
   });
   return t;
 }
 
-function buildFundReportHTML(items, totals) {
+function buildFundReportHTML(items, totals, linkMap) {
   const profitColor = totals.profit >= 0 ? '#cf1322' : '#389e0d';
   let h = `<div style="font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;">
     <h2>📈 基金持仓日报</h2>
@@ -154,17 +157,154 @@ function buildFundReportHTML(items, totals) {
     <p style="color:${profitColor};font-weight:bold;">📊 总收益: ${fmtSign(totals.profit)} (${fmtSign(totals.rate)}%)</p>`;
   items.forEach((it, i) => {
     const color = it.profit >= 0 ? '#cf1322' : '#389e0d';
+    const link = linkMap && linkMap[it.id]
+      ? `<div style="margin-top:6px;"><a href="${linkMap[it.id]}" style="color:#4a6cf7;">➕ 快速加仓</a></div>` : '';
     h += `<div style="background:#f8f9fa;margin:8px 0;padding:12px;border-radius:6px;border-left:4px solid ${color};">
       <div><b>${i + 1}. ${it.name} (${it.code})</b></div>
       <div style="color:#6c757d;font-size:14px;">持仓 ${it.shares} 份 · 现价 ${it.current_nav} (${fmtSign(it.gszzl)}%)</div>
       <div style="color:${color};">收益: ${fmtSign(it.profit)} (${fmtSign(it.rate)}%)</div>
+      ${link}
     </div>`;
   });
   h += '</div>';
   return h;
 }
 
+/**
+ * 规则化持仓分析（非投资建议，仅根据阈值把数据翻译成参考提示）
+ * @param {Object} portfolio - buildPortfolio 结果 { items, totals }
+ * @param {Object} rules - { stopLoss, takeProfit, concentration } 百分比阈值
+ * @returns {Object} { items: [{code, name, rate, weight, signals[], targets}], summary }
+ */
+function analyzePortfolio(portfolio, rules = {}) {
+  const stopLoss = rules.stopLoss != null ? rules.stopLoss : -10;      // 止损线(%)
+  const takeProfit = rules.takeProfit != null ? rules.takeProfit : 20; // 止盈线(%)
+  const concentration = rules.concentration != null ? rules.concentration : 50; // 集中度(%)
+
+  const { items, totals } = portfolio;
+  const totalValue = totals.value || 0;
+
+  const analyzed = items.map(it => {
+    const weight = totalValue > 0 ? round2((it.value / totalValue) * 100) : 0;
+    const signals = [];
+
+    if (it.rate <= stopLoss) {
+      signals.push({ level: 'danger', text: `浮亏 ${it.rate}%，已触及止损参考线 ${stopLoss}%，关注是否止损或评估基本面` });
+    } else if (it.rate >= takeProfit) {
+      signals.push({ level: 'success', text: `浮盈 ${it.rate}%，已触及止盈参考线 ${takeProfit}%，可关注分批止盈` });
+    } else if (it.rate < 0) {
+      signals.push({ level: 'warn', text: `浮亏 ${it.rate}%，未及止损线，持有观察` });
+    } else {
+      signals.push({ level: 'info', text: `浮盈 ${it.rate}%，持有观察` });
+    }
+
+    if (weight >= concentration) {
+      signals.push({ level: 'warn', text: `占总仓位 ${weight}%，集中度偏高，注意单一基金风险` });
+    }
+
+    // 止盈/止损对应的净值价位（数学计算，非预测）
+    const targets = {
+      stopLossNav: round2(it.cost_nav * (1 + stopLoss / 100)),
+      takeProfitNav: round2(it.cost_nav * (1 + takeProfit / 100))
+    };
+
+    return {
+      code: it.code, name: it.name, rate: it.rate, profit: it.profit,
+      weight, current_nav: it.current_nav, cost_nav: it.cost_nav,
+      signals, targets
+    };
+  });
+
+  // 组合层面提示
+  const summary = [];
+  if (items.length > 0 && items.length < 3) {
+    summary.push('持仓数量较少，分散度有限，可关注配置更多品类以分散风险');
+  }
+  const maxWeight = analyzed.reduce((m, x) => Math.max(m, x.weight), 0);
+  if (maxWeight >= concentration) {
+    summary.push(`存在单只基金占比达 ${maxWeight}%，组合集中度偏高`);
+  }
+  if (totals.rate <= stopLoss) {
+    summary.push(`组合整体浮亏 ${totals.rate}%，注意风险控制`);
+  } else if (totals.rate >= takeProfit) {
+    summary.push(`组合整体浮盈 ${totals.rate}%，可关注止盈`);
+  }
+
+  return {
+    rules: { stopLoss, takeProfit, concentration },
+    items: analyzed,
+    summary,
+    disclaimer: '以上均为基于你持仓数据与设定阈值的规则化提示，仅供参考，不构成任何投资建议。市场有风险，决策需谨慎。'
+  };
+}
+
+/**
+ * 加仓重算：按买入金额累计份额并重算加权成本净值
+ * 新份额 = 金额 / 买入净值
+ * 新成本净值 = (旧份额×旧成本 + 买入金额) / (旧份额 + 新份额)
+ * @param {Object} fund - 现持仓 { shares, cost_nav }
+ * @param {number} amount - 买入金额(元)
+ * @param {number} buyNav - 买入净值
+ * @returns {Object} { addShares, newShares, newCostNav }
+ */
+function applyBuy(fund, amount, buyNav) {
+  const oldShares = fund.shares || 0;
+  const oldCost = fund.cost_nav || 0;
+  const addShares = buyNav > 0 ? amount / buyNav : 0;
+  const newShares = oldShares + addShares;
+  const totalCost = oldShares * oldCost + amount;
+  const newCostNav = newShares > 0 ? totalCost / newShares : 0;
+  return {
+    addShares: round2(addShares),
+    newShares: round2(newShares),
+    newCostNav: Math.round((newCostNav + Number.EPSILON) * 10000) / 10000
+  };
+}
+
+/**
+ * 情景测算：基于用户假设涨幅，计算投入后各情景收益（非预测，均为假设推演）
+ * @param {number} amount - 计划投入金额(元)
+ * @param {number} nav - 当前净值（买入价）
+ * @param {Object} opts - { scenarios: [涨幅%...], takeProfit, stopLoss }
+ * @returns {Object} { shares, scenarios[], targets, disclaimer }
+ */
+function calcScenarios(amount, nav, opts = {}) {
+  const scenarios = opts.scenarios || [10, 0, -10];
+  const takeProfit = opts.takeProfit != null ? opts.takeProfit : 20;
+  const stopLoss = opts.stopLoss != null ? opts.stopLoss : -10;
+  const shares = nav > 0 ? amount / nav : 0;
+
+  const list = scenarios.map(pct => {
+    const value = amount * (1 + pct / 100);
+    const profit = value - amount;
+    return {
+      changePct: pct,
+      targetNav: round2(nav * (1 + pct / 100)),
+      value: round2(value),
+      profit: round2(profit),
+      rate: pct
+    };
+  });
+
+  return {
+    amount: round2(amount),
+    buyNav: nav,
+    shares: round2(shares),
+    scenarios: list,
+    targets: {
+      takeProfitPct: takeProfit,
+      takeProfitNav: round2(nav * (1 + takeProfit / 100)),
+      takeProfitProfit: round2(amount * (takeProfit / 100)),
+      stopLossPct: stopLoss,
+      stopLossNav: round2(nav * (1 + stopLoss / 100)),
+      stopLossProfit: round2(amount * (stopLoss / 100))
+    },
+    disclaimer: '以上为按你输入的假设涨幅推演的测算结果，非市场预测，不构成投资建议。实际涨跌由市场决定。'
+  };
+}
+
 export {
   fetchFundNav, fetchNavBatch, calcFundProfit,
-  buildPortfolio, buildFundReport, round2
+  buildPortfolio, buildFundReport, analyzePortfolio,
+  applyBuy, calcScenarios, round2
 };
