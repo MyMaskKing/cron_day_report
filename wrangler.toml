@@ -5,7 +5,24 @@ compatibility_date = "2024-01-01"
 [triggers]
 crons = ["0 22 * * *"]  # 每天早上6点执行（UTC时间需要-8,目标[中国]时间为6点，UTC时间为22点）
 
-# 环境变量示例（需要在 Cloudflare Dashboard 中设置）
+# D1 数据库绑定（在 Cloudflare Dashboard 创建后填入 database_id）
+[[d1_databases]]
+binding = "DB"
+database_name = "cron_db"
+database_id = "736687b0-0aa2-4fef-8545-c7f0639b7f01"
+
+# KV 命名空间绑定（在 Cloudflare Dashboard 创建后填入 id）
+[[kv_namespaces]]
+binding = "KV"
+id = "a0f837782ab941cd9cb7b6378b3763c9"
+
+# 可选变量（也可在 Dashboard 设置）
+[vars]
+# 初始超管账号：首次访问 /api/auth/bootstrap 时用于创建 admin
+# ADMIN_BOOTSTRAP_TOKEN = "your-secret-bootstrap-token"
+
+# 存储驱动选择：d1（默认）| mysql（预留）
+STORAGE_DRIVER = "d1"
+
+# 环境变量示例（旧版全局监控，已由数据库管理取代，保留兼容说明）
 # ACCESS_URL1 = "https://example1.com"
-# ACCESS_URL2 = "https://example2.com"
-# ACCESS_URL3 = "https://example3.com"

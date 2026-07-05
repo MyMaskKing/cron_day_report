@@ -1,0 +1,118 @@
+/**
+ * 认证 API：注册 / 登录 / 登出 / 当前用户 / 初始化超管
+ */
+
+import { json, error } from '../router.js';
+import { getStorage } from '../storage/adapter.js';
+import { hashPassword, verifyPassword } from '../auth/password.js';
+import {
+  createSession, destroySession, getSession,
+  getTokenFromRequest, buildSessionCookie, buildClearCookie
+} from '../auth/session.js';
+
+/** 校验用户名/密码基本规则 */
+function validateCredentials(username, password) {
+  if (!username || typeof username !== 'string' || username.length < 3 || username.length > 32) {
+    return '用户名需为 3-32 个字符';
+  }
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    return '密码至少 6 位';
+  }
+  return null;
+}
+
+/**
+ * POST /api/auth/register  注册普通用户
+ * body: { username, password }
+ */
+async function register({ request, env }) {
+  const body = await request.json().catch(() => ({}));
+  const { username, password } = body;
+  const invalid = validateCredentials(username, password);
+  if (invalid) return error(invalid);
+
+  const storage = getStorage(env);
+  const existing = await storage.users.findByName(username);
+  if (existing) return error('用户名已存在');
+
+  const password_hash = await hashPassword(password);
+  const id = await storage.users.create({ username, password_hash, role: 'user' });
+  return json({ success: true, message: '注册成功', user: { id, username, role: 'user' } });
+}
+
+/**
+ * POST /api/auth/login  登录
+ * body: { username, password }
+ */
+async function login({ request, env }) {
+  const body = await request.json().catch(() => ({}));
+  const { username, password } = body;
+  if (!username || !password) return error('请输入用户名和密码');
+
+  const storage = getStorage(env);
+  const user = await storage.users.findByName(username);
+  if (!user) return error('用户名或密码错误', 401);
+  if (user.status === 'disabled') return error('账号已被禁用', 403);
+
+  const ok = await verifyPassword(password, user.password_hash);
+  if (!ok) return error('用户名或密码错误', 401);
+
+  const token = await createSession(env, user);
+  return json(
+    { success: true, message: '登录成功', user: { id: user.id, username: user.username, role: user.role } },
+    200,
+    { 'Set-Cookie': buildSessionCookie(token) }
+  );
+}
+
+/**
+ * POST /api/auth/logout  登出
+ */
+async function logout({ request, env }) {
+  const token = getTokenFromRequest(request);
+  await destroySession(env, token);
+  return json({ success: true, message: '已登出' }, 200, { 'Set-Cookie': buildClearCookie() });
+}
+
+/**
+ * GET /api/auth/me  当前登录用户
+ */
+async function me({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  return json({
+    success: true,
+    user: { id: session.user_id, username: session.username, role: session.role }
+  });
+}
+
+/**
+ * POST /api/auth/bootstrap  初始化超管（仅当无任何用户时可用，需 token 校验）
+ * body: { username, password, token }
+ * token 需匹配 env.ADMIN_BOOTSTRAP_TOKEN
+ */
+async function bootstrap({ request, env }) {
+  const body = await request.json().catch(() => ({}));
+  const { username, password, token } = body;
+
+  if (!env.ADMIN_BOOTSTRAP_TOKEN) {
+    return error('未配置 ADMIN_BOOTSTRAP_TOKEN，无法初始化', 403);
+  }
+  if (token !== env.ADMIN_BOOTSTRAP_TOKEN) {
+    return error('初始化令牌错误', 403);
+  }
+
+  const storage = getStorage(env);
+  const count = await storage.users.count();
+  if (count > 0) return error('系统已存在用户，无法重复初始化', 409);
+
+  const invalid = validateCredentials(username, password);
+  if (invalid) return error(invalid);
+
+  const password_hash = await hashPassword(password);
+  const id = await storage.users.create({ username, password_hash, role: 'admin' });
+  return json({ success: true, message: '超管初始化成功', user: { id, username, role: 'admin' } });
+}
+
+export { register, login, logout, me, bootstrap };

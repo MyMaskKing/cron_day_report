@@ -1,0 +1,240 @@
+/**
+ * D1 (SQLite) 存储适配器
+ * 实现 adapter.js 中定义的接口契约
+ */
+
+/**
+ * @param {Object} env - Worker 环境，需含 env.DB (D1 binding)
+ * @returns {Object} 适配器实例
+ */
+function createD1Adapter(env) {
+  const db = env.DB;
+  if (!db) throw new Error('D1 数据库未绑定 (env.DB)');
+
+  return {
+    // ==================== 用户 ====================
+    users: {
+      async findByName(username) {
+        return await db.prepare('SELECT * FROM users WHERE username = ?').bind(username).first();
+      },
+      async findById(id) {
+        return await db.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
+      },
+      async create({ username, password_hash, role = 'user' }) {
+        const res = await db.prepare(
+          'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)'
+        ).bind(username, password_hash, role).run();
+        return res.meta.last_row_id;
+      },
+      async list() {
+        const { results } = await db.prepare(
+          'SELECT id, username, role, status, created_at FROM users ORDER BY id'
+        ).all();
+        return results || [];
+      },
+      async updateRole(id, role) {
+        await db.prepare('UPDATE users SET role = ? WHERE id = ?').bind(role, id).run();
+      },
+      async updateStatus(id, status) {
+        await db.prepare('UPDATE users SET status = ? WHERE id = ?').bind(status, id).run();
+      },
+      async count() {
+        const row = await db.prepare('SELECT COUNT(*) AS c FROM users').first();
+        return row ? row.c : 0;
+      }
+    },
+
+    // ==================== 通知渠道 ====================
+    notify: {
+      async listByUser(userId) {
+        const { results } = await db.prepare(
+          'SELECT * FROM notify_channels WHERE user_id = ? ORDER BY id'
+        ).bind(userId).all();
+        return results || [];
+      },
+      async findById(id) {
+        return await db.prepare('SELECT * FROM notify_channels WHERE id = ?').bind(id).first();
+      },
+      async create(userId, c) {
+        const res = await db.prepare(
+          `INSERT INTO notify_channels (user_id, name, type, url, method, headers_json, body_template, enabled)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          userId, c.name, c.type || 'wechat', c.url, c.method || 'POST',
+          c.headers_json || null, c.body_template || null, c.enabled === false ? 0 : 1
+        ).run();
+        return res.meta.last_row_id;
+      },
+      async update(id, userId, c) {
+        await db.prepare(
+          `UPDATE notify_channels SET name=?, type=?, url=?, method=?, headers_json=?, body_template=?, enabled=?
+           WHERE id=? AND user_id=?`
+        ).bind(
+          c.name, c.type, c.url, c.method || 'POST',
+          c.headers_json || null, c.body_template || null, c.enabled ? 1 : 0, id, userId
+        ).run();
+      },
+      async remove(id, userId) {
+        await db.prepare('DELETE FROM notify_channels WHERE id=? AND user_id=?').bind(id, userId).run();
+      }
+    },
+
+    // ==================== 监控任务 ====================
+    monitor: {
+      async listByUser(userId) {
+        const { results } = await db.prepare(
+          'SELECT * FROM monitor_tasks WHERE user_id = ? ORDER BY id'
+        ).bind(userId).all();
+        return results || [];
+      },
+      async listEnabledAll() {
+        const { results } = await db.prepare(
+          'SELECT * FROM monitor_tasks WHERE enabled = 1 ORDER BY user_id, id'
+        ).all();
+        return results || [];
+      },
+      async findById(id) {
+        return await db.prepare('SELECT * FROM monitor_tasks WHERE id = ?').bind(id).first();
+      },
+      async create(userId, t) {
+        const res = await db.prepare(
+          `INSERT INTO monitor_tasks (user_id, name, url, return_type, channel_id, enabled)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        ).bind(
+          userId, t.name, t.url, t.return_type || 'text',
+          t.channel_id || null, t.enabled === false ? 0 : 1
+        ).run();
+        return res.meta.last_row_id;
+      },
+      async update(id, userId, t) {
+        await db.prepare(
+          `UPDATE monitor_tasks SET name=?, url=?, return_type=?, channel_id=?, enabled=?
+           WHERE id=? AND user_id=?`
+        ).bind(
+          t.name, t.url, t.return_type || 'text', t.channel_id || null,
+          t.enabled ? 1 : 0, id, userId
+        ).run();
+      },
+      async remove(id, userId) {
+        await db.prepare('DELETE FROM monitor_tasks WHERE id=? AND user_id=?').bind(id, userId).run();
+      },
+      async addLog(log) {
+        await db.prepare(
+          `INSERT INTO monitor_logs (task_id, user_id, success, status, status_text, response_time, response_size)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          log.task_id, log.user_id, log.success ? 1 : 0, String(log.status || ''),
+          log.status_text || '', log.response_time || 0, log.response_size || 0
+        ).run();
+      },
+      async listLogs(taskId, limit = 50) {
+        const { results } = await db.prepare(
+          'SELECT * FROM monitor_logs WHERE task_id = ? ORDER BY id DESC LIMIT ?'
+        ).bind(taskId, limit).all();
+        return results || [];
+      }
+    },
+
+    // ==================== 基金 ====================
+    fund: {
+      async listByUser(userId) {
+        const { results } = await db.prepare(
+          'SELECT * FROM funds WHERE user_id = ? ORDER BY id'
+        ).bind(userId).all();
+        return results || [];
+      },
+      async findById(id) {
+        return await db.prepare('SELECT * FROM funds WHERE id = ?').bind(id).first();
+      },
+      async create(userId, f) {
+        const res = await db.prepare(
+          'INSERT INTO funds (user_id, code, name, shares, cost_nav) VALUES (?, ?, ?, ?, ?)'
+        ).bind(userId, f.code, f.name || '', f.shares || 0, f.cost_nav || 0).run();
+        return res.meta.last_row_id;
+      },
+      async update(id, userId, f) {
+        await db.prepare(
+          'UPDATE funds SET code=?, name=?, shares=?, cost_nav=? WHERE id=? AND user_id=?'
+        ).bind(f.code, f.name || '', f.shares || 0, f.cost_nav || 0, id, userId).run();
+      },
+      async remove(id, userId) {
+        await db.prepare('DELETE FROM funds WHERE id=? AND user_id=?').bind(id, userId).run();
+      },
+      async upsertNav(code, nav) {
+        await db.prepare(
+          `INSERT INTO fund_nav_cache (code, nav, gsz, nav_date, updated_at)
+           VALUES (?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(code) DO UPDATE SET nav=excluded.nav, gsz=excluded.gsz,
+             nav_date=excluded.nav_date, updated_at=datetime('now')`
+        ).bind(code, nav.nav || 0, nav.gsz || 0, nav.navDate || '').run();
+      },
+      async getNav(code) {
+        return await db.prepare('SELECT * FROM fund_nav_cache WHERE code = ?').bind(code).first();
+      },
+      async getReportConfig(userId) {
+        return await db.prepare('SELECT * FROM fund_report_config WHERE user_id = ?').bind(userId).first();
+      },
+      async setReportConfig(userId, cfg) {
+        await db.prepare(
+          `INSERT INTO fund_report_config (user_id, channel_id, format, enabled)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(user_id) DO UPDATE SET channel_id=excluded.channel_id,
+             format=excluded.format, enabled=excluded.enabled`
+        ).bind(userId, cfg.channel_id || null, cfg.format || 'text', cfg.enabled ? 1 : 0).run();
+      },
+      async listReportEnabled() {
+        const { results } = await db.prepare(
+          'SELECT * FROM fund_report_config WHERE enabled = 1'
+        ).all();
+        return results || [];
+      }
+    },
+
+    // ==================== 体重 ====================
+    weight: {
+      async listMembers(userId) {
+        const { results } = await db.prepare(
+          'SELECT * FROM weight_members WHERE user_id = ? ORDER BY id'
+        ).bind(userId).all();
+        return results || [];
+      },
+      async findMember(id) {
+        return await db.prepare('SELECT * FROM weight_members WHERE id = ?').bind(id).first();
+      },
+      async createMember(userId, name) {
+        const res = await db.prepare(
+          'INSERT INTO weight_members (user_id, name) VALUES (?, ?)'
+        ).bind(userId, name).run();
+        return res.meta.last_row_id;
+      },
+      async removeMember(id, userId) {
+        await db.prepare('DELETE FROM weight_members WHERE id=? AND user_id=?').bind(id, userId).run();
+      },
+      async listRecords(userId, memberId = null) {
+        let stmt;
+        if (memberId) {
+          stmt = db.prepare(
+            'SELECT * FROM weight_records WHERE user_id=? AND member_id=? ORDER BY record_date'
+          ).bind(userId, memberId);
+        } else {
+          stmt = db.prepare(
+            'SELECT * FROM weight_records WHERE user_id=? ORDER BY record_date'
+          ).bind(userId);
+        }
+        const { results } = await stmt.all();
+        return results || [];
+      },
+      async addRecord(r) {
+        const res = await db.prepare(
+          'INSERT INTO weight_records (member_id, user_id, weight, record_date, note) VALUES (?, ?, ?, ?, ?)'
+        ).bind(r.member_id, r.user_id, r.weight, r.record_date, r.note || '').run();
+        return res.meta.last_row_id;
+      },
+      async removeRecord(id, userId) {
+        await db.prepare('DELETE FROM weight_records WHERE id=? AND user_id=?').bind(id, userId).run();
+      }
+    }
+  };
+}
+
+export { createD1Adapter };
