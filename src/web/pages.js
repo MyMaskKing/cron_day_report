@@ -4,7 +4,30 @@
  */
 
 import { renderPage, renderTopbar } from './layout.js';
-import { LOGIN_JS, DASHBOARD_JS, ADMIN_JS } from './assets.js';
+import { LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS } from './assets.js';
+
+/** 初始化超管页 */
+function setupPage() {
+  const body = `<div class="login-wrap">
+    <div class="card">
+      <h1>🔧 系统初始化</h1>
+      <p class="muted" style="text-align:center;margin-bottom:16px;">创建第一个超级管理员账号</p>
+      <div id="msg" class="msg"></div>
+      <form id="setupForm">
+        <label>超管用户名 (3-32位)</label>
+        <input id="su" autocomplete="username" required>
+        <label>密码 (至少6位)</label>
+        <input id="sp" type="password" autocomplete="new-password" required>
+        <div id="tokenField" style="display:none;">
+          <label>初始化令牌 (ADMIN_BOOTSTRAP_TOKEN)</label>
+          <input id="st" autocomplete="off">
+        </div>
+        <button class="btn" style="width:100%;" type="submit">创建超管</button>
+      </form>
+    </div>
+  </div>`;
+  return renderPage({ title: '系统初始化', body, script: SETUP_JS });
+}
 
 /** 登录 / 注册页 */
 function loginPage() {
@@ -70,4 +93,4 @@ function adminPage(user) {
   return renderPage({ title: '用户管理', body, script: ADMIN_JS });
 }
 
-export { loginPage, dashboardPage, adminPage };
+export { loginPage, dashboardPage, adminPage, setupPage };

@@ -88,18 +88,30 @@ async function me({ request, env }) {
 }
 
 /**
- * POST /api/auth/bootstrap  初始化超管（仅当无任何用户时可用，需 token 校验）
+ * GET /api/auth/setup-status  查询是否需要初始化（供 /setup 页面判断）
+ * 返回 { needSetup: bool, tokenRequired: bool }
+ */
+async function setupStatus({ env }) {
+  const storage = getStorage(env);
+  const count = await storage.users.count();
+  return json({
+    success: true,
+    needSetup: count === 0,
+    tokenRequired: !!env.ADMIN_BOOTSTRAP_TOKEN
+  });
+}
+
+/**
+ * POST /api/auth/bootstrap  初始化超管（仅当无任何用户时可用）
  * body: { username, password, token }
- * token 需匹配 env.ADMIN_BOOTSTRAP_TOKEN
+ * 若配置了 env.ADMIN_BOOTSTRAP_TOKEN 则校验 token；未配置则仅凭"系统无用户"即可创建。
  */
 async function bootstrap({ request, env }) {
   const body = await request.json().catch(() => ({}));
   const { username, password, token } = body;
 
-  if (!env.ADMIN_BOOTSTRAP_TOKEN) {
-    return error('未配置 ADMIN_BOOTSTRAP_TOKEN，无法初始化', 403);
-  }
-  if (token !== env.ADMIN_BOOTSTRAP_TOKEN) {
+  // 令牌可选：仅在配置了 secret 时才强制校验
+  if (env.ADMIN_BOOTSTRAP_TOKEN && token !== env.ADMIN_BOOTSTRAP_TOKEN) {
     return error('初始化令牌错误', 403);
   }
 
@@ -115,4 +127,4 @@ async function bootstrap({ request, env }) {
   return json({ success: true, message: '超管初始化成功', user: { id, username, role: 'admin' } });
 }
 
-export { register, login, logout, me, bootstrap };
+export { register, login, logout, me, bootstrap, setupStatus };

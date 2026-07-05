@@ -87,6 +87,38 @@ bindLogout();
 })();
 `;
 
+// 初始化超管页 JS
+const SETUP_JS = `
+${COMMON_JS}
+var form = document.getElementById('setupForm');
+var msg = document.getElementById('msg');
+var tokenField = document.getElementById('tokenField');
+(async function() {
+  try {
+    var st = await api('/api/auth/setup-status');
+    if (!st.needSetup) {
+      showMsg(msg, '系统已初始化，正在跳转登录...', true);
+      setTimeout(function(){ location.href = '/login'; }, 1500);
+      form.style.display = 'none';
+      return;
+    }
+    if (st.tokenRequired) tokenField.style.display = 'block';
+  } catch (err) { showMsg(msg, err.message, false); }
+})();
+form.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  try {
+    await api('/api/auth/bootstrap', { method: 'POST', body: {
+      username: document.getElementById('su').value,
+      password: document.getElementById('sp').value,
+      token: document.getElementById('st') ? document.getElementById('st').value : undefined
+    }});
+    showMsg(msg, '超管创建成功，正在跳转登录...', true);
+    setTimeout(function(){ location.href = '/login'; }, 1500);
+  } catch (err) { showMsg(msg, err.message, false); }
+});
+`;
+
 // 超管用户管理 JS
 const ADMIN_JS = `
 ${COMMON_JS}
@@ -142,4 +174,4 @@ window.viewUser = viewUser; window.toggleRole = toggleRole; window.toggleStatus 
 loadUsers();
 `;
 
-export { COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS };
+export { COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS };

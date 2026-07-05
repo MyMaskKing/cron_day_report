@@ -14,11 +14,11 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, login, logout, me, bootstrap } from './api/auth.api.js';
+import { register, login, logout, me, bootstrap, setupStatus } from './api/auth.api.js';
 import { listUsers, getUserDetail, updateUserRole, updateUserStatus } from './api/users.api.js';
 
 // Pages
-import { loginPage, dashboardPage, adminPage } from './web/pages.js';
+import { loginPage, dashboardPage, adminPage, setupPage } from './web/pages.js';
 
 // ==================== 路由注册 ====================
 const router = new Router();
@@ -28,6 +28,7 @@ router.post('/api/auth/register', register);
 router.post('/api/auth/login', login);
 router.post('/api/auth/logout', logout);
 router.get('/api/auth/me', me);
+router.get('/api/auth/setup-status', setupStatus);
 router.post('/api/auth/bootstrap', bootstrap);
 
 // --- 超管用户管理 API ---
@@ -50,8 +51,9 @@ async function handlePages(request, env) {
   const url = new URL(request.url);
   const path = url.pathname;
 
-  // 登录页（公开）
+  // 公开页
   if (path === '/login') return html(loginPage());
+  if (path === '/setup') return html(setupPage());
 
   // 需登录页面
   const pageMap = {
