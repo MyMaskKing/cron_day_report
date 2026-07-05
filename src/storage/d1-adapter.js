@@ -41,6 +41,10 @@ function createD1Adapter(env) {
       async count() {
         const row = await db.prepare('SELECT COUNT(*) AS c FROM users').first();
         return row ? row.c : 0;
+      },
+      async countAdmins() {
+        const row = await db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").first();
+        return row ? row.c : 0;
       }
     },
 

@@ -88,23 +88,25 @@ async function me({ request, env }) {
 }
 
 /**
- * GET /api/auth/setup-status  查询是否需要初始化（供 /setup 页面判断）
+ * GET /api/auth/setup-status  查询是否需要初始化超管（供 /setup 页面判断）
+ * 判断依据是"是否已存在超管"，而非是否有任何用户
  * 返回 { needSetup: bool, tokenRequired: bool }
  */
 async function setupStatus({ env }) {
   const storage = getStorage(env);
-  const count = await storage.users.count();
+  const adminCount = await storage.users.countAdmins();
   return json({
     success: true,
-    needSetup: count === 0,
+    needSetup: adminCount === 0,
     tokenRequired: !!env.ADMIN_BOOTSTRAP_TOKEN
   });
 }
 
 /**
- * POST /api/auth/bootstrap  初始化超管（仅当无任何用户时可用）
+ * POST /api/auth/bootstrap  初始化超管（仅当系统尚无超管时可用）
  * body: { username, password, token }
- * 若配置了 env.ADMIN_BOOTSTRAP_TOKEN 则校验 token；未配置则仅凭"系统无用户"即可创建。
+ * 若配置了 env.ADMIN_BOOTSTRAP_TOKEN 则校验 token；未配置则仅凭"系统无超管"即可创建。
+ * 若用户名已存在（如已注册的普通用户），则将其提升为超管。
  */
 async function bootstrap({ request, env }) {
   const body = await request.json().catch(() => ({}));
@@ -116,12 +118,18 @@ async function bootstrap({ request, env }) {
   }
 
   const storage = getStorage(env);
-  const count = await storage.users.count();
-  if (count > 0) return error('系统已存在用户，无法重复初始化', 409);
+  const adminCount = await storage.users.countAdmins();
+  if (adminCount > 0) return error('系统已存在超管，无法重复初始化', 409);
 
   const invalid = validateCredentials(username, password);
   if (invalid) return error(invalid);
 
+  // 用户名已存在：提升为超管（沿用原密码）；否则新建超管
+  const existing = await storage.users.findByName(username);
+  if (existing) {
+    await storage.users.updateRole(existing.id, 'admin');
+    return json({ success: true, message: '已将现有用户提升为超管（请用原注册密码登录）', user: { id: existing.id, username, role: 'admin' } });
+  }
   const password_hash = await hashPassword(password);
   const id = await storage.users.create({ username, password_hash, role: 'admin' });
   return json({ success: true, message: '超管初始化成功', user: { id, username, role: 'admin' } });
