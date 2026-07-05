@@ -4,7 +4,7 @@
  */
 
 import { renderPage, renderTopbar } from './layout.js';
-import { LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS } from './assets.js';
+import { LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS } from './assets.js';
 
 /** 初始化超管页 */
 function setupPage() {
@@ -151,6 +151,7 @@ function monitorPage(user) {
           <select id="chMethod"><option value="POST">POST</option><option value="PUT">PUT</option><option value="GET">GET</option></select>
         </div>
       </div>
+      <div id="chHelp" style="background:#f8f9ff;border:1px solid #e6e8f0;border-radius:6px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.7;"></div>
       <label>URL</label><input id="chUrl" placeholder="https://...">
       <label>自定义请求头 JSON（可选，webhook/email 用）</label>
       <textarea id="chHeaders" rows="2" placeholder='{"Authorization":"Bearer xxx"}'></textarea>
@@ -168,4 +169,61 @@ function monitorPage(user) {
   return renderPage({ title: '定时任务', body, script: MONITOR_JS });
 }
 
-export { loginPage, dashboardPage, adminPage, setupPage, monitorPage };
+/** 基金追踪页 */
+function fundPage(user) {
+  const body = renderTopbar(user, 'fund') + `<div class="container">
+    <div class="card">
+      <h2>收益汇总</h2>
+      <div class="grid-stats">
+        <div class="stat"><div class="num" id="sumCost">0</div><div class="lbl">总本金</div></div>
+        <div class="stat"><div class="num" id="sumValue">0</div><div class="lbl">现值</div></div>
+        <div class="stat"><div class="num" id="sumProfit">0</div><div class="lbl">总收益</div></div>
+        <div class="stat"><div class="num" id="sumRate">0%</div><div class="lbl">收益率</div></div>
+      </div>
+      <div style="max-width:420px;margin:20px auto 0;"><canvas id="fundChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>持仓明细
+        <button class="btn sm" id="fNew" style="float:right;">+ 添加持仓</button>
+      </h2>
+      <table>
+        <thead><tr><th>基金</th><th>份额</th><th>成本净值</th><th>现价(估)</th><th>本金</th><th>现值</th><th>收益</th><th>操作</th></tr></thead>
+        <tbody id="fundTbody"></tbody>
+      </table>
+      <p class="muted" style="margin-top:8px;">现价为天天基金估算净值，交易时段为实时估值，收盘后为当日净值。</p>
+    </div>
+
+    <div class="card" id="fundFormWrap" style="display:none;">
+      <h2>持仓编辑</h2>
+      <input type="hidden" id="fId">
+      <label>基金代码（6位数字）</label><input id="fCode" placeholder="如 000001">
+      <div class="row">
+        <div><label>持有份额</label><input id="fShares" type="number" step="0.01" placeholder="如 1000"></div>
+        <div><label>成本净值（买入时单位净值）</label><input id="fCostNav" type="number" step="0.0001" placeholder="如 1.2345"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn" id="fSave">保存</button>
+        <button class="btn gray" id="fCancel">取消</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>每日报告推送</h2>
+      <div class="row">
+        <div><label>通知渠道</label><select id="rcChannel"></select></div>
+        <div><label>报告格式</label>
+          <select id="rcFormat"><option value="text">text</option><option value="html">html</option></select>
+        </div>
+      </div>
+      <label><input type="checkbox" id="rcEnabled" style="width:auto;"> 启用每日自动推送（随 cron 定时任务一并发送）</label>
+      <div style="margin-top:12px;">
+        <button class="btn" id="rcSave">保存配置</button>
+        <button class="btn gray" id="rcSend">立即发送日报</button>
+      </div>
+    </div>
+  </div>`;
+  return renderPage({ title: '基金追踪', body, script: FUND_JS });
+}
+
+export { loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage };

@@ -18,9 +18,14 @@ import { register, login, logout, me, bootstrap, setupStatus } from './api/auth.
 import { listUsers, getUserDetail, updateUserRole, updateUserStatus } from './api/users.api.js';
 import { listChannels, createChannel, updateChannel, removeChannel } from './api/notify.api.js';
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
+import {
+  listFunds, createFund, updateFund, removeFund,
+  fundReport, getReportConfig, setReportConfig, sendReport
+} from './api/fund.api.js';
+import { fetchNavBatch, buildPortfolio, buildFundReport } from './services/fund.service.js';
 
 // Pages
-import { loginPage, dashboardPage, adminPage, setupPage, monitorPage } from './web/pages.js';
+import { loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage } from './web/pages.js';
 
 // ==================== 路由注册 ====================
 const router = new Router();
@@ -56,6 +61,16 @@ router.get('/api/monitor/tasks/:id/logs', listTaskLogs);
 router.put('/api/monitor/tasks/:id', updateTask);
 router.delete('/api/monitor/tasks/:id', removeTask);
 
+// --- 基金追踪 API ---
+router.get('/api/fund/list', listFunds);
+router.get('/api/fund/report', fundReport);
+router.get('/api/fund/report-config', getReportConfig);
+router.put('/api/fund/report-config', setReportConfig);
+router.post('/api/fund/report/send', sendReport);
+router.post('/api/fund', createFund);
+router.put('/api/fund/:id', updateFund);
+router.delete('/api/fund/:id', removeFund);
+
 /**
  * 页面路由处理（需登录的页面统一校验会话）
  * @param {Request} request
@@ -74,6 +89,7 @@ async function handlePages(request, env) {
   const pageMap = {
     '/': 'dashboard', '/dashboard': 'dashboard',
     '/monitor': 'monitor',
+    '/fund': 'fund',
     '/admin': 'admin'
   };
   if (path in pageMap) {
@@ -89,6 +105,8 @@ async function handlePages(request, env) {
         return html(dashboardPage(user));
       case 'monitor':
         return html(monitorPage(user));
+      case 'fund':
+        return html(fundPage(user));
       case 'admin':
         if (user.role !== 'admin') return html(dashboardPage(user));
         return html(adminPage(user));
@@ -158,23 +176,64 @@ async function executeTasksAndNotify(env, storage, tasks) {
 }
 
 /**
- * 定时任务：执行所有用户启用的监控任务
+ * 定时任务：执行所有用户启用的监控任务 + 推送启用日报的用户基金日报
+ * 两部分独立执行，互不阻断
  * @param {Object} env
  * @param {Object} ctx
  * @returns {Promise<Response>}
  */
 async function handleScheduled(env, ctx) {
+  const storage = getStorage(env);
+  const summary = { monitor: null, fundReport: null };
+
+  // 1. 监控任务
   try {
-    const storage = getStorage(env);
     const tasks = await storage.monitor.listEnabledAll();
-    if (tasks.length === 0) {
-      return json({ success: true, message: '没有启用的监控任务' });
+    if (tasks.length > 0) {
+      const result = await executeTasksAndNotify(env, storage, tasks);
+      summary.monitor = { count: tasks.length, notified: result.notified };
+    } else {
+      summary.monitor = { count: 0 };
     }
-    const result = await executeTasksAndNotify(env, storage, tasks);
-    return json({ success: true, message: '定时任务执行完成', count: tasks.length, notified: result.notified });
   } catch (err) {
-    return json({ success: false, message: `定时任务执行失败: ${err.message}`, error: err.stack }, 500);
+    summary.monitor = { error: err.message };
   }
+
+  // 2. 基金日报
+  try {
+    summary.fundReport = await sendFundReports(env, storage);
+  } catch (err) {
+    summary.fundReport = { error: err.message };
+  }
+
+  return json({ success: true, message: '定时任务执行完成', ...summary });
+}
+
+/**
+ * 为所有启用日报的用户生成并推送基金日报
+ * @param {Object} env
+ * @param {Object} storage
+ * @returns {Promise<Object>} { sent }
+ */
+async function sendFundReports(env, storage) {
+  const configs = await storage.fund.listReportEnabled();
+  const sent = [];
+  for (const cfg of configs) {
+    if (!cfg.channel_id) continue;
+    const channel = await storage.notify.findById(cfg.channel_id);
+    if (!channel || !channel.enabled) continue;
+    const funds = await storage.fund.listByUser(cfg.user_id);
+    if (funds.length === 0) continue;
+
+    const navMap = await fetchNavBatch(funds.map(f => f.code));
+    for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
+    const portfolio = buildPortfolio(funds, navMap);
+    const format = cfg.format || 'text';
+    const message = buildFundReport(portfolio, format);
+    const r = await sendNotification(message, channel, format);
+    sent.push({ user_id: cfg.user_id, ...r });
+  }
+  return { sent };
 }
 
 export default {

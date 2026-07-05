@@ -216,8 +216,33 @@ function chForm(c) {
   document.getElementById('chHeaders').value = c.headers_json || '';
   document.getElementById('chBody').value = c.body_template || '';
   document.getElementById('chEnabled').checked = c.enabled !== 0 && c.enabled !== false;
+  renderChHelp();
   document.getElementById('chFormWrap').style.display = 'block';
 }
+
+// 各渠道类型的填写示例说明
+var CH_HELP = {
+  wechat: '<b>📢 企业微信群机器人</b><br>' +
+    '• <b>URL</b>：群机器人 Webhook 地址<br>' +
+    '&nbsp;&nbsp;<code>https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key</code><br>' +
+    '• <b>请求头 JSON</b>、<b>Body 模板</b>：留空（系统自动按微信文本格式发送）',
+  webhook: '<b>🔗 通用 Webhook（最灵活，可对接任意接口）</b><br>' +
+    '• <b>URL</b>：接收消息的接口地址<br>' +
+    '• <b>请求头 JSON</b>（可选）：如需鉴权 <code>{"Authorization":"Bearer xxx"}</code><br>' +
+    '• <b>Body 模板</b>（可选）：用 <code>{{content}}</code> 代表报告正文。<br>' +
+    '&nbsp;&nbsp;例：<code>{"text":"{{content}}"}</code>；留空则直接发送纯文本报告',
+  email: '<b>📧 邮件（通过中转服务转发）</b><br>' +
+    '• <b>URL</b>：你的邮件中转服务地址（能接收 JSON 并代发邮件）<br>' +
+    '• <b>请求头 JSON</b>：<span style="color:#cf1322;">此处填收件人和主题</span><br>' +
+    '&nbsp;&nbsp;<code>{"mailto":"1647470402@qq.com","subject":"定时任务报告"}</code><br>' +
+    '• <b>Body 模板</b>：留空<br>' +
+    '• 实际发出：<code>{"to":收件人,"subject":主题,"content":报告正文}</code>'
+};
+function renderChHelp() {
+  var type = document.getElementById('chType').value;
+  document.getElementById('chHelp').innerHTML = CH_HELP[type] || '';
+}
+document.getElementById('chType').addEventListener('change', renderChHelp);
 window.editCh = function(id){ chForm(channels.filter(function(x){return x.id===id;})[0]); };
 window.delCh = async function(id){
   if (!confirm('确认删除该渠道?')) return;
@@ -327,4 +352,124 @@ document.getElementById('runNow').addEventListener('click', async function(){
 })();
 `;
 
-export { COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS };
+// 基金追踪 JS
+const FUND_JS = `
+${COMMON_JS}
+bindLogout();
+var chart = null;
+
+function sign(n){ return (n>=0?'+':'') + n; }
+function colorOf(n){ return n>=0 ? '#cf1322' : '#389e0d'; }
+
+// ---------- 报表 ----------
+async function loadReport() {
+  var data = await api('/api/fund/report');
+  var t = data.totals;
+  document.getElementById('sumCost').textContent = t.cost;
+  document.getElementById('sumValue').textContent = t.value;
+  var pe = document.getElementById('sumProfit');
+  pe.textContent = sign(t.profit); pe.style.color = colorOf(t.profit);
+  var re = document.getElementById('sumRate');
+  re.textContent = sign(t.rate) + '%'; re.style.color = colorOf(t.rate);
+
+  // 明细表
+  var tb = document.getElementById('fundTbody');
+  tb.innerHTML = data.items.map(function(it){
+    return '<tr><td>' + esc(it.name) + '<br><span class="muted">' + it.code + '</span></td>' +
+      '<td>' + it.shares + '</td>' +
+      '<td>' + it.cost_nav + '</td>' +
+      '<td>' + it.current_nav + ' <span style="color:' + colorOf(it.gszzl) + '">(' + sign(it.gszzl) + '%)</span></td>' +
+      '<td>' + it.cost + '</td>' +
+      '<td>' + it.value + '</td>' +
+      '<td style="color:' + colorOf(it.profit) + '">' + sign(it.profit) + '<br>(' + sign(it.rate) + '%)</td>' +
+      '<td><button class="btn sm gray" onclick="editFund(' + it.id + ')">编辑</button> ' +
+      '<button class="btn sm danger" onclick="delFund(' + it.id + ')">删除</button></td></tr>';
+  }).join('') || '<tr><td colspan="8" class="muted">暂无持仓</td></tr>';
+  window._items = data.items;
+
+  drawChart(data.items);
+}
+
+function drawChart(items) {
+  var el = document.getElementById('fundChart');
+  if (!el) return;
+  var labels = items.map(function(i){ return i.name; });
+  var values = items.map(function(i){ return i.value; });
+  if (chart) chart.destroy();
+  if (!items.length) return;
+  chart = new Chart(el, {
+    type: 'doughnut',
+    data: { labels: labels, datasets: [{ data: values,
+      backgroundColor: ['#667eea','#764ba2','#f093fb','#4facfe','#43e97b','#fa709a','#fee140','#30cfd0','#a8edea','#ff9a9e'] }] },
+    options: { plugins: { legend: { position: 'right' }, title: { display: true, text: '持仓现值分布' } } }
+  });
+}
+
+// ---------- 持仓增删改 ----------
+function fundForm(f) {
+  f = f || {};
+  document.getElementById('fId').value = f.id || '';
+  document.getElementById('fCode').value = f.code || '';
+  document.getElementById('fShares').value = f.shares != null ? f.shares : '';
+  document.getElementById('fCostNav').value = f.cost_nav != null ? f.cost_nav : '';
+  document.getElementById('fundFormWrap').style.display = 'block';
+}
+window.editFund = function(id){ fundForm((window._items||[]).filter(function(x){return x.id===id;})[0]); };
+window.delFund = async function(id){
+  if (!confirm('确认删除该持仓?')) return;
+  try { await api('/api/fund/' + id, { method:'DELETE' }); await loadReport(); }
+  catch(e){ alert(e.message); }
+};
+document.getElementById('fSave').addEventListener('click', async function(){
+  var id = document.getElementById('fId').value;
+  var payload = {
+    code: document.getElementById('fCode').value.trim(),
+    shares: document.getElementById('fShares').value,
+    cost_nav: document.getElementById('fCostNav').value
+  };
+  try {
+    if (id) await api('/api/fund/' + id, { method:'PUT', body: payload });
+    else await api('/api/fund', { method:'POST', body: payload });
+    document.getElementById('fundFormWrap').style.display = 'none';
+    await loadReport();
+  } catch(e){ alert(e.message); }
+});
+document.getElementById('fNew').addEventListener('click', function(){ fundForm({}); });
+document.getElementById('fCancel').addEventListener('click', function(){ document.getElementById('fundFormWrap').style.display='none'; });
+
+// ---------- 日报配置 ----------
+async function loadReportConfig() {
+  var chData = await api('/api/notify/channels');
+  var opts = '<option value="">（选择通知渠道）</option>';
+  chData.channels.forEach(function(c){ opts += '<option value="' + c.id + '">' + esc(c.name) + ' [' + c.type + ']</option>'; });
+  document.getElementById('rcChannel').innerHTML = opts;
+
+  var data = await api('/api/fund/report-config');
+  var cfg = data.config;
+  document.getElementById('rcChannel').value = cfg.channel_id || '';
+  document.getElementById('rcFormat').value = cfg.format || 'text';
+  document.getElementById('rcEnabled').checked = !!cfg.enabled;
+}
+document.getElementById('rcSave').addEventListener('click', async function(){
+  var payload = {
+    channel_id: document.getElementById('rcChannel').value || null,
+    format: document.getElementById('rcFormat').value,
+    enabled: document.getElementById('rcEnabled').checked
+  };
+  try { await api('/api/fund/report-config', { method:'PUT', body: payload }); alert('日报配置已保存'); }
+  catch(e){ alert(e.message); }
+});
+document.getElementById('rcSend').addEventListener('click', async function(){
+  var btn = this; btn.disabled = true; btn.textContent = '发送中...';
+  try { var r = await api('/api/fund/report/send', { method:'POST' }); alert(r.message); }
+  catch(e){ alert(e.message); }
+  finally { btn.disabled = false; btn.textContent = '立即发送日报'; }
+});
+
+(async function(){
+  try { await loadReport(); await loadReportConfig(); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+})();
+`;
+
+export { COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS };
