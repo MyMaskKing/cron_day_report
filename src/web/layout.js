@@ -144,6 +144,7 @@ function renderTopbar(user, active = '') {
   const links = [
     { key: 'dashboard', href: '/dashboard', text: '仪表盘' },
     { key: 'monitor', href: '/monitor', text: '定时任务' },
+    { key: 'channels', href: '/channels', text: '通知渠道' },
     { key: 'fund', href: '/fund', text: '基金追踪' },
     { key: 'asset', href: '/asset', text: '资产报表' },
     { key: 'weight', href: '/weight', text: '体重曲线' }

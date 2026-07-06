@@ -7,7 +7,7 @@ import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
 import { generateToken } from '../auth/password.js';
-import { buildAssetReport, calcGoalProgress, CREDIT_TYPE } from '../services/asset.service.js';
+import { buildAssetReportData, calcGoalProgress, resolveInvestment, CREDIT_TYPE } from '../services/asset.service.js';
 
 const WALLET_TYPES = ['bank', 'alipay', 'wechat', 'investment', 'credit', 'cash'];
 
@@ -21,12 +21,10 @@ function currentYear() {
   return currentMonth().slice(0, 4);
 }
 
-/** 计算某钱包录入记录的 balance（投资=本金+收益，其余直接用 balance） */
+/** 计算某钱包录入记录字段（投资=输入总资产+收益, 反算本金；其余直接用 balance） */
 function resolveRecordFields(type, body) {
   if (type === 'investment') {
-    const principal = parseFloat(body.principal) || 0;
-    const profit = parseFloat(body.profit) || 0;
-    return { balance: principal + profit, principal, profit };
+    return resolveInvestment(body.total != null ? body.total : body.balance, body.profit);
   }
   return { balance: parseFloat(body.balance) || 0, principal: 0, profit: 0 };
 }
@@ -127,7 +125,7 @@ async function assetReport({ request, env }) {
   const storage = getStorage(env);
   const wallets = await storage.asset.listWallets(auth.user_id);
   const records = await storage.asset.listRecords(auth.user_id);
-  const report = buildAssetReport(wallets, records);
+  const report = buildAssetReportData(wallets, records);
 
   const year = currentYear();
   const goalRow = await storage.asset.getGoal(auth.user_id, year);

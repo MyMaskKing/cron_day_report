@@ -6,7 +6,7 @@
 import { renderPage, renderTopbar } from './layout.js';
 import {
   LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS,
-  WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS
+  WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS
 } from './assets.js';
 
 /** 初始化超管页 */
@@ -133,48 +133,26 @@ function monitorPage(user) {
       </div>
     </div>
 
-    <div class="card">
-      <h2>通知渠道
-        <button class="btn sm" id="chNew" style="float:right;">+ 新建渠道</button>
-      </h2>
-      <table>
-        <thead><tr><th>名称</th><th>类型</th><th>URL</th><th>状态</th><th>操作</th></tr></thead>
-        <tbody id="chTbody"></tbody>
-      </table>
-    </div>
-
-    <div class="card" id="chFormWrap" style="display:none;">
-      <h2>渠道编辑</h2>
-      <input type="hidden" id="chId">
-      <label>渠道名称</label><input id="chName">
-      <div class="row">
-        <div><label>类型</label>
-          <select id="chType">
-            <option value="wechat">企业微信机器人</option>
-            <option value="webhook">通用 Webhook</option>
-            <option value="email">邮件(webhook转发)</option>
-          </select>
-        </div>
-        <div><label>请求方法</label>
-          <select id="chMethod"><option value="POST">POST</option><option value="PUT">PUT</option><option value="GET">GET</option></select>
-        </div>
-      </div>
-      <div id="chHelp" style="background:#f8f9ff;border:1px solid #e6e8f0;border-radius:6px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.7;"></div>
-      <label>URL</label><input id="chUrl" placeholder="https://...">
-      <label>自定义请求头 JSON（可选，webhook/email 用）</label>
-      <textarea id="chHeaders" rows="2" placeholder='{"Authorization":"Bearer xxx"}'></textarea>
-      <label>Body 模板（可选，含 {{content}} 占位符，仅 webhook）</label>
-      <textarea id="chBody" rows="2" placeholder='{"msgtype":"text","text":{"content":"{{content}}"}}'></textarea>
-      <label><input type="checkbox" id="chEnabled" style="width:auto;" checked> 启用</label>
-      <div style="margin-top:12px;">
-        <button class="btn" id="chSave">保存</button>
-        <button class="btn gray" id="chCancel">取消</button>
-      </div>
-    </div>
+    <p class="muted">通知渠道请在 <a href="/channels">通知渠道</a> 页统一管理。</p>
 
     <div class="card" id="logBox" style="display:none;"></div>
   </div>`;
   return renderPage({ title: '定时任务', body, script: MONITOR_JS });
+}
+
+/** 通知渠道管理页 */
+function channelsPage(user) {
+  const body = renderTopbar(user, 'channels') + `<div class="container">
+    <div class="card">
+      <h2>通知渠道 <button class="btn sm" id="chNew" style="float:right;">+ 新建渠道</button></h2>
+      <table>
+        <thead><tr><th>名称</th><th>类型</th><th>URL</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="chTbody"></tbody>
+      </table>
+      <p class="muted" style="margin-top:8px;">渠道用于监控任务、基金/资产/体重日报的消息推送。三种类型：企业微信机器人、通用 Webhook、邮件转发。</p>
+    </div>
+  </div>`;
+  return renderPage({ title: '通知渠道', body, script: CHANNELS_JS });
 }
 
 /** 基金追踪页 */
@@ -221,10 +199,11 @@ function fundPage(user) {
       <div class="row">
         <div><label>通知渠道</label><select id="rcChannel"></select></div>
         <div><label>报告格式</label>
-          <select id="rcFormat"><option value="text">text</option><option value="html">html</option></select>
+          <select id="rcFormat"><option value="text">text</option><option value="html">html(附持仓图)</option></select>
         </div>
+        <div><label>推送时间(点)</label><input id="rcHour" type="number" min="0" max="23" value="15"></div>
       </div>
-      <label><input type="checkbox" id="rcEnabled" style="width:auto;"> 启用每日自动推送（随 cron 定时任务一并发送）</label>
+      <label><input type="checkbox" id="rcEnabled" style="width:auto;"> 启用每日自动推送</label>
       <div style="margin-top:12px;">
         <button class="btn" id="rcSave">保存配置</button>
         <button class="btn gray" id="rcSend">立即发送日报</button>
@@ -314,7 +293,25 @@ function weightPage(user) {
 
     <div class="card">
       <h2>体重曲线</h2>
+      <div class="row">
+        <div><label>时间区间</label>
+          <select id="rangePreset"><option value="month">本月</option><option value="year">本年</option></select>
+        </div>
+        <div><label>开始</label><input id="fStart" type="date"></div>
+        <div><label>结束</label><input id="fEnd" type="date"></div>
+      </div>
       <canvas id="weightChart" style="max-height:340px;"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>每日推送</h2>
+      <div class="row">
+        <div><label>通知渠道</label><select id="pushCh"></select></div>
+        <div><label>格式</label><select id="pushFmt"><option value="text">text</option><option value="html">html(附曲线图)</option></select></div>
+        <div><label>推送时间(点)</label><input id="pushHour" type="number" min="0" max="23" value="10"></div>
+      </div>
+      <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送</label>
+      <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button></div>
     </div>
 
     <div class="card">
@@ -404,12 +401,37 @@ function assetPage(user) {
     </div>
 
     <div class="card">
+      <h2>时间区间</h2>
+      <div class="row">
+        <div><label>预设</label>
+          <select id="afPreset"><option value="year">本年</option><option value="month">本月</option></select>
+        </div>
+        <div><label>开始月份</label><input id="afStart" type="month"></div>
+        <div><label>结束月份</label><input id="afEnd" type="month"></div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>净资产趋势</h2>
       <canvas id="netChart" style="max-height:300px;"></canvas>
     </div>
     <div class="card">
       <h2>每月消费（环比余额减少）</h2>
       <canvas id="consumeChart" style="max-height:300px;"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>每月推送</h2>
+      <div class="row">
+        <div><label>通知渠道</label><select id="pushCh"></select></div>
+        <div><label>格式</label><select id="pushFmt"><option value="text">text</option><option value="html">html(附曲线图)</option></select></div>
+      </div>
+      <div class="row">
+        <div><label>每月几号</label><input id="pushDay" type="number" min="1" max="28" value="15"></div>
+        <div><label>推送时间(点)</label><input id="pushHour" type="number" min="0" max="23" value="9"></div>
+      </div>
+      <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每月自动推送</label>
+      <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button></div>
     </div>
 
     <div class="card">
@@ -452,5 +474,5 @@ function publicAssetPage() {
 
 export {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
-  weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage
+  weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage
 };

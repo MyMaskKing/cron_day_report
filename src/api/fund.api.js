@@ -12,6 +12,7 @@ import {
   analyzePortfolio, calcScenarios, applyBuy
 } from '../services/fund.service.js';
 import { sendNotification } from '../services/notify.service.js';
+import { buildChartUrl } from '../services/chart.service.js';
 
 /** 校验持仓字段 */
 function validateFund(f) {
@@ -135,7 +136,7 @@ async function sendReport({ request, env, url }) {
   if (auth instanceof Response) return auth;
   const storage = getStorage(env);
 
-  const config = await storage.fund.getReportConfig(auth.user_id);
+  const config = await storage.push.getConfig(auth.user_id, 'fund');
   if (!config || !config.channel_id) return error('请先配置日报通知渠道', 400);
   const channel = await storage.notify.findById(config.channel_id);
   if (!channel || channel.user_id !== auth.user_id) return error('通知渠道不存在', 400);
@@ -155,7 +156,13 @@ async function sendReport({ request, env, url }) {
     if (!token) { token = generateToken(); await storage.fund.setShareToken(f.id, token); }
     linkMap[f.id] = `${base}/f/${token}`;
   }
-  const message = buildFundReport(portfolio, format, linkMap);
+  const message0 = buildFundReport(portfolio, format, linkMap);
+  let message = message0;
+  if (format === 'html') {
+    const labels = portfolio.items.map(i => i.name);
+    const data = portfolio.items.map(i => i.value);
+    message += `<div><img src="${buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } })}" alt="持仓分布"></div>`;
+  }
   const result = await sendNotification(message, channel, format);
   return json({ success: result.success, message: result.message });
 }

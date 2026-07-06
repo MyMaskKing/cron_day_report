@@ -3,10 +3,9 @@ main = "src/index.js"
 compatibility_date = "2024-01-01"
 
 [triggers]
-# 时间为 UTC，北京时间需 -8 换算
-# "0 22 * * *"  -> 北京 06:00  监控任务
-# "50 6 * * *"  -> 北京 14:50  基金日报
-crons = ["0 22 * * *", "50 6 * * *"]
+# 每小时触发一次（UTC）。具体"几点/几号推送"由数据库 push_config 决定，
+# Worker 每次唤醒读配置用 shouldRun 判断是否到点，实现画面可配、平台无关。
+crons = ["0 * * * *"]
 
 # D1 数据库绑定（在 Cloudflare Dashboard 创建后填入 database_id）
 [[d1_databases]]

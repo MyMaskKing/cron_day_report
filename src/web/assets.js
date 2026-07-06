@@ -90,6 +90,24 @@ document.addEventListener('click', function(e){
   }
 });
 window.toggleDropdown = toggleDropdown;
+// 时间区间：根据预设(month/year)生成 [start,end] YYYY-MM-DD
+function rangeByPreset(preset) {
+  var d = new Date(Date.now() + 8*3600*1000);
+  var y = d.getUTCFullYear(), m = d.getUTCMonth();
+  function fmt(dt){ return dt.toISOString().slice(0,10); }
+  if (preset === 'year') return [y + '-01-01', y + '-12-31'];
+  // month
+  var first = new Date(Date.UTC(y, m, 1));
+  var last = new Date(Date.UTC(y, m + 1, 0));
+  return [fmt(first), fmt(last)];
+}
+// 月份区间(YYYY-MM)：供资产按月筛选
+function monthRangeByPreset(preset) {
+  var d = new Date(Date.now() + 8*3600*1000);
+  var y = d.getUTCFullYear(), m = ('0'+(d.getUTCMonth()+1)).slice(-2);
+  if (preset === 'year') return [y + '-01', y + '-12'];
+  return [y + '-' + m, y + '-' + m];
+}
 `;
 
 // 登录页 JS
@@ -343,82 +361,11 @@ function channelOptions(sel) {
   return opts;
 }
 
-// ---------- 通知渠道 ----------
+// ---------- 通知渠道（只读，供任务下拉；管理在 /channels 页）----------
 async function loadChannels() {
   var data = await api('/api/notify/channels');
   channels = data.channels;
-  var tb = document.getElementById('chTbody');
-  tb.innerHTML = channels.map(function(c) {
-    return '<tr><td data-label="名称">' + esc(c.name) + '</td><td data-label="类型">' + c.type + '</td>' +
-      '<td data-label="URL" class="muted" style="word-break:break-all;">' + esc(c.url) + '</td>' +
-      '<td data-label="状态">' + (c.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag disabled">停用</span>') + '</td>' +
-      '<td data-label="操作"><button class="btn sm gray" onclick="editCh(' + c.id + ')">编辑</button> ' +
-      '<button class="btn sm danger" onclick="delCh(' + c.id + ')">删除</button></td></tr>';
-  }).join('') || '<tr><td colspan="5" class="muted">暂无渠道</td></tr>';
 }
-function chForm(c) {
-  c = c || {};
-  document.getElementById('chId').value = c.id || '';
-  document.getElementById('chName').value = c.name || '';
-  document.getElementById('chType').value = c.type || 'wechat';
-  document.getElementById('chUrl').value = c.url || '';
-  document.getElementById('chMethod').value = c.method || 'POST';
-  document.getElementById('chHeaders').value = c.headers_json || '';
-  document.getElementById('chBody').value = c.body_template || '';
-  document.getElementById('chEnabled').checked = c.enabled !== 0 && c.enabled !== false;
-  renderChHelp();
-  document.getElementById('chFormWrap').style.display = 'block';
-}
-
-// 各渠道类型的填写示例说明
-var CH_HELP = {
-  wechat: '<b>📢 企业微信群机器人</b><br>' +
-    '• <b>URL</b>：群机器人 Webhook 地址<br>' +
-    '&nbsp;&nbsp;<code>https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key</code><br>' +
-    '• <b>请求头 JSON</b>、<b>Body 模板</b>：留空（系统自动按微信文本格式发送）',
-  webhook: '<b>🔗 通用 Webhook（最灵活，可对接任意接口）</b><br>' +
-    '• <b>URL</b>：接收消息的接口地址<br>' +
-    '• <b>请求头 JSON</b>（可选）：如需鉴权 <code>{"Authorization":"Bearer xxx"}</code><br>' +
-    '• <b>Body 模板</b>（可选）：用 <code>{{content}}</code> 代表报告正文。<br>' +
-    '&nbsp;&nbsp;例：<code>{"text":"{{content}}"}</code>；留空则直接发送纯文本报告',
-  email: '<b>📧 邮件（通过中转服务转发）</b><br>' +
-    '• <b>URL</b>：你的邮件中转服务地址（能接收 JSON 并代发邮件）<br>' +
-    '• <b>请求头 JSON</b>：<span style="color:#cf1322;">此处填收件人和主题</span><br>' +
-    '&nbsp;&nbsp;<code>{"mailto":"1647470402@qq.com","subject":"定时任务报告"}</code><br>' +
-    '• <b>Body 模板</b>：留空<br>' +
-    '• 实际发出：<code>{"to":收件人,"subject":主题,"content":报告正文}</code>'
-};
-function renderChHelp() {
-  var type = document.getElementById('chType').value;
-  document.getElementById('chHelp').innerHTML = CH_HELP[type] || '';
-}
-document.getElementById('chType').addEventListener('change', renderChHelp);
-window.editCh = function(id){ chForm(channels.filter(function(x){return x.id===id;})[0]); };
-window.delCh = async function(id){
-  if (!confirm('确认删除该渠道?')) return;
-  try { await api('/api/notify/channels/' + id, { method:'DELETE' }); await loadChannels(); await loadTasks(); }
-  catch(e){ alert(e.message); }
-};
-document.getElementById('chSave').addEventListener('click', async function(){
-  var id = document.getElementById('chId').value;
-  var payload = {
-    name: document.getElementById('chName').value,
-    type: document.getElementById('chType').value,
-    url: document.getElementById('chUrl').value,
-    method: document.getElementById('chMethod').value,
-    headers_json: document.getElementById('chHeaders').value || null,
-    body_template: document.getElementById('chBody').value || null,
-    enabled: document.getElementById('chEnabled').checked
-  };
-  try {
-    if (id) await api('/api/notify/channels/' + id, { method:'PUT', body: payload });
-    else await api('/api/notify/channels', { method:'POST', body: payload });
-    document.getElementById('chFormWrap').style.display = 'none';
-    await loadChannels(); await loadTasks();
-  } catch(e){ alert(e.message); }
-});
-document.getElementById('chNew').addEventListener('click', function(){ chForm({}); });
-document.getElementById('chCancel').addEventListener('click', function(){ document.getElementById('chFormWrap').style.display='none'; });
 
 // ---------- 监控任务 ----------
 async function loadTasks() {
@@ -503,6 +450,75 @@ document.getElementById('runNow').addEventListener('click', async function(){
 
 (async function(){
   try { await loadChannels(); await loadTasks(); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+})();
+`;
+
+// 通知渠道管理 JS（独立页）
+const CHANNELS_JS = `
+${COMMON_JS}
+bindLogout();
+bindModal();
+var CH_HELP = {
+  wechat: '<b>📢 企业微信群机器人</b><br>• <b>URL</b>：群机器人 Webhook 地址<br>&nbsp;&nbsp;<code>https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key</code><br>• <b>请求头 JSON</b>、<b>Body 模板</b>：留空',
+  webhook: '<b>🔗 通用 Webhook</b><br>• <b>URL</b>：接收消息的接口地址<br>• <b>请求头 JSON</b>（可选）：<code>{"Authorization":"Bearer xxx"}</code><br>• <b>Body 模板</b>（可选）：用 <code>{{content}}</code> 代表正文，例 <code>{"text":"{{content}}"}</code>',
+  email: '<b>📧 邮件（中转服务转发）</b><br>• <b>URL</b>：邮件中转服务地址<br>• <b>请求头 JSON</b>：<span style="color:#cf1322;">填收件人和主题</span> <code>{"mailto":"x@qq.com","subject":"标题"}</code><br>• <b>Body 模板</b>：留空'
+};
+async function loadChannels() {
+  var data = await api('/api/notify/channels');
+  var tb = document.getElementById('chTbody');
+  tb.innerHTML = data.channels.map(function(c) {
+    return '<tr><td data-label="名称">' + esc(c.name) + '</td><td data-label="类型">' + c.type + '</td>' +
+      '<td data-label="URL" class="muted" style="word-break:break-all;">' + esc(c.url) + '</td>' +
+      '<td data-label="状态">' + (c.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag disabled">停用</span>') + '</td>' +
+      '<td data-label="操作"><button class="btn sm gray" onclick="editCh(' + c.id + ')">编辑</button> ' +
+      '<button class="btn sm danger" onclick="delCh(' + c.id + ')">删除</button></td></tr>';
+  }).join('') || '<tr><td colspan="5" class="muted">暂无渠道</td></tr>';
+  window._channels = data.channels;
+}
+function chModal(c) {
+  c = c || {};
+  var help = '<div id="chHelp" style="background:#f8f9ff;border:1px solid #e6e8f0;border-radius:6px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.7;"></div>';
+  openModal(c.id ? '编辑渠道' : '新建渠道',
+    '<input type="hidden" id="chId" value="' + (c.id||'') + '">' +
+    '<label>渠道名称</label><input id="chName" value="' + esc(c.name||'') + '">' +
+    '<div class="row"><div><label>类型</label><select id="chType">' +
+      '<option value="wechat">企业微信机器人</option><option value="webhook">通用 Webhook</option><option value="email">邮件(webhook转发)</option>' +
+    '</select></div><div><label>请求方法</label><select id="chMethod"><option value="POST">POST</option><option value="PUT">PUT</option><option value="GET">GET</option></select></div></div>' +
+    help +
+    '<label>URL</label><input id="chUrl" value="' + esc(c.url||'') + '" placeholder="https://...">' +
+    '<label>自定义请求头 JSON（可选）</label><textarea id="chHeaders" rows="2">' + esc(c.headers_json||'') + '</textarea>' +
+    '<label>Body 模板（可选，含 {{content}}）</label><textarea id="chBody" rows="2">' + esc(c.body_template||'') + '</textarea>' +
+    '<label><input type="checkbox" id="chEnabled" style="width:auto;"' + (c.enabled!==0&&c.enabled!==false?' checked':'') + '> 启用</label>' +
+    '<div style="margin-top:12px;"><button class="btn" id="chSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('chType').value = c.type || 'wechat';
+  document.getElementById('chMethod').value = c.method || 'POST';
+  var renderHelp = function(){ document.getElementById('chHelp').innerHTML = CH_HELP[document.getElementById('chType').value] || ''; };
+  document.getElementById('chType').addEventListener('change', renderHelp); renderHelp();
+  document.getElementById('chSave').addEventListener('click', async function(){
+    var id = document.getElementById('chId').value;
+    var payload = {
+      name: document.getElementById('chName').value, type: document.getElementById('chType').value,
+      url: document.getElementById('chUrl').value, method: document.getElementById('chMethod').value,
+      headers_json: document.getElementById('chHeaders').value || null,
+      body_template: document.getElementById('chBody').value || null,
+      enabled: document.getElementById('chEnabled').checked
+    };
+    try {
+      if (id) await api('/api/notify/channels/' + id, { method:'PUT', body: payload });
+      else await api('/api/notify/channels', { method:'POST', body: payload });
+      closeModal(); await loadChannels();
+    } catch(e){ alert(e.message); }
+  });
+}
+window.editCh = function(id){ chModal((window._channels||[]).filter(function(x){return x.id===id;})[0]); };
+window.delCh = async function(id){
+  if (!confirm('确认删除该渠道?')) return;
+  try { await api('/api/notify/channels/' + id, { method:'DELETE' }); await loadChannels(); } catch(e){ alert(e.message); }
+};
+document.getElementById('chNew').addEventListener('click', function(){ chModal({}); });
+(async function(){
+  try { await loadChannels(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
 })();
 `;
@@ -639,26 +655,30 @@ document.getElementById('fSave').addEventListener('click', async function(){
 document.getElementById('fNew').addEventListener('click', function(){ fundForm({}); });
 document.getElementById('fCancel').addEventListener('click', function(){ document.getElementById('fundFormWrap').style.display='none'; });
 
-// ---------- 日报配置 ----------
+// ---------- 日报配置（走通用 push API, module=fund）----------
 async function loadReportConfig() {
   var chData = await api('/api/notify/channels');
   var opts = '<option value="">（选择通知渠道）</option>';
   chData.channels.forEach(function(c){ opts += '<option value="' + c.id + '">' + esc(c.name) + ' [' + c.type + ']</option>'; });
   document.getElementById('rcChannel').innerHTML = opts;
 
-  var data = await api('/api/fund/report-config');
+  var data = await api('/api/push/fund');
   var cfg = data.config;
   document.getElementById('rcChannel').value = cfg.channel_id || '';
   document.getElementById('rcFormat').value = cfg.format || 'text';
   document.getElementById('rcEnabled').checked = !!cfg.enabled;
+  var hourEl = document.getElementById('rcHour');
+  if (hourEl) hourEl.value = cfg.hour != null ? cfg.hour : 15;
 }
 document.getElementById('rcSave').addEventListener('click', async function(){
+  var hourEl = document.getElementById('rcHour');
   var payload = {
     channel_id: document.getElementById('rcChannel').value || null,
     format: document.getElementById('rcFormat').value,
+    hour: hourEl ? hourEl.value : 15,
     enabled: document.getElementById('rcEnabled').checked
   };
-  try { await api('/api/fund/report-config', { method:'PUT', body: payload }); alert('日报配置已保存'); }
+  try { await api('/api/push/fund', { method:'PUT', body: payload }); alert('日报配置已保存'); }
   catch(e){ alert(e.message); }
 });
 document.getElementById('rcSend').addEventListener('click', async function(){
@@ -785,10 +805,24 @@ function unitLabel(){ return unit === 'kg' ? '公斤' : '斤'; }
 function toDisplay(kg){ return unit === 'jin' ? Math.round(kg * 2 * 10) / 10 : kg; }
 function toKg(v){ v = parseFloat(v); return unit === 'jin' ? v / 2 : v; }
 function todayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
+var allRecords = [];
+
+function applyFilter() {
+  var s = document.getElementById('fStart').value;
+  var e = document.getElementById('fEnd').value;
+  var filtered = allRecords.filter(function(r){
+    if (s && r.record_date < s) return false;
+    if (e && r.record_date > e) return false;
+    return true;
+  });
+  drawChart(members, filtered);
+  renderRecordTable(members, filtered);
+}
 
 async function loadAll() {
   var data = await api('/api/weight/chart');
   members = data.members;
+  allRecords = data.records;
   unit = data.weight_unit || 'jin';
   var us = document.getElementById('unitSel');
   if (us) us.value = unit;
@@ -797,8 +831,7 @@ async function loadAll() {
   updateUnitLabels();
   var dateInput = document.getElementById('recDate');
   if (dateInput && !dateInput.value) dateInput.value = todayStr();
-  drawChart(data.members, data.records);
-  renderRecordTable(data.members, data.records);
+  applyFilter();
 }
 function updateUnitLabels() {
   var l = document.getElementById('recWeightLabel');
@@ -941,8 +974,47 @@ async function runCompare() {
 var cmpBtn = document.getElementById('cmpRun');
 if (cmpBtn) cmpBtn.addEventListener('click', runCompare);
 
+// 时间筛选
+function initFilter() {
+  var sel = document.getElementById('rangePreset');
+  function applyPreset(){
+    var r = rangeByPreset(sel.value);
+    document.getElementById('fStart').value = r[0];
+    document.getElementById('fEnd').value = r[1];
+    applyFilter();
+  }
+  sel.addEventListener('change', applyPreset);
+  document.getElementById('fStart').addEventListener('change', applyFilter);
+  document.getElementById('fEnd').addEventListener('change', applyFilter);
+  applyPreset(); // 默认本月
+}
+
+// 推送配置（体重日报）
+async function loadPush() {
+  var chs = await api('/api/notify/channels');
+  var opts = '<option value="">（选择渠道）</option>' + chs.channels.map(function(c){ return '<option value="'+c.id+'">'+esc(c.name)+' ['+c.type+']</option>'; }).join('');
+  document.getElementById('pushCh').innerHTML = opts;
+  var d = await api('/api/push/weight');
+  document.getElementById('pushCh').value = d.config.channel_id || '';
+  document.getElementById('pushFmt').value = d.config.format || 'text';
+  document.getElementById('pushHour').value = d.config.hour != null ? d.config.hour : 10;
+  document.getElementById('pushEn').checked = !!d.config.enabled;
+}
+var pushSave = document.getElementById('pushSave');
+if (pushSave) pushSave.addEventListener('click', async function(){
+  try {
+    await api('/api/push/weight', { method:'PUT', body:{
+      channel_id: document.getElementById('pushCh').value || null,
+      format: document.getElementById('pushFmt').value,
+      hour: document.getElementById('pushHour').value,
+      enabled: document.getElementById('pushEn').checked
+    }});
+    alert('推送配置已保存');
+  } catch(e){ alert(e.message); }
+});
+
 (async function(){
-  try { await loadAll(); await initCompare(); }
+  try { await loadAll(); initFilter(); await loadPush(); await initCompare(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
 })();
 `;
@@ -1004,13 +1076,31 @@ var TYPE_LABEL = { bank:'银行卡', alipay:'支付宝', wechat:'微信', invest
 var nwChart = null, csChart = null;
 function curMonth(){ var d=new Date(Date.now()+8*3600*1000); return d.toISOString().slice(0,7); }
 
+var fullReport = null, fullRecords = [];
+
 async function loadAll() {
   var d = await api('/api/asset/report');
   wallets = d.wallets;
+  fullReport = d.report;
+  fullRecords = d.records;
   renderWallets(d.wallets);
   renderSummary(d.report, d.goal, d.year);
-  drawCharts(d.report);
-  renderMonthTable(d.wallets, d.records);
+  applyAssetFilter();
+}
+// 按月区间过滤图表与记录表（汇总卡片始终显示最新月, 不受筛选影响）
+function applyAssetFilter() {
+  var s = document.getElementById('afStart') ? document.getElementById('afStart').value : '';
+  var e = document.getElementById('afEnd') ? document.getElementById('afEnd').value : '';
+  var inRange = function(m){ if (s && m < s) return false; if (e && m > e) return false; return true; };
+  var months = fullReport.months.filter(inRange);
+  var idx = fullReport.months.map(function(m,i){ return inRange(m) ? i : -1; }).filter(function(i){ return i>=0; });
+  var report = {
+    months: months,
+    netWorthSeries: idx.map(function(i){ return fullReport.netWorthSeries[i]; }),
+    consumeSeries: idx.map(function(i){ return fullReport.consumeSeries[i]; })
+  };
+  drawCharts(report);
+  renderMonthTable(wallets, fullRecords.filter(function(r){ return inRange(r.month); }));
 }
 function renderWallets(list) {
   var tb = document.getElementById('walletTbody');
@@ -1066,14 +1156,24 @@ function renderMonthTable(wlist, records) {
 window.wRec = function(id, type){
   var w = wallets.filter(function(x){return x.id===id;})[0];
   var fields = type === 'investment'
-    ? '<label>本金(元)</label><input id="fPrincipal" type="number" step="0.01">' +
-      '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01">'
+    ? '<label>当前总资产(元)</label><input id="fTotal" type="number" step="0.01">' +
+      '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01">' +
+      '<p class="muted" id="principalHint">本金将自动计算 = 总资产 − 收益</p>'
     : '<label>本月余额(元)</label><input id="fBalance" type="number" step="0.01">';
   openModal('录入本月 · ' + w.name + ' (' + curMonth() + ')',
     fields + '<div style="margin-top:12px;"><button class="btn" id="recConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  if (type === 'investment') {
+    var calc = function(){
+      var t = parseFloat(document.getElementById('fTotal').value)||0;
+      var p = parseFloat(document.getElementById('fProfit').value)||0;
+      document.getElementById('principalHint').textContent = '本金（自动）= ' + Math.round((t-p)*100)/100 + ' 元';
+    };
+    document.getElementById('fTotal').addEventListener('input', calc);
+    document.getElementById('fProfit').addEventListener('input', calc);
+  }
   document.getElementById('recConfirm').addEventListener('click', async function(){
     var payload = { wallet_id: id };
-    if (type === 'investment') { payload.principal = document.getElementById('fPrincipal').value; payload.profit = document.getElementById('fProfit').value; }
+    if (type === 'investment') { payload.total = document.getElementById('fTotal').value; payload.profit = document.getElementById('fProfit').value; }
     else payload.balance = document.getElementById('fBalance').value;
     try { await api('/api/asset/records', { method:'POST', body: payload }); closeModal(); await loadAll(); }
     catch(e){ alert(e.message); }
@@ -1122,8 +1222,47 @@ document.getElementById('goalSave').addEventListener('click', async function(){
   catch(e){ alert(e.message); }
 });
 
+// 时间筛选（按月, 默认本年）
+function initAssetFilter() {
+  var sel = document.getElementById('afPreset');
+  function applyPreset(){
+    var r = monthRangeByPreset(sel.value);
+    document.getElementById('afStart').value = r[0];
+    document.getElementById('afEnd').value = r[1];
+    applyAssetFilter();
+  }
+  sel.addEventListener('change', applyPreset);
+  document.getElementById('afStart').addEventListener('change', applyAssetFilter);
+  document.getElementById('afEnd').addEventListener('change', applyAssetFilter);
+  applyPreset();
+}
+// 推送配置（资产月报）
+async function loadPush() {
+  var chs = await api('/api/notify/channels');
+  var opts = '<option value="">（选择渠道）</option>' + chs.channels.map(function(c){ return '<option value="'+c.id+'">'+esc(c.name)+' ['+c.type+']</option>'; }).join('');
+  document.getElementById('pushCh').innerHTML = opts;
+  var d = await api('/api/push/asset');
+  document.getElementById('pushCh').value = d.config.channel_id || '';
+  document.getElementById('pushFmt').value = d.config.format || 'text';
+  document.getElementById('pushDay').value = d.config.day != null ? d.config.day : 15;
+  document.getElementById('pushHour').value = d.config.hour != null ? d.config.hour : 9;
+  document.getElementById('pushEn').checked = !!d.config.enabled;
+}
+document.getElementById('pushSave').addEventListener('click', async function(){
+  try {
+    await api('/api/push/asset', { method:'PUT', body:{
+      channel_id: document.getElementById('pushCh').value || null,
+      format: document.getElementById('pushFmt').value,
+      day: document.getElementById('pushDay').value,
+      hour: document.getElementById('pushHour').value,
+      enabled: document.getElementById('pushEn').checked
+    }});
+    alert('推送配置已保存');
+  } catch(e){ alert(e.message); }
+});
+
 (async function(){
-  try { await loadAll(); }
+  try { await loadAll(); initAssetFilter(); await loadPush(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
 })();
 `;
@@ -1144,8 +1283,9 @@ async function loadInfo() {
     document.getElementById('monthLabel').textContent = d.month + ' 月';
     var box = document.getElementById('fields');
     if (wType === 'investment') {
-      box.innerHTML = '<label>本金(元)</label><input id="fPrincipal" type="number" step="0.01" value="' + (d.current?d.current.principal:'') + '">' +
-        '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01" value="' + (d.current?d.current.profit:'') + '">';
+      box.innerHTML = '<label>当前总资产(元)</label><input id="fTotal" type="number" step="0.01" value="' + (d.current?d.current.balance:'') + '">' +
+        '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01" value="' + (d.current?d.current.profit:'') + '">' +
+        '<p class="muted" id="pHint">本金将自动计算 = 总资产 − 收益</p>';
     } else {
       box.innerHTML = '<label>本月余额(元)</label><input id="fBalance" type="number" step="0.01" value="' + (d.current?d.current.balance:'') + '">';
     }
@@ -1157,7 +1297,7 @@ async function loadInfo() {
 document.getElementById('aForm').addEventListener('submit', async function(e){
   e.preventDefault();
   var payload = {};
-  if (wType === 'investment') { payload.principal = document.getElementById('fPrincipal').value; payload.profit = document.getElementById('fProfit').value; }
+  if (wType === 'investment') { payload.total = document.getElementById('fTotal').value; payload.profit = document.getElementById('fProfit').value; }
   else payload.balance = document.getElementById('fBalance').value;
   try { await api('/api/public/asset/' + token, { method:'POST', body: payload }); showMsg(msg, '本月记录已保存！', true); }
   catch(err){ showMsg(msg, err.message, false); }
@@ -1167,5 +1307,5 @@ loadInfo();
 
 export {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
-  PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS
+  PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS
 };

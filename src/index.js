@@ -39,11 +39,15 @@ import {
   saveRecord, assetReport, getGoal, setGoal,
   publicWalletInfo, publicSaveRecord
 } from './api/asset.api.js';
+import { buildAssetReportData, buildAssetReport } from './services/asset.service.js';
+import { getPushConfig, setPushConfig } from './api/push.api.js';
+import { shouldRun, nowCN } from './services/schedule.service.js';
+import { buildChartUrl, lineChartConfig } from './services/chart.service.js';
 
 // Pages
 import {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
-  weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage
+  weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage
 } from './web/pages.js';
 
 // ==================== 路由注册 ====================
@@ -134,6 +138,10 @@ router.put('/api/asset/goal', setGoal);
 router.get('/api/public/asset/:token', publicWalletInfo);
 router.post('/api/public/asset/:token', publicSaveRecord);
 
+// --- 通用推送配置 API ---
+router.get('/api/push/:module', getPushConfig);
+router.put('/api/push/:module', setPushConfig);
+
 /**
  * 页面路由处理（需登录的页面统一校验会话）
  * @param {Request} request
@@ -164,6 +172,7 @@ async function handlePages(request, env) {
   const pageMap = {
     '/': 'dashboard', '/dashboard': 'dashboard',
     '/monitor': 'monitor',
+    '/channels': 'channels',
     '/fund': 'fund',
     '/asset': 'asset',
     '/weight': 'weight',
@@ -187,6 +196,8 @@ async function handlePages(request, env) {
         return html(dashboardPage(user));
       case 'monitor':
         return html(monitorPage(user));
+      case 'channels':
+        return html(channelsPage(user));
       case 'fund':
         return html(fundPage(user));
       case 'asset':
@@ -264,92 +275,148 @@ async function executeTasksAndNotify(env, storage, tasks) {
 }
 
 /**
- * 定时任务分流：按触发的 cron 表达式决定执行监控任务还是基金日报
- * - MONITOR_CRON: 执行所有用户启用的监控任务
- * - FUND_CRON: 推送启用日报的用户基金日报
- * 手动调用（cron 为空）时两者都执行
- * @param {string} cron - 触发的 cron 表达式（event.cron）
+ * 定时调度（平台无关）：Worker 每小时唤醒一次，读各模块推送配置，
+ * 用 shouldRun 判断此刻是否到点。监控任务固定每天北京 6 点执行。
+ * @param {string} cron - 触发的 cron 表达式（未用于分流，仅记录）
  * @param {Object} env
  * @param {Object} ctx
  * @returns {Promise<Response>}
  */
-const MONITOR_CRON = '0 22 * * *';   // 北京早上 6 点
-const FUND_CRON = '50 6 * * *';      // 北京 14:50
-
 async function handleScheduled(cron, env, ctx) {
   const storage = getStorage(env);
-  const summary = { cron: cron || 'manual', monitor: null, fundReport: null };
+  const now = nowCN(Date.now());
+  const manual = !cron; // /cron 手动调用时 cron 为空，全部执行
+  const summary = { at: `${now.dateStr} ${now.hour}:00`, monitor: null, fund: null, weight: null, asset: null };
 
-  const runMonitor = !cron || cron === MONITOR_CRON;
-  const runFund = !cron || cron === FUND_CRON;
-
-  // 1. 监控任务
-  if (runMonitor) {
+  // 1. 监控任务：每天北京 6 点
+  if (manual || now.hour === 6) {
     try {
       const tasks = await storage.monitor.listEnabledAll();
       if (tasks.length > 0) {
         const result = await executeTasksAndNotify(env, storage, tasks);
         summary.monitor = { count: tasks.length, notified: result.notified };
-      } else {
-        summary.monitor = { count: 0 };
-      }
-    } catch (err) {
-      summary.monitor = { error: err.message };
-    }
+      } else summary.monitor = { count: 0 };
+    } catch (err) { summary.monitor = { error: err.message }; }
   }
 
-  // 2. 基金日报
-  if (runFund) {
-    // 2.1 无条件刷新所有被持有基金的净值到缓存（即使用户未启用日报）
-    try {
+  // 2. 基金净值刷新（每天 15 点刷一次缓存）+ 基金日报（按各用户配置时间）
+  try {
+    if (manual || now.hour === 15) {
       const codes = await storage.fund.listAllCodes();
       if (codes.length > 0) {
         const navMap = await fetchNavBatch(codes);
         for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
-        summary.navRefreshed = navMap.size;
-      } else {
-        summary.navRefreshed = 0;
       }
-    } catch (err) {
-      summary.navRefreshed = { error: err.message };
     }
-    // 2.2 推送启用日报用户的基金日报
-    try {
-      summary.fundReport = await sendFundReports(env, storage);
-    } catch (err) {
-      summary.fundReport = { error: err.message };
-    }
-  }
+    summary.fund = await runModulePush(env, storage, 'fund', now, manual);
+  } catch (err) { summary.fund = { error: err.message }; }
 
-  return json({ success: true, message: '定时任务执行完成', ...summary });
+  // 3. 体重日报
+  try { summary.weight = await runModulePush(env, storage, 'weight', now, manual); }
+  catch (err) { summary.weight = { error: err.message }; }
+
+  // 4. 资产月报
+  try { summary.asset = await runModulePush(env, storage, 'asset', now, manual); }
+  catch (err) { summary.asset = { error: err.message }; }
+
+  return json({ success: true, message: '定时调度执行完成', ...summary });
 }
 
 /**
- * 为所有启用日报的用户生成并推送基金日报
+ * 执行某模块所有已启用且到点的用户推送
  * @param {Object} env
  * @param {Object} storage
+ * @param {string} module - 'fund' | 'weight' | 'asset'
+ * @param {Object} now - nowCN 结果
+ * @param {boolean} manual - 手动触发则忽略时间判断
  * @returns {Promise<Object>} { sent }
  */
-async function sendFundReports(env, storage) {
-  const configs = await storage.fund.listReportEnabled();
+async function runModulePush(env, storage, module, now, manual) {
+  const configs = await storage.push.listEnabledByModule(module);
   const sent = [];
   for (const cfg of configs) {
+    if (!manual && !shouldRun(module, cfg, now)) continue;
     if (!cfg.channel_id) continue;
     const channel = await storage.notify.findById(cfg.channel_id);
     if (!channel || !channel.enabled) continue;
-    const funds = await storage.fund.listByUser(cfg.user_id);
-    if (funds.length === 0) continue;
-
-    const navMap = await fetchNavBatch(funds.map(f => f.code));
-    for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
-    const portfolio = buildPortfolio(funds, navMap);
     const format = cfg.format || 'text';
-    const linkMap = await buildShareLinkMap(env, storage, funds);
-    const message = buildFundReport(portfolio, format, linkMap);
+    const message = await buildModuleMessage(env, storage, module, cfg.user_id, format);
+    if (!message) continue;
     const r = await sendNotification(message, channel, format);
     sent.push({ user_id: cfg.user_id, ...r });
   }
   return { sent };
+}
+
+/**
+ * 构造某模块某用户的推送消息（text/html，html 附 QuickChart 图）
+ * @returns {Promise<string|null>} 无数据返回 null
+ */
+async function buildModuleMessage(env, storage, module, userId, format) {
+  if (module === 'fund') {
+    const funds = await storage.fund.listByUser(userId);
+    if (funds.length === 0) return null;
+    const navMap = await fetchNavBatch(funds.map(f => f.code));
+    for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
+    const portfolio = buildPortfolio(funds, navMap);
+    const linkMap = await buildShareLinkMap(env, storage, funds);
+    let msg = buildFundReport(portfolio, format, linkMap);
+    if (format === 'html') {
+      const labels = portfolio.items.map(i => i.name);
+      const data = portfolio.items.map(i => i.value);
+      msg += `<div><img src="${buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } })}" alt="持仓分布"></div>`;
+    }
+    return msg;
+  }
+  if (module === 'weight') {
+    const members = await storage.weight.listMembers(userId);
+    const records = await storage.weight.listRecords(userId);
+    if (records.length === 0) return null;
+    return buildWeightReport(members, records, format);
+  }
+  if (module === 'asset') {
+    const wallets = await storage.asset.listWallets(userId);
+    const records = await storage.asset.listRecords(userId);
+    if (records.length === 0) return null;
+    const data = buildAssetReportData(wallets, records);
+    let chartImg = '';
+    if (format === 'html') {
+      chartImg = `<div><img src="${buildChartUrl(lineChartConfig(data.months, [{ label: '净资产', data: data.netWorthSeries }]))}" alt="净资产趋势"></div>`;
+    }
+    return buildAssetReport(data, format, chartImg);
+  }
+  return null;
+}
+
+/**
+ * 构造体重日报（各成员最新体重）
+ * @param {Array} members
+ * @param {Array} records
+ * @param {string} format
+ * @returns {string}
+ */
+function buildWeightReport(members, records, format) {
+  const nameOf = new Map(members.map(m => [m.id, m.name]));
+  // 每个成员取最新一条
+  const latest = new Map();
+  for (const r of records) {
+    const cur = latest.get(r.member_id);
+    if (!cur || r.record_date > cur.record_date) latest.set(r.member_id, r);
+  }
+  const lines = [...latest.entries()].map(([mid, r]) => ({ name: nameOf.get(mid) || '', weight: r.weight, date: r.record_date }));
+  if (format === 'html') {
+    let h = `<div style="font-family:-apple-system,sans-serif;"><h2>⚖️ 体重日报</h2>`;
+    lines.forEach(l => { h += `<p>${l.name}：${l.weight} kg（${l.date}）</p>`; });
+    const img = buildChartUrl(lineChartConfig(
+      [...new Set(records.map(r => r.record_date))].sort(),
+      members.map(m => ({ label: m.name, data: [] }))
+    ));
+    h += `<div><img src="${img}" alt="体重曲线"></div></div>`;
+    return h;
+  }
+  let t = `⚖️ 体重日报\n\n`;
+  lines.forEach(l => { t += `${l.name}：${l.weight} kg（${l.date}）\n`; });
+  return t;
 }
 
 /**
@@ -377,6 +444,16 @@ async function buildShareLinkMap(env, storage, funds) {
 export default {
   async fetch(request, env, ctx) {
     try {
+      // 平台无关的定时触发入口：GET/POST /cron?key=CRON_SECRET
+      // 供非 Cloudflare 平台（Node/crontab 等）每小时调用一次
+      const cronUrl = new URL(request.url);
+      if (cronUrl.pathname === '/cron') {
+        if (env.CRON_SECRET && cronUrl.searchParams.get('key') !== env.CRON_SECRET) {
+          return json({ success: false, message: 'invalid key' }, 403);
+        }
+        return await handleScheduled(null, env, ctx);
+      }
+
       // 1. API 路由
       const apiRes = await router.handle(request, env, ctx);
       if (apiRes) return apiRes;

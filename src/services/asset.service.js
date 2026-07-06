@@ -12,6 +12,19 @@ function round2(n) {
 }
 
 /**
+ * 投资钱包字段解析：输入总资产 + 持有收益，反算本金
+ * 本金 = 总资产 − 收益；钱包合计用总资产(balance)
+ * @param {number} total - 总资产（当前市值）
+ * @param {number} profit - 持有收益
+ * @returns {Object} { balance, principal, profit }
+ */
+function resolveInvestment(total, profit) {
+  const t = parseFloat(total) || 0;
+  const p = parseFloat(profit) || 0;
+  return { balance: t, principal: round2(t - p), profit: p };
+}
+
+/**
  * 计算某月净资产
  * 净资产 = 非信用钱包余额之和 − 信用钱包余额之和
  * @param {Array} records - 该月各钱包记录 [{ wallet_id, balance }]
@@ -36,7 +49,7 @@ function calcNetWorth(records, walletType) {
  *   netWorthSeries: 各月净资产
  *   consumeSeries:  各月消费（上月净资产 − 本月净资产），首月为 null
  */
-function buildAssetReport(wallets, records) {
+function buildAssetReportData(wallets, records) {
   const walletType = new Map(wallets.map(w => [w.id, w.type]));
 
   // 按月分组
@@ -80,4 +93,32 @@ function calcGoalProgress(target, current) {
   return { target: round2(target), current: round2(current), remaining, progress };
 }
 
-export { calcNetWorth, buildAssetReport, calcGoalProgress, round2, CREDIT_TYPE };
+/**
+ * 生成资产月报文本/HTML
+ * @param {Object} report - buildAssetReport 结果
+ * @param {string} format - 'text' | 'html'
+ * @param {string} chartImg - 可选, HTML 格式下附加的图表 <img> 标签
+ * @returns {string}
+ */
+function buildAssetReport(reportData, format = 'text', chartImg = '') {
+  const { latest, latestMonth, months, netWorthSeries, consumeSeries } = reportData;
+  const lastConsume = consumeSeries.length ? consumeSeries[consumeSeries.length - 1] : null;
+  if (format === 'html') {
+    let h = `<div style="font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;">
+      <h2>💰 资产月报 ${latestMonth || ''}</h2>
+      <p>资产合计: ${latest.assets} · 负债: ${latest.debt}</p>
+      <p style="font-weight:bold;color:#4a6cf7;">净资产: ${latest.netWorth}</p>
+      ${lastConsume != null ? `<p>本月消费(环比): ${lastConsume}</p>` : ''}
+      ${chartImg || ''}
+    </div>`;
+    return h;
+  }
+  let t = `💰 资产月报 ${latestMonth || ''}\n\n`;
+  t += `资产合计: ${latest.assets}\n负债(信用): ${latest.debt}\n净资产: ${latest.netWorth}\n`;
+  if (lastConsume != null) t += `本月消费(环比): ${lastConsume}\n`;
+  return t;
+}
+
+export {
+  calcNetWorth, buildAssetReport, buildAssetReportData, calcGoalProgress, resolveInvestment, round2, CREDIT_TYPE
+};

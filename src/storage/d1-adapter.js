@@ -364,6 +364,30 @@ function createD1Adapter(env) {
            ON CONFLICT(user_id, year) DO UPDATE SET target_amount=excluded.target_amount`
         ).bind(userId, year, amount).run();
       }
+    },
+
+    // ==================== 推送配置 ====================
+    push: {
+      async getConfig(userId, module) {
+        return await db.prepare('SELECT * FROM push_config WHERE user_id=? AND module=?').bind(userId, module).first();
+      },
+      async setConfig(userId, module, cfg) {
+        await db.prepare(
+          `INSERT INTO push_config (user_id, module, channel_id, format, enabled, hour, day)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(user_id, module) DO UPDATE SET channel_id=excluded.channel_id,
+             format=excluded.format, enabled=excluded.enabled, hour=excluded.hour, day=excluded.day`
+        ).bind(
+          userId, module, cfg.channel_id || null, cfg.format || 'text',
+          cfg.enabled ? 1 : 0, cfg.hour != null ? cfg.hour : 9, cfg.day != null ? cfg.day : 15
+        ).run();
+      },
+      async listEnabledByModule(module) {
+        const { results } = await db.prepare(
+          'SELECT * FROM push_config WHERE module=? AND enabled=1'
+        ).bind(module).all();
+        return results || [];
+      }
     }
   };
 }
