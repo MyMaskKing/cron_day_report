@@ -1,4 +1,4 @@
-name = "cron_day_report"
+name = "cron-day-report"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
