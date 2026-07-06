@@ -96,8 +96,8 @@ async function fundReport({ request, env }) {
   if (funds.length === 0) return json({ success: true, items: [], totals: { cost: 0, value: 0, profit: 0, rate: 0 } });
 
   const navMap = await fetchNavBatch(funds.map(f => f.code));
-  // 顺带更新净值缓存
-  for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
+  // 顺带更新净值缓存（并发写入）
+  await Promise.all([...navMap].map(([code, nav]) => storage.fund.upsertNav(code, nav)));
 
   const portfolio = buildPortfolio(funds, navMap);
   return json({ success: true, ...portfolio });

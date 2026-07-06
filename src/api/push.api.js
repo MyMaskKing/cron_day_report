@@ -7,7 +7,7 @@ import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
 
-const MODULES = ['fund', 'weight', 'asset'];
+const MODULES = ['fund', 'weight', 'asset', 'monitor'];
 
 /** GET /api/push/:module  读取当前用户某模块推送配置 */
 async function getPushConfig({ request, env, params }) {
@@ -20,7 +20,8 @@ async function getPushConfig({ request, env, params }) {
   const defaults = {
     fund: { hour: 15, day: 15 },
     weight: { hour: 10, day: 1 },
-    asset: { hour: 9, day: 15 }
+    asset: { hour: 9, day: 15 },
+    monitor: { hour: 6, day: 1 }
   };
   return json({
     success: true,

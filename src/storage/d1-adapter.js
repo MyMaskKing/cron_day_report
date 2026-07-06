@@ -111,21 +111,21 @@ function createD1Adapter(env) {
       },
       async create(userId, t) {
         const res = await db.prepare(
-          `INSERT INTO monitor_tasks (user_id, name, url, return_type, channel_id, enabled)
-           VALUES (?, ?, ?, ?, ?, ?)`
+          `INSERT INTO monitor_tasks (user_id, name, url, return_type, channel_id, enabled, standalone)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           userId, t.name, t.url, t.return_type || 'text',
-          t.channel_id || null, t.enabled === false ? 0 : 1
+          t.channel_id || null, t.enabled === false ? 0 : 1, t.standalone ? 1 : 0
         ).run();
         return res.meta.last_row_id;
       },
       async update(id, userId, t) {
         await db.prepare(
-          `UPDATE monitor_tasks SET name=?, url=?, return_type=?, channel_id=?, enabled=?
+          `UPDATE monitor_tasks SET name=?, url=?, return_type=?, channel_id=?, enabled=?, standalone=?
            WHERE id=? AND user_id=?`
         ).bind(
           t.name, t.url, t.return_type || 'text', t.channel_id || null,
-          t.enabled ? 1 : 0, id, userId
+          t.enabled ? 1 : 0, t.standalone ? 1 : 0, id, userId
         ).run();
       },
       async remove(id, userId) {

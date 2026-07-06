@@ -252,15 +252,28 @@ async function executeTasksAndNotify(env, storage, tasks) {
     });
   }
 
-  // 按渠道分组发送：同一 channel_id 的结果合并为一条消息
+  // 分流：standalone 任务单独发；其余按渠道合并
+  const notified = [];
+  const standaloneResults = results.filter(r => r.standalone && r.channel_id);
+  const mergeResults = results.filter(r => !r.standalone);
+
+  // 独立发送：每条一个消息
+  for (const r of standaloneResults) {
+    const channel = await storage.notify.findById(parseInt(r.channel_id, 10));
+    if (!channel || !channel.enabled) continue;
+    const returnType = r.return_type || 'text';
+    const message = formatResults([r], returnType);
+    const sendResult = await sendNotification(message, channel, returnType);
+    notified.push({ channelId: r.channel_id, standalone: true, ...sendResult });
+  }
+
+  // 合并发送：同一 channel_id 的结果合并为一条消息
   const byChannel = new Map();
-  for (const r of results) {
+  for (const r of mergeResults) {
     const key = r.channel_id || 'none';
     if (!byChannel.has(key)) byChannel.set(key, []);
     byChannel.get(key).push(r);
   }
-
-  const notified = [];
   for (const [channelId, group] of byChannel) {
     if (channelId === 'none') continue; // 未配置渠道的任务不发送
     const channel = await storage.notify.findById(parseInt(channelId, 10));
@@ -288,16 +301,19 @@ async function handleScheduled(cron, env, ctx) {
   const manual = !cron; // /cron 手动调用时 cron 为空，全部执行
   const summary = { at: `${now.dateStr} ${now.hour}:00`, monitor: null, fund: null, weight: null, asset: null };
 
-  // 1. 监控任务：每天北京 6 点
-  if (manual || now.hour === 6) {
-    try {
-      const tasks = await storage.monitor.listEnabledAll();
-      if (tasks.length > 0) {
-        const result = await executeTasksAndNotify(env, storage, tasks);
-        summary.monitor = { count: tasks.length, notified: result.notified };
-      } else summary.monitor = { count: 0 };
-    } catch (err) { summary.monitor = { error: err.message }; }
-  }
+  // 1. 监控任务：每个用户按自己 push_config(module=monitor) 的时间执行其启用任务
+  try {
+    const cfgs = await storage.push.listEnabledByModule('monitor');
+    let total = 0;
+    for (const cfg of cfgs) {
+      if (!manual && !shouldRun('monitor', cfg, now)) continue;
+      const tasks = (await storage.monitor.listByUser(cfg.user_id)).filter(t => t.enabled);
+      if (tasks.length === 0) continue;
+      await executeTasksAndNotify(env, storage, tasks);
+      total += tasks.length;
+    }
+    summary.monitor = { count: total };
+  } catch (err) { summary.monitor = { error: err.message }; }
 
   // 2. 基金净值刷新（每天 15 点刷一次缓存）+ 基金日报（按各用户配置时间）
   try {

@@ -5,10 +5,12 @@
 // 通用 API 请求与工具函数（所有页面共用）
 const COMMON_JS = `
 var _loadingCount = 0;
-function showLoading() {
+function showLoading(text) {
   _loadingCount++;
   var el = document.getElementById('globalLoading');
   if (el) el.style.display = 'flex';
+  var t = document.getElementById('loadingText');
+  if (t) t.textContent = text || '加载中…';
 }
 function hideLoading() {
   _loadingCount = Math.max(0, _loadingCount - 1);
@@ -17,9 +19,14 @@ function hideLoading() {
     if (el) el.style.display = 'none';
   }
 }
+// setLoadingText: 不改变计数, 仅更新提示文字(用于同一请求内多阶段说明)
+function setLoadingText(text) {
+  var t = document.getElementById('loadingText');
+  if (t && _loadingCount > 0) t.textContent = text;
+}
 async function api(path, opts) {
   opts = opts || {};
-  showLoading();
+  showLoading(opts.loadingText);
   try {
     const res = await fetch(path, {
       method: opts.method || 'GET',
@@ -396,6 +403,7 @@ function taskForm(t) {
   document.getElementById('tType').value = t.return_type || 'text';
   document.getElementById('tChannel').innerHTML = channelOptions(t.channel_id || '');
   document.getElementById('tEnabled').checked = t.enabled !== 0 && t.enabled !== false;
+  document.getElementById('tStandalone').checked = t.standalone === 1 || t.standalone === true;
   document.getElementById('taskFormWrap').style.display = 'block';
 }
 window.editTask = function(id){ taskForm((window._tasks||[]).filter(function(x){return x.id===id;})[0]); };
@@ -427,7 +435,8 @@ document.getElementById('tSave').addEventListener('click', async function(){
     url: document.getElementById('tUrl').value,
     return_type: document.getElementById('tType').value,
     channel_id: document.getElementById('tChannel').value || null,
-    enabled: document.getElementById('tEnabled').checked
+    enabled: document.getElementById('tEnabled').checked,
+    standalone: document.getElementById('tStandalone').checked
   };
   try {
     if (id) await api('/api/monitor/tasks/' + id, { method:'PUT', body: payload });
@@ -448,8 +457,26 @@ document.getElementById('runNow').addEventListener('click', async function(){
   finally { btn.disabled = false; btn.textContent = '立即执行全部'; }
 });
 
+// 监控推送时间配置
+async function loadMonitorPush() {
+  var chs = await api('/api/notify/channels');
+  var d = await api('/api/push/monitor');
+  document.getElementById('mpHour').value = d.config.hour != null ? d.config.hour : 6;
+  document.getElementById('mpEn').checked = !!d.config.enabled;
+}
+var mpSave = document.getElementById('mpSave');
+if (mpSave) mpSave.addEventListener('click', async function(){
+  try {
+    await api('/api/push/monitor', { method:'PUT', body:{
+      hour: document.getElementById('mpHour').value,
+      enabled: document.getElementById('mpEn').checked
+    }});
+    alert('定时配置已保存');
+  } catch(e){ alert(e.message); }
+});
+
 (async function(){
-  try { await loadChannels(); await loadTasks(); }
+  try { await loadChannels(); await loadTasks(); await loadMonitorPush(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
 })();
 `;
@@ -535,7 +562,7 @@ function colorOf(n){ return n>=0 ? '#cf1322' : '#389e0d'; }
 
 // ---------- 报表 ----------
 async function loadReport() {
-  var data = await api('/api/fund/report');
+  var data = await api('/api/fund/report', { loadingText: '正在拉取基金实时净值…' });
   var t = data.totals;
   document.getElementById('sumCost').textContent = t.cost;
   document.getElementById('sumValue').textContent = t.value;

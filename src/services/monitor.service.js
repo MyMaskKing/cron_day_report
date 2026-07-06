@@ -127,7 +127,7 @@ async function batchAccessUrls(tasks, timeoutConfig) {
     const batch = tasks.slice(i, i + concurrencyLimit);
     const batchPromises = batch.map(async (t) => {
       const r = await accessUrl(t.url, t.name, timeoutConfig);
-      return { ...r, task_id: t.id, user_id: t.user_id, channel_id: t.channel_id, return_type: t.return_type };
+      return { ...r, task_id: t.id, user_id: t.user_id, channel_id: t.channel_id, return_type: t.return_type, standalone: t.standalone };
     });
     const batchResults = await Promise.all(batchPromises);
     results.push(...batchResults);
