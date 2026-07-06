@@ -138,10 +138,10 @@ function monitorPage(user) {
     <div class="card">
       <h2>定时执行</h2>
       <div class="row">
-        <div><label>每天执行时间(点，可多选逗号分隔如 6,18)</label><input id="mpHour" type="text" value="6"></div>
+        <div><label>每天执行时间</label><div id="mpHour" class="multi-pick"></div></div>
       </div>
       <label><input type="checkbox" id="mpEn" style="width:auto;"> 启用每天自动执行（到点自动跑所有启用任务并按渠道发送）</label>
-      <div style="margin-top:12px;"><button class="btn" id="mpSave">保存定时配置</button></div>
+      <div style="margin-top:12px;"><button class="btn" id="mpSave">保存定时配置</button> <button class="btn gray" id="mpSend">立即执行并推送</button></div>
     </div>
 
     <p class="muted">通知渠道请在 <a href="/channels">通知渠道</a> 页统一管理。</p>
@@ -212,7 +212,7 @@ function fundPage(user) {
         <div><label>报告格式</label>
           <select id="rcFormat"><option value="text">text</option><option value="html">html(附持仓图)</option></select>
         </div>
-        <div><label>推送时间(点，可多选逗号分隔如 9,18)</label><input id="rcHour" type="text" value="15"></div>
+        <div><label>推送时间</label><div id="rcHour" class="multi-pick"></div></div>
       </div>
       <label><input type="checkbox" id="rcEnabled" style="width:auto;"> 启用每日自动推送</label>
       <div style="margin-top:12px;">
@@ -319,10 +319,10 @@ function weightPage(user) {
       <div class="row">
         <div><label>通知渠道</label><select id="pushCh"></select></div>
         <div><label>格式</label><select id="pushFmt"><option value="text">text</option><option value="html">html(附曲线图)</option></select></div>
-        <div><label>推送时间(点，可多选逗号分隔如 10,20)</label><input id="pushHour" type="text" value="10"></div>
+        <div><label>推送时间</label><div id="pushHour" class="multi-pick"></div></div>
       </div>
       <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送</label>
-      <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button></div>
+      <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button> <button class="btn gray" id="pushSend">立即推送</button></div>
     </div>
 
     <div class="card">
@@ -438,11 +438,11 @@ function assetPage(user) {
         <div><label>格式</label><select id="pushFmt"><option value="text">text</option><option value="html">html(附曲线图)</option></select></div>
       </div>
       <div class="row">
-        <div><label>每月几号(可多选逗号分隔如 1,15)</label><input id="pushDay" type="text" value="15"></div>
-        <div><label>推送时间(点，可多选逗号分隔如 9,21)</label><input id="pushHour" type="text" value="9"></div>
+        <div><label>每月几号</label><div id="pushDay" class="multi-pick"></div></div>
+        <div><label>推送时间</label><div id="pushHour" class="multi-pick"></div></div>
       </div>
       <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每月自动推送</label>
-      <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button></div>
+      <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button> <button class="btn gray" id="pushSend">立即推送</button></div>
     </div>
 
     <div class="card">

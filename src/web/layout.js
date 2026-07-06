@@ -104,6 +104,13 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .dropdown-menu button { display: block; width: 100%; text-align: left; padding: 9px 14px; border: none; background: none; font-size: 14px; cursor: pointer; color: #1f2329; }
 .dropdown-menu button:hover { background: #f5f7ff; }
 .dropdown-menu button.danger { color: #dc3545; }
+.multi-pick { position: relative; display: inline-block; width: 100%; }
+.mp-btn { width: 100%; text-align: left; padding: 8px 12px; border: 1px solid #d9dbe3; border-radius: 8px; background: #fff; font-size: 14px; cursor: pointer; color: #1f2329; min-height: 38px; }
+.mp-menu { display: none; position: absolute; left: 0; top: 100%; margin-top: 4px; background: #fff; border: 1px solid #e6e8f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 60; padding: 6px; max-height: 240px; overflow-y: auto; display: none; }
+.mp-menu.show { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; min-width: 220px; }
+.mp-item { display: flex; align-items: center; gap: 4px; padding: 5px 8px; font-size: 13px; cursor: pointer; border-radius: 6px; white-space: nowrap; }
+.mp-item:hover { background: #f5f7ff; }
+.mp-item input { width: auto; margin: 0; }
 
 /* ============ 移动端适配 (<=640px) ============ */
 @media (max-width: 640px) {
