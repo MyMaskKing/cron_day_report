@@ -115,6 +115,56 @@ function monthRangeByPreset(preset) {
   if (preset === 'year') return [y + '-01', y + '-12'];
   return [y + '-' + m, y + '-' + m];
 }
+// 多选勾选面板：点击展开，内含复选框，收起时按钮文字显示已选项
+// container 为 .multi-pick 元素；min/max 决定生成选项区间；vals 初始已选数组
+function initMultiPick(container, min, max, vals, labelFn) {
+  var selected = {};
+  (vals || []).forEach(function(v){ selected[v] = true; });
+  var btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'mp-btn';
+  var menu = document.createElement('div');
+  menu.className = 'mp-menu';
+  for (var i = min; i <= max; i++) {
+    (function(n){
+      var lbl = document.createElement('label');
+      lbl.className = 'mp-item';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.value = n; cb.checked = !!selected[n];
+      cb.addEventListener('change', function(){
+        if (cb.checked) selected[n] = true; else delete selected[n];
+        refresh();
+      });
+      lbl.appendChild(cb);
+      var span = document.createElement('span');
+      span.textContent = labelFn ? labelFn(n) : String(n);
+      lbl.appendChild(span);
+      menu.appendChild(lbl);
+    })(i);
+  }
+  function values() {
+    return Object.keys(selected).map(function(k){ return parseInt(k,10); }).filter(function(n){ return !isNaN(n); }).sort(function(a,b){ return a-b; });
+  }
+  function refresh() {
+    var vs = values();
+    btn.textContent = vs.length ? (labelFn ? vs.map(labelFn).join('、') : vs.join(',')) : '未选择';
+  }
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    var open = menu.classList.contains('show');
+    document.querySelectorAll('.mp-menu.show').forEach(function(m){ m.classList.remove('show'); });
+    if (!open) menu.classList.add('show');
+  });
+  container.innerHTML = '';
+  container.appendChild(btn);
+  container.appendChild(menu);
+  refresh();
+  return { getValues: values, getString: function(){ return values().join(','); } };
+}
+document.addEventListener('click', function(e){
+  if (!e.target.closest('.multi-pick')) {
+    document.querySelectorAll('.mp-menu.show').forEach(function(m){ m.classList.remove('show'); });
+  }
+});
 `;
 
 // 登录页 JS
@@ -458,21 +508,29 @@ document.getElementById('runNow').addEventListener('click', async function(){
 });
 
 // 监控推送时间配置
+var mpHourPick = null;
 async function loadMonitorPush() {
   var chs = await api('/api/notify/channels');
   var d = await api('/api/push/monitor');
-  document.getElementById('mpHour').value = (d.config.hours || [6]).join(',');
+  mpHourPick = initMultiPick(document.getElementById('mpHour'), 0, 23, d.config.hours || [6], function(n){ return n + '点'; });
   document.getElementById('mpEn').checked = !!d.config.enabled;
 }
 var mpSave = document.getElementById('mpSave');
 if (mpSave) mpSave.addEventListener('click', async function(){
   try {
     await api('/api/push/monitor', { method:'PUT', body:{
-      hours: document.getElementById('mpHour').value,
+      hours: mpHourPick ? mpHourPick.getString() : '6',
       enabled: document.getElementById('mpEn').checked
     }});
     alert('定时配置已保存');
   } catch(e){ alert(e.message); }
+});
+var mpSend = document.getElementById('mpSend');
+if (mpSend) mpSend.addEventListener('click', async function(){
+  var btn = this; btn.disabled = true; btn.textContent = '执行中...';
+  try { var r = await api('/api/monitor/run', { method:'POST' }); alert(r.message || '执行完成'); }
+  catch(e){ alert(e.message); }
+  finally { btn.disabled = false; btn.textContent = '立即执行并推送'; }
 });
 
 (async function(){
@@ -694,15 +752,14 @@ async function loadReportConfig() {
   document.getElementById('rcChannel').value = cfg.channel_id || '';
   document.getElementById('rcFormat').value = cfg.format || 'text';
   document.getElementById('rcEnabled').checked = !!cfg.enabled;
-  var hourEl = document.getElementById('rcHour');
-  if (hourEl) hourEl.value = (cfg.hours || [15]).join(',');
+  rcHourPick = initMultiPick(document.getElementById('rcHour'), 0, 23, cfg.hours || [15], function(n){ return n + '点'; });
 }
+var rcHourPick = null;
 document.getElementById('rcSave').addEventListener('click', async function(){
-  var hourEl = document.getElementById('rcHour');
   var payload = {
     channel_id: document.getElementById('rcChannel').value || null,
     format: document.getElementById('rcFormat').value,
-    hours: hourEl ? hourEl.value : '15',
+    hours: rcHourPick ? rcHourPick.getString() : '15',
     enabled: document.getElementById('rcEnabled').checked
   };
   try { await api('/api/push/fund', { method:'PUT', body: payload }); alert('日报配置已保存'); }
@@ -1022,6 +1079,7 @@ function initFilter() {
 }
 
 // 推送配置（体重日报）
+var wPushHourPick = null;
 async function loadPush() {
   var chs = await api('/api/notify/channels');
   var opts = '<option value="">（选择渠道）</option>' + chs.channels.map(function(c){ return '<option value="'+c.id+'">'+esc(c.name)+' ['+c.type+']</option>'; }).join('');
@@ -1029,7 +1087,7 @@ async function loadPush() {
   var d = await api('/api/push/weight');
   document.getElementById('pushCh').value = d.config.channel_id || '';
   document.getElementById('pushFmt').value = d.config.format || 'text';
-  document.getElementById('pushHour').value = (d.config.hours || [10]).join(',');
+  wPushHourPick = initMultiPick(document.getElementById('pushHour'), 0, 23, d.config.hours || [10], function(n){ return n + '点'; });
   document.getElementById('pushEn').checked = !!d.config.enabled;
 }
 var pushSave = document.getElementById('pushSave');
@@ -1038,11 +1096,18 @@ if (pushSave) pushSave.addEventListener('click', async function(){
     await api('/api/push/weight', { method:'PUT', body:{
       channel_id: document.getElementById('pushCh').value || null,
       format: document.getElementById('pushFmt').value,
-      hours: document.getElementById('pushHour').value,
+      hours: wPushHourPick ? wPushHourPick.getString() : '10',
       enabled: document.getElementById('pushEn').checked
     }});
     alert('推送配置已保存');
   } catch(e){ alert(e.message); }
+});
+var pushSend = document.getElementById('pushSend');
+if (pushSend) pushSend.addEventListener('click', async function(){
+  var btn = this; btn.disabled = true; btn.textContent = '推送中...';
+  try { var r = await api('/api/push/weight/send', { method:'POST' }); alert(r.message || '已推送'); }
+  catch(e){ alert(e.message); }
+  finally { btn.disabled = false; btn.textContent = '立即推送'; }
 });
 
 (async function(){
@@ -1315,6 +1380,7 @@ function initAssetFilter() {
   applyPreset();
 }
 // 推送配置（资产月报）
+var aPushDayPick = null, aPushHourPick = null;
 async function loadPush() {
   var chs = await api('/api/notify/channels');
   var opts = '<option value="">（选择渠道）</option>' + chs.channels.map(function(c){ return '<option value="'+c.id+'">'+esc(c.name)+' ['+c.type+']</option>'; }).join('');
@@ -1322,8 +1388,8 @@ async function loadPush() {
   var d = await api('/api/push/asset');
   document.getElementById('pushCh').value = d.config.channel_id || '';
   document.getElementById('pushFmt').value = d.config.format || 'text';
-  document.getElementById('pushDay').value = (d.config.days || [15]).join(',');
-  document.getElementById('pushHour').value = (d.config.hours || [9]).join(',');
+  aPushDayPick = initMultiPick(document.getElementById('pushDay'), 1, 28, d.config.days || [15], function(n){ return n + '号'; });
+  aPushHourPick = initMultiPick(document.getElementById('pushHour'), 0, 23, d.config.hours || [9], function(n){ return n + '点'; });
   document.getElementById('pushEn').checked = !!d.config.enabled;
 }
 document.getElementById('pushSave').addEventListener('click', async function(){
@@ -1331,12 +1397,19 @@ document.getElementById('pushSave').addEventListener('click', async function(){
     await api('/api/push/asset', { method:'PUT', body:{
       channel_id: document.getElementById('pushCh').value || null,
       format: document.getElementById('pushFmt').value,
-      days: document.getElementById('pushDay').value,
-      hours: document.getElementById('pushHour').value,
+      days: aPushDayPick ? aPushDayPick.getString() : '15',
+      hours: aPushHourPick ? aPushHourPick.getString() : '9',
       enabled: document.getElementById('pushEn').checked
     }});
     alert('推送配置已保存');
   } catch(e){ alert(e.message); }
+});
+var aPushSend = document.getElementById('pushSend');
+if (aPushSend) aPushSend.addEventListener('click', async function(){
+  var btn = this; btn.disabled = true; btn.textContent = '推送中...';
+  try { var r = await api('/api/push/asset/send', { method:'POST' }); alert(r.message || '已推送'); }
+  catch(e){ alert(e.message); }
+  finally { btn.disabled = false; btn.textContent = '立即推送'; }
 });
 
 (async function(){

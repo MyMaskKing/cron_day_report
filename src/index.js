@@ -144,6 +144,7 @@ router.get('/api/public/asset-report/:token', publicAssetReport);
 // --- 通用推送配置 API ---
 router.get('/api/push/:module', getPushConfig);
 router.put('/api/push/:module', setPushConfig);
+router.post('/api/push/:module/send', runMyModulePush);
 
 /**
  * 页面路由处理（需登录的页面统一校验会话）
@@ -241,6 +242,33 @@ async function runMyMonitors({ request, env }) {
 
   const result = await executeTasksAndNotify(env, storage, tasks);
   return json({ success: true, message: '执行完成', ...result });
+}
+
+/**
+ * 手动触发：立即推送当前登录用户某模块的日报/月报（供画面「立即推送」测试）
+ * 忽略时间判断，直接按该模块 push_config 的渠道发送。
+ * @param {Object} ctx - { request, env, params }
+ * @returns {Promise<Response>}
+ */
+async function runMyModulePush({ request, env, params }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const module = params.module;
+  if (!['fund', 'weight', 'asset'].includes(module)) return error('模块非法', 400);
+
+  const storage = getStorage(env);
+  const cfg = await storage.push.getConfig(session.user_id, module);
+  if (!cfg || !cfg.channel_id) return error('请先配置推送渠道', 400);
+  const channel = await storage.notify.findById(cfg.channel_id);
+  if (!channel || channel.user_id !== session.user_id) return error('通知渠道不存在', 400);
+  if (!channel.enabled) return error('通知渠道已停用', 400);
+
+  const format = cfg.format || 'text';
+  const message = await buildModuleMessage(env, storage, module, session.user_id, format);
+  if (!message) return error('暂无数据，无法生成推送内容', 400);
+  const r = await sendNotification(message, channel, format);
+  return json({ success: true, message: '已推送', result: r });
 }
 
 /**
