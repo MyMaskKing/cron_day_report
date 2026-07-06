@@ -95,7 +95,7 @@ function adminPage(user) {
         <div><label>全局时区（UTC 偏移小时，中国为 8）</label>
           <input id="tzInput" type="number" min="-12" max="14" step="1">
         </div>
-        <div style="display:flex;align-items:flex-end;"><button class="btn" id="tzSave">保存时区</button></div>
+        <div style="display:flex;align-items:flex-end;margin-bottom:12px;"><button class="btn" id="tzSave">保存时区</button></div>
       </div>
       <p class="muted">影响所有推送内容与报告中的时间显示。当前部署在 Cloudflare（UTC），设为 8 即中国时间。</p>
     </div>
