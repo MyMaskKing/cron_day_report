@@ -18,7 +18,7 @@ import { sendNotification } from './services/notify.service.js';
 import { register, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
-  createUser, resetPassword, impersonateUser, stopImpersonateUser
+  createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname
 } from './api/users.api.js';
 import { listChannels, createChannel, updateChannel, removeChannel } from './api/notify.api.js';
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
@@ -34,11 +34,16 @@ import {
   publicMemberInfo, publicSubmitWeight, adminCompare,
   getUnit, setUnit
 } from './api/weight.api.js';
+import {
+  listWallets, createWallet, updateWallet, removeWallet, getWalletShareLink,
+  saveRecord, assetReport, getGoal, setGoal,
+  publicWalletInfo, publicSaveRecord
+} from './api/asset.api.js';
 
 // Pages
 import {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
-  weightPage, publicWeightPage, settingsPage
+  weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage
 } from './web/pages.js';
 
 // ==================== 路由注册 ====================
@@ -63,6 +68,7 @@ router.get('/api/admin/users/:id', getUserDetail);
 router.put('/api/admin/users/:id/role', updateUserRole);
 router.put('/api/admin/users/:id/status', updateUserStatus);
 router.put('/api/admin/users/:id/password', resetPassword);
+router.put('/api/admin/users/:id/nickname', updateUserNickname);
 router.post('/api/admin/users/:id/impersonate', impersonateUser);
 
 // --- 手动触发（兼容保留，执行当前登录用户的启用任务）---
@@ -115,6 +121,19 @@ router.get('/api/admin/weight/compare', adminCompare);
 router.get('/api/public/weight/:token', publicMemberInfo);
 router.post('/api/public/weight/:token', publicSubmitWeight);
 
+// --- 资产报表 API ---
+router.get('/api/asset/wallets', listWallets);
+router.post('/api/asset/wallets', createWallet);
+router.get('/api/asset/wallets/:id/share-link', getWalletShareLink);
+router.put('/api/asset/wallets/:id', updateWallet);
+router.delete('/api/asset/wallets/:id', removeWallet);
+router.post('/api/asset/records', saveRecord);
+router.get('/api/asset/report', assetReport);
+router.get('/api/asset/goal', getGoal);
+router.put('/api/asset/goal', setGoal);
+router.get('/api/public/asset/:token', publicWalletInfo);
+router.post('/api/public/asset/:token', publicSaveRecord);
+
 /**
  * 页面路由处理（需登录的页面统一校验会话）
  * @param {Request} request
@@ -136,12 +155,17 @@ async function handlePages(request, env) {
   if (path.startsWith('/w/') && path.split('/').filter(Boolean).length === 2) {
     return html(publicWeightPage());
   }
+  // 资产免密录入公开页 /a/:token
+  if (path.startsWith('/a/') && path.split('/').filter(Boolean).length === 2) {
+    return html(publicAssetPage());
+  }
 
   // 需登录页面
   const pageMap = {
     '/': 'dashboard', '/dashboard': 'dashboard',
     '/monitor': 'monitor',
     '/fund': 'fund',
+    '/asset': 'asset',
     '/weight': 'weight',
     '/settings': 'settings',
     '/admin': 'admin'
@@ -165,6 +189,8 @@ async function handlePages(request, env) {
         return html(monitorPage(user));
       case 'fund':
         return html(fundPage(user));
+      case 'asset':
+        return html(assetPage(user));
       case 'weight':
         return html(weightPage(user));
       case 'settings':

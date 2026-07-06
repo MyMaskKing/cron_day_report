@@ -232,6 +232,7 @@ async function loadUsers() {
           '<div class="dropdown-menu">' +
             '<button onclick="viewUser(' + u.id + ')">查看</button>' +
             '<button onclick="impersonate(' + u.id + ",'" + esc(u.username).replace(/'/g,'') + "'" + ')">切换身份</button>' +
+            '<button onclick="editNick(' + u.id + ",'" + esc(u.nickname||u.username).replace(/'/g,'') + "'" + ')">改昵称</button>' +
             '<button onclick="resetPwd(' + u.id + ",'" + esc(u.username).replace(/'/g,'') + "'" + ')">重置密码</button>' +
             '<button onclick="toggleRole(' + u.id + ",'" + u.role + "'" + ')">' + (u.role === 'admin' ? '降为用户' : '升为超管') + '</button>' +
             '<button class="danger" onclick="toggleStatus(' + u.id + ",'" + u.status + "'" + ')">' + (u.status === 'active' ? '禁用' : '启用') + '</button>' +
@@ -285,6 +286,18 @@ function resetPwd(id, name) {
     } catch (err) { alert(err.message); }
   });
 }
+function editNick(id, cur) {
+  openModal('修改昵称',
+    '<label>昵称</label><input id="enNick" maxlength="32" value="' + cur + '">' +
+    '<div style="margin-top:12px;"><button class="btn" id="enConfirm">保存</button> ' +
+    '<button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('enConfirm').addEventListener('click', async function(){
+    try {
+      var r = await api('/api/admin/users/' + id + '/nickname', { method: 'PUT', body: { nickname: document.getElementById('enNick').value } });
+      closeModal(); alert(r.message); loadUsers();
+    } catch (err) { alert(err.message); }
+  });
+}
 function newUser() {
   openModal('创建用户',
     '<label>用户名（3-32位，登录用）</label><input id="nuName">' +
@@ -305,7 +318,7 @@ function newUser() {
   });
 }
 window.viewUser = viewUser; window.toggleRole = toggleRole; window.toggleStatus = toggleStatus;
-window.impersonate = impersonate; window.resetPwd = resetPwd;
+window.impersonate = impersonate; window.resetPwd = resetPwd; window.editNick = editNick;
 var newUserBtn = document.getElementById('newUserBtn');
 if (newUserBtn) newUserBtn.addEventListener('click', newUser);
 loadUsers();
@@ -981,7 +994,178 @@ document.getElementById('wForm').addEventListener('submit', async function(e){
 loadInfo();
 `;
 
+// 资产报表页 JS
+const ASSET_JS = `
+${COMMON_JS}
+bindLogout();
+bindModal();
+var wallets = [];
+var TYPE_LABEL = { bank:'银行卡', alipay:'支付宝', wechat:'微信', investment:'投资', credit:'信用支付', cash:'现金' };
+var nwChart = null, csChart = null;
+function curMonth(){ var d=new Date(Date.now()+8*3600*1000); return d.toISOString().slice(0,7); }
+
+async function loadAll() {
+  var d = await api('/api/asset/report');
+  wallets = d.wallets;
+  renderWallets(d.wallets);
+  renderSummary(d.report, d.goal, d.year);
+  drawCharts(d.report);
+  renderMonthTable(d.wallets, d.records);
+}
+function renderWallets(list) {
+  var tb = document.getElementById('walletTbody');
+  tb.innerHTML = list.map(function(w){
+    return '<tr><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag disabled">负债</span>':'') + '</td>' +
+      '<td data-label="名称">' + esc(w.name) + '</td>' +
+      '<td data-label="操作"><div class="dropdown"><button class="btn sm" onclick="toggleDropdown(this)">⋯ 操作</button>' +
+      '<div class="dropdown-menu">' +
+        '<button onclick="wRec(' + w.id + ")," + "'" + w.type + "'" + ')">录入本月</button>' +
+        '<button onclick="wEdit(' + w.id + ')">编辑</button>' +
+        '<button onclick="wShare(' + w.id + ')">录入链接</button>' +
+        '<button class="danger" onclick="wDel(' + w.id + ')">删除</button>' +
+      '</div></div></td></tr>';
+  }).join('') || '<tr><td colspan="3" class="muted">暂无钱包</td></tr>';
+}
+function renderSummary(report, goal, year) {
+  document.getElementById('sAssets').textContent = report.latest.assets;
+  document.getElementById('sDebt').textContent = report.latest.debt;
+  document.getElementById('sNet').textContent = report.latest.netWorth;
+  document.getElementById('sMonth').textContent = report.latestMonth || '—';
+  var gbox = document.getElementById('goalBox');
+  if (goal) {
+    gbox.innerHTML = '<b>' + year + ' 年度目标：</b>' + goal.target +
+      ' 元 · 当前 ' + goal.current + ' · 还差 <b style="color:#cf1322;">' + goal.remaining + '</b>' +
+      ' · 进度 ' + goal.progress + '%';
+  } else {
+    gbox.innerHTML = '<span class="muted">未设置 ' + year + ' 年度目标</span>';
+  }
+}
+function drawCharts(report) {
+  var opts = { plugins:{ legend:{ display:false } } };
+  if (nwChart) nwChart.destroy();
+  nwChart = new Chart(document.getElementById('netChart'), {
+    type:'line', data:{ labels: report.months, datasets:[{ label:'净资产', data: report.netWorthSeries, borderColor:'#667eea', tension:.3 }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'净资产(元)' } } } } });
+  if (csChart) csChart.destroy();
+  csChart = new Chart(document.getElementById('consumeChart'), {
+    type:'bar', data:{ labels: report.months, datasets:[{ label:'消费', data: report.consumeSeries, backgroundColor:'#faad14' }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'消费(元, 环比余额减少)' } } } } });
+}
+function renderMonthTable(wlist, records) {
+  var nameOf = {}; wlist.forEach(function(w){ nameOf[w.id] = w.name; });
+  var tb = document.getElementById('recTbody');
+  var sorted = records.slice().sort(function(a,b){ return b.month < a.month ? -1 : 1; });
+  tb.innerHTML = sorted.map(function(r){
+    return '<tr><td data-label="月份">' + r.month + '</td>' +
+      '<td data-label="钱包">' + esc(nameOf[r.wallet_id]||'') + '</td>' +
+      '<td data-label="金额">' + r.balance + (r.principal||r.profit ? ' <span class="muted">(本金'+r.principal+'/收益'+r.profit+')</span>' : '') + '</td></tr>';
+  }).join('') || '<tr><td colspan="3" class="muted">暂无记录</td></tr>';
+}
+
+// 录入本月
+window.wRec = function(id, type){
+  var w = wallets.filter(function(x){return x.id===id;})[0];
+  var fields = type === 'investment'
+    ? '<label>本金(元)</label><input id="fPrincipal" type="number" step="0.01">' +
+      '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01">'
+    : '<label>本月余额(元)</label><input id="fBalance" type="number" step="0.01">';
+  openModal('录入本月 · ' + w.name + ' (' + curMonth() + ')',
+    fields + '<div style="margin-top:12px;"><button class="btn" id="recConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('recConfirm').addEventListener('click', async function(){
+    var payload = { wallet_id: id };
+    if (type === 'investment') { payload.principal = document.getElementById('fPrincipal').value; payload.profit = document.getElementById('fProfit').value; }
+    else payload.balance = document.getElementById('fBalance').value;
+    try { await api('/api/asset/records', { method:'POST', body: payload }); closeModal(); await loadAll(); }
+    catch(e){ alert(e.message); }
+  });
+};
+window.wEdit = function(id){
+  var w = wallets.filter(function(x){return x.id===id;})[0];
+  var opts = Object.keys(TYPE_LABEL).map(function(k){ return '<option value="'+k+'"'+(k===w.type?' selected':'')+'>'+TYPE_LABEL[k]+'</option>'; }).join('');
+  openModal('编辑钱包',
+    '<label>类型</label><select id="eType">' + opts + '</select>' +
+    '<label>名称</label><input id="eName" value="' + esc(w.name) + '">' +
+    '<div style="margin-top:12px;"><button class="btn" id="eConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('eConfirm').addEventListener('click', async function(){
+    try { await api('/api/asset/wallets/' + id, { method:'PUT', body:{ type: document.getElementById('eType').value, name: document.getElementById('eName').value } }); closeModal(); await loadAll(); }
+    catch(e){ alert(e.message); }
+  });
+};
+window.wDel = async function(id){
+  if (!confirm('删除该钱包?')) return;
+  try { await api('/api/asset/wallets/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alert(e.message); }
+};
+window.wShare = async function(id){
+  try {
+    var d = await api('/api/asset/wallets/' + id + '/share-link');
+    openModal('免密录入链接',
+      '<p class="muted">此链接长期有效，打开无需登录即可录入该钱包当月金额。</p>' +
+      '<input id="aShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
+      '<button class="btn" onclick="aCopy()">复制链接</button>');
+  } catch(e){ alert(e.message); }
+};
+window.aCopy = function(){ var el=document.getElementById('aShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
+
+document.getElementById('walletAdd').addEventListener('click', function(){
+  var opts = Object.keys(TYPE_LABEL).map(function(k){ return '<option value="'+k+'">'+TYPE_LABEL[k]+'</option>'; }).join('');
+  openModal('新建钱包',
+    '<label>类型</label><select id="nType">' + opts + '</select>' +
+    '<label>名称（如：AA的招商银行）</label><input id="nName">' +
+    '<div style="margin-top:12px;"><button class="btn" id="nConfirm">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('nConfirm').addEventListener('click', async function(){
+    try { await api('/api/asset/wallets', { method:'POST', body:{ type: document.getElementById('nType').value, name: document.getElementById('nName').value } }); closeModal(); await loadAll(); }
+    catch(e){ alert(e.message); }
+  });
+});
+document.getElementById('goalSave').addEventListener('click', async function(){
+  try { await api('/api/asset/goal', { method:'PUT', body:{ target_amount: document.getElementById('goalInput').value } }); await loadAll(); alert('目标已保存'); }
+  catch(e){ alert(e.message); }
+});
+
+(async function(){
+  try { await loadAll(); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+})();
+`;
+
+// 资产免密录入公开页 JS
+const PUBLIC_ASSET_JS = `
+${COMMON_JS}
+var token = location.pathname.split('/').filter(Boolean).pop();
+var msg = document.getElementById('msg');
+var TYPE_LABEL = { bank:'银行卡', alipay:'支付宝', wechat:'微信', investment:'投资', credit:'信用支付', cash:'现金' };
+var wType = '';
+
+async function loadInfo() {
+  try {
+    var d = await api('/api/public/asset/' + token);
+    wType = d.wallet.type;
+    document.getElementById('walletName').textContent = d.wallet.name + ' (' + TYPE_LABEL[d.wallet.type] + ')';
+    document.getElementById('monthLabel').textContent = d.month + ' 月';
+    var box = document.getElementById('fields');
+    if (wType === 'investment') {
+      box.innerHTML = '<label>本金(元)</label><input id="fPrincipal" type="number" step="0.01" value="' + (d.current?d.current.principal:'') + '">' +
+        '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01" value="' + (d.current?d.current.profit:'') + '">';
+    } else {
+      box.innerHTML = '<label>本月余额(元)</label><input id="fBalance" type="number" step="0.01" value="' + (d.current?d.current.balance:'') + '">';
+    }
+    document.getElementById('content').style.display = 'block';
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>';
+  }
+}
+document.getElementById('aForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  var payload = {};
+  if (wType === 'investment') { payload.principal = document.getElementById('fPrincipal').value; payload.profit = document.getElementById('fProfit').value; }
+  else payload.balance = document.getElementById('fBalance').value;
+  try { await api('/api/public/asset/' + token, { method:'POST', body: payload }); showMsg(msg, '本月记录已保存！', true); }
+  catch(err){ showMsg(msg, err.message, false); }
+});
+loadInfo();
+`;
+
 export {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
-  PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS
+  PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS
 };

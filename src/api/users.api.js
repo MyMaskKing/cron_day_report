@@ -123,6 +123,27 @@ async function createUser({ request, env }) {
 }
 
 /**
+ * PUT /api/admin/users/:id/nickname  超管修改用户昵称
+ * body: { nickname }
+ */
+async function updateUserNickname({ request, env, params }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+
+  const body = await request.json().catch(() => ({}));
+  const nickname = (body.nickname || '').trim();
+  if (!nickname || nickname.length > 32) return error('昵称需为 1-32 个字符');
+
+  const storage = getStorage(env);
+  const userId = parseInt(params.id, 10);
+  const user = await storage.users.findById(userId);
+  if (!user) return error('用户不存在', 404);
+
+  await storage.users.updateNickname(userId, nickname);
+  return json({ success: true, message: '昵称已更新' });
+}
+
+/**
  * PUT /api/admin/users/:id/password  重置密码（默认 123456，或指定）
  * body: { password? }
  */
@@ -180,5 +201,5 @@ async function stopImpersonateUser({ request, env }) {
 
 export {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
-  createUser, resetPassword, impersonateUser, stopImpersonateUser
+  createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname
 };

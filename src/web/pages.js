@@ -6,7 +6,7 @@
 import { renderPage, renderTopbar } from './layout.js';
 import {
   LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS,
-  WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS
+  WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS
 } from './assets.js';
 
 /** 初始化超管页 */
@@ -75,6 +75,7 @@ function dashboardPage(user) {
       <div class="grid-stats">
         <a class="stat" href="/monitor"><div class="num">⏰</div><div class="lbl">定时任务</div></a>
         <a class="stat" href="/fund"><div class="num">📈</div><div class="lbl">基金追踪</div></a>
+        <a class="stat" href="/asset"><div class="num">💰</div><div class="lbl">资产报表</div></a>
         <a class="stat" href="/weight"><div class="num">⚖️</div><div class="lbl">体重曲线</div></a>
         ${user.role === 'admin' ? '<a class="stat" href="/admin"><div class="num">👥</div><div class="lbl">用户管理</div></a>' : ''}
       </div>
@@ -360,7 +361,7 @@ function publicWeightPage() {
 /** 个人设置页 */
 function settingsPage(user) {
   const body = renderTopbar(user, '') + `<div class="container">
-    <div class="card" style="max-width:480px;">
+    <div class="card" style="max-width:480px;margin:0 auto;">
       <h2>个人设置</h2>
       <div id="msg" class="msg"></div>
       <form id="nickForm">
@@ -384,7 +385,72 @@ function settingsPage(user) {
   return renderPage({ title: '个人设置', body, script: SETTINGS_JS });
 }
 
+/** 资产报表页 */
+function assetPage(user) {
+  const body = renderTopbar(user, 'asset') + `<div class="container">
+    <div class="card">
+      <h2>资产总览</h2>
+      <div class="grid-stats">
+        <div class="stat"><div class="num" id="sAssets">0</div><div class="lbl">资产合计</div></div>
+        <div class="stat"><div class="num" id="sDebt">0</div><div class="lbl">负债(信用)</div></div>
+        <div class="stat"><div class="num" id="sNet">0</div><div class="lbl">净资产</div></div>
+        <div class="stat"><div class="num" id="sMonth" style="font-size:18px;">—</div><div class="lbl">最新月份</div></div>
+      </div>
+      <div id="goalBox" style="margin-top:14px;padding:10px;background:#f8f9ff;border-radius:6px;font-size:14px;"></div>
+      <div class="row" style="margin-top:12px;">
+        <div><label>设置当年目标净资产(元)</label><input id="goalInput" type="number" step="0.01"></div>
+        <div style="display:flex;align-items:flex-end;"><button class="btn" id="goalSave">保存目标</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>净资产趋势</h2>
+      <canvas id="netChart" style="max-height:300px;"></canvas>
+    </div>
+    <div class="card">
+      <h2>每月消费（环比余额减少）</h2>
+      <canvas id="consumeChart" style="max-height:300px;"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>钱包 <button class="btn sm" id="walletAdd" style="float:right;">+ 新建钱包</button></h2>
+      <table>
+        <thead><tr><th>类型</th><th>名称</th><th>操作</th></tr></thead>
+        <tbody id="walletTbody"></tbody>
+      </table>
+      <p class="muted" style="margin-top:6px;">投资钱包分本金/持有收益；信用支付计为负债。每个钱包可「录入本月」或生成免密录入链接。</p>
+    </div>
+
+    <div class="card">
+      <h2>月度记录</h2>
+      <table>
+        <thead><tr><th>月份</th><th>钱包</th><th>金额</th></tr></thead>
+        <tbody id="recTbody"></tbody>
+      </table>
+    </div>
+  </div>`;
+  return renderPage({ title: '资产报表', body, script: ASSET_JS });
+}
+
+/** 资产免密录入公开页 */
+function publicAssetPage() {
+  const body = `<div class="login-wrap" style="max-width:420px;">
+    <div class="card">
+      <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:6px;">💰 <span id="walletName"></span></h1>
+      <p style="text-align:center;color:#888;font-size:13px;margin-bottom:16px;">录入 <span id="monthLabel"></span>金额</p>
+      <div id="msg" class="msg"></div>
+      <div id="content" style="display:none;">
+        <form id="aForm">
+          <div id="fields"></div>
+          <button class="btn" style="width:100%;" type="submit">提交本月记录</button>
+        </form>
+      </div>
+    </div>
+  </div>`;
+  return renderPage({ title: '资产录入', body, script: PUBLIC_ASSET_JS });
+}
+
 export {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
-  weightPage, publicWeightPage, settingsPage
+  weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage
 };

@@ -295,6 +295,75 @@ function createD1Adapter(env) {
         ).bind(...userIds).all();
         return results || [];
       }
+    },
+
+    // ==================== 资产 ====================
+    asset: {
+      async listWallets(userId) {
+        const { results } = await db.prepare(
+          'SELECT * FROM wallets WHERE user_id = ? ORDER BY id'
+        ).bind(userId).all();
+        return results || [];
+      },
+      async findWallet(id) {
+        return await db.prepare('SELECT * FROM wallets WHERE id = ?').bind(id).first();
+      },
+      async findWalletByShareToken(token) {
+        return await db.prepare('SELECT * FROM wallets WHERE share_token = ?').bind(token).first();
+      },
+      async createWallet(userId, w) {
+        const res = await db.prepare(
+          'INSERT INTO wallets (user_id, type, name) VALUES (?, ?, ?)'
+        ).bind(userId, w.type, w.name).run();
+        return res.meta.last_row_id;
+      },
+      async updateWallet(id, userId, w) {
+        await db.prepare('UPDATE wallets SET type=?, name=? WHERE id=? AND user_id=?')
+          .bind(w.type, w.name, id, userId).run();
+      },
+      async removeWallet(id, userId) {
+        await db.prepare('DELETE FROM wallets WHERE id=? AND user_id=?').bind(id, userId).run();
+      },
+      async setWalletShareToken(id, token) {
+        await db.prepare('UPDATE wallets SET share_token=? WHERE id=?').bind(token, id).run();
+      },
+      // 用户所有钱包的全部月度记录
+      async listRecords(userId) {
+        const { results } = await db.prepare(
+          'SELECT * FROM wallet_records WHERE user_id = ? ORDER BY month'
+        ).bind(userId).all();
+        return results || [];
+      },
+      async findRecord(walletId, month) {
+        return await db.prepare(
+          'SELECT * FROM wallet_records WHERE wallet_id=? AND month=?'
+        ).bind(walletId, month).first();
+      },
+      // 新增或覆盖某钱包某月记录
+      async upsertRecord(r) {
+        const existing = await db.prepare(
+          'SELECT id FROM wallet_records WHERE wallet_id=? AND month=?'
+        ).bind(r.wallet_id, r.month).first();
+        if (existing) {
+          await db.prepare(
+            'UPDATE wallet_records SET balance=?, principal=?, profit=? WHERE id=?'
+          ).bind(r.balance || 0, r.principal || 0, r.profit || 0, existing.id).run();
+          return existing.id;
+        }
+        const res = await db.prepare(
+          'INSERT INTO wallet_records (wallet_id, user_id, month, balance, principal, profit) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(r.wallet_id, r.user_id, r.month, r.balance || 0, r.principal || 0, r.profit || 0).run();
+        return res.meta.last_row_id;
+      },
+      async getGoal(userId, year) {
+        return await db.prepare('SELECT * FROM asset_goals WHERE user_id=? AND year=?').bind(userId, year).first();
+      },
+      async setGoal(userId, year, amount) {
+        await db.prepare(
+          `INSERT INTO asset_goals (user_id, year, target_amount) VALUES (?, ?, ?)
+           ON CONFLICT(user_id, year) DO UPDATE SET target_amount=excluded.target_amount`
+        ).bind(userId, year, amount).run();
+      }
     }
   };
 }

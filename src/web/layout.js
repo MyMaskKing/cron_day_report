@@ -145,6 +145,7 @@ function renderTopbar(user, active = '') {
     { key: 'dashboard', href: '/dashboard', text: '仪表盘' },
     { key: 'monitor', href: '/monitor', text: '定时任务' },
     { key: 'fund', href: '/fund', text: '基金追踪' },
+    { key: 'asset', href: '/asset', text: '资产报表' },
     { key: 'weight', href: '/weight', text: '体重曲线' }
   ];
   if (user.role === 'admin') links.push({ key: 'admin', href: '/admin', text: '用户管理' });
