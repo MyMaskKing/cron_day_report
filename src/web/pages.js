@@ -208,6 +208,20 @@ function fundPage(user) {
       </div>
     </div>
 
+    <div class="card" id="buyFormWrap" style="display:none;">
+      <h2>加仓 · <span id="buyTitle"></span></h2>
+      <p class="muted">当前持有 <b id="buyCurShares">0</b> 份 · 成本净值 <b id="buyCurCost">0</b>。按金额买入，系统自动累计份额并重算成本。</p>
+      <input type="hidden" id="buyId">
+      <div class="row">
+        <div><label>买入金额(元)</label><input id="buyAmount" type="number" step="0.01" placeholder="如 1000"></div>
+        <div><label>买入净值（默认当前估值，可改）</label><input id="buyNavInput" type="number" step="0.0001"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn" id="buyConfirm">确认加仓</button>
+        <button class="btn gray" id="buyCancel">取消</button>
+      </div>
+    </div>
+
     <div class="card">
       <h2>每日报告推送</h2>
       <div class="row">

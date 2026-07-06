@@ -149,12 +149,12 @@ async function loadUsers() {
     var data = await api('/api/admin/users');
     tbody.innerHTML = data.users.map(function(u) {
       return '<tr>' +
-        '<td>' + u.id + '</td>' +
-        '<td>' + esc(u.username) + '</td>' +
-        '<td><span class="tag ' + u.role + '">' + (u.role === 'admin' ? '超管' : '用户') + '</span></td>' +
-        '<td><span class="tag ' + u.status + '">' + (u.status === 'active' ? '正常' : '禁用') + '</span></td>' +
-        '<td>' + esc(u.created_at) + '</td>' +
-        '<td>' +
+        '<td data-label="ID">' + u.id + '</td>' +
+        '<td data-label="用户名">' + esc(u.username) + '</td>' +
+        '<td data-label="角色"><span class="tag ' + u.role + '">' + (u.role === 'admin' ? '超管' : '用户') + '</span></td>' +
+        '<td data-label="状态"><span class="tag ' + u.status + '">' + (u.status === 'active' ? '正常' : '禁用') + '</span></td>' +
+        '<td data-label="创建时间">' + esc(u.created_at) + '</td>' +
+        '<td data-label="操作">' +
           '<button class="btn sm" onclick="viewUser(' + u.id + ')">查看</button> ' +
           '<button class="btn sm gray" onclick="toggleRole(' + u.id + ",'" + u.role + "'" + ')">' + (u.role === 'admin' ? '降为用户' : '升为超管') + '</button> ' +
           '<button class="btn sm danger" onclick="toggleStatus(' + u.id + ",'" + u.status + "'" + ')">' + (u.status === 'active' ? '禁用' : '启用') + '</button>' +
@@ -217,10 +217,10 @@ async function loadChannels() {
   channels = data.channels;
   var tb = document.getElementById('chTbody');
   tb.innerHTML = channels.map(function(c) {
-    return '<tr><td>' + esc(c.name) + '</td><td>' + c.type + '</td>' +
-      '<td class="muted" style="word-break:break-all;">' + esc(c.url) + '</td>' +
-      '<td>' + (c.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag disabled">停用</span>') + '</td>' +
-      '<td><button class="btn sm gray" onclick="editCh(' + c.id + ')">编辑</button> ' +
+    return '<tr><td data-label="名称">' + esc(c.name) + '</td><td data-label="类型">' + c.type + '</td>' +
+      '<td data-label="URL" class="muted" style="word-break:break-all;">' + esc(c.url) + '</td>' +
+      '<td data-label="状态">' + (c.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag disabled">停用</span>') + '</td>' +
+      '<td data-label="操作"><button class="btn sm gray" onclick="editCh(' + c.id + ')">编辑</button> ' +
       '<button class="btn sm danger" onclick="delCh(' + c.id + ')">删除</button></td></tr>';
   }).join('') || '<tr><td colspan="5" class="muted">暂无渠道</td></tr>';
 }
@@ -293,12 +293,12 @@ async function loadTasks() {
   var data = await api('/api/monitor/tasks');
   var tb = document.getElementById('taskTbody');
   tb.innerHTML = data.tasks.map(function(t) {
-    return '<tr><td>' + esc(t.name) + '</td>' +
-      '<td class="muted" style="word-break:break-all;">' + esc(t.url) + '</td>' +
-      '<td>' + t.return_type + '</td>' +
-      '<td>' + channelName(t.channel_id) + '</td>' +
-      '<td>' + (t.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag disabled">停用</span>') + '</td>' +
-      '<td><button class="btn sm gray" onclick="editTask(' + t.id + ')">编辑</button> ' +
+    return '<tr><td data-label="名称">' + esc(t.name) + '</td>' +
+      '<td data-label="URL" class="muted" style="word-break:break-all;">' + esc(t.url) + '</td>' +
+      '<td data-label="格式">' + t.return_type + '</td>' +
+      '<td data-label="渠道">' + channelName(t.channel_id) + '</td>' +
+      '<td data-label="状态">' + (t.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag disabled">停用</span>') + '</td>' +
+      '<td data-label="操作"><button class="btn sm gray" onclick="editTask(' + t.id + ')">编辑</button> ' +
       '<button class="btn sm" onclick="viewLogs(' + t.id + ")," + '"' + esc(t.name).replace(/"/g,'') + '")>日志</button> ' +
       '<button class="btn sm danger" onclick="delTask(' + t.id + ')">删除</button></td></tr>';
   }).join('') || '<tr><td colspan="6" class="muted">暂无任务</td></tr>';
@@ -328,10 +328,10 @@ window.viewLogs = async function(id, name){
     box.innerHTML = '<h2>执行日志 · ' + esc(name) + '</h2>' +
       '<table><thead><tr><th>时间</th><th>结果</th><th>状态</th><th>耗时</th><th>大小</th></tr></thead><tbody>' +
       (data.logs.map(function(l){
-        return '<tr><td class="muted">' + esc(l.created_at) + '</td>' +
-          '<td>' + (l.success ? '<span class="tag ok">成功</span>' : '<span class="tag fail">失败</span>') + '</td>' +
-          '<td>' + esc(l.status) + ' ' + esc(l.status_text||'') + '</td>' +
-          '<td>' + (l.response_time||0) + 'ms</td><td>' + (l.response_size||0) + '</td></tr>';
+        return '<tr><td data-label="时间" class="muted">' + esc(l.created_at) + '</td>' +
+          '<td data-label="结果">' + (l.success ? '<span class="tag ok">成功</span>' : '<span class="tag fail">失败</span>') + '</td>' +
+          '<td data-label="状态">' + esc(l.status) + ' ' + esc(l.status_text||'') + '</td>' +
+          '<td data-label="耗时">' + (l.response_time||0) + 'ms</td><td data-label="大小">' + (l.response_size||0) + '</td></tr>';
       }).join('') || '<tr><td colspan="5" class="muted">暂无日志</td></tr>') + '</tbody></table>';
     box.scrollIntoView({ behavior:'smooth' });
   } catch(e){ alert(e.message); }
@@ -393,14 +393,15 @@ async function loadReport() {
   // 明细表
   var tb = document.getElementById('fundTbody');
   tb.innerHTML = data.items.map(function(it){
-    return '<tr><td>' + esc(it.name) + '<br><span class="muted">' + it.code + '</span></td>' +
-      '<td>' + it.shares + '</td>' +
-      '<td>' + it.cost_nav + '</td>' +
-      '<td>' + it.current_nav + ' <span style="color:' + colorOf(it.gszzl) + '">(' + sign(it.gszzl) + '%)</span></td>' +
-      '<td>' + it.cost + '</td>' +
-      '<td>' + it.value + '</td>' +
-      '<td style="color:' + colorOf(it.profit) + '">' + sign(it.profit) + '<br>(' + sign(it.rate) + '%)</td>' +
-      '<td><button class="btn sm gray" onclick="editFund(' + it.id + ')">编辑</button> ' +
+    return '<tr><td data-label="基金">' + esc(it.name) + '<br><span class="muted">' + it.code + '</span></td>' +
+      '<td data-label="份额">' + it.shares + '</td>' +
+      '<td data-label="成本净值">' + it.cost_nav + '</td>' +
+      '<td data-label="现价(估)">' + it.current_nav + ' <span style="color:' + colorOf(it.gszzl) + '">(' + sign(it.gszzl) + '%)</span></td>' +
+      '<td data-label="本金">' + it.cost + '</td>' +
+      '<td data-label="现值">' + it.value + '</td>' +
+      '<td data-label="收益" style="color:' + colorOf(it.profit) + '">' + sign(it.profit) + '<br>(' + sign(it.rate) + '%)</td>' +
+      '<td data-label="操作"><button class="btn sm gray" onclick="editFund(' + it.id + ')">编辑</button> ' +
+      '<button class="btn sm" onclick="buyFundUI(' + it.id + ')">加仓</button> ' +
       '<button class="btn sm" onclick="shareLink(' + it.id + ')">加仓链接</button> ' +
       '<button class="btn sm danger" onclick="delFund(' + it.id + ')">删除</button></td></tr>';
   }).join('') || '<tr><td colspan="8" class="muted">暂无持仓</td></tr>';
@@ -456,6 +457,33 @@ window.copyShare = function(){
   el.select();
   try { document.execCommand('copy'); alert('已复制'); } catch(e) { alert('请手动复制'); }
 };
+// 页面内加仓
+window.buyFundUI = function(id){
+  var f = (window._items||[]).filter(function(x){return x.id===id;})[0];
+  if (!f) return;
+  document.getElementById('buyId').value = id;
+  document.getElementById('buyTitle').textContent = f.name + ' (' + f.code + ')';
+  document.getElementById('buyCurShares').textContent = f.shares;
+  document.getElementById('buyCurCost').textContent = f.cost_nav;
+  document.getElementById('buyAmount').value = '';
+  document.getElementById('buyNavInput').value = f.current_nav || '';
+  document.getElementById('buyFormWrap').style.display = 'block';
+  document.getElementById('buyFormWrap').scrollIntoView({ behavior:'smooth' });
+};
+document.getElementById('buyConfirm').addEventListener('click', async function(){
+  var id = document.getElementById('buyId').value;
+  var payload = {
+    amount: document.getElementById('buyAmount').value,
+    buyNav: document.getElementById('buyNavInput').value || undefined
+  };
+  try {
+    var r = await api('/api/fund/' + id + '/buy', { method:'POST', body: payload });
+    alert('加仓成功！新增 ' + r.addShares + ' 份，当前共 ' + r.newShares + ' 份，成本净值 ' + r.newCostNav);
+    document.getElementById('buyFormWrap').style.display = 'none';
+    await loadReport();
+  } catch(e){ alert(e.message); }
+});
+document.getElementById('buyCancel').addEventListener('click', function(){ document.getElementById('buyFormWrap').style.display='none'; });
 document.getElementById('fSave').addEventListener('click', async function(){
   var id = document.getElementById('fId').value;
   var payload = {

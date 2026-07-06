@@ -22,7 +22,7 @@ import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './a
 import {
   listFunds, createFund, updateFund, removeFund,
   fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
-  getShareLink, fundScenario, publicFundInfo, publicFundBuy
+  getShareLink, fundScenario, publicFundInfo, publicFundBuy, buyFund
 } from './api/fund.api.js';
 import { fetchNavBatch, buildPortfolio, buildFundReport } from './services/fund.service.js';
 
@@ -72,6 +72,7 @@ router.get('/api/fund/analysis', fundAnalysis);
 router.post('/api/fund/scenario', fundScenario);
 router.post('/api/fund/report/send', sendReport);
 router.get('/api/fund/:id/share-link', getShareLink);
+router.post('/api/fund/:id/buy', buyFund);
 router.post('/api/fund', createFund);
 router.put('/api/fund/:id', updateFund);
 router.delete('/api/fund/:id', removeFund);

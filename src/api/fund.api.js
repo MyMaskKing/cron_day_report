@@ -285,8 +285,38 @@ async function publicFundBuy({ request, env, params }) {
   });
 }
 
+/** POST /api/fund/:id/buy  登录态页面内加仓（按金额买入，累计份额并重算成本）
+ * body: { amount, buyNav? }  buyNav 缺省用实时净值
+ */
+async function buyFund({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const id = parseInt(params.id, 10);
+  const fund = await storage.fund.findById(id);
+  if (!fund || fund.user_id !== auth.user_id) return error('持仓不存在', 404);
+
+  const body = await request.json().catch(() => ({}));
+  const amount = parseFloat(body.amount);
+  if (isNaN(amount) || amount <= 0) return error('请填写有效的买入金额');
+
+  let buyNav = parseFloat(body.buyNav);
+  if (isNaN(buyNav) || buyNav <= 0) {
+    const info = await fetchFundNav(fund.code);
+    if (!info) return error('无法获取净值，请手动填写买入净值');
+    buyNav = info.gsz || info.nav;
+  }
+
+  const res = applyBuy(fund, amount, buyNav);
+  await storage.fund.updateHolding(fund.id, res.newShares, res.newCostNav);
+  return json({
+    success: true, message: '加仓成功',
+    addShares: res.addShares, newShares: res.newShares, newCostNav: res.newCostNav, buyNav
+  });
+}
+
 export {
   listFunds, createFund, updateFund, removeFund,
   fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
-  getShareLink, fundScenario, publicFundInfo, publicFundBuy
+  getShareLink, fundScenario, publicFundInfo, publicFundBuy, buyFund
 };

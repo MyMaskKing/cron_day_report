@@ -75,6 +75,34 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 #globalLoading { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.55); backdrop-filter: blur(1px); z-index: 9999; align-items: center; justify-content: center; }
 #globalLoading .spinner { width: 46px; height: 46px; border: 4px solid #d9d9d9; border-top-color: #4a6cf7; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============ 移动端适配 (<=640px) ============ */
+@media (max-width: 640px) {
+  .topbar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
+  .topbar h1 { font-size: 16px; }
+  .topbar .nav { display: flex; flex-wrap: wrap; gap: 6px 0; }
+  .topbar .nav a { margin-left: 0; margin-right: 16px; }
+  .topbar .user { font-size: 13px; }
+  .topbar .user a { margin-left: 8px; }
+  .container { margin: 14px auto; padding: 0 10px; }
+  .card { padding: 15px; }
+  .row { flex-direction: column; gap: 0; }
+  .row > * { min-width: 0; }
+
+  /* 表格转卡片式：表头隐藏，每行成卡片，单元格纵向排列并用 data-label 标注列名 */
+  table thead { display: none; }
+  table, table tbody, table tr, table td { display: block; width: 100%; }
+  table tr { background: #fafbff; border: 1px solid #eee; border-radius: 8px; margin-bottom: 10px; padding: 6px 10px; }
+  table td { border: none; padding: 6px 0; text-align: right; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  table td::before { content: attr(data-label); color: #888; font-size: 13px; font-weight: 600; text-align: left; flex-shrink: 0; }
+  table td[data-label="操作"] { flex-wrap: wrap; justify-content: flex-start; }
+  table td[data-label="操作"]::before { width: 100%; margin-bottom: 4px; }
+  .btn.sm { margin-bottom: 4px; }
+  /* 汇总统计卡在窄屏两列 */
+  .grid-stats { grid-template-columns: repeat(2, 1fr); }
+  /* 登录/加仓等居中容器留边距 */
+  .login-wrap { margin: 40px auto; padding: 0 12px; }
+}
 `;
 
 /**
