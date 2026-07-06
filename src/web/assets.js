@@ -729,15 +729,31 @@ bindLogout();
 bindModal();
 var wChart = null, cmpChart = null;
 var members = [];
+var unit = 'jin';
 var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f96','#fa8c16'];
+
+function unitLabel(){ return unit === 'kg' ? '公斤' : '斤'; }
+function toDisplay(kg){ return unit === 'jin' ? Math.round(kg * 2 * 10) / 10 : kg; }
+function toKg(v){ v = parseFloat(v); return unit === 'jin' ? v / 2 : v; }
+function todayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
 
 async function loadAll() {
   var data = await api('/api/weight/chart');
   members = data.members;
+  unit = data.weight_unit || 'jin';
+  var us = document.getElementById('unitSel');
+  if (us) us.value = unit;
   renderMembers(data.members);
   renderMemberSelect(data.members);
+  updateUnitLabels();
+  var dateInput = document.getElementById('recDate');
+  if (dateInput && !dateInput.value) dateInput.value = todayStr();
   drawChart(data.members, data.records);
   renderRecordTable(data.members, data.records);
+}
+function updateUnitLabels() {
+  var l = document.getElementById('recWeightLabel');
+  if (l) l.textContent = '体重(' + unitLabel() + ')';
 }
 function renderMembers(list) {
   var box = document.getElementById('memberList');
@@ -749,13 +765,15 @@ function renderMembers(list) {
 }
 function renderMemberSelect(list) {
   var sel = document.getElementById('recMember');
+  var cur = sel.value;
   sel.innerHTML = list.map(function(m){ return '<option value="' + m.id + '">' + esc(m.name) + '</option>'; }).join('');
+  if (cur) sel.value = cur; // 保持选择, 默认第一个(浏览器默认选中首项)
 }
 function drawChart(mlist, records) {
   var byMember = {};
   mlist.forEach(function(m){ byMember[m.id] = { name: m.name, data: {} }; });
   var dates = {};
-  records.forEach(function(r){ if (byMember[r.member_id]) { byMember[r.member_id].data[r.record_date] = r.weight; dates[r.record_date] = 1; } });
+  records.forEach(function(r){ if (byMember[r.member_id]) { byMember[r.member_id].data[r.record_date] = toDisplay(r.weight); dates[r.record_date] = 1; } });
   var labels = Object.keys(dates).sort();
   var datasets = mlist.map(function(m, i){
     return { label: m.name, data: labels.map(function(d){ return byMember[m.id].data[d] != null ? byMember[m.id].data[d] : null; }),
@@ -764,7 +782,7 @@ function drawChart(mlist, records) {
   if (wChart) wChart.destroy();
   var el = document.getElementById('weightChart');
   wChart = new Chart(el, { type: 'line', data: { labels: labels, datasets: datasets },
-    options: { plugins: { legend: { position: 'top' } }, scales: { y: { title: { display: true, text: '体重(kg)' } } } } });
+    options: { plugins: { legend: { position: 'top' } }, scales: { y: { title: { display: true, text: '体重(' + unitLabel() + ')' } } } } });
 }
 function renderRecordTable(mlist, records) {
   var nameOf = {}; mlist.forEach(function(m){ nameOf[m.id] = m.name; });
@@ -773,8 +791,8 @@ function renderRecordTable(mlist, records) {
   tb.innerHTML = sorted.map(function(r){
     return '<tr><td data-label="日期">' + esc(r.record_date) + '</td>' +
       '<td data-label="成员">' + esc(nameOf[r.member_id]||'') + '</td>' +
-      '<td data-label="体重">' + r.weight + ' kg</td>' +
-      '<td data-label="操作"><button class="btn sm gray" onclick="recEdit(' + r.id + ',' + r.weight + ')">改</button> ' +
+      '<td data-label="体重">' + toDisplay(r.weight) + ' ' + unitLabel() + '</td>' +
+      '<td data-label="操作"><button class="btn sm gray" onclick="recEdit(' + r.id + ',' + r.weight + ",'" + r.record_date + "'" + ')">改</button> ' +
       '<button class="btn sm danger" onclick="recDel(' + r.id + ')">删</button></td></tr>';
   }).join('') || '<tr><td colspan="4" class="muted">暂无记录</td></tr>';
 }
@@ -793,13 +811,19 @@ window.mShare = async function(id){
   } catch(e){ alert(e.message); }
 };
 window.wCopy = function(){ var el=document.getElementById('wShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
-window.recEdit = function(id, cur){
-  openModal('修改体重',
-    '<label>体重(kg)</label><input id="reW" type="number" step="0.1" value="' + cur + '">' +
+window.recEdit = function(id, curKg, curDate){
+  openModal('修改记录',
+    '<label>日期</label><input id="reD" type="date" value="' + curDate + '">' +
+    '<label>体重(' + unitLabel() + ')</label><input id="reW" type="number" step="0.1" value="' + toDisplay(curKg) + '">' +
     '<div style="margin-top:12px;"><button class="btn" id="reConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   document.getElementById('reConfirm').addEventListener('click', async function(){
-    try { await api('/api/weight/records/' + id, { method:'PUT', body:{ weight: document.getElementById('reW').value } }); closeModal(); await loadAll(); }
-    catch(e){ alert(e.message); }
+    try {
+      await api('/api/weight/records/' + id, { method:'PUT', body:{
+        weight: toKg(document.getElementById('reW').value),
+        record_date: document.getElementById('reD').value
+      }});
+      closeModal(); await loadAll();
+    } catch(e){ alert(e.message); }
   });
 };
 window.recDel = async function(id){
@@ -817,10 +841,18 @@ document.getElementById('mAdd').addEventListener('click', function(){
   });
 });
 document.getElementById('recAdd').addEventListener('click', async function(){
-  var payload = { member_id: document.getElementById('recMember').value, weight: document.getElementById('recWeight').value,
+  var w = document.getElementById('recWeight').value;
+  if (!w) { alert('请填写体重'); return; }
+  var payload = { member_id: document.getElementById('recMember').value, weight: toKg(w),
     record_date: document.getElementById('recDate').value || undefined };
   try { var r = await api('/api/weight/records', { method:'POST', body: payload }); alert(r.message);
     document.getElementById('recWeight').value = ''; await loadAll(); }
+  catch(e){ alert(e.message); }
+});
+// 单位设置
+var unitSel = document.getElementById('unitSel');
+if (unitSel) unitSel.addEventListener('change', async function(){
+  try { await api('/api/weight/unit', { method:'PUT', body:{ weight_unit: this.value } }); await loadAll(); }
   catch(e){ alert(e.message); }
 });
 
@@ -845,7 +877,7 @@ async function runCompare() {
   d.records.forEach(function(r){
     var key = r.owner_id + '-' + r.member_name;
     if (!byKey[key]) byKey[key] = {};
-    byKey[key][r.record_date] = r.weight; dates[r.record_date] = 1;
+    byKey[key][r.record_date] = toDisplay(r.weight); dates[r.record_date] = 1;
   });
   var labels = Object.keys(dates).sort();
   var keys = Object.keys(byKey);
@@ -872,14 +904,21 @@ ${COMMON_JS}
 var token = location.pathname.split('/').filter(Boolean).pop();
 var msg = document.getElementById('msg');
 var pwChart = null;
+var pUnit = 'jin';
+function pLabel(){ return pUnit === 'kg' ? '公斤' : '斤'; }
+function pDisplay(kg){ return pUnit === 'jin' ? Math.round(kg*2*10)/10 : kg; }
+function pKg(v){ v = parseFloat(v); return pUnit === 'jin' ? v/2 : v; }
 
 async function loadInfo() {
   try {
     var d = await api('/api/public/weight/' + token);
+    pUnit = d.weight_unit || 'jin';
     document.getElementById('memberName').textContent = d.member.name;
     document.getElementById('streakTitle').textContent = d.title;
+    document.getElementById('monthDays').textContent = '本月已打卡 ' + d.monthDays + ' 天';
     document.getElementById('todayDate').value = d.today;
-    if (d.todayWeight != null) document.getElementById('weight').value = d.todayWeight;
+    document.getElementById('weightLabel').textContent = '今日体重(' + pLabel() + ')';
+    if (d.todayWeight != null) document.getElementById('weight').value = pDisplay(d.todayWeight);
     document.getElementById('content').style.display = 'block';
     drawMini(d.records);
   } catch(e) {
@@ -890,15 +929,15 @@ function drawMini(records) {
   var el = document.getElementById('miniChart');
   if (!el || !records.length) return;
   var labels = records.map(function(r){ return r.record_date; });
-  var data = records.map(function(r){ return r.weight; });
+  var data = records.map(function(r){ return pDisplay(r.weight); });
   if (pwChart) pwChart.destroy();
-  pwChart = new Chart(el, { type:'line', data:{ labels: labels, datasets:[{ label:'体重(kg)', data: data, borderColor:'#667eea', tension:.3 }] },
+  pwChart = new Chart(el, { type:'line', data:{ labels: labels, datasets:[{ label:'体重('+pLabel()+')', data: data, borderColor:'#667eea', tension:.3 }] },
     options:{ plugins:{ legend:{ display:false } } } });
 }
 document.getElementById('wForm').addEventListener('submit', async function(e){
   e.preventDefault();
   try {
-    await api('/api/public/weight/' + token, { method:'POST', body:{ weight: document.getElementById('weight').value } });
+    await api('/api/public/weight/' + token, { method:'POST', body:{ weight: pKg(document.getElementById('weight').value) } });
     showMsg(msg, '今日体重已记录！', true);
     await loadInfo();
   } catch(err){ showMsg(msg, err.message, false); }

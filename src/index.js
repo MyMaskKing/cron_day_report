@@ -31,7 +31,8 @@ import { fetchNavBatch, buildPortfolio, buildFundReport } from './services/fund.
 import {
   listMembers, createMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
-  publicMemberInfo, publicSubmitWeight, adminCompare
+  publicMemberInfo, publicSubmitWeight, adminCompare,
+  getUnit, setUnit
 } from './api/weight.api.js';
 
 // Pages
@@ -102,6 +103,8 @@ router.post('/api/weight/members', createMember);
 router.get('/api/weight/members/:id/share-link', getMemberShareLink);
 router.delete('/api/weight/members/:id', removeMember);
 router.get('/api/weight/chart', weightChart);
+router.get('/api/weight/unit', getUnit);
+router.put('/api/weight/unit', setUnit);
 router.post('/api/weight/records', addRecord);
 router.put('/api/weight/records/:id', updateRecord);
 router.delete('/api/weight/records/:id', removeRecord);

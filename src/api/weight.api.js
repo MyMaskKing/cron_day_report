@@ -34,12 +34,16 @@ function streakTitle(days) {
 
 // ==================== 成员 ====================
 
-/** GET /api/weight/members  列出成员 */
+/** GET /api/weight/members  列出成员（无成员时自动创建默认成员=当前用户名） */
 async function listMembers({ request, env }) {
   const auth = await requireAuth(request, env);
   if (auth instanceof Response) return auth;
   const storage = getStorage(env);
-  const members = await storage.weight.listMembers(auth.user_id);
+  let members = await storage.weight.listMembers(auth.user_id);
+  if (members.length === 0) {
+    await storage.weight.createMember(auth.user_id, auth.username);
+    members = await storage.weight.listMembers(auth.user_id);
+  }
   return json({ success: true, members });
 }
 
@@ -87,14 +91,39 @@ async function getMemberShareLink({ request, env, params, url }) {
 
 // ==================== 记录 ====================
 
-/** GET /api/weight/chart  当前用户所有成员的曲线数据 */
+/** GET /api/weight/chart  当前用户所有成员的曲线数据（带单位偏好） */
 async function weightChart({ request, env }) {
   const auth = await requireAuth(request, env);
   if (auth instanceof Response) return auth;
   const storage = getStorage(env);
-  const members = await storage.weight.listMembers(auth.user_id);
+  let members = await storage.weight.listMembers(auth.user_id);
+  if (members.length === 0) {
+    await storage.weight.createMember(auth.user_id, auth.username);
+    members = await storage.weight.listMembers(auth.user_id);
+  }
   const records = await storage.weight.listRecords(auth.user_id);
-  return json({ success: true, members, records });
+  const user = await storage.users.findById(auth.user_id);
+  return json({ success: true, members, records, weight_unit: (user && user.weight_unit) || 'jin' });
+}
+
+/** GET /api/weight/unit  读取当前用户体重单位 */
+async function getUnit({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const user = await storage.users.findById(auth.user_id);
+  return json({ success: true, weight_unit: (user && user.weight_unit) || 'jin' });
+}
+
+/** PUT /api/weight/unit  设置体重单位  body: { weight_unit: 'jin'|'kg' } */
+async function setUnit({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const unit = body.weight_unit === 'kg' ? 'kg' : 'jin';
+  const storage = getStorage(env);
+  await storage.users.updateWeightUnit(auth.user_id, unit);
+  return json({ success: true, message: '单位已更新', weight_unit: unit });
 }
 
 /** POST /api/weight/records  新增/更新记录（同一成员同一天覆盖）
@@ -136,7 +165,16 @@ async function updateRecord({ request, env, params }) {
   const id = parseInt(params.id, 10);
   const rec = await storage.weight.findRecord(id);
   if (!rec || rec.user_id !== auth.user_id) return error('记录不存在', 404);
-  await storage.weight.updateRecord(id, weight, body.note);
+
+  const newDate = body.record_date;
+  if (newDate && newDate !== rec.record_date) {
+    // 改日期：检查目标日期是否已有该成员记录，避免同成员同日重复
+    const conflict = await storage.weight.findRecordByMemberDate(rec.member_id, newDate);
+    if (conflict && conflict.id !== id) return error('该成员在目标日期已有记录', 400);
+    await storage.weight.updateRecordWithDate(id, weight, body.note, newDate);
+  } else {
+    await storage.weight.updateRecord(id, weight, body.note);
+  }
   return json({ success: true, message: '记录已更新' });
 }
 
@@ -165,10 +203,15 @@ async function publicMemberInfo({ env, params }) {
   const records = await storage.weight.listRecords(m.user_id, m.id);
   const today = todayCN();
   const todayRecord = records.find(r => r.record_date === today);
+  // 本月已打卡天数（按记录日期去重，YYYY-MM 匹配当月）
+  const month = today.slice(0, 7);
+  const monthDays = new Set(records.filter(r => (r.record_date || '').slice(0, 7) === month).map(r => r.record_date)).size;
+  const owner = await storage.users.findById(m.user_id);
   return json({
     success: true,
     member: { id: m.id, name: m.name },
-    today, days, title: streakTitle(days),
+    today, days, title: streakTitle(days), monthDays,
+    weight_unit: (owner && owner.weight_unit) || 'jin',
     todayWeight: todayRecord ? todayRecord.weight : null,
     records
   });
@@ -216,5 +259,6 @@ async function adminCompare({ request, env, url }) {
 export {
   listMembers, createMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
-  publicMemberInfo, publicSubmitWeight, adminCompare
+  publicMemberInfo, publicSubmitWeight, adminCompare,
+  getUnit, setUnit
 };

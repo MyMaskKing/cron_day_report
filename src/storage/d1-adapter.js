@@ -41,6 +41,9 @@ function createD1Adapter(env) {
       async updatePassword(id, passwordHash) {
         await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, id).run();
       },
+      async updateWeightUnit(id, unit) {
+        await db.prepare('UPDATE users SET weight_unit = ? WHERE id = ?').bind(unit, id).run();
+      },
       async count() {
         const row = await db.prepare('SELECT COUNT(*) AS c FROM users').first();
         return row ? row.c : 0;
@@ -252,6 +255,9 @@ function createD1Adapter(env) {
       },
       async updateRecord(id, weight, note) {
         await db.prepare('UPDATE weight_records SET weight=?, note=? WHERE id=?').bind(weight, note || '', id).run();
+      },
+      async updateRecordWithDate(id, weight, note, date) {
+        await db.prepare('UPDATE weight_records SET weight=?, note=?, record_date=? WHERE id=?').bind(weight, note || '', date, id).run();
       },
       async findRecord(id) {
         return await db.prepare('SELECT * FROM weight_records WHERE id = ?').bind(id).first();

@@ -288,7 +288,13 @@ function publicBuyPage() {
 function weightPage(user) {
   const body = renderTopbar(user, 'weight') + `<div class="container">
     <div class="card">
-      <h2>成员 <button class="btn sm" id="mAdd" style="float:right;">+ 新建成员</button></h2>
+      <h2>成员
+        <button class="btn sm" id="mAdd" style="float:right;">+ 新建成员</button>
+        <select id="unitSel" class="btn sm gray" style="float:right;width:auto;margin-right:8px;padding:4px 8px;">
+          <option value="jin">单位：斤</option>
+          <option value="kg">单位：公斤</option>
+        </select>
+      </h2>
       <div id="memberList"></div>
     </div>
 
@@ -296,8 +302,8 @@ function weightPage(user) {
       <h2>录入体重</h2>
       <div class="row">
         <div><label>成员</label><select id="recMember"></select></div>
-        <div><label>体重(kg)</label><input id="recWeight" type="number" step="0.1" placeholder="如 65.5"></div>
-        <div><label>日期（留空=今天）</label><input id="recDate" type="date"></div>
+        <div><label id="recWeightLabel">体重(斤)</label><input id="recWeight" type="number" step="0.1" placeholder="如 130"></div>
+        <div><label>日期</label><input id="recDate" type="date"></div>
       </div>
       <button class="btn" id="recAdd">保存记录</button>
       <p class="muted" style="margin-top:6px;">同一成员同一天再次录入将覆盖当天数据。</p>
@@ -331,14 +337,15 @@ function publicWeightPage() {
   const body = `<div class="login-wrap" style="max-width:420px;">
     <div class="card">
       <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:6px;">⚖️ <span id="memberName"></span></h1>
-      <p id="streakTitle" style="text-align:center;color:#389e0d;font-weight:600;margin-bottom:16px;"></p>
+      <p id="streakTitle" style="text-align:center;color:#389e0d;font-weight:600;margin-bottom:2px;"></p>
+      <p id="monthDays" style="text-align:center;color:#888;font-size:13px;margin-bottom:16px;"></p>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
         <form id="wForm">
           <label>日期（今日，不可修改）</label>
           <input id="todayDate" readonly disabled style="background:#f5f5f5;text-align:center;">
-          <label>今日体重(kg)</label>
-          <input id="weight" type="number" step="0.1" required placeholder="如 65.5">
+          <label id="weightLabel">今日体重(斤)</label>
+          <input id="weight" type="number" step="0.1" required placeholder="如 130">
           <button class="btn" style="width:100%;" type="submit">提交今日体重</button>
         </form>
         <canvas id="miniChart" style="margin-top:16px;max-height:220px;"></canvas>
