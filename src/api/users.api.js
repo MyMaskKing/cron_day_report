@@ -6,6 +6,10 @@
 import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
 import { requireAdmin } from '../auth/middleware.js';
+import { hashPassword } from '../auth/password.js';
+import { getTokenFromRequest, getSession, impersonate, stopImpersonate } from '../auth/session.js';
+
+const DEFAULT_PASSWORD = '123456';
 
 /**
  * GET /api/admin/users  列出所有用户
@@ -94,4 +98,86 @@ async function updateUserStatus({ request, env, params }) {
   return json({ success: true, message: '状态已更新' });
 }
 
-export { listUsers, getUserDetail, updateUserRole, updateUserStatus };
+/**
+ * POST /api/admin/users  创建用户（默认密码 123456）
+ * body: { username, password?, role? }
+ */
+async function createUser({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+
+  const body = await request.json().catch(() => ({}));
+  const username = (body.username || '').trim();
+  if (username.length < 3 || username.length > 32) return error('用户名需为 3-32 个字符');
+  const role = body.role === 'admin' ? 'admin' : 'user';
+  const password = body.password && body.password.length >= 6 ? body.password : DEFAULT_PASSWORD;
+
+  const storage = getStorage(env);
+  const existing = await storage.users.findByName(username);
+  if (existing) return error('用户名已存在');
+
+  const password_hash = await hashPassword(password);
+  const id = await storage.users.create({ username, password_hash, role });
+  return json({ success: true, message: `用户已创建，初始密码：${password}`, id });
+}
+
+/**
+ * PUT /api/admin/users/:id/password  重置密码（默认 123456，或指定）
+ * body: { password? }
+ */
+async function resetPassword({ request, env, params }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+
+  const body = await request.json().catch(() => ({}));
+  const password = body.password && body.password.length >= 6 ? body.password : DEFAULT_PASSWORD;
+
+  const storage = getStorage(env);
+  const userId = parseInt(params.id, 10);
+  const user = await storage.users.findById(userId);
+  if (!user) return error('用户不存在', 404);
+
+  const password_hash = await hashPassword(password);
+  await storage.users.updatePassword(userId, password_hash);
+  return json({ success: true, message: `密码已重置为：${password}` });
+}
+
+/**
+ * POST /api/admin/users/:id/impersonate  超管切换为指定用户身份
+ */
+async function impersonateUser({ request, env, params }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  if (auth.impersonating) return error('请先退出当前模拟身份', 400);
+
+  const storage = getStorage(env);
+  const userId = parseInt(params.id, 10);
+  const target = await storage.users.findById(userId);
+  if (!target) return error('用户不存在', 404);
+  if (target.id === auth.user_id) return error('不能切换到自己', 400);
+
+  const token = getTokenFromRequest(request);
+  await impersonate(env, token, { id: target.id, username: target.username, role: target.role }, auth);
+  return json({ success: true, message: `已切换为 ${target.username}` });
+}
+
+/**
+ * POST /api/admin/stop-impersonate  退出模拟身份，恢复超管
+ */
+async function stopImpersonateUser({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session || !session.impersonating) return error('当前不在模拟状态', 400);
+
+  const storage = getStorage(env);
+  const admin = await storage.users.findById(session.admin_id);
+  if (!admin) return error('超管账号不存在', 404);
+
+  await stopImpersonate(env, token, { id: admin.id, username: admin.username, role: admin.role });
+  return json({ success: true, message: '已恢复超管身份' });
+}
+
+export {
+  listUsers, getUserDetail, updateUserRole, updateUserStatus,
+  createUser, resetPassword, impersonateUser, stopImpersonateUser
+};

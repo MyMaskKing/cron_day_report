@@ -46,6 +46,12 @@ function bindLogout() {
     try { await api('/api/auth/logout', { method: 'POST' }); } catch (err) {}
     location.href = '/login';
   });
+  var stopBtn = document.getElementById('stopImpersonateBtn');
+  if (stopBtn) stopBtn.addEventListener('click', async function(e) {
+    e.preventDefault();
+    try { await api('/api/admin/stop-impersonate', { method: 'POST' }); location.href = '/admin'; }
+    catch (err) { alert(err.message); }
+  });
 }
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) {
@@ -173,6 +179,7 @@ form.addEventListener('submit', async function(e) {
 const ADMIN_JS = `
 ${COMMON_JS}
 bindLogout();
+bindModal();
 var tbody = document.getElementById('userTbody');
 var detail = document.getElementById('detail');
 
@@ -190,6 +197,8 @@ async function loadUsers() {
           '<button class="btn sm" onclick="toggleDropdown(this)">⋯ 操作</button>' +
           '<div class="dropdown-menu">' +
             '<button onclick="viewUser(' + u.id + ')">查看</button>' +
+            '<button onclick="impersonate(' + u.id + ",'" + esc(u.username).replace(/'/g,'') + "'" + ')">切换身份</button>' +
+            '<button onclick="resetPwd(' + u.id + ",'" + esc(u.username).replace(/'/g,'') + "'" + ')">重置密码</button>' +
             '<button onclick="toggleRole(' + u.id + ",'" + u.role + "'" + ')">' + (u.role === 'admin' ? '降为用户' : '升为超管') + '</button>' +
             '<button class="danger" onclick="toggleStatus(' + u.id + ",'" + u.status + "'" + ')">' + (u.status === 'active' ? '禁用' : '启用') + '</button>' +
           '</div>' +
@@ -223,7 +232,46 @@ async function toggleStatus(id, cur) {
   try { await api('/api/admin/users/' + id + '/status', { method: 'PUT', body: { status: status } }); loadUsers(); }
   catch (err) { alert(err.message); }
 }
+async function impersonate(id, name) {
+  if (!confirm('确认切换到 ' + name + ' 的身份浏览?')) return;
+  try { await api('/api/admin/users/' + id + '/impersonate', { method: 'POST' }); location.href = '/dashboard'; }
+  catch (err) { alert(err.message); }
+}
+function resetPwd(id, name) {
+  openModal('重置密码 · ' + name,
+    '<p class="muted">留空则重置为默认密码 123456。</p>' +
+    '<label>新密码（可选，至少6位）</label><input id="rpPwd" type="text" placeholder="留空=123456">' +
+    '<div style="margin-top:12px;"><button class="btn" id="rpConfirm">确认重置</button> ' +
+    '<button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('rpConfirm').addEventListener('click', async function(){
+    var pwd = document.getElementById('rpPwd').value;
+    try {
+      var r = await api('/api/admin/users/' + id + '/password', { method: 'PUT', body: pwd ? { password: pwd } : {} });
+      closeModal(); alert(r.message);
+    } catch (err) { alert(err.message); }
+  });
+}
+function newUser() {
+  openModal('创建用户',
+    '<label>用户名（3-32位）</label><input id="nuName">' +
+    '<label>密码（留空=123456）</label><input id="nuPwd" type="text" placeholder="留空=123456">' +
+    '<label>角色</label><select id="nuRole"><option value="user">用户</option><option value="admin">超管</option></select>' +
+    '<div style="margin-top:12px;"><button class="btn" id="nuConfirm">创建</button> ' +
+    '<button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('nuConfirm').addEventListener('click', async function(){
+    var payload = {
+      username: document.getElementById('nuName').value.trim(),
+      password: document.getElementById('nuPwd').value || undefined,
+      role: document.getElementById('nuRole').value
+    };
+    try { var r = await api('/api/admin/users', { method: 'POST', body: payload }); closeModal(); alert(r.message); loadUsers(); }
+    catch (err) { alert(err.message); }
+  });
+}
 window.viewUser = viewUser; window.toggleRole = toggleRole; window.toggleStatus = toggleStatus;
+window.impersonate = impersonate; window.resetPwd = resetPwd;
+var newUserBtn = document.getElementById('newUserBtn');
+if (newUserBtn) newUserBtn.addEventListener('click', newUser);
 loadUsers();
 `;
 

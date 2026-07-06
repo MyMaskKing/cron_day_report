@@ -16,7 +16,10 @@ import { sendNotification } from './services/notify.service.js';
 
 // API handlers
 import { register, login, logout, me, bootstrap, setupStatus } from './api/auth.api.js';
-import { listUsers, getUserDetail, updateUserRole, updateUserStatus } from './api/users.api.js';
+import {
+  listUsers, getUserDetail, updateUserRole, updateUserStatus,
+  createUser, resetPassword, impersonateUser, stopImpersonateUser
+} from './api/users.api.js';
 import { listChannels, createChannel, updateChannel, removeChannel } from './api/notify.api.js';
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
 import {
@@ -42,9 +45,13 @@ router.post('/api/auth/bootstrap', bootstrap);
 
 // --- 超管用户管理 API ---
 router.get('/api/admin/users', listUsers);
+router.post('/api/admin/users', createUser);
+router.post('/api/admin/stop-impersonate', stopImpersonateUser);
 router.get('/api/admin/users/:id', getUserDetail);
 router.put('/api/admin/users/:id/role', updateUserRole);
 router.put('/api/admin/users/:id/status', updateUserStatus);
+router.put('/api/admin/users/:id/password', resetPassword);
+router.post('/api/admin/users/:id/impersonate', impersonateUser);
 
 // --- 手动触发（兼容保留，执行当前登录用户的启用任务）---
 router.get('/api/monitor/run', runMyMonitors);
@@ -112,7 +119,10 @@ async function handlePages(request, env) {
     if (!session) {
       return new Response(null, { status: 302, headers: { Location: '/login' } });
     }
-    const user = { id: session.user_id, username: session.username, role: session.role };
+    const user = {
+      id: session.user_id, username: session.username, role: session.role,
+      impersonating: !!session.impersonating, admin_username: session.admin_username || null
+    };
 
     switch (pageMap[path]) {
       case 'dashboard':

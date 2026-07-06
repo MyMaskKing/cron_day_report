@@ -38,6 +38,9 @@ function createD1Adapter(env) {
       async updateStatus(id, status) {
         await db.prepare('UPDATE users SET status = ? WHERE id = ?').bind(status, id).run();
       },
+      async updatePassword(id, passwordHash) {
+        await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, id).run();
+      },
       async count() {
         const row = await db.prepare('SELECT COUNT(*) AS c FROM users').first();
         return row ? row.c : 0;

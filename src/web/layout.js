@@ -43,6 +43,8 @@ a { color: #4a6cf7; text-decoration: none; }
 .topbar .nav a:hover, .topbar .nav a.active { opacity: 1; text-decoration: underline; }
 .topbar .user { font-size: 14px; }
 .topbar .user a { margin-left: 12px; }
+.impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }
+.impersonate-banner a { color: #cf1322; font-weight: 600; margin-left: 8px; }
 .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
 .card { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
 .card h2 { font-size: 16px; margin-bottom: 14px; color: #1f2329; }
@@ -157,7 +159,10 @@ function renderTopbar(user, active = '') {
     <div class="user">${user.username} <span class="tag ${user.role}">${user.role === 'admin' ? '超管' : '用户'}</span>
       <a href="#" id="logoutBtn">登出</a>
     </div>
-  </div>`;
+  </div>` + (user.impersonating ? `<div class="impersonate-banner">
+    ⚠️ 你（超管 ${user.admin_username || ''}）正在以 <b>${user.username}</b> 的身份浏览
+    <a href="#" id="stopImpersonateBtn">点此退出</a>
+  </div>` : '');
 }
 
 export { renderPage, renderTopbar, BASE_CSS };

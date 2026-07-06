@@ -82,7 +82,9 @@ function dashboardPage(user) {
 function adminPage(user) {
   const body = renderTopbar(user, 'admin') + `<div class="container">
     <div class="card">
-      <h2>全部用户</h2>
+      <h2>全部用户
+        <button class="btn sm" id="newUserBtn" style="float:right;">+ 新建用户</button>
+      </h2>
       <table>
         <thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
         <tbody id="userTbody"></tbody>

@@ -45,6 +45,35 @@ async function destroySession(env, token) {
 }
 
 /**
+ * 超管切换为指定用户身份（复用当前 token，改写 session 数据）
+ * 保留 admin 原始身份用于恢复
+ * @param {Object} env
+ * @param {string} token - 当前超管会话 token
+ * @param {Object} targetUser - 目标用户 {id, username, role}
+ * @param {Object} admin - 当前超管 {user_id, username}
+ */
+async function impersonate(env, token, targetUser, admin) {
+  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL;
+  await kvSetSession(env.KV, token, {
+    user_id: targetUser.id, username: targetUser.username, role: targetUser.role, exp,
+    impersonating: true, admin_id: admin.user_id, admin_username: admin.username
+  }, SESSION_TTL);
+}
+
+/**
+ * 退出模拟身份，恢复超管
+ * @param {Object} env
+ * @param {string} token
+ * @param {Object} admin - 超管用户 {id, username, role}
+ */
+async function stopImpersonate(env, token, admin) {
+  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL;
+  await kvSetSession(env.KV, token, {
+    user_id: admin.id, username: admin.username, role: admin.role, exp
+  }, SESSION_TTL);
+}
+
+/**
  * 从请求 Cookie 提取会话 token
  * @param {Request} request
  * @returns {string|null}
@@ -67,5 +96,6 @@ function buildClearCookie() {
 
 export {
   createSession, getSession, destroySession,
+  impersonate, stopImpersonate,
   getTokenFromRequest, buildSessionCookie, buildClearCookie, COOKIE_NAME
 };
