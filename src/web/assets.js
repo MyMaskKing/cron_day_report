@@ -461,14 +461,14 @@ document.getElementById('runNow').addEventListener('click', async function(){
 async function loadMonitorPush() {
   var chs = await api('/api/notify/channels');
   var d = await api('/api/push/monitor');
-  document.getElementById('mpHour').value = d.config.hour != null ? d.config.hour : 6;
+  document.getElementById('mpHour').value = (d.config.hours || [6]).join(',');
   document.getElementById('mpEn').checked = !!d.config.enabled;
 }
 var mpSave = document.getElementById('mpSave');
 if (mpSave) mpSave.addEventListener('click', async function(){
   try {
     await api('/api/push/monitor', { method:'PUT', body:{
-      hour: document.getElementById('mpHour').value,
+      hours: document.getElementById('mpHour').value,
       enabled: document.getElementById('mpEn').checked
     }});
     alert('定时配置已保存');
@@ -695,14 +695,14 @@ async function loadReportConfig() {
   document.getElementById('rcFormat').value = cfg.format || 'text';
   document.getElementById('rcEnabled').checked = !!cfg.enabled;
   var hourEl = document.getElementById('rcHour');
-  if (hourEl) hourEl.value = cfg.hour != null ? cfg.hour : 15;
+  if (hourEl) hourEl.value = (cfg.hours || [15]).join(',');
 }
 document.getElementById('rcSave').addEventListener('click', async function(){
   var hourEl = document.getElementById('rcHour');
   var payload = {
     channel_id: document.getElementById('rcChannel').value || null,
     format: document.getElementById('rcFormat').value,
-    hour: hourEl ? hourEl.value : 15,
+    hours: hourEl ? hourEl.value : '15',
     enabled: document.getElementById('rcEnabled').checked
   };
   try { await api('/api/push/fund', { method:'PUT', body: payload }); alert('日报配置已保存'); }
@@ -867,10 +867,15 @@ function updateUnitLabels() {
 function renderMembers(list) {
   var box = document.getElementById('memberList');
   box.innerHTML = list.map(function(m){
-    return '<span class="tag user" style="margin:2px 4px;padding:4px 10px;">' + esc(m.name) +
+    return '<span class="tag user" style="margin:2px 4px;padding:4px 10px;">' +
+      '<a href="#" onclick="selMember(' + m.id + ');return false;" style="color:inherit;text-decoration:none;">' + esc(m.name) + '</a>' +
       ' <a href="#" onclick="mShare(' + m.id + ');return false;" style="margin-left:4px;">链接</a>' +
       ' <a href="#" onclick="mDel(' + m.id + ');return false;" style="color:#cf1322;">×</a></span>';
   }).join('') || '<span class="muted">暂无成员</span>';
+}
+function selMember(id) {
+  var sel = document.getElementById('recMember');
+  if (sel) sel.value = id;
 }
 function renderMemberSelect(list) {
   var sel = document.getElementById('recMember');
@@ -1024,7 +1029,7 @@ async function loadPush() {
   var d = await api('/api/push/weight');
   document.getElementById('pushCh').value = d.config.channel_id || '';
   document.getElementById('pushFmt').value = d.config.format || 'text';
-  document.getElementById('pushHour').value = d.config.hour != null ? d.config.hour : 10;
+  document.getElementById('pushHour').value = (d.config.hours || [10]).join(',');
   document.getElementById('pushEn').checked = !!d.config.enabled;
 }
 var pushSave = document.getElementById('pushSave');
@@ -1033,7 +1038,7 @@ if (pushSave) pushSave.addEventListener('click', async function(){
     await api('/api/push/weight', { method:'PUT', body:{
       channel_id: document.getElementById('pushCh').value || null,
       format: document.getElementById('pushFmt').value,
-      hour: document.getElementById('pushHour').value,
+      hours: document.getElementById('pushHour').value,
       enabled: document.getElementById('pushEn').checked
     }});
     alert('推送配置已保存');
@@ -1091,6 +1096,52 @@ document.getElementById('wForm').addEventListener('submit', async function(e){
   } catch(err){ showMsg(msg, err.message, false); }
 });
 loadInfo();
+`;
+
+// 体重免密报告查看页 JS（曲线图，无需登录）
+const WEIGHT_REPORT_JS = `
+${COMMON_JS}
+var token = location.pathname.split('/').filter(Boolean).pop();
+var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f96','#fa8c16'];
+(async function(){
+  try {
+    var d = await api('/api/public/weight-report/' + token);
+    var unit = d.weight_unit || 'jin';
+    var uLabel = unit === 'kg' ? '公斤' : '斤';
+    var disp = function(kg){ return unit === 'jin' ? Math.round(kg*2*10)/10 : kg; };
+    var byMember = {};
+    d.members.forEach(function(m){ byMember[m.id] = {}; });
+    var dates = {};
+    d.records.forEach(function(r){ if (byMember[r.member_id]) { byMember[r.member_id][r.record_date] = disp(r.weight); dates[r.record_date] = 1; } });
+    var labels = Object.keys(dates).sort();
+    var datasets = d.members.map(function(m, i){
+      return { label: m.name, data: labels.map(function(dt){ return byMember[m.id][dt] != null ? byMember[m.id][dt] : null; }),
+        borderColor: COLORS[i % COLORS.length], spanGaps: true, tension: .3 };
+    });
+    new Chart(document.getElementById('rptChart'), { type:'line', data:{ labels: labels, datasets: datasets },
+      options:{ plugins:{ legend:{ position:'top' } }, scales:{ y:{ title:{ display:true, text:'体重('+uLabel+')' } } } } });
+    document.getElementById('content').style.display = 'block';
+  } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
+})();
+`;
+
+// 资产免密报告查看页 JS
+const ASSET_REPORT_JS = `
+${COMMON_JS}
+var token = location.pathname.split('/').filter(Boolean).pop();
+(async function(){
+  try {
+    var d = await api('/api/public/asset-report/' + token);
+    var r = d.report;
+    new Chart(document.getElementById('netChart'), { type:'line',
+      data:{ labels: r.months, datasets:[{ label:'净资产', data: r.netWorthSeries, borderColor:'#667eea', tension:.3 }] },
+      options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'净资产(元)' } } } } });
+    new Chart(document.getElementById('consumeChart'), { type:'bar',
+      data:{ labels: r.months, datasets:[{ label:'消费', data: r.consumeSeries, backgroundColor:'#faad14' }] },
+      options:{ plugins:{ legend:{ display:false } } } });
+    document.getElementById('content').style.display = 'block';
+  } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
+})();
 `;
 
 // 资产报表页 JS
@@ -1271,8 +1322,8 @@ async function loadPush() {
   var d = await api('/api/push/asset');
   document.getElementById('pushCh').value = d.config.channel_id || '';
   document.getElementById('pushFmt').value = d.config.format || 'text';
-  document.getElementById('pushDay').value = d.config.day != null ? d.config.day : 15;
-  document.getElementById('pushHour').value = d.config.hour != null ? d.config.hour : 9;
+  document.getElementById('pushDay').value = (d.config.days || [15]).join(',');
+  document.getElementById('pushHour').value = (d.config.hours || [9]).join(',');
   document.getElementById('pushEn').checked = !!d.config.enabled;
 }
 document.getElementById('pushSave').addEventListener('click', async function(){
@@ -1280,8 +1331,8 @@ document.getElementById('pushSave').addEventListener('click', async function(){
     await api('/api/push/asset', { method:'PUT', body:{
       channel_id: document.getElementById('pushCh').value || null,
       format: document.getElementById('pushFmt').value,
-      day: document.getElementById('pushDay').value,
-      hour: document.getElementById('pushHour').value,
+      days: document.getElementById('pushDay').value,
+      hours: document.getElementById('pushHour').value,
       enabled: document.getElementById('pushEn').checked
     }});
     alert('推送配置已保存');
@@ -1334,5 +1385,6 @@ loadInfo();
 
 export {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
-  PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS
+  PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
+  WEIGHT_REPORT_JS, ASSET_REPORT_JS
 };

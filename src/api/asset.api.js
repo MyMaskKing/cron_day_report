@@ -189,8 +189,21 @@ async function publicSaveRecord({ request, env, params }) {
   return json({ success: true, message: '本月记录已保存' });
 }
 
+/** GET /api/public/asset-report/:token  免密查看资产趋势数据
+ * token = push_config(module=asset).report_token
+ */
+async function publicAssetReport({ env, params }) {
+  const storage = getStorage(env);
+  const row = await storage.push.findByReportToken(params.token);
+  if (!row || row.module !== 'asset') return error('链接无效或已失效', 404);
+  const wallets = await storage.asset.listWallets(row.user_id);
+  const records = await storage.asset.listRecords(row.user_id);
+  const report = buildAssetReportData(wallets, records);
+  return json({ success: true, report });
+}
+
 export {
   listWallets, createWallet, updateWallet, removeWallet, getWalletShareLink,
   saveRecord, assetReport, getGoal, setGoal,
-  publicWalletInfo, publicSaveRecord
+  publicWalletInfo, publicSaveRecord, publicAssetReport
 };

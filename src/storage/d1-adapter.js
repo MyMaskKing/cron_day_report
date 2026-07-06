@@ -372,14 +372,20 @@ function createD1Adapter(env) {
         return await db.prepare('SELECT * FROM push_config WHERE user_id=? AND module=?').bind(userId, module).first();
       },
       async setConfig(userId, module, cfg) {
+        // hours/days 为逗号分隔字符串；hour/day 保留首值兼容
+        const hours = cfg.hours || String(cfg.hour != null ? cfg.hour : 9);
+        const days = cfg.days || String(cfg.day != null ? cfg.day : 15);
+        const firstHour = parseInt(hours.split(',')[0], 10) || 9;
+        const firstDay = parseInt(days.split(',')[0], 10) || 15;
         await db.prepare(
-          `INSERT INTO push_config (user_id, module, channel_id, format, enabled, hour, day)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO push_config (user_id, module, channel_id, format, enabled, hour, day, hours, days)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(user_id, module) DO UPDATE SET channel_id=excluded.channel_id,
-             format=excluded.format, enabled=excluded.enabled, hour=excluded.hour, day=excluded.day`
+             format=excluded.format, enabled=excluded.enabled, hour=excluded.hour, day=excluded.day,
+             hours=excluded.hours, days=excluded.days`
         ).bind(
           userId, module, cfg.channel_id || null, cfg.format || 'text',
-          cfg.enabled ? 1 : 0, cfg.hour != null ? cfg.hour : 9, cfg.day != null ? cfg.day : 15
+          cfg.enabled ? 1 : 0, firstHour, firstDay, hours, days
         ).run();
       },
       async listEnabledByModule(module) {
@@ -387,6 +393,20 @@ function createD1Adapter(env) {
           'SELECT * FROM push_config WHERE module=? AND enabled=1'
         ).bind(module).all();
         return results || [];
+      },
+      async findByReportToken(token) {
+        return await db.prepare('SELECT * FROM push_config WHERE report_token=?').bind(token).first();
+      },
+      async ensureReportToken(userId, module, token) {
+        // 若无 token 则写入；配置行不存在时先建一条最小行
+        const row = await db.prepare('SELECT report_token FROM push_config WHERE user_id=? AND module=?').bind(userId, module).first();
+        if (row && row.report_token) return row.report_token;
+        if (row) {
+          await db.prepare('UPDATE push_config SET report_token=? WHERE user_id=? AND module=?').bind(token, userId, module).run();
+        } else {
+          await db.prepare('INSERT INTO push_config (user_id, module, report_token) VALUES (?, ?, ?)').bind(userId, module, token).run();
+        }
+        return token;
       }
     }
   };

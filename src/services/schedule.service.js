@@ -27,19 +27,22 @@ function nowCN(nowMs) {
  * @param {Object} cfg - push_config 记录 { hour, day }
  * @param {Object} now - nowCN() 结果
  * @returns {boolean}
- * 规则：
- *   fund / weight  = 每天在 cfg.hour 那一小时执行
- *   asset          = 每月 cfg.day 号的 cfg.hour 那一小时执行
+ * 规则（支持多选，hours/days 为逗号分隔字符串）：
+ *   fund / weight / monitor = 每天在 hours 任一小时执行
+ *   asset                   = 每月 days 任一天的 hours 任一小时执行
  */
 function shouldRun(module, cfg, now) {
   if (!cfg) return false;
-  const hour = cfg.hour != null ? cfg.hour : 9;
+  // 优先用多值 hours/days，回退单值 hour/day
+  const hoursStr = cfg.hours != null && cfg.hours !== '' ? String(cfg.hours) : String(cfg.hour != null ? cfg.hour : 9);
+  const hours = hoursStr.split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+  if (!hours.includes(now.hour)) return false;
   if (module === 'asset') {
-    const day = cfg.day != null ? cfg.day : 15;
-    return now.day === day && now.hour === hour;
+    const daysStr = cfg.days != null && cfg.days !== '' ? String(cfg.days) : String(cfg.day != null ? cfg.day : 15);
+    const days = daysStr.split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+    return days.includes(now.day);
   }
-  // daily 类：fund / weight
-  return now.hour === hour;
+  return true;
 }
 
 export { nowCN, shouldRun };

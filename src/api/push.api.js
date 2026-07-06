@@ -16,21 +16,27 @@ async function getPushConfig({ request, env, params }) {
   if (!MODULES.includes(params.module)) return error('模块非法', 400);
   const storage = getStorage(env);
   const cfg = await storage.push.getConfig(auth.user_id, params.module);
-  // 默认值：weight 每天10点，asset 每月15号9点，fund 每天15点
+  // 默认值：weight 每天10点，asset 每月15号9点，fund 每天15点，monitor 每天6点
   const defaults = {
-    fund: { hour: 15, day: 15 },
-    weight: { hour: 10, day: 1 },
-    asset: { hour: 9, day: 15 },
-    monitor: { hour: 6, day: 1 }
+    fund: { hours: [15], days: [15] },
+    weight: { hours: [10], days: [1] },
+    asset: { hours: [9], days: [15] },
+    monitor: { hours: [6], days: [1] }
   };
-  return json({
-    success: true,
-    config: cfg || { channel_id: null, format: 'text', enabled: 0, ...defaults[params.module] }
-  });
+  function toArr(str, fallback) {
+    if (str == null || str === '') return fallback;
+    return String(str).split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+  }
+  const config = cfg ? {
+    channel_id: cfg.channel_id, format: cfg.format, enabled: cfg.enabled,
+    hours: toArr(cfg.hours != null ? cfg.hours : cfg.hour, defaults[params.module].hours),
+    days: toArr(cfg.days != null ? cfg.days : cfg.day, defaults[params.module].days)
+  } : { channel_id: null, format: 'text', enabled: 0, ...defaults[params.module] };
+  return json({ success: true, config });
 }
 
 /** PUT /api/push/:module  保存某模块推送配置
- * body: { channel_id, format, enabled, hour, day }
+ * body: { channel_id, format, enabled, hours[], days[] }
  */
 async function setPushConfig({ request, env, params }) {
   const auth = await requireAuth(request, env);
@@ -43,15 +49,23 @@ async function setPushConfig({ request, env, params }) {
     const ch = await storage0.notify.findById(parseInt(body.channel_id, 10));
     if (!ch || ch.user_id !== auth.user_id) return error('通知渠道不存在', 400);
   }
-  const hour = Math.max(0, Math.min(23, parseInt(body.hour, 10) || 0));
-  const day = Math.max(1, Math.min(28, parseInt(body.day, 10) || 1));
+  // 接收数组或逗号字符串，规范化去重排序
+  function normList(v, min, max, fallback) {
+    let arr = Array.isArray(v) ? v : (typeof v === 'string' ? v.split(',') : []);
+    arr = arr.map(x => parseInt(x, 10)).filter(n => !isNaN(n) && n >= min && n <= max);
+    arr = [...new Set(arr)].sort((a, b) => a - b);
+    return arr.length ? arr : fallback;
+  }
+  const hours = normList(body.hours, 0, 23, [9]);
+  const days = normList(body.days, 1, 28, [1]);
 
   const storage = getStorage(env);
   await storage.push.setConfig(auth.user_id, params.module, {
     channel_id: body.channel_id || null,
     format: body.format === 'html' ? 'html' : 'text',
     enabled: !!body.enabled,
-    hour, day
+    hours: hours.join(','),
+    days: days.join(',')
   });
   return json({ success: true, message: '推送配置已保存' });
 }

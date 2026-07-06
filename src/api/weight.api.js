@@ -241,6 +241,23 @@ async function publicSubmitWeight({ request, env, params }) {
   return json({ success: true, message: '已记录今日体重' });
 }
 
+/** GET /api/public/weight-report/:token  免密查看该用户全部成员曲线数据
+ * token = 任一成员的 share_token（定位到所属用户）
+ */
+async function publicWeightReport({ env, params }) {
+  const storage = getStorage(env);
+  const m = await storage.weight.findMemberByShareToken(params.token);
+  if (!m) return error('链接无效或已失效', 404);
+  const members = await storage.weight.listMembers(m.user_id);
+  const records = await storage.weight.listRecords(m.user_id);
+  const owner = await storage.users.findById(m.user_id);
+  return json({
+    success: true,
+    members, records,
+    weight_unit: (owner && owner.weight_unit) || 'jin'
+  });
+}
+
 // ==================== 超管对比 ====================
 
 /** GET /api/admin/weight/compare?userIds=1,2,3  多用户体重对比曲线 */
@@ -259,6 +276,6 @@ async function adminCompare({ request, env, url }) {
 export {
   listMembers, createMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
-  publicMemberInfo, publicSubmitWeight, adminCompare,
+  publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare,
   getUnit, setUnit
 };

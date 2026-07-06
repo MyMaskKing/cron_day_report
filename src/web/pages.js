@@ -6,7 +6,8 @@
 import { renderPage, renderTopbar } from './layout.js';
 import {
   LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS,
-  WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS
+  WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
+  WEIGHT_REPORT_JS, ASSET_REPORT_JS
 } from './assets.js';
 
 /** 初始化超管页 */
@@ -137,7 +138,7 @@ function monitorPage(user) {
     <div class="card">
       <h2>定时执行</h2>
       <div class="row">
-        <div><label>每天执行时间(点)</label><input id="mpHour" type="number" min="0" max="23" value="6"></div>
+        <div><label>每天执行时间(点，可多选逗号分隔如 6,18)</label><input id="mpHour" type="text" value="6"></div>
       </div>
       <label><input type="checkbox" id="mpEn" style="width:auto;"> 启用每天自动执行（到点自动跑所有启用任务并按渠道发送）</label>
       <div style="margin-top:12px;"><button class="btn" id="mpSave">保存定时配置</button></div>
@@ -211,7 +212,7 @@ function fundPage(user) {
         <div><label>报告格式</label>
           <select id="rcFormat"><option value="text">text</option><option value="html">html(附持仓图)</option></select>
         </div>
-        <div><label>推送时间(点)</label><input id="rcHour" type="number" min="0" max="23" value="15"></div>
+        <div><label>推送时间(点，可多选逗号分隔如 9,18)</label><input id="rcHour" type="text" value="15"></div>
       </div>
       <label><input type="checkbox" id="rcEnabled" style="width:auto;"> 启用每日自动推送</label>
       <div style="margin-top:12px;">
@@ -318,7 +319,7 @@ function weightPage(user) {
       <div class="row">
         <div><label>通知渠道</label><select id="pushCh"></select></div>
         <div><label>格式</label><select id="pushFmt"><option value="text">text</option><option value="html">html(附曲线图)</option></select></div>
-        <div><label>推送时间(点)</label><input id="pushHour" type="number" min="0" max="23" value="10"></div>
+        <div><label>推送时间(点，可多选逗号分隔如 10,20)</label><input id="pushHour" type="text" value="10"></div>
       </div>
       <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送</label>
       <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button></div>
@@ -437,8 +438,8 @@ function assetPage(user) {
         <div><label>格式</label><select id="pushFmt"><option value="text">text</option><option value="html">html(附曲线图)</option></select></div>
       </div>
       <div class="row">
-        <div><label>每月几号</label><input id="pushDay" type="number" min="1" max="28" value="15"></div>
-        <div><label>推送时间(点)</label><input id="pushHour" type="number" min="0" max="23" value="9"></div>
+        <div><label>每月几号(可多选逗号分隔如 1,15)</label><input id="pushDay" type="text" value="15"></div>
+        <div><label>推送时间(点，可多选逗号分隔如 9,21)</label><input id="pushHour" type="text" value="9"></div>
       </div>
       <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每月自动推送</label>
       <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button></div>
@@ -482,7 +483,30 @@ function publicAssetPage() {
   return renderPage({ title: '资产录入', body, script: PUBLIC_ASSET_JS });
 }
 
+/** 体重免密报告查看页 */
+function weightReportPage() {
+  const body = `<div class="container" style="max-width:760px;margin:24px auto;">
+    <div class="card">
+      <h2>⚖️ 体重曲线</h2>
+      <div id="content" style="display:none;"><canvas id="rptChart" style="max-height:420px;"></canvas></div>
+    </div>
+  </div>`;
+  return renderPage({ title: '体重曲线', body, script: WEIGHT_REPORT_JS });
+}
+
+/** 资产免密报告查看页 */
+function assetReportPage() {
+  const body = `<div class="container" style="max-width:760px;margin:24px auto;">
+    <div id="content" style="display:none;">
+      <div class="card"><h2>💰 净资产趋势</h2><canvas id="netChart" style="max-height:340px;"></canvas></div>
+      <div class="card"><h2>每月消费</h2><canvas id="consumeChart" style="max-height:340px;"></canvas></div>
+    </div>
+  </div>`;
+  return renderPage({ title: '资产趋势', body, script: ASSET_REPORT_JS });
+}
+
 export {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
-  weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage
+  weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
+  weightReportPage, assetReportPage
 };

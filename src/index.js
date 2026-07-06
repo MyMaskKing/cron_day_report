@@ -31,23 +31,24 @@ import { fetchNavBatch, buildPortfolio, buildFundReport } from './services/fund.
 import {
   listMembers, createMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
-  publicMemberInfo, publicSubmitWeight, adminCompare,
+  publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare,
   getUnit, setUnit
 } from './api/weight.api.js';
 import {
   listWallets, createWallet, updateWallet, removeWallet, getWalletShareLink,
   saveRecord, assetReport, getGoal, setGoal,
-  publicWalletInfo, publicSaveRecord
+  publicWalletInfo, publicSaveRecord, publicAssetReport
 } from './api/asset.api.js';
 import { buildAssetReportData, buildAssetReport } from './services/asset.service.js';
 import { getPushConfig, setPushConfig } from './api/push.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
-import { buildChartUrl, lineChartConfig } from './services/chart.service.js';
+import { buildChartUrl } from './services/chart.service.js';
 
 // Pages
 import {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
-  weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage
+  weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
+  weightReportPage, assetReportPage
 } from './web/pages.js';
 
 // ==================== 路由注册 ====================
@@ -124,6 +125,7 @@ router.delete('/api/weight/records/:id', removeRecord);
 router.get('/api/admin/weight/compare', adminCompare);
 router.get('/api/public/weight/:token', publicMemberInfo);
 router.post('/api/public/weight/:token', publicSubmitWeight);
+router.get('/api/public/weight-report/:token', publicWeightReport);
 
 // --- 资产报表 API ---
 router.get('/api/asset/wallets', listWallets);
@@ -137,6 +139,7 @@ router.get('/api/asset/goal', getGoal);
 router.put('/api/asset/goal', setGoal);
 router.get('/api/public/asset/:token', publicWalletInfo);
 router.post('/api/public/asset/:token', publicSaveRecord);
+router.get('/api/public/asset-report/:token', publicAssetReport);
 
 // --- 通用推送配置 API ---
 router.get('/api/push/:module', getPushConfig);
@@ -166,6 +169,14 @@ async function handlePages(request, env) {
   // 资产免密录入公开页 /a/:token
   if (path.startsWith('/a/') && path.split('/').filter(Boolean).length === 2) {
     return html(publicAssetPage());
+  }
+  // 体重免密报告查看页 /wr/:token
+  if (path.startsWith('/wr/') && path.split('/').filter(Boolean).length === 2) {
+    return html(weightReportPage());
+  }
+  // 资产免密报告查看页 /ar/:token
+  if (path.startsWith('/ar/') && path.split('/').filter(Boolean).length === 2) {
+    return html(assetReportPage());
   }
 
   // 需登录页面
@@ -387,51 +398,105 @@ async function buildModuleMessage(env, storage, module, userId, format) {
   if (module === 'weight') {
     const members = await storage.weight.listMembers(userId);
     const records = await storage.weight.listRecords(userId);
-    if (records.length === 0) return null;
-    return buildWeightReport(members, records, format);
+    if (members.length === 0) return null;
+    const user = await storage.users.findById(userId);
+    const unit = (user && user.weight_unit) || 'jin';
+    const base = env.PUBLIC_BASE_URL || '';
+    const today = nowCN(Date.now()).dateStr;
+    // 每个成员确保有 share_token（未填当日时用于快速填写链接）
+    const tokenMap = {};
+    for (const m of members) {
+      let tk = m.share_token;
+      if (!tk) { tk = generateToken(); await storage.weight.setMemberShareToken(m.id, tk); }
+      tokenMap[m.id] = tk;
+    }
+    // 用户级报告 token（查看曲线图）
+    let reportToken = null;
+    if (base) reportToken = await storage.push.ensureReportToken(userId, 'weight', generateToken());
+    return buildWeightReport(members, records, { format, unit, base, today, tokenMap, reportToken });
   }
   if (module === 'asset') {
     const wallets = await storage.asset.listWallets(userId);
     const records = await storage.asset.listRecords(userId);
     if (records.length === 0) return null;
     const data = buildAssetReportData(wallets, records);
-    let chartImg = '';
-    if (format === 'html') {
-      chartImg = `<div><img src="${buildChartUrl(lineChartConfig(data.months, [{ label: '净资产', data: data.netWorthSeries }]))}" alt="净资产趋势"></div>`;
+    const base = env.PUBLIC_BASE_URL || '';
+    let chartLink = '';
+    if (base) {
+      const reportToken = await storage.push.ensureReportToken(userId, 'asset', generateToken());
+      const link = `${base}/ar/${reportToken}`;
+      chartLink = format === 'html'
+        ? `<p>📈 <a href="${link}">查看净资产趋势图</a></p>`
+        : `\n📈 查看趋势图：${link}\n`;
     }
-    return buildAssetReport(data, format, chartImg);
+    return buildAssetReport(data, format, chartLink);
   }
   return null;
 }
 
 /**
- * 构造体重日报（各成员最新体重）
+ * 构造体重日报
+ * 每个成员：已填当日则显示当日体重，未填则给快速填写链接；附最近7次历史；单位按用户设置；曲线给查看链接
  * @param {Array} members
  * @param {Array} records
- * @param {string} format
+ * @param {Object} opts - { format, unit, base, today, tokenMap, reportToken }
  * @returns {string}
  */
-function buildWeightReport(members, records, format) {
-  const nameOf = new Map(members.map(m => [m.id, m.name]));
-  // 每个成员取最新一条
-  const latest = new Map();
+function buildWeightReport(members, records, opts) {
+  const { format, unit, base, today, tokenMap, reportToken } = opts;
+  const unitLabel = unit === 'kg' ? '公斤' : '斤';
+  const disp = kg => unit === 'jin' ? Math.round(kg * 2 * 10) / 10 : kg;
+  // 按成员分组、按日期排序
+  const byMember = new Map();
   for (const r of records) {
-    const cur = latest.get(r.member_id);
-    if (!cur || r.record_date > cur.record_date) latest.set(r.member_id, r);
+    if (!byMember.has(r.member_id)) byMember.set(r.member_id, []);
+    byMember.get(r.member_id).push(r);
   }
-  const lines = [...latest.entries()].map(([mid, r]) => ({ name: nameOf.get(mid) || '', weight: r.weight, date: r.record_date }));
-  if (format === 'html') {
-    let h = `<div style="font-family:-apple-system,sans-serif;"><h2>⚖️ 体重日报</h2>`;
-    lines.forEach(l => { h += `<p>${l.name}：${l.weight} kg（${l.date}）</p>`; });
-    const img = buildChartUrl(lineChartConfig(
-      [...new Set(records.map(r => r.record_date))].sort(),
-      members.map(m => ({ label: m.name, data: [] }))
-    ));
-    h += `<div><img src="${img}" alt="体重曲线"></div></div>`;
+  for (const arr of byMember.values()) arr.sort((a, b) => a.record_date < b.record_date ? -1 : 1);
+
+  const isHtml = format === 'html';
+  const parts = [];
+  for (const m of members) {
+    const arr = byMember.get(m.id) || [];
+    const todayRec = arr.find(r => r.record_date === today);
+    const last7 = arr.slice(-7);
+    let block = '';
+    if (isHtml) {
+      block += `<div style="margin:10px 0;padding:10px;background:#f8f9fa;border-radius:6px;">`;
+      block += `<b>${m.name}</b><br>`;
+      if (todayRec) {
+        block += `今日：${disp(todayRec.weight)} ${unitLabel}<br>`;
+      } else if (base) {
+        block += `<span style="color:#cf1322;">今日未填</span> · <a href="${base}/w/${tokenMap[m.id]}">点此快速填写</a><br>`;
+      } else {
+        block += `今日未填<br>`;
+      }
+      if (last7.length) {
+        block += `<span style="color:#888;font-size:13px;">最近记录：` +
+          last7.map(r => `${r.record_date.slice(5)} ${disp(r.weight)}`).join(' · ') + ` ${unitLabel}</span>`;
+      }
+      block += `</div>`;
+    } else {
+      block += `【${m.name}】\n`;
+      if (todayRec) block += `  今日：${disp(todayRec.weight)} ${unitLabel}\n`;
+      else if (base) block += `  今日未填，快速填写：${base}/w/${tokenMap[m.id]}\n`;
+      else block += `  今日未填\n`;
+      if (last7.length) {
+        block += `  最近：` + last7.map(r => `${r.record_date.slice(5)} ${disp(r.weight)}`).join(' · ') + ` ${unitLabel}\n`;
+      }
+    }
+    parts.push(block);
+  }
+
+  if (isHtml) {
+    let h = `<div style="font-family:-apple-system,sans-serif;max-width:600px;"><h2>⚖️ 体重日报</h2>`;
+    h += parts.join('');
+    if (base && reportToken) h += `<p>📈 <a href="${base}/wr/${reportToken}">查看完整曲线图</a></p>`;
+    h += `</div>`;
     return h;
   }
-  let t = `⚖️ 体重日报\n\n`;
-  lines.forEach(l => { t += `${l.name}：${l.weight} kg（${l.date}）\n`; });
+  let t = `⚖️ 体重日报\n\n` + parts.join('\n');
+  if (base && reportToken) t += `\n📈 查看曲线图：${base}/wr/${reportToken}\n`;
   return t;
 }
 
