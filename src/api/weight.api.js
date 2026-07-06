@@ -242,15 +242,24 @@ async function publicSubmitWeight({ request, env, params }) {
 }
 
 /** GET /api/public/weight-report/:token  免密查看该用户全部成员曲线数据
- * token = 任一成员的 share_token（定位到所属用户）
+ * token 优先匹配 push_config(module=weight).report_token（推送链接用），
+ * 回退兼容任一成员的 share_token（定位到所属用户）
  */
 async function publicWeightReport({ env, params }) {
   const storage = getStorage(env);
-  const m = await storage.weight.findMemberByShareToken(params.token);
-  if (!m) return error('链接无效或已失效', 404);
-  const members = await storage.weight.listMembers(m.user_id);
-  const records = await storage.weight.listRecords(m.user_id);
-  const owner = await storage.users.findById(m.user_id);
+  let userId = null;
+  const pushRow = await storage.push.findByReportToken(params.token);
+  if (pushRow && pushRow.module === 'weight') {
+    userId = pushRow.user_id;
+  } else {
+    const m = await storage.weight.findMemberByShareToken(params.token);
+    if (m) userId = m.user_id;
+  }
+  if (userId == null) return error('链接无效或已失效', 404);
+
+  const members = await storage.weight.listMembers(userId);
+  const records = await storage.weight.listRecords(userId);
+  const owner = await storage.users.findById(userId);
   return json({
     success: true,
     members, records,

@@ -45,9 +45,11 @@ function calcNetWorth(records, walletType) {
  * 构建月度趋势报表
  * @param {Array} wallets - 用户钱包 [{ id, type, name }]
  * @param {Array} records - 全部月度记录 [{ wallet_id, month, balance }]
- * @returns {Object} { months, netWorthSeries, consumeSeries, latest }
+ * @returns {Object} { months, netWorthSeries, consumeSeries, latest, latestMonth,
+ *   prevMonth, prevNetWorth, netWorthChange, byType }
  *   netWorthSeries: 各月净资产
  *   consumeSeries:  各月消费（上月净资产 − 本月净资产），首月为 null
+ *   byType: 按钱包类型分组的当月/上月对比 [{ type, wallets:[{ id, name, cur, prev }] }]
  */
 function buildAssetReportData(wallets, records) {
   const walletType = new Map(wallets.map(w => [w.id, w.type]));
@@ -74,11 +76,37 @@ function buildAssetReportData(wallets, records) {
   });
 
   const latestMonth = months.length ? months[months.length - 1] : null;
+  const prevMonth = months.length >= 2 ? months[months.length - 2] : null;
   const latest = latestMonth
     ? calcNetWorth(byMonth.get(latestMonth), walletType)
     : { assets: 0, debt: 0, netWorth: 0 };
+  const prevNetWorth = prevMonth ? netWorthSeries[netWorthSeries.length - 2] : null;
+  // 本月净资产较上月涨幅金额（正=增长）
+  const netWorthChange = prevNetWorth != null ? round2(latest.netWorth - prevNetWorth) : null;
 
-  return { months, netWorthSeries, consumeSeries, latest, latestMonth };
+  // 按钱包类型分组：当月 vs 上月各钱包余额
+  const curMap = new Map();  // wallet_id -> balance（当月）
+  const prevMap = new Map(); // wallet_id -> balance（上月）
+  if (latestMonth) for (const r of byMonth.get(latestMonth)) curMap.set(r.wallet_id, r.balance || 0);
+  if (prevMonth) for (const r of byMonth.get(prevMonth)) prevMap.set(r.wallet_id, r.balance || 0);
+  const typeOrder = [];
+  const typeGroup = new Map(); // type -> [{ id, name, cur, prev }]
+  for (const w of wallets) {
+    // 只展示当月或上月有记录的钱包
+    if (!curMap.has(w.id) && !prevMap.has(w.id)) continue;
+    if (!typeGroup.has(w.type)) { typeGroup.set(w.type, []); typeOrder.push(w.type); }
+    typeGroup.get(w.type).push({
+      id: w.id, name: w.name,
+      cur: curMap.has(w.id) ? round2(curMap.get(w.id)) : null,
+      prev: prevMap.has(w.id) ? round2(prevMap.get(w.id)) : null
+    });
+  }
+  const byType = typeOrder.map(type => ({ type, wallets: typeGroup.get(type) }));
+
+  return {
+    months, netWorthSeries, consumeSeries, latest, latestMonth,
+    prevMonth, prevNetWorth, netWorthChange, byType
+  };
 }
 
 /**
@@ -93,30 +121,95 @@ function calcGoalProgress(target, current) {
   return { target: round2(target), current: round2(current), remaining, progress };
 }
 
+/** 钱包类型中文标签 */
+const TYPE_LABEL = { bank: '银行卡', alipay: '支付宝', wechat: '微信', investment: '投资', credit: '信用支付', cash: '现金' };
+
+/** 带正负号格式化金额 */
+function fmtSign2(n) {
+  return (n >= 0 ? '+' : '') + n;
+}
+
 /**
  * 生成资产月报文本/HTML
- * @param {Object} report - buildAssetReport 结果
+ * @param {Object} reportData - buildAssetReportData 结果
  * @param {string} format - 'text' | 'html'
- * @param {string} chartImg - 可选, HTML 格式下附加的图表 <img> 标签
+ * @param {string} chartLink - 可选, 附加的图表链接/标签（text 或 html 片段）
+ * @param {number|null} target - 可选, 年度目标净资产, 用于显示"离目标还差多少"
  * @returns {string}
  */
-function buildAssetReport(reportData, format = 'text', chartImg = '') {
-  const { latest, latestMonth, months, netWorthSeries, consumeSeries } = reportData;
+function buildAssetReport(reportData, format = 'text', chartLink = '', target = null) {
+  const { latest, latestMonth, prevMonth, netWorthChange, consumeSeries, byType } = reportData;
   const lastConsume = consumeSeries.length ? consumeSeries[consumeSeries.length - 1] : null;
-  if (format === 'html') {
-    let h = `<div style="font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;">
-      <h2>💰 资产月报 ${latestMonth || ''}</h2>
-      <p>资产合计: ${latest.assets} · 负债: ${latest.debt}</p>
-      <p style="font-weight:bold;color:#4a6cf7;">净资产: ${latest.netWorth}</p>
-      ${lastConsume != null ? `<p>本月消费(环比): ${lastConsume}</p>` : ''}
-      ${chartImg || ''}
-    </div>`;
-    return h;
+  const remaining = (target != null && target > 0) ? round2(target - latest.netWorth) : null;
+  if (format === 'html') return buildAssetReportHTML(reportData, chartLink, target, remaining, lastConsume);
+
+  // ===== text 排版 =====
+  const line = '━━━━━━━━━━━━━━';
+  let t = `💰 资产月报 ${latestMonth || ''}\n${line}\n`;
+  t += `资产合计：${latest.assets}\n`;
+  t += `负债(信用)：${latest.debt}\n`;
+  t += `净资产：${latest.netWorth}\n`;
+  if (netWorthChange != null) t += `较上月(${prevMonth})：${fmtSign2(netWorthChange)}\n`;
+  if (lastConsume != null) t += `本月消费(环比)：${lastConsume}\n`;
+  if (remaining != null) t += `年度目标：${round2(target)} · 还差：${remaining}\n`;
+  // 各类型当月 vs 上月明细
+  if (byType && byType.length) {
+    t += `${line}\n【当月 vs 上月】\n`;
+    for (const g of byType) {
+      t += `\n◆ ${TYPE_LABEL[g.type] || g.type}\n`;
+      for (const w of g.wallets) {
+        const cur = w.cur != null ? w.cur : '—';
+        const prev = w.prev != null ? w.prev : '—';
+        t += `　${w.name}：${cur}（上月 ${prev}）\n`;
+      }
+    }
   }
-  let t = `💰 资产月报 ${latestMonth || ''}\n\n`;
-  t += `资产合计: ${latest.assets}\n负债(信用): ${latest.debt}\n净资产: ${latest.netWorth}\n`;
-  if (lastConsume != null) t += `本月消费(环比): ${lastConsume}\n`;
+  if (chartLink) t += chartLink;
   return t;
+}
+
+/**
+ * 资产月报 HTML（手机适配：响应式表格，行内样式以兼容邮件客户端）
+ */
+function buildAssetReportHTML(reportData, chartLink, target, remaining, lastConsume) {
+  const { latest, latestMonth, prevMonth, netWorthChange, byType } = reportData;
+  const changeColor = netWorthChange != null && netWorthChange < 0 ? '#cf1322' : '#389e0d';
+  let h = `<div style="font-family:-apple-system,sans-serif;max-width:640px;margin:0 auto;padding:0 4px;">
+    <h2 style="font-size:18px;">💰 资产月报 ${latestMonth || ''}</h2>
+    <p style="margin:4px 0;">资产合计: <b>${latest.assets}</b> · 负债: ${latest.debt}</p>
+    <p style="margin:4px 0;font-weight:bold;color:#4a6cf7;font-size:16px;">净资产: ${latest.netWorth}</p>`;
+  if (netWorthChange != null) {
+    h += `<p style="margin:4px 0;color:${changeColor};">较上月(${prevMonth}): ${fmtSign2(netWorthChange)} 元</p>`;
+  }
+  if (lastConsume != null) h += `<p style="margin:4px 0;">本月消费(环比): ${lastConsume} 元</p>`;
+  if (remaining != null) {
+    h += `<p style="margin:4px 0;">🎯 年度目标 ${round2(target)} · 还差 <b style="color:#cf1322;">${remaining}</b> 元</p>`;
+  }
+  // 各类型当月 vs 上月响应式表格
+  if (byType && byType.length) {
+    for (const g of byType) {
+      h += `<h3 style="font-size:15px;margin:14px 0 6px;">${TYPE_LABEL[g.type] || g.type}</h3>`;
+      h += `<table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px;">
+        <thead><tr style="background:#f5f7ff;">
+          <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e6e8f0;word-break:break-all;">钱包</th>
+          <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e6e8f0;width:28%;">当月</th>
+          <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e6e8f0;width:28%;">上月</th>
+        </tr></thead><tbody>`;
+      for (const w of g.wallets) {
+        const cur = w.cur != null ? w.cur : '—';
+        const prev = w.prev != null ? w.prev : '—';
+        h += `<tr>
+          <td style="text-align:left;padding:6px 8px;border-bottom:1px solid #f0f0f0;word-break:break-all;">${w.name}</td>
+          <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #f0f0f0;">${cur}</td>
+          <td style="text-align:right;padding:6px 8px;border-bottom:1px solid #f0f0f0;color:#999;">${prev}</td>
+        </tr>`;
+      }
+      h += `</tbody></table>`;
+    }
+  }
+  if (chartLink) h += chartLink;
+  h += `</div>`;
+  return h;
 }
 
 export {

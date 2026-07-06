@@ -113,6 +113,7 @@ async function saveRecord({ request, env }) {
   if (!w || w.user_id !== auth.user_id) return error('钱包不存在', 404);
 
   const month = body.month || currentMonth();
+  if (!/^\d{4}-\d{2}$/.test(month)) return error('月份格式应为 YYYY-MM');
   const fields = resolveRecordFields(w.type, body);
   await storage.asset.upsertRecord({ wallet_id: walletId, user_id: auth.user_id, month, ...fields });
   return json({ success: true, message: '记录已保存' });

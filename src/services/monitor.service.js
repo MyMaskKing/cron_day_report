@@ -3,6 +3,8 @@
  * 与原实现保持一致的判定逻辑（含 206、完整性校验、超时控制）
  */
 
+import { fmtDateTime } from './time.service.js';
+
 /**
  * 访问单个 URL 并返回结果
  * @param {string} url
@@ -142,25 +144,26 @@ async function batchAccessUrls(tasks, timeoutConfig) {
 /**
  * 格式化结果为文本（迁移自原 formatResultsAsText）
  * @param {Array} results
+ * @param {number} tzOffset - 时区偏移（小时）
  * @returns {string}
  */
-function formatResultsAsText(results) {
-  let text = `🌅 定时任务执行报告 (${new Date().toLocaleString('zh-CN')})\n\n`;
+function formatResultsAsText(results, tzOffset = 8) {
+  const line = '━━━━━━━━━━━━━━';
   const total = results.length;
   const success = results.filter(r => r.success).length;
   const failed = total - success;
-  text += `📊 执行统计：总计 ${total} 个，成功 ${success} 个，失败 ${failed} 个\n\n`;
+  let text = `🌅 定时任务执行报告\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n${line}\n`;
+  text += `📊 总计 ${total} 个 · 成功 ${success} 个 · 失败 ${failed} 个\n${line}\n`;
 
   results.forEach((result, index) => {
     const statusIcon = result.success ? '✅' : '❌';
     const completionStatus = result.isComplete ? '完整' : '不完整';
-    text += `${index + 1}. ${statusIcon} ${result.name}\n`;
-    text += `   URL: ${result.url}\n`;
-    text += `   状态: ${result.status} ${result.statusText}\n`;
-    text += `   响应时间: ${result.responseTime}ms\n`;
-    text += `   响应完整性: ${completionStatus}\n`;
-    if (result.responseSize > 0) text += `   响应大小: ${result.responseSize} 字符\n`;
-    text += `   时间: ${result.timestamp}\n\n`;
+    text += `\n${statusIcon} ${index + 1}. ${result.name}\n`;
+    text += `　URL：${result.url}\n`;
+    text += `　状态：${result.status} ${result.statusText}\n`;
+    text += `　响应时间：${result.responseTime}ms\n`;
+    text += `　完整性：${completionStatus}\n`;
+    if (result.responseSize > 0) text += `　响应大小：${result.responseSize} 字符\n`;
   });
   return text;
 }
@@ -168,16 +171,17 @@ function formatResultsAsText(results) {
 /**
  * 格式化结果为 HTML（迁移自原 formatResultsAsHTML）
  * @param {Array} results
+ * @param {number} tzOffset - 时区偏移（小时）
  * @returns {string}
  */
-function formatResultsAsHTML(results) {
+function formatResultsAsHTML(results, tzOffset = 8) {
   const total = results.length;
   const success = results.filter(r => r.success).length;
   const failed = total - success;
 
   let html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:800px;margin:0 auto;">
     <h2>🌅 定时任务执行报告</h2>
-    <p>${new Date().toLocaleString('zh-CN')}</p>
+    <p>${fmtDateTime(Date.now(), tzOffset)}</p>
     <p>📊 总计 ${total} 个，成功 ${success} 个，失败 ${failed} 个</p>`;
 
   results.forEach((result, index) => {
@@ -185,7 +189,7 @@ function formatResultsAsHTML(results) {
     const color = result.success ? '#28a745' : '#dc3545';
     html += `<div style="background:#f8f9fa;margin:10px 0;padding:12px;border-radius:6px;border-left:4px solid ${color};">
       <div><b>${index + 1}. ${statusIcon} ${result.name}</b></div>
-      <div style="color:#6c757d;font-size:14px;">URL: ${result.url}</div>
+      <div style="color:#6c757d;font-size:14px;word-break:break-all;">URL: ${result.url}</div>
       <div style="color:${color};">状态: ${result.status} ${result.statusText}</div>
       <div style="color:#6c757d;font-size:12px;">响应时间: ${result.responseTime}ms · 完整性: ${result.isComplete ? '完整' : '不完整'}</div>
     </div>`;
@@ -198,11 +202,12 @@ function formatResultsAsHTML(results) {
  * 按返回格式格式化
  * @param {Array} results
  * @param {string} returnType - 'text' | 'html'
+ * @param {number} tzOffset - 时区偏移（小时）
  * @returns {string}
  */
-function formatResults(results, returnType) {
+function formatResults(results, returnType, tzOffset = 8) {
   if (!results || results.length === 0) return '⚠️ 没有可执行的监控任务';
-  return returnType === 'html' ? formatResultsAsHTML(results) : formatResultsAsText(results);
+  return returnType === 'html' ? formatResultsAsHTML(results, tzOffset) : formatResultsAsText(results, tzOffset);
 }
 
 export { accessUrl, batchAccessUrls, formatResults, formatResultsAsText, formatResultsAsHTML };

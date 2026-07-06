@@ -7,6 +7,8 @@
  *         gsz 估算净值, gszzl 估算涨跌幅(%), gztime 估算时间
  */
 
+import { fmtDateTime } from './time.service.js';
+
 /**
  * 获取基金净值
  * @param {string} code - 基金代码
@@ -122,37 +124,41 @@ function buildPortfolio(funds, navMap) {
  * @param {Object} portfolio - buildPortfolio 结果
  * @param {string} format - 'text' | 'html'
  * @param {Object} linkMap - 可选, { [fundId]: 加仓链接URL }, 有则在每只基金后附上快速加仓链接
+ * @param {number} tzOffset - 时区偏移（小时），用于报告时间戳
  * @returns {string}
  */
-function buildFundReport(portfolio, format = 'text', linkMap = null) {
+function buildFundReport(portfolio, format = 'text', linkMap = null, tzOffset = 8) {
   const { items, totals } = portfolio;
-  if (format === 'html') return buildFundReportHTML(items, totals, linkMap);
-  return buildFundReportText(items, totals, linkMap);
+  if (format === 'html') return buildFundReportHTML(items, totals, linkMap, tzOffset);
+  return buildFundReportText(items, totals, linkMap, tzOffset);
 }
 
 function fmtSign(n) {
   return (n >= 0 ? '+' : '') + n;
 }
 
-function buildFundReportText(items, totals, linkMap) {
-  let t = `📈 基金持仓日报 (${new Date().toLocaleString('zh-CN')})\n\n`;
-  t += `💰 总本金: ${totals.cost}  现值: ${totals.value}\n`;
-  t += `📊 总收益: ${fmtSign(totals.profit)}  收益率: ${fmtSign(totals.rate)}%\n\n`;
+function buildFundReportText(items, totals, linkMap, tzOffset) {
+  const line = '━━━━━━━━━━━━━━';
+  let t = `📈 基金持仓日报\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n${line}\n`;
+  t += `💰 总本金：${totals.cost}\n`;
+  t += `📈 现　值：${totals.value}\n`;
+  t += `📊 总收益：${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）\n${line}\n`;
   items.forEach((it, i) => {
     const icon = it.profit >= 0 ? '🔴' : '🟢';
-    t += `${i + 1}. ${icon} ${it.name} (${it.code})\n`;
-    t += `   持仓: ${it.shares} 份 · 现价: ${it.current_nav} (${fmtSign(it.gszzl)}%)\n`;
-    t += `   收益: ${fmtSign(it.profit)} (${fmtSign(it.rate)}%)\n`;
-    if (linkMap && linkMap[it.id]) t += `   ➕ 快速加仓: ${linkMap[it.id]}\n`;
+    t += `\n${icon} ${i + 1}. ${it.name}（${it.code}）\n`;
+    t += `　持仓：${it.shares} 份\n`;
+    t += `　现价：${it.current_nav}（${fmtSign(it.gszzl)}%）\n`;
+    t += `　收益：${fmtSign(it.profit)}（${fmtSign(it.rate)}%）\n`;
+    if (linkMap && linkMap[it.id]) t += `　➕ 快速加仓：${linkMap[it.id]}\n`;
   });
   return t;
 }
 
-function buildFundReportHTML(items, totals, linkMap) {
+function buildFundReportHTML(items, totals, linkMap, tzOffset) {
   const profitColor = totals.profit >= 0 ? '#cf1322' : '#389e0d';
   let h = `<div style="font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;">
     <h2>📈 基金持仓日报</h2>
-    <p>${new Date().toLocaleString('zh-CN')}</p>
+    <p>${fmtDateTime(Date.now(), tzOffset)}</p>
     <p>💰 总本金: ${totals.cost} · 现值: ${totals.value}</p>
     <p style="color:${profitColor};font-weight:bold;">📊 总收益: ${fmtSign(totals.profit)} (${fmtSign(totals.rate)}%)</p>`;
   items.forEach((it, i) => {

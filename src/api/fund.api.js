@@ -13,6 +13,7 @@ import {
 } from '../services/fund.service.js';
 import { sendNotification } from '../services/notify.service.js';
 import { buildChartUrl } from '../services/chart.service.js';
+import { parseOffset, fmtShort } from '../services/time.service.js';
 
 /** 校验持仓字段 */
 function validateFund(f) {
@@ -147,6 +148,7 @@ async function sendReport({ request, env, url }) {
   const navMap = await fetchNavBatch(funds.map(f => f.code));
   const portfolio = buildPortfolio(funds, navMap);
   const format = config.format || 'text';
+  const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
 
   // 生成每只基金的免密加仓链接（无 token 则生成持久化）
   const base = env.PUBLIC_BASE_URL || url.origin;
@@ -156,14 +158,15 @@ async function sendReport({ request, env, url }) {
     if (!token) { token = generateToken(); await storage.fund.setShareToken(f.id, token); }
     linkMap[f.id] = `${base}/f/${token}`;
   }
-  const message0 = buildFundReport(portfolio, format, linkMap);
+  const message0 = buildFundReport(portfolio, format, linkMap, tzOffset);
   let message = message0;
   if (format === 'html') {
     const labels = portfolio.items.map(i => i.name);
     const data = portfolio.items.map(i => i.value);
     message += `<div><img src="${buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } })}" alt="持仓分布"></div>`;
   }
-  const result = await sendNotification(message, channel, format);
+  const subject = `📈 基金持仓日报 ${fmtShort(Date.now(), tzOffset)}`;
+  const result = await sendNotification(message, channel, format, subject);
   return json({ success: result.success, message: result.message });
 }
 

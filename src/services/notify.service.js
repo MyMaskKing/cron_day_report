@@ -11,9 +11,10 @@ import { RETURN_TYPES } from '../config.js';
  * @param {string} message - 消息内容
  * @param {Object} channel - 通知渠道 { type, url, method, headers_json, body_template, name }
  * @param {string} returnType - 'text' | 'html'
+ * @param {string} subject - 邮件主题（仅 email 类型使用；含推送内容主题+时间）
  * @returns {Promise<Object>} { success, message }
  */
-async function sendNotification(message, channel, returnType = 'text') {
+async function sendNotification(message, channel, returnType = 'text', subject = '') {
   if (!channel || !channel.url) {
     return { success: false, message: '未配置通知渠道' };
   }
@@ -22,7 +23,7 @@ async function sendNotification(message, channel, returnType = 'text') {
       case 'wechat':
         return await sendToWeChat(message, channel.url);
       case 'email':
-        return await sendToEmail(message, channel);
+        return await sendToEmail(message, channel, subject);
       case 'webhook':
       default:
         return await sendToWebhook(message, channel, returnType);
@@ -108,9 +109,10 @@ function jsonEscapeIfNeeded(message, headers) {
  * 邮件（通过 webhook 转发，迁移自原实现）
  * @param {string} message
  * @param {Object} channel - 需含 url, 可用 body_template 携带 to/subject
+ * @param {string} subject - 邮件主题（优先于 headers_json.subject）
  * @returns {Promise<Object>}
  */
-async function sendToEmail(message, channel) {
+async function sendToEmail(message, channel, subject = '') {
   try {
     if (!channel.url) return { success: false, message: 'Webhook地址未配置' };
     // 邮件元信息从 headers_json 读取（mailto/subject）
@@ -120,7 +122,7 @@ async function sendToEmail(message, channel) {
     }
     const emailData = {
       to: meta.mailto || meta.to || '',
-      subject: meta.subject || '定时任务执行报告',
+      subject: subject || meta.subject || '定时任务执行报告',
       content: message
     };
     const response = await fetch(channel.url, {

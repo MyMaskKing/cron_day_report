@@ -89,6 +89,17 @@ function dashboardPage(user) {
 function adminPage(user) {
   const body = renderTopbar(user, 'admin') + `<div class="container">
     <div class="card">
+      <h2>系统设置</h2>
+      <div id="stMsg" class="msg"></div>
+      <div class="row">
+        <div><label>全局时区（UTC 偏移小时，中国为 8）</label>
+          <input id="tzInput" type="number" min="-12" max="14" step="1">
+        </div>
+        <div style="display:flex;align-items:flex-end;"><button class="btn" id="tzSave">保存时区</button></div>
+      </div>
+      <p class="muted">影响所有推送内容与报告中的时间显示。当前部署在 Cloudflare（UTC），设为 8 即中国时间。</p>
+    </div>
+    <div class="card">
       <h2>全部用户
         <button class="btn sm" id="newUserBtn" style="float:right;">+ 新建用户</button>
       </h2>
@@ -451,13 +462,13 @@ function assetPage(user) {
         <thead><tr><th>类型</th><th>名称</th><th>操作</th></tr></thead>
         <tbody id="walletTbody"></tbody>
       </table>
-      <p class="muted" style="margin-top:6px;">投资钱包分本金/持有收益；信用支付计为负债。每个钱包可「录入本月」或生成免密录入链接。</p>
+      <p class="muted" style="margin-top:6px;">投资钱包分本金/持有收益；信用支付计为负债。每个钱包可「录入本月/其他月」或生成免密录入链接。</p>
     </div>
 
     <div class="card">
       <h2>月度记录</h2>
       <table>
-        <thead><tr><th>月份</th><th>钱包</th><th>金额</th></tr></thead>
+        <thead><tr><th>月份</th><th>钱包</th><th>金额</th><th>操作</th></tr></thead>
         <tbody id="recTbody"></tbody>
       </table>
     </div>

@@ -18,7 +18,8 @@ import { sendNotification } from './services/notify.service.js';
 import { register, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
-  createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname
+  createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
+  getTimezone, setTimezone
 } from './api/users.api.js';
 import { listChannels, createChannel, updateChannel, removeChannel } from './api/notify.api.js';
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
@@ -43,6 +44,7 @@ import { buildAssetReportData, buildAssetReport } from './services/asset.service
 import { getPushConfig, setPushConfig } from './api/push.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
 import { buildChartUrl } from './services/chart.service.js';
+import { parseOffset, fmtShort } from './services/time.service.js';
 
 // Pages
 import {
@@ -75,6 +77,10 @@ router.put('/api/admin/users/:id/status', updateUserStatus);
 router.put('/api/admin/users/:id/password', resetPassword);
 router.put('/api/admin/users/:id/nickname', updateUserNickname);
 router.post('/api/admin/users/:id/impersonate', impersonateUser);
+
+// --- 超管全局设置 API ---
+router.get('/api/admin/settings/timezone', getTimezone);
+router.put('/api/admin/settings/timezone', setTimezone);
 
 // --- 手动触发（兼容保留，执行当前登录用户的启用任务）---
 router.get('/api/monitor/run', runMyMonitors);
@@ -237,10 +243,11 @@ async function runMyMonitors({ request, env }) {
   if (!session) return error('未登录', 401);
 
   const storage = getStorage(env);
+  const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
   const tasks = (await storage.monitor.listByUser(session.user_id)).filter(t => t.enabled);
   if (tasks.length === 0) return json({ success: true, message: '没有启用的监控任务', results: [] });
 
-  const result = await executeTasksAndNotify(env, storage, tasks);
+  const result = await executeTasksAndNotify(env, storage, tasks, tzOffset);
   return json({ success: true, message: '执行完成', ...result });
 }
 
@@ -258,6 +265,7 @@ async function runMyModulePush({ request, env, params }) {
   if (!['fund', 'weight', 'asset'].includes(module)) return error('模块非法', 400);
 
   const storage = getStorage(env);
+  const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
   const cfg = await storage.push.getConfig(session.user_id, module);
   if (!cfg || !cfg.channel_id) return error('请先配置推送渠道', 400);
   const channel = await storage.notify.findById(cfg.channel_id);
@@ -265,9 +273,9 @@ async function runMyModulePush({ request, env, params }) {
   if (!channel.enabled) return error('通知渠道已停用', 400);
 
   const format = cfg.format || 'text';
-  const message = await buildModuleMessage(env, storage, module, session.user_id, format);
+  const message = await buildModuleMessage(env, storage, module, session.user_id, format, tzOffset);
   if (!message) return error('暂无数据，无法生成推送内容', 400);
-  const r = await sendNotification(message, channel, format);
+  const r = await sendNotification(message, channel, format, moduleSubject(module, tzOffset));
   return json({ success: true, message: '已推送', result: r });
 }
 
@@ -278,7 +286,7 @@ async function runMyModulePush({ request, env, params }) {
  * @param {Array} tasks
  * @returns {Promise<Object>} { results, notified }
  */
-async function executeTasksAndNotify(env, storage, tasks) {
+async function executeTasksAndNotify(env, storage, tasks, tzOffset = 8) {
   const timeoutConfig = getTimeoutConfig(env);
   const results = await batchAccessUrls(tasks, timeoutConfig);
 
@@ -295,14 +303,15 @@ async function executeTasksAndNotify(env, storage, tasks) {
   const notified = [];
   const standaloneResults = results.filter(r => r.standalone && r.channel_id);
   const mergeResults = results.filter(r => !r.standalone);
+  const subject = moduleSubject('monitor', tzOffset);
 
   // 独立发送：每条一个消息
   for (const r of standaloneResults) {
     const channel = await storage.notify.findById(parseInt(r.channel_id, 10));
     if (!channel || !channel.enabled) continue;
     const returnType = r.return_type || 'text';
-    const message = formatResults([r], returnType);
-    const sendResult = await sendNotification(message, channel, returnType);
+    const message = formatResults([r], returnType, tzOffset);
+    const sendResult = await sendNotification(message, channel, returnType, subject);
     notified.push({ channelId: r.channel_id, standalone: true, ...sendResult });
   }
 
@@ -318,8 +327,8 @@ async function executeTasksAndNotify(env, storage, tasks) {
     const channel = await storage.notify.findById(parseInt(channelId, 10));
     if (!channel || !channel.enabled) continue;
     const returnType = group[0].return_type || 'text';
-    const message = formatResults(group, returnType);
-    const sendResult = await sendNotification(message, channel, returnType);
+    const message = formatResults(group, returnType, tzOffset);
+    const sendResult = await sendNotification(message, channel, returnType, subject);
     notified.push({ channelId, ...sendResult });
   }
 
@@ -336,7 +345,8 @@ async function executeTasksAndNotify(env, storage, tasks) {
  */
 async function handleScheduled(cron, env, ctx) {
   const storage = getStorage(env);
-  const now = nowCN(Date.now());
+  const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
+  const now = nowCN(Date.now(), tzOffset);
   const manual = !cron; // /cron 手动调用时 cron 为空，全部执行
   const summary = { at: `${now.dateStr} ${now.hour}:00`, monitor: null, fund: null, weight: null, asset: null };
 
@@ -348,7 +358,7 @@ async function handleScheduled(cron, env, ctx) {
       if (!manual && !shouldRun('monitor', cfg, now)) continue;
       const tasks = (await storage.monitor.listByUser(cfg.user_id)).filter(t => t.enabled);
       if (tasks.length === 0) continue;
-      await executeTasksAndNotify(env, storage, tasks);
+      await executeTasksAndNotify(env, storage, tasks, tzOffset);
       total += tasks.length;
     }
     summary.monitor = { count: total };
@@ -363,18 +373,35 @@ async function handleScheduled(cron, env, ctx) {
         for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
       }
     }
-    summary.fund = await runModulePush(env, storage, 'fund', now, manual);
+    summary.fund = await runModulePush(env, storage, 'fund', now, manual, tzOffset);
   } catch (err) { summary.fund = { error: err.message }; }
 
   // 3. 体重日报
-  try { summary.weight = await runModulePush(env, storage, 'weight', now, manual); }
+  try { summary.weight = await runModulePush(env, storage, 'weight', now, manual, tzOffset); }
   catch (err) { summary.weight = { error: err.message }; }
 
   // 4. 资产月报
-  try { summary.asset = await runModulePush(env, storage, 'asset', now, manual); }
+  try { summary.asset = await runModulePush(env, storage, 'asset', now, manual, tzOffset); }
   catch (err) { summary.asset = { error: err.message }; }
 
   return json({ success: true, message: '定时调度执行完成', ...summary });
+}
+
+/**
+ * 构造某模块推送的邮件主题（含推送时间）
+ * @param {string} module - 'fund' | 'weight' | 'asset' | 'monitor'
+ * @param {number} tzOffset - 时区偏移
+ * @returns {string}
+ */
+function moduleSubject(module, tzOffset) {
+  const at = fmtShort(Date.now(), tzOffset);
+  switch (module) {
+    case 'fund': return `📈 基金持仓日报 ${at}`;
+    case 'weight': return `⚖️ 体重日报 ${at}`;
+    case 'asset': return `💰 资产月报 ${at}`;
+    case 'monitor': return `🌅 定时任务执行报告 ${at}`;
+    default: return `定时任务执行报告 ${at}`;
+  }
 }
 
 /**
@@ -384,9 +411,10 @@ async function handleScheduled(cron, env, ctx) {
  * @param {string} module - 'fund' | 'weight' | 'asset'
  * @param {Object} now - nowCN 结果
  * @param {boolean} manual - 手动触发则忽略时间判断
+ * @param {number} tzOffset - 时区偏移
  * @returns {Promise<Object>} { sent }
  */
-async function runModulePush(env, storage, module, now, manual) {
+async function runModulePush(env, storage, module, now, manual, tzOffset) {
   const configs = await storage.push.listEnabledByModule(module);
   const sent = [];
   for (const cfg of configs) {
@@ -395,9 +423,9 @@ async function runModulePush(env, storage, module, now, manual) {
     const channel = await storage.notify.findById(cfg.channel_id);
     if (!channel || !channel.enabled) continue;
     const format = cfg.format || 'text';
-    const message = await buildModuleMessage(env, storage, module, cfg.user_id, format);
+    const message = await buildModuleMessage(env, storage, module, cfg.user_id, format, tzOffset);
     if (!message) continue;
-    const r = await sendNotification(message, channel, format);
+    const r = await sendNotification(message, channel, format, moduleSubject(module, tzOffset));
     sent.push({ user_id: cfg.user_id, ...r });
   }
   return { sent };
@@ -405,9 +433,10 @@ async function runModulePush(env, storage, module, now, manual) {
 
 /**
  * 构造某模块某用户的推送消息（text/html，html 附 QuickChart 图）
+ * @param {number} tzOffset - 时区偏移（小时）
  * @returns {Promise<string|null>} 无数据返回 null
  */
-async function buildModuleMessage(env, storage, module, userId, format) {
+async function buildModuleMessage(env, storage, module, userId, format, tzOffset = 8) {
   if (module === 'fund') {
     const funds = await storage.fund.listByUser(userId);
     if (funds.length === 0) return null;
@@ -415,7 +444,7 @@ async function buildModuleMessage(env, storage, module, userId, format) {
     for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
     const portfolio = buildPortfolio(funds, navMap);
     const linkMap = await buildShareLinkMap(env, storage, funds);
-    let msg = buildFundReport(portfolio, format, linkMap);
+    let msg = buildFundReport(portfolio, format, linkMap, tzOffset);
     if (format === 'html') {
       const labels = portfolio.items.map(i => i.name);
       const data = portfolio.items.map(i => i.value);
@@ -430,7 +459,7 @@ async function buildModuleMessage(env, storage, module, userId, format) {
     const user = await storage.users.findById(userId);
     const unit = (user && user.weight_unit) || 'jin';
     const base = env.PUBLIC_BASE_URL || '';
-    const today = nowCN(Date.now()).dateStr;
+    const today = nowCN(Date.now(), tzOffset).dateStr;
     // 每个成员确保有 share_token（未填当日时用于快速填写链接）
     const tokenMap = {};
     for (const m of members) {
@@ -448,6 +477,10 @@ async function buildModuleMessage(env, storage, module, userId, format) {
     const records = await storage.asset.listRecords(userId);
     if (records.length === 0) return null;
     const data = buildAssetReportData(wallets, records);
+    // 年度目标（若已设置，用于报告显示"离目标还差多少"）
+    const year = nowCN(Date.now(), tzOffset).dateStr.slice(0, 4);
+    const goalRow = await storage.asset.getGoal(userId, year);
+    const target = goalRow ? goalRow.target_amount : null;
     const base = env.PUBLIC_BASE_URL || '';
     let chartLink = '';
     if (base) {
@@ -457,7 +490,7 @@ async function buildModuleMessage(env, storage, module, userId, format) {
         ? `<p>📈 <a href="${link}">查看净资产趋势图</a></p>`
         : `\n📈 查看趋势图：${link}\n`;
     }
-    return buildAssetReport(data, format, chartLink);
+    return buildAssetReport(data, format, chartLink, target);
   }
   return null;
 }
@@ -490,27 +523,34 @@ function buildWeightReport(members, records, opts) {
     const last7 = arr.slice(-7);
     let block = '';
     if (isHtml) {
-      block += `<div style="margin:10px 0;padding:10px;background:#f8f9fa;border-radius:6px;">`;
-      block += `<b>${m.name}</b><br>`;
+      block += `<div style="margin:10px 0;padding:12px;background:#f8f9fa;border-radius:6px;">`;
+      block += `<b style="font-size:15px;">${m.name}</b><br>`;
       if (todayRec) {
-        block += `今日：${disp(todayRec.weight)} ${unitLabel}<br>`;
+        block += `<span style="color:#389e0d;">今日：${disp(todayRec.weight)} ${unitLabel}</span><br>`;
       } else if (base) {
         block += `<span style="color:#cf1322;">今日未填</span> · <a href="${base}/w/${tokenMap[m.id]}">点此快速填写</a><br>`;
       } else {
         block += `今日未填<br>`;
       }
       if (last7.length) {
-        block += `<span style="color:#888;font-size:13px;">最近记录：` +
-          last7.map(r => `${r.record_date.slice(5)} ${disp(r.weight)}`).join(' · ') + ` ${unitLabel}</span>`;
+        // 最近记录纵向小列表（每条一行），窄屏不挤成一行
+        block += `<div style="color:#888;font-size:13px;margin-top:6px;">最近记录：</div>`;
+        block += `<table style="width:100%;border-collapse:collapse;font-size:13px;color:#666;">`;
+        block += last7.map(r =>
+          `<tr><td style="padding:2px 0;text-align:left;">${r.record_date.slice(5)}</td>` +
+          `<td style="padding:2px 0;text-align:right;">${disp(r.weight)} ${unitLabel}</td></tr>`
+        ).join('');
+        block += `</table>`;
       }
       block += `</div>`;
     } else {
       block += `【${m.name}】\n`;
-      if (todayRec) block += `  今日：${disp(todayRec.weight)} ${unitLabel}\n`;
-      else if (base) block += `  今日未填，快速填写：${base}/w/${tokenMap[m.id]}\n`;
-      else block += `  今日未填\n`;
+      if (todayRec) block += `　今日：${disp(todayRec.weight)} ${unitLabel}\n`;
+      else if (base) block += `　今日未填，快速填写：${base}/w/${tokenMap[m.id]}\n`;
+      else block += `　今日未填\n`;
       if (last7.length) {
-        block += `  最近：` + last7.map(r => `${r.record_date.slice(5)} ${disp(r.weight)}`).join(' · ') + ` ${unitLabel}\n`;
+        block += `　最近记录：\n`;
+        block += last7.map(r => `　　${r.record_date.slice(5)}　${disp(r.weight)} ${unitLabel}`).join('\n') + '\n';
       }
     }
     parts.push(block);
@@ -523,7 +563,8 @@ function buildWeightReport(members, records, opts) {
     h += `</div>`;
     return h;
   }
-  let t = `⚖️ 体重日报\n\n` + parts.join('\n');
+  const line = '━━━━━━━━━━━━━━';
+  let t = `⚖️ 体重日报\n${line}\n\n` + parts.join('\n');
   if (base && reportToken) t += `\n📈 查看曲线图：${base}/wr/${reportToken}\n`;
   return t;
 }

@@ -8,6 +8,7 @@ import { getStorage } from '../storage/adapter.js';
 import { requireAdmin } from '../auth/middleware.js';
 import { hashPassword } from '../auth/password.js';
 import { getTokenFromRequest, getSession, impersonate, stopImpersonate } from '../auth/session.js';
+import { parseOffset, DEFAULT_TZ_OFFSET } from '../services/time.service.js';
 
 const DEFAULT_PASSWORD = '123456';
 
@@ -199,7 +200,34 @@ async function stopImpersonateUser({ request, env }) {
   return json({ success: true, message: '已恢复超管身份' });
 }
 
+/**
+ * GET /api/admin/settings/timezone  读取全局时区偏移
+ */
+async function getTimezone({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const raw = await storage.settings.get('tz_offset');
+  return json({ success: true, tz_offset: parseOffset(raw != null ? raw : DEFAULT_TZ_OFFSET) });
+}
+
+/**
+ * PUT /api/admin/settings/timezone  设置全局时区偏移
+ * body: { tz_offset }  -12 ~ 14
+ */
+async function setTimezone({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const n = parseInt(body.tz_offset, 10);
+  if (isNaN(n) || n < -12 || n > 14) return error('时区偏移需为 -12 ~ 14 的整数');
+  const storage = getStorage(env);
+  await storage.settings.set('tz_offset', String(n));
+  return json({ success: true, message: '时区已保存', tz_offset: n });
+}
+
 export {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
-  createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname
+  createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
+  getTimezone, setTimezone
 };

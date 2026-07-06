@@ -7,12 +7,13 @@
  */
 
 /**
- * 取北京时区当前时间的 { hour, day, month, dateStr }
+ * 取指定时区当前时间的 { hour, day, month, dateStr }
  * @param {number} nowMs - 当前毫秒时间戳（由调用方传入，便于测试）
+ * @param {number} offset - 时区偏移（小时），默认 8（北京时间）
  * @returns {Object}
  */
-function nowCN(nowMs) {
-  const d = new Date(nowMs + 8 * 3600 * 1000); // UTC+8
+function nowCN(nowMs, offset = 8) {
+  const d = new Date(nowMs + offset * 3600 * 1000);
   return {
     hour: d.getUTCHours(),
     day: d.getUTCDate(),

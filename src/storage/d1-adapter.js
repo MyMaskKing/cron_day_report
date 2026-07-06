@@ -408,6 +408,20 @@ function createD1Adapter(env) {
         }
         return token;
       }
+    },
+
+    // ==================== 全局设置 ====================
+    settings: {
+      async get(key) {
+        const row = await db.prepare('SELECT value FROM app_settings WHERE key = ?').bind(key).first();
+        return row ? row.value : null;
+      },
+      async set(key, value) {
+        await db.prepare(
+          `INSERT INTO app_settings (key, value) VALUES (?, ?)
+           ON CONFLICT(key) DO UPDATE SET value=excluded.value`
+        ).bind(key, value).run();
+      }
     }
   };
 }
