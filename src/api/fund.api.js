@@ -8,12 +8,13 @@ import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
 import { generateToken } from '../auth/password.js';
 import {
-  fetchFundNav, fetchNavBatch, buildPortfolio, buildFundReport,
+  fetchFundNav, fetchNavBatch, buildPortfolio,
   analyzePortfolio, calcScenarios, applyBuy
 } from '../services/fund.service.js';
 import { sendNotification } from '../services/notify.service.js';
-import { buildChartUrl } from '../services/chart.service.js';
+import { buildFundReport } from '../services/report.service.js';
 import { parseOffset, fmtShort } from '../services/time.service.js';
+import { resolveBaseUrl } from '../config.js';
 
 /** 校验持仓字段 */
 function validateFund(f) {
@@ -151,20 +152,14 @@ async function sendReport({ request, env, url }) {
   const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
 
   // 生成每只基金的免密加仓链接（无 token 则生成持久化）
-  const base = env.PUBLIC_BASE_URL || url.origin;
+  const base = await resolveBaseUrl(storage, env, url);
   const linkMap = {};
   for (const f of funds) {
     let token = f.share_token;
     if (!token) { token = generateToken(); await storage.fund.setShareToken(f.id, token); }
     linkMap[f.id] = `${base}/f/${token}`;
   }
-  const message0 = buildFundReport(portfolio, format, linkMap, tzOffset);
-  let message = message0;
-  if (format === 'html') {
-    const labels = portfolio.items.map(i => i.name);
-    const data = portfolio.items.map(i => i.value);
-    message += `<div><img src="${buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } })}" alt="持仓分布"></div>`;
-  }
+  const message = buildFundReport(portfolio, format, linkMap, tzOffset);
   const subject = `📈 基金持仓日报 ${fmtShort(Date.now(), tzOffset)}`;
   const result = await sendNotification(message, channel, format, subject);
   return json({ success: result.success, message: result.message });
@@ -209,7 +204,7 @@ async function getShareLink({ request, env, params, url }) {
     token = generateToken();
     await storage.fund.setShareToken(id, token);
   }
-  const base = env.PUBLIC_BASE_URL || url.origin;
+  const base = await resolveBaseUrl(storage, env, url);
   return json({ success: true, token, link: `${base}/f/${token}` });
 }
 

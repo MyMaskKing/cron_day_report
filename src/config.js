@@ -31,8 +31,22 @@ function getTimeoutConfig(env) {
   };
 }
 
+/**
+ * 解析站点公开地址：DB 设置优先，其次配置文件 env，最后 url.origin 兜底
+ * @param {Object} storage - 存储适配器
+ * @param {Object} env - Worker 环境
+ * @param {URL} [url] - 请求 URL（调度上下文无 request 时传 undefined）
+ * @returns {Promise<string>} 站点基址（可能为空字符串）
+ */
+async function resolveBaseUrl(storage, env, url) {
+  const fromDb = await storage.settings.get('public_base_url');
+  if (fromDb) return fromDb;
+  if (env.PUBLIC_BASE_URL) return env.PUBLIC_BASE_URL;
+  return url ? url.origin : '';
+}
+
 export {
   RETURN_TYPES, DEFAULT_TIMEOUT, DEFAULT_RESPONSE_TIMEOUT,
   DEFAULT_CONCURRENCY_LIMIT, DEFAULT_BATCH_DELAY, SESSION_TTL,
-  DEFAULT_WEBHOOK_URL, getTimeoutConfig
+  DEFAULT_WEBHOOK_URL, getTimeoutConfig, resolveBaseUrl
 };

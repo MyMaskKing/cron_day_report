@@ -226,8 +226,35 @@ async function setTimezone({ request, env }) {
   return json({ success: true, message: '时区已保存', tz_offset: n });
 }
 
+/**
+ * GET /api/admin/settings/base-url  读取全局站点公开地址（DB 配置值，可能为空）
+ */
+async function getBaseUrl({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const base = await storage.settings.get('public_base_url');
+  return json({ success: true, base_url: base || '' });
+}
+
+/**
+ * PUT /api/admin/settings/base-url  设置全局站点公开地址
+ * body: { base_url }  空串=清空（回退配置文件/请求源）；非空需 http(s):// 开头
+ */
+async function setBaseUrl({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  let v = (body.base_url != null ? String(body.base_url) : '').trim();
+  if (v && !/^https?:\/\//i.test(v)) return error('站点地址需以 http:// 或 https:// 开头');
+  v = v.replace(/\/+$/, '');  // 去掉结尾斜杠，避免拼链接出现双斜杠
+  const storage = getStorage(env);
+  await storage.settings.set('public_base_url', v);
+  return json({ success: true, message: '站点地址已保存', base_url: v });
+}
+
 export {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
-  getTimezone, setTimezone
+  getTimezone, setTimezone, getBaseUrl, setBaseUrl
 };

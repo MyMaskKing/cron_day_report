@@ -7,6 +7,7 @@ import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
 import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { generateToken } from '../auth/password.js';
+import { resolveBaseUrl } from '../config.js';
 
 /** 取北京时区当天 YYYY-MM-DD */
 function todayCN() {
@@ -85,7 +86,7 @@ async function getMemberShareLink({ request, env, params, url }) {
     token = generateToken();
     await storage.weight.setMemberShareToken(id, token);
   }
-  const base = env.PUBLIC_BASE_URL || url.origin;
+  const base = await resolveBaseUrl(storage, env, url);
   return json({ success: true, token, link: `${base}/w/${token}` });
 }
 

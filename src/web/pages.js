@@ -98,6 +98,13 @@ function adminPage(user) {
         <div style="display:flex;align-items:flex-end;margin-bottom:12px;"><button class="btn" id="tzSave">保存时区</button></div>
       </div>
       <p class="muted">影响所有推送内容与报告中的时间显示。当前部署在 Cloudflare（UTC），设为 8 即中国时间。</p>
+      <div class="row">
+        <div style="flex:1;"><label>站点公开地址（用于推送内免密链接，如 https://xxx.workers.dev）</label>
+          <input id="baseUrlInput" type="text" placeholder="留空则回退配置文件 / 请求来源">
+        </div>
+        <div style="display:flex;align-items:flex-end;margin-bottom:12px;"><button class="btn" id="baseUrlSave">保存地址</button></div>
+      </div>
+      <p class="muted">优先级：此处设置 &gt; 配置文件 PUBLIC_BASE_URL &gt; 请求来源。留空即清空本项设置。</p>
     </div>
     <div class="card">
       <h2>全部用户

@@ -7,7 +7,7 @@
  */
 
 import { Router, json, html, error } from './router.js';
-import { getTimeoutConfig } from './config.js';
+import { getTimeoutConfig, resolveBaseUrl } from './config.js';
 import { getStorage } from './storage/adapter.js';
 import { getSession, getTokenFromRequest } from './auth/session.js';
 import { generateToken } from './auth/password.js';
@@ -19,7 +19,7 @@ import { register, login, logout, me, bootstrap, setupStatus, getProfile, update
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
-  getTimezone, setTimezone
+  getTimezone, setTimezone, getBaseUrl, setBaseUrl
 } from './api/users.api.js';
 import { listChannels, createChannel, updateChannel, removeChannel } from './api/notify.api.js';
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
@@ -28,7 +28,7 @@ import {
   fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
   getShareLink, fundScenario, publicFundInfo, publicFundBuy, buyFund
 } from './api/fund.api.js';
-import { fetchNavBatch, buildPortfolio, buildFundReport } from './services/fund.service.js';
+import { fetchNavBatch, buildPortfolio } from './services/fund.service.js';
 import {
   listMembers, createMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
@@ -40,10 +40,10 @@ import {
   saveRecord, assetReport, getGoal, setGoal,
   publicWalletInfo, publicSaveRecord, publicAssetReport
 } from './api/asset.api.js';
-import { buildAssetReportData, buildAssetReport } from './services/asset.service.js';
+import { buildAssetReportData } from './services/asset.service.js';
 import { getPushConfig, setPushConfig } from './api/push.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
-import { buildChartUrl } from './services/chart.service.js';
+import { buildFundReport, buildAssetReport, buildWeightReport } from './services/report.service.js';
 import { parseOffset, fmtShort } from './services/time.service.js';
 
 // Pages
@@ -81,6 +81,8 @@ router.post('/api/admin/users/:id/impersonate', impersonateUser);
 // --- 超管全局设置 API ---
 router.get('/api/admin/settings/timezone', getTimezone);
 router.put('/api/admin/settings/timezone', setTimezone);
+router.get('/api/admin/settings/base-url', getBaseUrl);
+router.put('/api/admin/settings/base-url', setBaseUrl);
 
 // --- 手动触发（兼容保留，执行当前登录用户的启用任务）---
 router.get('/api/monitor/run', runMyMonitors);
@@ -444,13 +446,7 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
     for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
     const portfolio = buildPortfolio(funds, navMap);
     const linkMap = await buildShareLinkMap(env, storage, funds);
-    let msg = buildFundReport(portfolio, format, linkMap, tzOffset);
-    if (format === 'html') {
-      const labels = portfolio.items.map(i => i.name);
-      const data = portfolio.items.map(i => i.value);
-      msg += `<div><img src="${buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } })}" alt="持仓分布"></div>`;
-    }
-    return msg;
+    return buildFundReport(portfolio, format, linkMap, tzOffset);
   }
   if (module === 'weight') {
     const members = await storage.weight.listMembers(userId);
@@ -458,7 +454,7 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
     if (members.length === 0) return null;
     const user = await storage.users.findById(userId);
     const unit = (user && user.weight_unit) || 'jin';
-    const base = env.PUBLIC_BASE_URL || '';
+    const base = await resolveBaseUrl(storage, env);
     const today = nowCN(Date.now(), tzOffset).dateStr;
     // 每个成员确保有 share_token（未填当日时用于快速填写链接）
     const tokenMap = {};
@@ -481,92 +477,25 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
     const year = nowCN(Date.now(), tzOffset).dateStr.slice(0, 4);
     const goalRow = await storage.asset.getGoal(userId, year);
     const target = goalRow ? goalRow.target_amount : null;
-    const base = env.PUBLIC_BASE_URL || '';
+    const base = await resolveBaseUrl(storage, env);
     let chartLink = '';
+    // 每个钱包的免密录入链接（无 token 则生成持久化）；html 展示，text 默认不显示
+    const walletLinkMap = {};
     if (base) {
+      for (const w of wallets) {
+        let tk = w.share_token;
+        if (!tk) { tk = generateToken(); await storage.asset.setWalletShareToken(w.id, tk); }
+        walletLinkMap[w.id] = `${base}/a/${tk}`;
+      }
       const reportToken = await storage.push.ensureReportToken(userId, 'asset', generateToken());
       const link = `${base}/ar/${reportToken}`;
       chartLink = format === 'html'
         ? `<p>📈 <a href="${link}">查看净资产趋势图</a></p>`
         : `\n📈 查看趋势图：${link}\n`;
     }
-    return buildAssetReport(data, format, chartLink, target);
+    return buildAssetReport(data, format, chartLink, target, walletLinkMap);
   }
   return null;
-}
-
-/**
- * 构造体重日报
- * 每个成员：已填当日则显示当日体重，未填则给快速填写链接；附最近7次历史；单位按用户设置；曲线给查看链接
- * @param {Array} members
- * @param {Array} records
- * @param {Object} opts - { format, unit, base, today, tokenMap, reportToken }
- * @returns {string}
- */
-function buildWeightReport(members, records, opts) {
-  const { format, unit, base, today, tokenMap, reportToken } = opts;
-  const unitLabel = unit === 'kg' ? '公斤' : '斤';
-  const disp = kg => unit === 'jin' ? Math.round(kg * 2 * 10) / 10 : kg;
-  // 按成员分组、按日期排序
-  const byMember = new Map();
-  for (const r of records) {
-    if (!byMember.has(r.member_id)) byMember.set(r.member_id, []);
-    byMember.get(r.member_id).push(r);
-  }
-  for (const arr of byMember.values()) arr.sort((a, b) => a.record_date < b.record_date ? -1 : 1);
-
-  const isHtml = format === 'html';
-  const parts = [];
-  for (const m of members) {
-    const arr = byMember.get(m.id) || [];
-    const todayRec = arr.find(r => r.record_date === today);
-    const last7 = arr.slice(-7);
-    let block = '';
-    if (isHtml) {
-      block += `<div style="margin:10px 0;padding:12px;background:#f8f9fa;border-radius:6px;">`;
-      block += `<b style="font-size:15px;">${m.name}</b><br>`;
-      if (todayRec) {
-        block += `<span style="color:#389e0d;">今日：${disp(todayRec.weight)} ${unitLabel}</span><br>`;
-      } else if (base) {
-        block += `<span style="color:#cf1322;">今日未填</span> · <a href="${base}/w/${tokenMap[m.id]}">点此快速填写</a><br>`;
-      } else {
-        block += `今日未填<br>`;
-      }
-      if (last7.length) {
-        // 最近记录纵向小列表（每条一行），窄屏不挤成一行
-        block += `<div style="color:#888;font-size:13px;margin-top:6px;">最近记录：</div>`;
-        block += `<table style="width:100%;border-collapse:collapse;font-size:13px;color:#666;">`;
-        block += last7.map(r =>
-          `<tr><td style="padding:2px 0;text-align:left;">${r.record_date.slice(5)}</td>` +
-          `<td style="padding:2px 0;text-align:right;">${disp(r.weight)} ${unitLabel}</td></tr>`
-        ).join('');
-        block += `</table>`;
-      }
-      block += `</div>`;
-    } else {
-      block += `【${m.name}】\n`;
-      if (todayRec) block += `　今日：${disp(todayRec.weight)} ${unitLabel}\n`;
-      else if (base) block += `　今日未填，快速填写：${base}/w/${tokenMap[m.id]}\n`;
-      else block += `　今日未填\n`;
-      if (last7.length) {
-        block += `　最近记录：\n`;
-        block += last7.map(r => `　　${r.record_date.slice(5)}　${disp(r.weight)} ${unitLabel}`).join('\n') + '\n';
-      }
-    }
-    parts.push(block);
-  }
-
-  if (isHtml) {
-    let h = `<div style="font-family:-apple-system,sans-serif;max-width:600px;"><h2>⚖️ 体重日报</h2>`;
-    h += parts.join('');
-    if (base && reportToken) h += `<p>📈 <a href="${base}/wr/${reportToken}">查看完整曲线图</a></p>`;
-    h += `</div>`;
-    return h;
-  }
-  const line = '━━━━━━━━━━━━━━';
-  let t = `⚖️ 体重日报\n${line}\n\n` + parts.join('\n');
-  if (base && reportToken) t += `\n📈 查看曲线图：${base}/wr/${reportToken}\n`;
-  return t;
 }
 
 /**
@@ -577,7 +506,7 @@ function buildWeightReport(members, records, opts) {
  * @returns {Promise<Object>}
  */
 async function buildShareLinkMap(env, storage, funds) {
-  const base = env.PUBLIC_BASE_URL || '';
+  const base = await resolveBaseUrl(storage, env);
   if (!base) return null; // 未配置站点地址则不附链接
   const map = {};
   for (const f of funds) {

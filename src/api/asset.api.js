@@ -8,6 +8,7 @@ import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
 import { generateToken } from '../auth/password.js';
 import { buildAssetReportData, calcGoalProgress, resolveInvestment, CREDIT_TYPE } from '../services/asset.service.js';
+import { resolveBaseUrl } from '../config.js';
 
 const WALLET_TYPES = ['bank', 'alipay', 'wechat', 'investment', 'credit', 'cash'];
 
@@ -94,7 +95,7 @@ async function getWalletShareLink({ request, env, params, url }) {
     token = generateToken();
     await storage.asset.setWalletShareToken(id, token);
   }
-  const base = env.PUBLIC_BASE_URL || url.origin;
+  const base = await resolveBaseUrl(storage, env, url);
   return json({ success: true, token, link: `${base}/a/${token}` });
 }
 

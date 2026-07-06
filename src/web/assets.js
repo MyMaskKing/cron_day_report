@@ -413,6 +413,24 @@ if (tzSave) tzSave.addEventListener('click', async function(){
   } catch (err) { showMsg(stMsg, err.message, false); }
 });
 loadTimezone();
+
+// 全局站点地址设置
+async function loadBaseUrl() {
+  try {
+    var d = await api('/api/admin/settings/base-url');
+    document.getElementById('baseUrlInput').value = d.base_url || '';
+  } catch (err) { /* 忽略 */ }
+}
+var baseUrlSave = document.getElementById('baseUrlSave');
+if (baseUrlSave) baseUrlSave.addEventListener('click', async function(){
+  var stMsg = document.getElementById('stMsg');
+  try {
+    var r = await api('/api/admin/settings/base-url', { method: 'PUT', body: { base_url: document.getElementById('baseUrlInput').value } });
+    document.getElementById('baseUrlInput').value = r.base_url || '';
+    showMsg(stMsg, r.message || '已保存', true);
+  } catch (err) { showMsg(stMsg, err.message, false); }
+});
+loadBaseUrl();
 loadUsers();
 `;
 

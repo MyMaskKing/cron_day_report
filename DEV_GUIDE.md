@@ -75,7 +75,7 @@ fetch(request, env, ctx)
 分层调用链固定为：**api → service → storage adapter**。
 - api 层做鉴权：`requireAuth` 返回 session 对象**或** 401 Response，handler 必须判断 `instanceof Response` 提前 return。
 - service 层**纯计算无副作用**，不碰存储、不发请求副作用（monitor/notify 例外，本身就是 IO 服务）。
-- 消息构造（text/html 报告）集中在 `index.js` 的 `buildModuleMessage` / `buildWeightReport` 及各 service 的 `buildXxxReport`。
+- 消息构造：取数/编排在 `index.js` 的 `buildModuleMessage`，**文案模板集中在 `services/report.service.js`**（`buildFundReport` / `buildAssetReport` / `buildWeightReport`）——改推送文字、排版、链接展示只改此文件。
 
 ## 5. 定时调度（最关键设计，改前必读）
 
