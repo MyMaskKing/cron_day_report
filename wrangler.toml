@@ -1,4 +1,4 @@
-name = "cron_day_report"
+name = "cron-day-report"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
@@ -28,7 +28,7 @@ STORAGE_DRIVER = "d1"
 
 # 站点公开访问地址（用于 cron 日报中拼接免密加仓链接的绝对 URL）
 # 部署后改为你的 Worker 域名，如 https://cron-send-request.xxx.workers.dev
-PUBLIC_BASE_URL = "https://cron-send-request.mymaskking139-speedup.workers.dev"
+PUBLIC_BASE_URL = "https://cron-day-report.mymaskking139-speedup.workers.dev"
 
 # 环境变量示例（旧版全局监控，已由数据库管理取代，保留兼容说明）
 # ACCESS_URL1 = "https://example1.com"

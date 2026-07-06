@@ -1,5 +1,5 @@
 {
-  "name": "cron_day_report",
+  "name": "cron-day-report",
   "version": "1.0.0",
   "description": "Cloudflare Worker for scheduled URL access and WeChat notification",
   "main": "src/index.js",
