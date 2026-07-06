@@ -15,7 +15,7 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, login, logout, me, bootstrap, setupStatus } from './api/auth.api.js';
+import { register, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser
@@ -38,7 +38,7 @@ import {
 // Pages
 import {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
-  weightPage, publicWeightPage
+  weightPage, publicWeightPage, settingsPage
 } from './web/pages.js';
 
 // ==================== 路由注册 ====================
@@ -49,6 +49,9 @@ router.post('/api/auth/register', register);
 router.post('/api/auth/login', login);
 router.post('/api/auth/logout', logout);
 router.get('/api/auth/me', me);
+router.get('/api/auth/profile', getProfile);
+router.put('/api/auth/profile', updateProfile);
+router.put('/api/auth/password', changePassword);
 router.get('/api/auth/setup-status', setupStatus);
 router.post('/api/auth/bootstrap', bootstrap);
 
@@ -140,6 +143,7 @@ async function handlePages(request, env) {
     '/monitor': 'monitor',
     '/fund': 'fund',
     '/weight': 'weight',
+    '/settings': 'settings',
     '/admin': 'admin'
   };
   if (path in pageMap) {
@@ -149,7 +153,8 @@ async function handlePages(request, env) {
       return new Response(null, { status: 302, headers: { Location: '/login' } });
     }
     const user = {
-      id: session.user_id, username: session.username, role: session.role,
+      id: session.user_id, username: session.username,
+      nickname: session.nickname || session.username, role: session.role,
       impersonating: !!session.impersonating, admin_username: session.admin_username || null
     };
 
@@ -162,6 +167,8 @@ async function handlePages(request, env) {
         return html(fundPage(user));
       case 'weight':
         return html(weightPage(user));
+      case 'settings':
+        return html(settingsPage(user));
       case 'admin':
         if (user.role !== 'admin') return html(dashboardPage(user));
         return html(adminPage(user));

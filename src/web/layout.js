@@ -156,7 +156,8 @@ function renderTopbar(user, active = '') {
   return `<div class="topbar">
     <h1>🚀 监控与追踪控制台</h1>
     <div class="nav">${navHtml}</div>
-    <div class="user">${user.username} <span class="tag ${user.role}">${user.role === 'admin' ? '超管' : '用户'}</span>
+    <div class="user">${user.nickname || user.username} <span class="tag ${user.role}">${user.role === 'admin' ? '超管' : '用户'}</span>
+      <a href="/settings">设置</a>
       <a href="#" id="logoutBtn">登出</a>
     </div>
   </div>` + (user.impersonating ? `<div class="impersonate-banner">

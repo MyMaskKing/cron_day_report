@@ -19,7 +19,7 @@ async function createSession(env, user) {
   const token = generateToken();
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL;
   await kvSetSession(env.KV, token, {
-    user_id: user.id, username: user.username, role: user.role, exp
+    user_id: user.id, username: user.username, nickname: user.nickname || user.username, role: user.role, exp
   }, SESSION_TTL);
   return token;
 }

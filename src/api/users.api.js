@@ -109,6 +109,7 @@ async function createUser({ request, env }) {
   const body = await request.json().catch(() => ({}));
   const username = (body.username || '').trim();
   if (username.length < 3 || username.length > 32) return error('用户名需为 3-32 个字符');
+  const nickname = (body.nickname || '').trim() || username;
   const role = body.role === 'admin' ? 'admin' : 'user';
   const password = body.password && body.password.length >= 6 ? body.password : DEFAULT_PASSWORD;
 
@@ -117,7 +118,7 @@ async function createUser({ request, env }) {
   if (existing) return error('用户名已存在');
 
   const password_hash = await hashPassword(password);
-  const id = await storage.users.create({ username, password_hash, role });
+  const id = await storage.users.create({ username, password_hash, role, nickname });
   return json({ success: true, message: `用户已创建，初始密码：${password}`, id });
 }
 

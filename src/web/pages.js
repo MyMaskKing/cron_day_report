@@ -6,7 +6,7 @@
 import { renderPage, renderTopbar } from './layout.js';
 import {
   LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS,
-  WEIGHT_JS, PUBLIC_WEIGHT_JS
+  WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS
 } from './assets.js';
 
 /** 初始化超管页 */
@@ -50,8 +50,10 @@ function loginPage() {
         <button class="btn" style="width:100%;" type="submit">登录</button>
       </form>
       <form id="regForm" style="display:none;">
-        <label>用户名 (3-32位)</label>
+        <label>用户名 (3-32位，登录用)</label>
         <input id="ru" required>
+        <label>昵称 (显示用，可选)</label>
+        <input id="rn" placeholder="留空则同用户名">
         <label>密码 (至少6位)</label>
         <input id="rp" type="password" required>
         <button class="btn" style="width:100%;" type="submit">注册</button>
@@ -89,7 +91,7 @@ function adminPage(user) {
         <button class="btn sm" id="newUserBtn" style="float:right;">+ 新建用户</button>
       </h2>
       <table>
-        <thead><tr><th>ID</th><th>用户名</th><th>角色</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
+        <thead><tr><th>ID</th><th>用户名</th><th>昵称</th><th>角色</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead>
         <tbody id="userTbody"></tbody>
       </table>
     </div>
@@ -355,7 +357,34 @@ function publicWeightPage() {
   return renderPage({ title: '体重打卡', body, script: PUBLIC_WEIGHT_JS });
 }
 
+/** 个人设置页 */
+function settingsPage(user) {
+  const body = renderTopbar(user, '') + `<div class="container">
+    <div class="card" style="max-width:480px;">
+      <h2>个人设置</h2>
+      <div id="msg" class="msg"></div>
+      <form id="nickForm">
+        <label>用户名（登录用，不可修改）</label>
+        <input id="pfUsername" readonly disabled style="background:#f5f5f5;">
+        <label>昵称</label>
+        <input id="pfNick" maxlength="32">
+        <button class="btn" type="submit">保存昵称</button>
+      </form>
+      <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+      <form id="pwdForm">
+        <h2 style="font-size:15px;">修改密码</h2>
+        <label>原密码</label>
+        <input id="pwOld" type="password" autocomplete="current-password">
+        <label>新密码（至少6位）</label>
+        <input id="pwNew" type="password" autocomplete="new-password">
+        <button class="btn" type="submit">修改密码</button>
+      </form>
+    </div>
+  </div>`;
+  return renderPage({ title: '个人设置', body, script: SETTINGS_JS });
+}
+
 export {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
-  weightPage, publicWeightPage
+  weightPage, publicWeightPage, settingsPage
 };

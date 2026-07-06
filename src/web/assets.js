@@ -123,6 +123,7 @@ regForm.addEventListener('submit', async function(e) {
   try {
     await api('/api/auth/register', { method: 'POST', body: {
       username: document.getElementById('ru').value,
+      nickname: document.getElementById('rn').value || undefined,
       password: document.getElementById('rp').value
     }});
     showMsg(msg, '注册成功，请登录', true);
@@ -138,9 +139,41 @@ bindLogout();
 (async function() {
   try {
     var me = await api('/api/auth/me');
-    document.getElementById('welcome').textContent = '欢迎，' + me.user.username;
+    document.getElementById('welcome').textContent = '欢迎，' + (me.user.nickname || me.user.username);
   } catch (err) { location.href = '/login'; }
 })();
+`;
+
+// 个人设置页 JS
+const SETTINGS_JS = `
+${COMMON_JS}
+bindLogout();
+var msg = document.getElementById('msg');
+(async function(){
+  try {
+    var d = await api('/api/auth/profile');
+    document.getElementById('pfUsername').value = d.profile.username;
+    document.getElementById('pfNick').value = d.profile.nickname;
+  } catch(e){ location.href = '/login'; }
+})();
+document.getElementById('nickForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  try {
+    await api('/api/auth/profile', { method:'PUT', body:{ nickname: document.getElementById('pfNick').value } });
+    showMsg(msg, '昵称已更新，刷新后生效', true);
+  } catch(err){ showMsg(msg, err.message, false); }
+});
+document.getElementById('pwdForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  try {
+    await api('/api/auth/password', { method:'PUT', body:{
+      oldPassword: document.getElementById('pwOld').value,
+      newPassword: document.getElementById('pwNew').value
+    }});
+    showMsg(msg, '密码已修改', true);
+    document.getElementById('pwOld').value = ''; document.getElementById('pwNew').value = '';
+  } catch(err){ showMsg(msg, err.message, false); }
+});
 `;
 
 // 初始化超管页 JS
@@ -190,6 +223,7 @@ async function loadUsers() {
       return '<tr>' +
         '<td data-label="ID">' + u.id + '</td>' +
         '<td data-label="用户名">' + esc(u.username) + '</td>' +
+        '<td data-label="昵称">' + esc(u.nickname || u.username) + '</td>' +
         '<td data-label="角色"><span class="tag ' + u.role + '">' + (u.role === 'admin' ? '超管' : '用户') + '</span></td>' +
         '<td data-label="状态"><span class="tag ' + u.status + '">' + (u.status === 'active' ? '正常' : '禁用') + '</span></td>' +
         '<td data-label="创建时间">' + esc(u.created_at) + '</td>' +
@@ -253,7 +287,8 @@ function resetPwd(id, name) {
 }
 function newUser() {
   openModal('创建用户',
-    '<label>用户名（3-32位）</label><input id="nuName">' +
+    '<label>用户名（3-32位，登录用）</label><input id="nuName">' +
+    '<label>昵称（显示用，可选）</label><input id="nuNick" placeholder="留空则同用户名">' +
     '<label>密码（留空=123456）</label><input id="nuPwd" type="text" placeholder="留空=123456">' +
     '<label>角色</label><select id="nuRole"><option value="user">用户</option><option value="admin">超管</option></select>' +
     '<div style="margin-top:12px;"><button class="btn" id="nuConfirm">创建</button> ' +
@@ -261,6 +296,7 @@ function newUser() {
   document.getElementById('nuConfirm').addEventListener('click', async function(){
     var payload = {
       username: document.getElementById('nuName').value.trim(),
+      nickname: document.getElementById('nuNick').value.trim() || undefined,
       password: document.getElementById('nuPwd').value || undefined,
       role: document.getElementById('nuRole').value
     };
@@ -947,5 +983,5 @@ loadInfo();
 
 export {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
-  PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS
+  PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS
 };

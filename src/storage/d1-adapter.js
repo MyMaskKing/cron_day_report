@@ -20,17 +20,20 @@ function createD1Adapter(env) {
       async findById(id) {
         return await db.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
       },
-      async create({ username, password_hash, role = 'user' }) {
+      async create({ username, password_hash, role = 'user', nickname = null }) {
         const res = await db.prepare(
-          'INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)'
-        ).bind(username, password_hash, role).run();
+          'INSERT INTO users (username, password_hash, role, nickname) VALUES (?, ?, ?, ?)'
+        ).bind(username, password_hash, role, nickname || username).run();
         return res.meta.last_row_id;
       },
       async list() {
         const { results } = await db.prepare(
-          'SELECT id, username, role, status, created_at FROM users ORDER BY id'
+          'SELECT id, username, nickname, role, status, created_at FROM users ORDER BY id'
         ).all();
         return results || [];
+      },
+      async updateNickname(id, nickname) {
+        await db.prepare('UPDATE users SET nickname = ? WHERE id = ?').bind(nickname, id).run();
       },
       async updateRole(id, role) {
         await db.prepare('UPDATE users SET role = ? WHERE id = ?').bind(role, id).run();

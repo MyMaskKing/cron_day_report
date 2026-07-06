@@ -28,6 +28,7 @@ function validateCredentials(username, password) {
 async function register({ request, env }) {
   const body = await request.json().catch(() => ({}));
   const { username, password } = body;
+  const nickname = (body.nickname || '').trim() || username;
   const invalid = validateCredentials(username, password);
   if (invalid) return error(invalid);
 
@@ -36,7 +37,7 @@ async function register({ request, env }) {
   if (existing) return error('用户名已存在');
 
   const password_hash = await hashPassword(password);
-  const id = await storage.users.create({ username, password_hash, role: 'user' });
+  const id = await storage.users.create({ username, password_hash, role: 'user', nickname });
   return json({ success: true, message: '注册成功', user: { id, username, role: 'user' } });
 }
 
@@ -81,10 +82,63 @@ async function me({ request, env }) {
   const token = getTokenFromRequest(request);
   const session = await getSession(env, token);
   if (!session) return error('未登录', 401);
+  const storage = getStorage(env);
+  const u = await storage.users.findById(session.user_id);
+  const nickname = (u && u.nickname) || session.nickname || session.username;
   return json({
     success: true,
-    user: { id: session.user_id, username: session.username, role: session.role }
+    user: { id: session.user_id, username: session.username, nickname, role: session.role }
   });
+}
+
+/**
+ * GET /api/auth/profile  当前用户资料
+ */
+async function getProfile({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const storage = getStorage(env);
+  const u = await storage.users.findById(session.user_id);
+  if (!u) return error('用户不存在', 404);
+  return json({ success: true, profile: { username: u.username, nickname: u.nickname || u.username } });
+}
+
+/**
+ * PUT /api/auth/profile  修改昵称  body: { nickname }
+ */
+async function updateProfile({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  const nickname = (body.nickname || '').trim();
+  if (!nickname || nickname.length > 32) return error('昵称需为 1-32 个字符');
+  const storage = getStorage(env);
+  await storage.users.updateNickname(session.user_id, nickname);
+  return json({ success: true, message: '昵称已更新' });
+}
+
+/**
+ * PUT /api/auth/password  修改自己的密码  body: { oldPassword, newPassword }
+ */
+async function changePassword({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  const { oldPassword, newPassword } = body;
+  if (!newPassword || newPassword.length < 6) return error('新密码至少 6 位');
+
+  const storage = getStorage(env);
+  const u = await storage.users.findById(session.user_id);
+  if (!u) return error('用户不存在', 404);
+  const ok = await verifyPassword(oldPassword || '', u.password_hash);
+  if (!ok) return error('原密码错误', 401);
+
+  const password_hash = await hashPassword(newPassword);
+  await storage.users.updatePassword(session.user_id, password_hash);
+  return json({ success: true, message: '密码已修改' });
 }
 
 /**
@@ -135,4 +189,7 @@ async function bootstrap({ request, env }) {
   return json({ success: true, message: '超管初始化成功', user: { id, username, role: 'admin' } });
 }
 
-export { register, login, logout, me, bootstrap, setupStatus };
+export {
+  register, login, logout, me, bootstrap, setupStatus,
+  getProfile, updateProfile, changePassword
+};
