@@ -250,8 +250,41 @@ function createD1Adapter(env) {
         ).bind(r.member_id, r.user_id, r.weight, r.record_date, r.note || '').run();
         return res.meta.last_row_id;
       },
+      async updateRecord(id, weight, note) {
+        await db.prepare('UPDATE weight_records SET weight=?, note=? WHERE id=?').bind(weight, note || '', id).run();
+      },
+      async findRecord(id) {
+        return await db.prepare('SELECT * FROM weight_records WHERE id = ?').bind(id).first();
+      },
+      async findRecordByMemberDate(memberId, date) {
+        return await db.prepare(
+          'SELECT * FROM weight_records WHERE member_id=? AND record_date=?'
+        ).bind(memberId, date).first();
+      },
       async removeRecord(id, userId) {
         await db.prepare('DELETE FROM weight_records WHERE id=? AND user_id=?').bind(id, userId).run();
+      },
+      async findMemberByShareToken(token) {
+        return await db.prepare('SELECT * FROM weight_members WHERE share_token = ?').bind(token).first();
+      },
+      async setMemberShareToken(id, token) {
+        await db.prepare('UPDATE weight_members SET share_token=? WHERE id=?').bind(token, id).run();
+      },
+      async getMemberFirstDate(memberId) {
+        const row = await db.prepare(
+          'SELECT MIN(record_date) AS first_date FROM weight_records WHERE member_id=?'
+        ).bind(memberId).first();
+        return row ? row.first_date : null;
+      },
+      async listRecordsByUsers(userIds) {
+        if (!userIds || userIds.length === 0) return [];
+        const placeholders = userIds.map(() => '?').join(',');
+        const { results } = await db.prepare(
+          `SELECT r.*, m.name AS member_name, m.user_id AS owner_id
+           FROM weight_records r JOIN weight_members m ON r.member_id = m.id
+           WHERE m.user_id IN (${placeholders}) ORDER BY r.record_date`
+        ).bind(...userIds).all();
+        return results || [];
       }
     }
   };

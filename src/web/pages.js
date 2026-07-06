@@ -4,7 +4,10 @@
  */
 
 import { renderPage, renderTopbar } from './layout.js';
-import { LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS } from './assets.js';
+import {
+  LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS,
+  WEIGHT_JS, PUBLIC_WEIGHT_JS
+} from './assets.js';
 
 /** 初始化超管页 */
 function setupPage() {
@@ -281,4 +284,71 @@ function publicBuyPage() {
   return renderPage({ title: '快速加仓', body, script: PUBLIC_BUY_JS });
 }
 
-export { loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage };
+/** 体重曲线页 */
+function weightPage(user) {
+  const body = renderTopbar(user, 'weight') + `<div class="container">
+    <div class="card">
+      <h2>成员 <button class="btn sm" id="mAdd" style="float:right;">+ 新建成员</button></h2>
+      <div id="memberList"></div>
+    </div>
+
+    <div class="card">
+      <h2>录入体重</h2>
+      <div class="row">
+        <div><label>成员</label><select id="recMember"></select></div>
+        <div><label>体重(kg)</label><input id="recWeight" type="number" step="0.1" placeholder="如 65.5"></div>
+        <div><label>日期（留空=今天）</label><input id="recDate" type="date"></div>
+      </div>
+      <button class="btn" id="recAdd">保存记录</button>
+      <p class="muted" style="margin-top:6px;">同一成员同一天再次录入将覆盖当天数据。</p>
+    </div>
+
+    <div class="card">
+      <h2>体重曲线</h2>
+      <canvas id="weightChart" style="max-height:340px;"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>历史记录</h2>
+      <table>
+        <thead><tr><th>日期</th><th>成员</th><th>体重</th><th>操作</th></tr></thead>
+        <tbody id="recTbody"></tbody>
+      </table>
+    </div>
+
+    <div class="card" id="compareCard" style="display:none;">
+      <h2>多用户对比（超管）</h2>
+      <div id="cmpUsers" style="margin-bottom:10px;"></div>
+      <button class="btn" id="cmpRun">生成对比曲线</button>
+      <canvas id="compareChart" style="max-height:340px;margin-top:14px;"></canvas>
+    </div>
+  </div>`;
+  return renderPage({ title: '体重曲线', body, script: WEIGHT_JS });
+}
+
+/** 体重免密快速填写公开页 */
+function publicWeightPage() {
+  const body = `<div class="login-wrap" style="max-width:420px;">
+    <div class="card">
+      <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:6px;">⚖️ <span id="memberName"></span></h1>
+      <p id="streakTitle" style="text-align:center;color:#389e0d;font-weight:600;margin-bottom:16px;"></p>
+      <div id="msg" class="msg"></div>
+      <div id="content" style="display:none;">
+        <form id="wForm">
+          <label>日期（今日，不可修改）</label>
+          <input id="todayDate" readonly disabled style="background:#f5f5f5;text-align:center;">
+          <label>今日体重(kg)</label>
+          <input id="weight" type="number" step="0.1" required placeholder="如 65.5">
+          <button class="btn" style="width:100%;" type="submit">提交今日体重</button>
+        </form>
+        <canvas id="miniChart" style="margin-top:16px;max-height:220px;"></canvas>
+      </div>
+    </div>
+  </div>`;
+  return renderPage({ title: '体重打卡', body, script: PUBLIC_WEIGHT_JS });
+}
+
+export {
+  loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
+  weightPage, publicWeightPage
+};

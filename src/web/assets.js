@@ -722,4 +722,191 @@ document.getElementById('buyForm').addEventListener('submit', async function(e){
 loadInfo();
 `;
 
-export { COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS };
+// 体重曲线页 JS
+const WEIGHT_JS = `
+${COMMON_JS}
+bindLogout();
+bindModal();
+var wChart = null, cmpChart = null;
+var members = [];
+var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f96','#fa8c16'];
+
+async function loadAll() {
+  var data = await api('/api/weight/chart');
+  members = data.members;
+  renderMembers(data.members);
+  renderMemberSelect(data.members);
+  drawChart(data.members, data.records);
+  renderRecordTable(data.members, data.records);
+}
+function renderMembers(list) {
+  var box = document.getElementById('memberList');
+  box.innerHTML = list.map(function(m){
+    return '<span class="tag user" style="margin:2px 4px;padding:4px 10px;">' + esc(m.name) +
+      ' <a href="#" onclick="mShare(' + m.id + ');return false;" style="margin-left:4px;">链接</a>' +
+      ' <a href="#" onclick="mDel(' + m.id + ');return false;" style="color:#cf1322;">×</a></span>';
+  }).join('') || '<span class="muted">暂无成员</span>';
+}
+function renderMemberSelect(list) {
+  var sel = document.getElementById('recMember');
+  sel.innerHTML = list.map(function(m){ return '<option value="' + m.id + '">' + esc(m.name) + '</option>'; }).join('');
+}
+function drawChart(mlist, records) {
+  var byMember = {};
+  mlist.forEach(function(m){ byMember[m.id] = { name: m.name, data: {} }; });
+  var dates = {};
+  records.forEach(function(r){ if (byMember[r.member_id]) { byMember[r.member_id].data[r.record_date] = r.weight; dates[r.record_date] = 1; } });
+  var labels = Object.keys(dates).sort();
+  var datasets = mlist.map(function(m, i){
+    return { label: m.name, data: labels.map(function(d){ return byMember[m.id].data[d] != null ? byMember[m.id].data[d] : null; }),
+      borderColor: COLORS[i % COLORS.length], backgroundColor: COLORS[i % COLORS.length], spanGaps: true, tension: .3 };
+  });
+  if (wChart) wChart.destroy();
+  var el = document.getElementById('weightChart');
+  wChart = new Chart(el, { type: 'line', data: { labels: labels, datasets: datasets },
+    options: { plugins: { legend: { position: 'top' } }, scales: { y: { title: { display: true, text: '体重(kg)' } } } } });
+}
+function renderRecordTable(mlist, records) {
+  var nameOf = {}; mlist.forEach(function(m){ nameOf[m.id] = m.name; });
+  var tb = document.getElementById('recTbody');
+  var sorted = records.slice().sort(function(a,b){ return b.record_date < a.record_date ? -1 : 1; });
+  tb.innerHTML = sorted.map(function(r){
+    return '<tr><td data-label="日期">' + esc(r.record_date) + '</td>' +
+      '<td data-label="成员">' + esc(nameOf[r.member_id]||'') + '</td>' +
+      '<td data-label="体重">' + r.weight + ' kg</td>' +
+      '<td data-label="操作"><button class="btn sm gray" onclick="recEdit(' + r.id + ',' + r.weight + ')">改</button> ' +
+      '<button class="btn sm danger" onclick="recDel(' + r.id + ')">删</button></td></tr>';
+  }).join('') || '<tr><td colspan="4" class="muted">暂无记录</td></tr>';
+}
+
+window.mDel = async function(id){
+  if (!confirm('删除该成员及其记录?')) return;
+  try { await api('/api/weight/members/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alert(e.message); }
+};
+window.mShare = async function(id){
+  try {
+    var d = await api('/api/weight/members/' + id + '/share-link');
+    openModal('免密填写链接',
+      '<p class="muted">此链接长期有效，打开无需登录即可填写该成员当天体重。</p>' +
+      '<input id="wShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
+      '<button class="btn" onclick="wCopy()">复制链接</button>');
+  } catch(e){ alert(e.message); }
+};
+window.wCopy = function(){ var el=document.getElementById('wShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
+window.recEdit = function(id, cur){
+  openModal('修改体重',
+    '<label>体重(kg)</label><input id="reW" type="number" step="0.1" value="' + cur + '">' +
+    '<div style="margin-top:12px;"><button class="btn" id="reConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('reConfirm').addEventListener('click', async function(){
+    try { await api('/api/weight/records/' + id, { method:'PUT', body:{ weight: document.getElementById('reW').value } }); closeModal(); await loadAll(); }
+    catch(e){ alert(e.message); }
+  });
+};
+window.recDel = async function(id){
+  if (!confirm('删除该记录?')) return;
+  try { await api('/api/weight/records/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alert(e.message); }
+};
+
+document.getElementById('mAdd').addEventListener('click', function(){
+  openModal('新建成员',
+    '<label>成员名称</label><input id="mName">' +
+    '<div style="margin-top:12px;"><button class="btn" id="mConfirm">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('mConfirm').addEventListener('click', async function(){
+    try { await api('/api/weight/members', { method:'POST', body:{ name: document.getElementById('mName').value } }); closeModal(); await loadAll(); }
+    catch(e){ alert(e.message); }
+  });
+});
+document.getElementById('recAdd').addEventListener('click', async function(){
+  var payload = { member_id: document.getElementById('recMember').value, weight: document.getElementById('recWeight').value,
+    record_date: document.getElementById('recDate').value || undefined };
+  try { var r = await api('/api/weight/records', { method:'POST', body: payload }); alert(r.message);
+    document.getElementById('recWeight').value = ''; await loadAll(); }
+  catch(e){ alert(e.message); }
+});
+
+// 超管对比
+async function initCompare() {
+  var wrap = document.getElementById('compareCard');
+  if (!wrap) return;
+  try {
+    var d = await api('/api/admin/users');
+    var box = document.getElementById('cmpUsers');
+    box.innerHTML = d.users.map(function(u){
+      return '<label style="display:inline-block;margin:2px 8px;font-weight:normal;"><input type="checkbox" value="' + u.id + '" style="width:auto;"> ' + esc(u.username) + '</label>';
+    }).join('');
+    wrap.style.display = 'block';
+  } catch(e){ /* 非超管忽略 */ }
+}
+async function runCompare() {
+  var ids = Array.prototype.slice.call(document.querySelectorAll('#cmpUsers input:checked')).map(function(x){ return x.value; });
+  if (!ids.length) { alert('请至少选择一个用户'); return; }
+  var d = await api('/api/admin/weight/compare?userIds=' + ids.join(','));
+  var byKey = {}; var dates = {};
+  d.records.forEach(function(r){
+    var key = r.owner_id + '-' + r.member_name;
+    if (!byKey[key]) byKey[key] = {};
+    byKey[key][r.record_date] = r.weight; dates[r.record_date] = 1;
+  });
+  var labels = Object.keys(dates).sort();
+  var keys = Object.keys(byKey);
+  var datasets = keys.map(function(k, i){
+    return { label: k, data: labels.map(function(dt){ return byKey[k][dt] != null ? byKey[k][dt] : null; }),
+      borderColor: COLORS[i % COLORS.length], backgroundColor: COLORS[i % COLORS.length], spanGaps: true, tension: .3 };
+  });
+  if (cmpChart) cmpChart.destroy();
+  cmpChart = new Chart(document.getElementById('compareChart'), { type: 'line', data: { labels: labels, datasets: datasets },
+    options: { plugins: { legend: { position: 'top' } } } });
+}
+var cmpBtn = document.getElementById('cmpRun');
+if (cmpBtn) cmpBtn.addEventListener('click', runCompare);
+
+(async function(){
+  try { await loadAll(); await initCompare(); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+})();
+`;
+
+// 体重免密填写公开页 JS
+const PUBLIC_WEIGHT_JS = `
+${COMMON_JS}
+var token = location.pathname.split('/').filter(Boolean).pop();
+var msg = document.getElementById('msg');
+var pwChart = null;
+
+async function loadInfo() {
+  try {
+    var d = await api('/api/public/weight/' + token);
+    document.getElementById('memberName').textContent = d.member.name;
+    document.getElementById('streakTitle').textContent = d.title;
+    document.getElementById('todayDate').value = d.today;
+    if (d.todayWeight != null) document.getElementById('weight').value = d.todayWeight;
+    document.getElementById('content').style.display = 'block';
+    drawMini(d.records);
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>';
+  }
+}
+function drawMini(records) {
+  var el = document.getElementById('miniChart');
+  if (!el || !records.length) return;
+  var labels = records.map(function(r){ return r.record_date; });
+  var data = records.map(function(r){ return r.weight; });
+  if (pwChart) pwChart.destroy();
+  pwChart = new Chart(el, { type:'line', data:{ labels: labels, datasets:[{ label:'体重(kg)', data: data, borderColor:'#667eea', tension:.3 }] },
+    options:{ plugins:{ legend:{ display:false } } } });
+}
+document.getElementById('wForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  try {
+    await api('/api/public/weight/' + token, { method:'POST', body:{ weight: document.getElementById('weight').value } });
+    showMsg(msg, '今日体重已记录！', true);
+    await loadInfo();
+  } catch(err){ showMsg(msg, err.message, false); }
+});
+loadInfo();
+`;
+
+export {
+  COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
+  PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS
+};

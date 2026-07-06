@@ -28,9 +28,17 @@ import {
   getShareLink, fundScenario, publicFundInfo, publicFundBuy, buyFund
 } from './api/fund.api.js';
 import { fetchNavBatch, buildPortfolio, buildFundReport } from './services/fund.service.js';
+import {
+  listMembers, createMember, removeMember, getMemberShareLink,
+  weightChart, addRecord, updateRecord, removeRecord,
+  publicMemberInfo, publicSubmitWeight, adminCompare
+} from './api/weight.api.js';
 
 // Pages
-import { loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage } from './web/pages.js';
+import {
+  loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
+  weightPage, publicWeightPage
+} from './web/pages.js';
 
 // ==================== 路由注册 ====================
 const router = new Router();
@@ -88,6 +96,19 @@ router.delete('/api/fund/:id', removeFund);
 router.get('/api/public/fund/:token', publicFundInfo);
 router.post('/api/public/fund/:token/buy', publicFundBuy);
 
+// --- 体重曲线 API ---
+router.get('/api/weight/members', listMembers);
+router.post('/api/weight/members', createMember);
+router.get('/api/weight/members/:id/share-link', getMemberShareLink);
+router.delete('/api/weight/members/:id', removeMember);
+router.get('/api/weight/chart', weightChart);
+router.post('/api/weight/records', addRecord);
+router.put('/api/weight/records/:id', updateRecord);
+router.delete('/api/weight/records/:id', removeRecord);
+router.get('/api/admin/weight/compare', adminCompare);
+router.get('/api/public/weight/:token', publicMemberInfo);
+router.post('/api/public/weight/:token', publicSubmitWeight);
+
 /**
  * 页面路由处理（需登录的页面统一校验会话）
  * @param {Request} request
@@ -105,12 +126,17 @@ async function handlePages(request, env) {
   if (path.startsWith('/f/') && path.split('/').filter(Boolean).length === 2) {
     return html(publicBuyPage());
   }
+  // 体重免密填写公开页 /w/:token
+  if (path.startsWith('/w/') && path.split('/').filter(Boolean).length === 2) {
+    return html(publicWeightPage());
+  }
 
   // 需登录页面
   const pageMap = {
     '/': 'dashboard', '/dashboard': 'dashboard',
     '/monitor': 'monitor',
     '/fund': 'fund',
+    '/weight': 'weight',
     '/admin': 'admin'
   };
   if (path in pageMap) {
@@ -131,6 +157,8 @@ async function handlePages(request, env) {
         return html(monitorPage(user));
       case 'fund':
         return html(fundPage(user));
+      case 'weight':
+        return html(weightPage(user));
       case 'admin':
         if (user.role !== 'admin') return html(dashboardPage(user));
         return html(adminPage(user));
