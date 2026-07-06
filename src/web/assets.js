@@ -52,6 +52,38 @@ function esc(s) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
   });
 }
+// 通用弹窗
+function openModal(title, bodyHtml) {
+  var mask = document.getElementById('modalMask');
+  if (!mask) return;
+  document.getElementById('modalTitle').textContent = title || '';
+  document.getElementById('modalBody').innerHTML = bodyHtml || '';
+  mask.classList.add('show');
+}
+function closeModal() {
+  var mask = document.getElementById('modalMask');
+  if (mask) mask.classList.remove('show');
+}
+function bindModal() {
+  var mask = document.getElementById('modalMask');
+  if (!mask) return;
+  var close = document.getElementById('modalClose');
+  if (close) close.addEventListener('click', closeModal);
+  mask.addEventListener('click', function(e){ if (e.target === mask) closeModal(); });
+}
+// 下拉菜单：点击切换，点击外部关闭
+function toggleDropdown(el) {
+  var menu = el.nextElementSibling;
+  var isOpen = menu.classList.contains('show');
+  document.querySelectorAll('.dropdown-menu.show').forEach(function(m){ m.classList.remove('show'); });
+  if (!isOpen) menu.classList.add('show');
+}
+document.addEventListener('click', function(e){
+  if (!e.target.closest('.dropdown')) {
+    document.querySelectorAll('.dropdown-menu.show').forEach(function(m){ m.classList.remove('show'); });
+  }
+});
+window.toggleDropdown = toggleDropdown;
 `;
 
 // 登录页 JS
@@ -154,11 +186,14 @@ async function loadUsers() {
         '<td data-label="角色"><span class="tag ' + u.role + '">' + (u.role === 'admin' ? '超管' : '用户') + '</span></td>' +
         '<td data-label="状态"><span class="tag ' + u.status + '">' + (u.status === 'active' ? '正常' : '禁用') + '</span></td>' +
         '<td data-label="创建时间">' + esc(u.created_at) + '</td>' +
-        '<td data-label="操作">' +
-          '<button class="btn sm" onclick="viewUser(' + u.id + ')">查看</button> ' +
-          '<button class="btn sm gray" onclick="toggleRole(' + u.id + ",'" + u.role + "'" + ')">' + (u.role === 'admin' ? '降为用户' : '升为超管') + '</button> ' +
-          '<button class="btn sm danger" onclick="toggleStatus(' + u.id + ",'" + u.status + "'" + ')">' + (u.status === 'active' ? '禁用' : '启用') + '</button>' +
-        '</td></tr>';
+        '<td data-label="操作"><div class="dropdown">' +
+          '<button class="btn sm" onclick="toggleDropdown(this)">⋯ 操作</button>' +
+          '<div class="dropdown-menu">' +
+            '<button onclick="viewUser(' + u.id + ')">查看</button>' +
+            '<button onclick="toggleRole(' + u.id + ",'" + u.role + "'" + ')">' + (u.role === 'admin' ? '降为用户' : '升为超管') + '</button>' +
+            '<button class="danger" onclick="toggleStatus(' + u.id + ",'" + u.status + "'" + ')">' + (u.status === 'active' ? '禁用' : '启用') + '</button>' +
+          '</div>' +
+        '</div></td></tr>';
     }).join('');
   } catch (err) { alert(err.message); if (err.message.indexOf('权限') >= 0 || err.message.indexOf('登录') >= 0) location.href = '/login'; }
 }
@@ -298,9 +333,14 @@ async function loadTasks() {
       '<td data-label="格式">' + t.return_type + '</td>' +
       '<td data-label="渠道">' + channelName(t.channel_id) + '</td>' +
       '<td data-label="状态">' + (t.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag disabled">停用</span>') + '</td>' +
-      '<td data-label="操作"><button class="btn sm gray" onclick="editTask(' + t.id + ')">编辑</button> ' +
-      '<button class="btn sm" onclick="viewLogs(' + t.id + ")," + '"' + esc(t.name).replace(/"/g,'') + '")>日志</button> ' +
-      '<button class="btn sm danger" onclick="delTask(' + t.id + ')">删除</button></td></tr>';
+      '<td data-label="操作"><div class="dropdown">' +
+        '<button class="btn sm" onclick="toggleDropdown(this)">⋯ 操作</button>' +
+        '<div class="dropdown-menu">' +
+          '<button onclick="editTask(' + t.id + ')">编辑</button>' +
+          '<button onclick="viewLogs(' + t.id + ",'" + esc(t.name).replace(/'/g,'') + "'" + ')">日志</button>' +
+          '<button class="danger" onclick="delTask(' + t.id + ')">删除</button>' +
+        '</div>' +
+      '</div></td></tr>';
   }).join('') || '<tr><td colspan="6" class="muted">暂无任务</td></tr>';
   window._tasks = data.tasks;
 }
@@ -374,6 +414,7 @@ document.getElementById('runNow').addEventListener('click', async function(){
 const FUND_JS = `
 ${COMMON_JS}
 bindLogout();
+bindModal();
 var chart = null;
 
 function sign(n){ return (n>=0?'+':'') + n; }
@@ -400,10 +441,15 @@ async function loadReport() {
       '<td data-label="本金">' + it.cost + '</td>' +
       '<td data-label="现值">' + it.value + '</td>' +
       '<td data-label="收益" style="color:' + colorOf(it.profit) + '">' + sign(it.profit) + '<br>(' + sign(it.rate) + '%)</td>' +
-      '<td data-label="操作"><button class="btn sm gray" onclick="editFund(' + it.id + ')">编辑</button> ' +
-      '<button class="btn sm" onclick="buyFundUI(' + it.id + ')">加仓</button> ' +
-      '<button class="btn sm" onclick="shareLink(' + it.id + ')">加仓链接</button> ' +
-      '<button class="btn sm danger" onclick="delFund(' + it.id + ')">删除</button></td></tr>';
+      '<td data-label="操作"><div class="dropdown">' +
+        '<button class="btn sm" onclick="toggleDropdown(this)">⋯ 操作</button>' +
+        '<div class="dropdown-menu">' +
+          '<button onclick="editFund(' + it.id + ')">编辑</button>' +
+          '<button onclick="buyFundUI(' + it.id + ')">加仓</button>' +
+          '<button onclick="shareLink(' + it.id + ')">加仓链接</button>' +
+          '<button class="danger" onclick="delFund(' + it.id + ')">删除</button>' +
+        '</div>' +
+      '</div></td></tr>';
   }).join('') || '<tr><td colspan="8" class="muted">暂无持仓</td></tr>';
   window._items = data.items;
 
@@ -443,13 +489,10 @@ window.delFund = async function(id){
 window.shareLink = async function(id){
   try {
     var d = await api('/api/fund/' + id + '/share-link');
-    var box = document.getElementById('shareBox');
-    box.style.display = 'block';
-    box.innerHTML = '<h2>免密加仓链接</h2>' +
+    openModal('免密加仓链接',
       '<p class="muted">此链接长期有效，任何人打开无需登录即可为该基金补录买入（自动累计份额并重算成本）。请妥善保管。</p>' +
       '<input id="shareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
-      '<button class="btn sm" onclick="copyShare()">复制链接</button>';
-    box.scrollIntoView({ behavior:'smooth' });
+      '<button class="btn" onclick="copyShare()">复制链接</button>');
   } catch(e){ alert(e.message); }
 };
 window.copyShare = function(){
@@ -457,33 +500,31 @@ window.copyShare = function(){
   el.select();
   try { document.execCommand('copy'); alert('已复制'); } catch(e) { alert('请手动复制'); }
 };
-// 页面内加仓
+// 页面内加仓（弹窗）
 window.buyFundUI = function(id){
   var f = (window._items||[]).filter(function(x){return x.id===id;})[0];
   if (!f) return;
-  document.getElementById('buyId').value = id;
-  document.getElementById('buyTitle').textContent = f.name + ' (' + f.code + ')';
-  document.getElementById('buyCurShares').textContent = f.shares;
-  document.getElementById('buyCurCost').textContent = f.cost_nav;
-  document.getElementById('buyAmount').value = '';
-  document.getElementById('buyNavInput').value = f.current_nav || '';
-  document.getElementById('buyFormWrap').style.display = 'block';
-  document.getElementById('buyFormWrap').scrollIntoView({ behavior:'smooth' });
+  var html =
+    '<p class="muted">当前持有 <b>' + f.shares + '</b> 份 · 成本净值 <b>' + f.cost_nav + '</b>。按金额买入，系统自动累计份额并重算成本。</p>' +
+    '<input type="hidden" id="buyId" value="' + id + '">' +
+    '<label>买入金额(元)</label><input id="buyAmount" type="number" step="0.01" placeholder="如 1000">' +
+    '<label>买入净值（默认当前估值，可改）</label><input id="buyNavInput" type="number" step="0.0001" value="' + (f.current_nav||'') + '">' +
+    '<div style="margin-top:12px;"><button class="btn" id="buyConfirm">确认加仓</button> ' +
+    '<button class="btn gray" onclick="closeModal()">取消</button></div>';
+  openModal('加仓 · ' + f.name + ' (' + f.code + ')', html);
+  document.getElementById('buyConfirm').addEventListener('click', async function(){
+    var payload = {
+      amount: document.getElementById('buyAmount').value,
+      buyNav: document.getElementById('buyNavInput').value || undefined
+    };
+    try {
+      var r = await api('/api/fund/' + id + '/buy', { method:'POST', body: payload });
+      closeModal();
+      alert('加仓成功！新增 ' + r.addShares + ' 份，当前共 ' + r.newShares + ' 份，成本净值 ' + r.newCostNav);
+      await loadReport();
+    } catch(e){ alert(e.message); }
+  });
 };
-document.getElementById('buyConfirm').addEventListener('click', async function(){
-  var id = document.getElementById('buyId').value;
-  var payload = {
-    amount: document.getElementById('buyAmount').value,
-    buyNav: document.getElementById('buyNavInput').value || undefined
-  };
-  try {
-    var r = await api('/api/fund/' + id + '/buy', { method:'POST', body: payload });
-    alert('加仓成功！新增 ' + r.addShares + ' 份，当前共 ' + r.newShares + ' 份，成本净值 ' + r.newCostNav);
-    document.getElementById('buyFormWrap').style.display = 'none';
-    await loadReport();
-  } catch(e){ alert(e.message); }
-});
-document.getElementById('buyCancel').addEventListener('click', function(){ document.getElementById('buyFormWrap').style.display='none'; });
 document.getElementById('fSave').addEventListener('click', async function(){
   var id = document.getElementById('fId').value;
   var payload = {

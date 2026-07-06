@@ -21,6 +21,12 @@ function renderPage({ title = '控制台', body = '', script = '' }) {
 <div id="globalLoading">
   <div class="spinner"></div>
 </div>
+<div id="modalMask" class="modal-mask">
+  <div class="modal-box">
+    <div class="modal-head"><span id="modalTitle"></span><span id="modalClose">&times;</span></div>
+    <div id="modalBody" class="modal-body"></div>
+  </div>
+</div>
 ${body}
 <script>${script}</script>
 </body>
@@ -76,6 +82,24 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 #globalLoading .spinner { width: 46px; height: 46px; border: 4px solid #d9d9d9; border-top-color: #4a6cf7; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 弹窗 modal */
+.modal-mask { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+.modal-mask.show { display: flex; }
+.modal-box { background: #fff; border-radius: 10px; width: 100%; max-width: 440px; box-shadow: 0 10px 40px rgba(0,0,0,.2); animation: modalIn .2s ease; }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #eee; font-size: 16px; font-weight: 600; }
+#modalClose { cursor: pointer; font-size: 24px; line-height: 1; color: #999; }
+#modalClose:hover { color: #333; }
+.modal-body { padding: 20px; }
+@keyframes modalIn { from { transform: translateY(-12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* 操作下拉菜单 */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-menu { display: none; position: absolute; right: 0; top: 100%; background: #fff; border: 1px solid #e6e8f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); min-width: 120px; z-index: 50; overflow: hidden; }
+.dropdown-menu.show { display: block; }
+.dropdown-menu button { display: block; width: 100%; text-align: left; padding: 9px 14px; border: none; background: none; font-size: 14px; cursor: pointer; color: #1f2329; }
+.dropdown-menu button:hover { background: #f5f7ff; }
+.dropdown-menu button.danger { color: #dc3545; }
+
 /* ============ 移动端适配 (<=640px) ============ */
 @media (max-width: 640px) {
   .topbar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
@@ -102,6 +126,9 @@ th { color: #666; font-weight: 600; background: #fafafa; }
   .grid-stats { grid-template-columns: repeat(2, 1fr); }
   /* 登录/加仓等居中容器留边距 */
   .login-wrap { margin: 40px auto; padding: 0 12px; }
+  /* 窄屏下拉菜单左对齐, modal 内边距收小 */
+  .dropdown-menu { right: auto; left: 0; }
+  .modal-mask { padding: 20px 10px; }
 }
 `;
 
