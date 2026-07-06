@@ -1019,7 +1019,7 @@ function renderWallets(list) {
       '<td data-label="名称">' + esc(w.name) + '</td>' +
       '<td data-label="操作"><div class="dropdown"><button class="btn sm" onclick="toggleDropdown(this)">⋯ 操作</button>' +
       '<div class="dropdown-menu">' +
-        '<button onclick="wRec(' + w.id + ")," + "'" + w.type + "'" + ')">录入本月</button>' +
+        '<button onclick="wRec(' + w.id + ",'" + w.type + "'" + ')">录入本月</button>' +
         '<button onclick="wEdit(' + w.id + ')">编辑</button>' +
         '<button onclick="wShare(' + w.id + ')">录入链接</button>' +
         '<button class="danger" onclick="wDel(' + w.id + ')">删除</button>' +
