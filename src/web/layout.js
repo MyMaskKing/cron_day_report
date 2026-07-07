@@ -73,6 +73,12 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .login-wrap { max-width: 360px; margin: 80px auto; }
 .login-wrap .card { padding: 30px; }
 .login-wrap h1 { text-align: center; margin-bottom: 20px; font-size: 22px; color: #4a6cf7; }
+.feat-marquee { max-width: 560px; margin: 0 auto 18px; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.feat-track { display: inline-flex; gap: 12px; white-space: nowrap; animation: featScroll 28s linear infinite; }
+.feat-marquee:hover .feat-track { animation-play-state: paused; }
+.feat-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 999px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; font-size: 13px; box-shadow: 0 2px 6px rgba(102,126,234,.25); }
+@keyframes featScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .feat-track { animation: none; } }
 .msg { padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; display: none; }
 .msg.err { background: #fff1f0; color: #cf1322; display: block; }
 .msg.ok { background: #f6ffed; color: #389e0d; display: block; }

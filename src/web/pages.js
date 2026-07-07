@@ -35,7 +35,14 @@ function setupPage() {
 
 /** 登录 / 注册页 */
 function loginPage() {
+  // 功能亮点跑马灯：模块 + 核心特性，内容渲染两遍以实现无缝循环
+  const feats = [
+    '🖥️ 网站监控', '📈 基金持仓日报', '⚖️ 体重曲线记录', '💰 资产月报',
+    '⏰ 定时自动推送', '📢 企业微信/Webhook/邮件', '🔗 免密公开链接', '👥 多用户 + 超管'
+  ];
+  const chips = feats.map(f => `<span class="feat-chip">${f}</span>`).join('');
   const body = `<div class="login-wrap">
+    <div class="feat-marquee"><div class="feat-track">${chips}${chips}</div></div>
     <div class="card">
       <h1>🚀 控制台登录</h1>
       <div id="msg" class="msg"></div>
