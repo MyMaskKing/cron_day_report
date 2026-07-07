@@ -123,11 +123,11 @@ function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis) {
       ${link}
     </div>`;
   });
-  // 持仓分布饼图（仅 HTML；text 无法内嵌图片，故不放）。外套链接，点击在浏览器打开大图
+  // 持仓分布饼图：改为明确的文字链接，点击在浏览器打开图表（邮件客户端常屏蔽内联外链图片）
   const labels = items.map(i => i.name);
   const data = items.map(i => i.value);
   const chartUrl = buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } });
-  h += `<div><a href="${chartUrl}" target="_blank" rel="noopener"><img src="${chartUrl}" alt="持仓分布"></a></div>`;
+  h += `<div style="margin:12px 0;"><a href="${chartUrl}" target="_blank" rel="noopener" style="display:inline-block;padding:8px 14px;background:#4a6cf7;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;">📊 点击查看持仓分布饼状图</a></div>`;
   if (analysis) h += buildFundAnalysisHTML(analysis);
   h += '</div>';
   return h;
