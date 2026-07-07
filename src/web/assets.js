@@ -1026,11 +1026,7 @@ function drawChart(mlist, records) {
 function renderRecordTable(mlist, records) {
   var nameOf = {}; mlist.forEach(function(m){ nameOf[m.id] = m.name; });
   var tb = document.getElementById('recTbody');
-  var sorted = records.slice().sort(function(a,b){
-    var na = nameOf[a.member_id]||'', nb = nameOf[b.member_id]||'';
-    if (na !== nb) return na.localeCompare(nb);
-    return (b.record_date||'').localeCompare(a.record_date||'');
-  });
+  var sorted = records.slice().sort(function(a,b){ return (b.record_date||'').localeCompare(a.record_date||''); });
   tb.innerHTML = sorted.map(function(r){
     return '<tr><td data-label="日期">' + esc(r.record_date) + '</td>' +
       '<td data-label="成员">' + esc(nameOf[r.member_id]||'') + '</td>' +
