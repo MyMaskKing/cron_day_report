@@ -356,7 +356,7 @@ function createD1Adapter(env) {
       // 按 id 修改某条月度记录（可改月份）
       async updateRecordById(id, userId, r) {
         await db.prepare(
-          'UPDATE wallet_records SET month=?, balance=?, principal=?, profit=? WHERE id=? AND user_id=?'
+          "UPDATE wallet_records SET month=?, balance=?, principal=?, profit=?, created_at=datetime('now') WHERE id=? AND user_id=?"
         ).bind(r.month, r.balance || 0, r.principal || 0, r.profit || 0, id, userId).run();
       },
       async removeRecord(id, userId) {

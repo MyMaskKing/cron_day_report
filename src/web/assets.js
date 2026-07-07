@@ -1020,7 +1020,11 @@ function drawChart(mlist, records) {
 function renderRecordTable(mlist, records) {
   var nameOf = {}; mlist.forEach(function(m){ nameOf[m.id] = m.name; });
   var tb = document.getElementById('recTbody');
-  var sorted = records.slice().sort(function(a,b){ return b.record_date < a.record_date ? -1 : 1; });
+  var sorted = records.slice().sort(function(a,b){
+    var na = nameOf[a.member_id]||'', nb = nameOf[b.member_id]||'';
+    if (na !== nb) return na.localeCompare(nb);
+    return (b.record_date||'').localeCompare(a.record_date||'');
+  });
   tb.innerHTML = sorted.map(function(r){
     return '<tr><td data-label="日期">' + esc(r.record_date) + '</td>' +
       '<td data-label="成员">' + esc(nameOf[r.member_id]||'') + '</td>' +
@@ -1313,7 +1317,12 @@ function applyAssetFilter() {
 }
 function renderWallets(list) {
   var tb = document.getElementById('walletTbody');
-  tb.innerHTML = list.map(function(w){
+  var sorted = list.slice().sort(function(a,b){
+    if (a.type !== b.type) return (a.type||'').localeCompare(b.type||'');
+    if (a.name !== b.name) return (a.name||'').localeCompare(b.name||'');
+    return (b.created_at||'').localeCompare(a.created_at||'');
+  });
+  tb.innerHTML = sorted.map(function(w){
     return '<tr><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag disabled">负债</span>':'') + '</td>' +
       '<td data-label="名称">' + esc(w.name) + '</td>' +
       '<td data-label="操作">' +
@@ -1330,6 +1339,8 @@ function renderSummary(report, goal, year) {
   document.getElementById('sDebt').textContent = report.latest.debt;
   document.getElementById('sNet').textContent = report.latest.netWorth;
   document.getElementById('sMonth').textContent = report.latestMonth || '—';
+  var gInput = document.getElementById('goalInput');
+  if (gInput) gInput.value = (goal && goal.target) ? goal.target : '';
   var gbox = document.getElementById('goalBox');
   if (goal) {
     gbox.innerHTML = '<b>' + year + ' 年度目标：</b>' + goal.target +
@@ -1367,15 +1378,23 @@ function drawCharts(report) {
 function renderMonthTable(wlist, records) {
   var nameOf = {}, typeOf = {}; wlist.forEach(function(w){ nameOf[w.id] = w.name; typeOf[w.id] = w.type; });
   var tb = document.getElementById('recTbody');
-  var sorted = records.slice().sort(function(a,b){ return b.month < a.month ? -1 : 1; });
+  var sorted = records.slice().sort(function(a,b){
+    if (a.month !== b.month) return b.month < a.month ? -1 : 1;
+    var ta = typeOf[a.wallet_id]||'', tb2 = typeOf[b.wallet_id]||'';
+    if (ta !== tb2) return ta.localeCompare(tb2);
+    var na = nameOf[a.wallet_id]||'', nb = nameOf[b.wallet_id]||'';
+    if (na !== nb) return na.localeCompare(nb);
+    return (b.created_at||'').localeCompare(a.created_at||'');
+  });
   tb.innerHTML = sorted.map(function(r){
     return '<tr><td data-label="月份">' + r.month + '</td>' +
       '<td data-label="类型">' + (TYPE_LABEL[typeOf[r.wallet_id]] || '') + '</td>' +
       '<td data-label="钱包">' + esc(nameOf[r.wallet_id]||'') + '</td>' +
       '<td data-label="金额">' + r.balance + (r.principal||r.profit ? ' <span class="muted">(本金'+r.principal+'/收益'+r.profit+')</span>' : '') + '</td>' +
+      '<td data-label="更新时间" class="muted">' + esc(r.created_at||'') + '</td>' +
       '<td data-label="操作"><button class="btn sm gray" onclick="recEditRow(' + r.id + ')">修改</button> ' +
         '<button class="btn sm danger" onclick="recDelRow(' + r.id + ')">删除</button></td></tr>';
-  }).join('') || '<tr><td colspan="5" class="muted">暂无记录</td></tr>';
+  }).join('') || '<tr><td colspan="6" class="muted">暂无记录</td></tr>';
 }
 
 // 录入/修改某月记录。preset: 预填 { balance | total, profit }
