@@ -483,9 +483,9 @@ function assetPage(user) {
     </div>
 
     <div class="card">
-      <h2>钱包 <button class="btn sm" id="walletAdd" style="float:right;">+ 新建钱包</button></h2>
+      <h2>钱包 <span id="walletMonthTag" class="muted" style="font-size:13px;font-weight:normal;"></span> <button class="btn sm" id="walletAdd" style="float:right;">+ 新建钱包</button></h2>
       <table>
-        <thead><tr><th>类型</th><th>名称</th><th>操作</th></tr></thead>
+        <thead><tr><th>类型</th><th>名称</th><th>本月金额</th><th>操作</th></tr></thead>
         <tbody id="walletTbody"></tbody>
       </table>
       <p class="muted" style="margin-top:6px;">投资钱包分本金/持有收益；信用支付计为负债。每个钱包可「录入本月/其他月」或生成免密录入链接。</p>

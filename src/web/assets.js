@@ -1322,22 +1322,33 @@ function applyAssetFilter() {
 }
 function renderWallets(list) {
   var tb = document.getElementById('walletTbody');
+  var month = (fullReport && fullReport.latestMonth) || '';
+  // 该钱包在最新月份的合计（同钱包同月多条累加）
+  var sumByWallet = {};
+  (fullRecords || []).forEach(function(r){
+    if (month && r.month === month) sumByWallet[r.wallet_id] = Math.round(((sumByWallet[r.wallet_id]||0) + (r.balance||0)) * 100) / 100;
+  });
+  var tag = document.getElementById('walletMonthTag');
+  if (tag) tag.textContent = month ? '（本月金额统计：' + month + '）' : '';
   var sorted = list.slice().sort(function(a,b){
     if (a.type !== b.type) return (a.type||'').localeCompare(b.type||'');
     if (a.name !== b.name) return (a.name||'').localeCompare(b.name||'');
     return (b.created_at||'').localeCompare(a.created_at||'');
   });
   tb.innerHTML = sorted.map(function(w){
+    var amt = sumByWallet[w.id];
     return '<tr><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag disabled">负债</span>':'') + '</td>' +
       '<td data-label="名称">' + esc(w.name) + '</td>' +
+      '<td data-label="本月金额">' + (amt != null ? amt : '<span class="muted">—</span>') + '</td>' +
       '<td data-label="操作">' +
         '<button class="btn sm" onclick="wRec(' + w.id + ",'" + w.type + "'" + ')">录入本月</button> ' +
         '<button class="btn sm" onclick="wRecOther(' + w.id + ",'" + w.type + "'" + ')">录入其他月</button> ' +
+        '<button class="btn sm gray" onclick="wLogs(' + w.id + ')">查看记录</button> ' +
         '<button class="btn sm gray" onclick="wEdit(' + w.id + ')">编辑</button> ' +
         '<button class="btn sm gray" onclick="wShare(' + w.id + ')">录入链接</button> ' +
         '<button class="btn sm danger" onclick="wDel(' + w.id + ')">删除</button>' +
       '</td></tr>';
-  }).join('') || '<tr><td colspan="3" class="muted">暂无钱包</td></tr>';
+  }).join('') || '<tr><td colspan="4" class="muted">暂无钱包</td></tr>';
 }
 function renderSummary(report, goal, year) {
   document.getElementById('sAssets').textContent = report.latest.assets;
@@ -1367,7 +1378,8 @@ function renderTypeTotal(list) {
     return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+t.balance+'</div>'+
       '<div class="lbl">'+label+'</div>'+extra+'</div>';
   }).join('');
-  box.innerHTML = '<div class="muted" style="margin-bottom:6px;">各类型合计（最新月）</div><div class="grid-stats">'+cells+'</div>';
+  var monthTag = (fullReport && fullReport.latestMonth) ? '（最新月 ' + fullReport.latestMonth + '）' : '（最新月）';
+  box.innerHTML = '<div class="muted" style="margin-bottom:6px;">各类型合计' + monthTag + '</div><div class="grid-stats">'+cells+'</div>';
 }
 // 月度各类型合计：表头动态（月份 + 各类型 + 净资产），逐月一行，月份倒序；净资产为负标红
 function renderMonthlyTypeTotals(mtt) {
@@ -1464,6 +1476,22 @@ function openRecModal(id, type, month, preset, editId) {
     catch(e){ alert(e.message); }
   });
 }
+// 查看某钱包最新数据月份的记录明细（同月可能多条；创建时间倒序）
+window.wLogs = function(id){
+  var w = wallets.filter(function(x){return x.id===id;})[0];
+  if (!w) return;
+  var month = (fullReport && fullReport.latestMonth) || '';
+  var recs = (fullRecords||[]).filter(function(r){ return r.wallet_id===id && r.month===month; })
+    .slice().sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||''); });
+  var rows = recs.map(function(r){
+    return '<tr><td data-label="月份">' + r.month + '</td>' +
+      '<td data-label="金额">' + r.balance + (r.principal||r.profit ? ' <span class="muted">(本金'+r.principal+'/收益'+r.profit+')</span>' : '') + '</td>' +
+      '<td data-label="更新时间" class="muted">' + esc(r.created_at||'') + '</td></tr>';
+  }).join('') || '<tr><td colspan="3" class="muted">该月暂无记录</td></tr>';
+  openModal('记录 · ' + w.name + (month ? '（' + month + '）' : ''),
+    '<table><thead><tr><th>月份</th><th>金额</th><th>更新时间</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div style="margin-top:12px;"><button class="btn gray" onclick="closeModal()">关闭</button></div>');
+};
 // 录入本月（新增一条）
 window.wRec = function(id, type){ openRecModal(id, type, curMonth(), null); };
 // 录入其他月：先选月份，再新增一条
