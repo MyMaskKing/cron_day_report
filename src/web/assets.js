@@ -687,9 +687,12 @@ async function loadReport() {
   var re = document.getElementById('sumRate');
   re.textContent = sign(t.rate) + '%'; re.style.color = colorOf(t.rate);
 
-  // 明细表
+  // 明细表（按创建时间倒序）
   var tb = document.getElementById('fundTbody');
-  tb.innerHTML = data.items.map(function(it){
+  var items = data.items.slice().sort(function(a,b){
+    return (b.created_at||'').localeCompare(a.created_at||'');
+  });
+  tb.innerHTML = items.map(function(it){
     return '<tr><td data-label="基金">' + esc(it.name) + '<br><span class="muted">' + it.code + '</span></td>' +
       '<td data-label="份额">' + it.shares + '</td>' +
       '<td data-label="成本净值">' + it.cost_nav + '</td>' +
@@ -730,11 +733,29 @@ function drawChart(items) {
 // ---------- 持仓增删改 ----------
 function fundForm(f) {
   f = f || {};
-  document.getElementById('fId').value = f.id || '';
-  document.getElementById('fCode').value = f.code || '';
-  document.getElementById('fShares').value = f.shares != null ? f.shares : '';
-  document.getElementById('fCostNav').value = f.cost_nav != null ? f.cost_nav : '';
-  document.getElementById('fundFormWrap').style.display = 'block';
+  var id = f.id || '';
+  var html =
+    '<label>基金代码（6位数字）</label><input id="fCode" placeholder="如 000001" value="' + esc(f.code||'') + '">' +
+    '<div class="row">' +
+      '<div><label>持有份额</label><input id="fShares" type="number" step="0.01" placeholder="如 1000" value="' + (f.shares != null ? f.shares : '') + '"></div>' +
+      '<div><label>成本净值（买入时单位净值）</label><input id="fCostNav" type="number" step="0.0001" placeholder="如 1.2345" value="' + (f.cost_nav != null ? f.cost_nav : '') + '"></div>' +
+    '</div>' +
+    '<div style="margin-top:12px;"><button class="btn" id="fSave">保存</button> ' +
+    '<button class="btn gray" onclick="closeModal()">取消</button></div>';
+  openModal(id ? '修改持仓' : '添加持仓', html);
+  document.getElementById('fSave').addEventListener('click', async function(){
+    var payload = {
+      code: document.getElementById('fCode').value.trim(),
+      shares: document.getElementById('fShares').value,
+      cost_nav: document.getElementById('fCostNav').value
+    };
+    try {
+      if (id) await api('/api/fund/' + id, { method:'PUT', body: payload });
+      else await api('/api/fund', { method:'POST', body: payload });
+      closeModal();
+      await loadReport();
+    } catch(e){ alert(e.message); }
+  });
 }
 window.editFund = function(id){ fundForm((window._items||[]).filter(function(x){return x.id===id;})[0]); };
 window.delFund = async function(id){
@@ -781,22 +802,7 @@ window.buyFundUI = function(id){
     } catch(e){ alert(e.message); }
   });
 };
-document.getElementById('fSave').addEventListener('click', async function(){
-  var id = document.getElementById('fId').value;
-  var payload = {
-    code: document.getElementById('fCode').value.trim(),
-    shares: document.getElementById('fShares').value,
-    cost_nav: document.getElementById('fCostNav').value
-  };
-  try {
-    if (id) await api('/api/fund/' + id, { method:'PUT', body: payload });
-    else await api('/api/fund', { method:'POST', body: payload });
-    document.getElementById('fundFormWrap').style.display = 'none';
-    await loadReport();
-  } catch(e){ alert(e.message); }
-});
 document.getElementById('fNew').addEventListener('click', function(){ fundForm({}); });
-document.getElementById('fCancel').addEventListener('click', function(){ document.getElementById('fundFormWrap').style.display='none'; });
 
 // ---------- 日报配置（走通用 push API, module=fund）----------
 async function loadReportConfig() {

@@ -98,6 +98,7 @@ function buildPortfolio(funds, navMap) {
       shares: f.shares,
       cost_nav: f.cost_nav,
       share_token: f.share_token || null,
+      created_at: f.created_at || '',
       current_nav: currentNav,
       gszzl: nav ? nav.gszzl : 0,
       nav_date: nav ? nav.navDate : '',

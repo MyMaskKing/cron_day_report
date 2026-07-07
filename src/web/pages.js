@@ -236,20 +236,6 @@ function fundPage(user) {
       <p class="muted" style="margin-top:8px;">现价为天天基金估算净值，交易时段为实时估值，收盘后为当日净值。</p>
     </div>
 
-    <div class="card" id="fundFormWrap" style="display:none;">
-      <h2>持仓编辑</h2>
-      <input type="hidden" id="fId">
-      <label>基金代码（6位数字）</label><input id="fCode" placeholder="如 000001">
-      <div class="row">
-        <div><label>持有份额</label><input id="fShares" type="number" step="0.01" placeholder="如 1000"></div>
-        <div><label>成本净值（买入时单位净值）</label><input id="fCostNav" type="number" step="0.0001" placeholder="如 1.2345"></div>
-      </div>
-      <div style="margin-top:12px;">
-        <button class="btn" id="fSave">保存</button>
-        <button class="btn gray" id="fCancel">取消</button>
-      </div>
-    </div>
-
     <div class="card">
       <h2>每日报告推送</h2>
       <div class="row">
