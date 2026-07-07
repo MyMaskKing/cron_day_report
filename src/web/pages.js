@@ -469,15 +469,6 @@ function assetPage(user) {
     </div>
 
     <div class="card">
-      <h2>月度各类型合计</h2>
-      <table>
-        <thead id="mttHead"></thead>
-        <tbody id="mttBody"></tbody>
-      </table>
-      <p class="muted" style="margin-top:6px;">每行一个月，横向为各类型钱包当月合计；净资产为负标红。随上方时间区间联动。</p>
-    </div>
-
-    <div class="card">
       <h2>每月推送</h2>
       <div class="row">
         <div><label>通知渠道</label><select id="pushCh"></select></div>
@@ -498,6 +489,15 @@ function assetPage(user) {
         <tbody id="walletTbody"></tbody>
       </table>
       <p class="muted" style="margin-top:6px;">投资钱包分本金/持有收益；信用支付计为负债。每个钱包可「录入本月/其他月」或生成免密录入链接。</p>
+    </div>
+
+    <div class="card">
+      <h2>月度各类型合计</h2>
+      <table>
+        <thead id="mttHead"></thead>
+        <tbody id="mttBody"></tbody>
+      </table>
+      <p class="muted" style="margin-top:6px;">每行一个月，横向为各类型钱包当月合计；净资产为负标红。随上方时间区间联动。</p>
     </div>
 
     <div class="card">
