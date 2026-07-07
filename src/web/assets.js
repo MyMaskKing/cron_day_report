@@ -1274,8 +1274,9 @@ var token = location.pathname.split('/').filter(Boolean).pop();
       data:{ labels: r.months, datasets:[{ label:'净资产', data: r.netWorthSeries, borderColor:'#667eea', tension:.3 }] },
       options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'净资产(元)' } } } } });
     new Chart(document.getElementById('consumeChart'), { type:'bar',
-      data:{ labels: r.months, datasets:[{ label:'消费', data: r.consumeSeries, backgroundColor:'#faad14' }] },
-      options:{ plugins:{ legend:{ display:false } } } });
+      data:{ labels: r.months, datasets:[{ label:'净存', data: r.savingSeries,
+        backgroundColor: function(c){ return c.raw < 0 ? '#cf1322' : '#389e0d'; } }] },
+      options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'每月净存(元, 负为减少)' } } } } });
     document.getElementById('content').style.display = 'block';
   } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
 })();
@@ -1312,9 +1313,11 @@ function applyAssetFilter() {
   var report = {
     months: months,
     netWorthSeries: idx.map(function(i){ return fullReport.netWorthSeries[i]; }),
-    consumeSeries: idx.map(function(i){ return fullReport.consumeSeries[i]; })
+    savingSeries: idx.map(function(i){ return fullReport.savingSeries[i]; })
   };
   drawCharts(report);
+  var mtt = fullReport.monthlyTypeTotals || { types: [], rows: [] };
+  renderMonthlyTypeTotals({ types: mtt.types, rows: mtt.rows.filter(function(row){ return inRange(row.month); }) });
   renderMonthTable(wallets, fullRecords.filter(function(r){ return inRange(r.month); }));
 }
 function renderWallets(list) {
@@ -1366,6 +1369,25 @@ function renderTypeTotal(list) {
   }).join('');
   box.innerHTML = '<div class="muted" style="margin-bottom:6px;">各类型合计（最新月）</div><div class="grid-stats">'+cells+'</div>';
 }
+// 月度各类型合计：表头动态（月份 + 各类型 + 净资产），逐月一行，月份倒序；净资产为负标红
+function renderMonthlyTypeTotals(mtt) {
+  var head = document.getElementById('mttHead'), body = document.getElementById('mttBody');
+  if (!head || !body) return;
+  var types = mtt.types || [];
+  head.innerHTML = '<tr><th>月份</th>' +
+    types.map(function(t){ return '<th>' + (TYPE_LABEL[t]||t) + '</th>'; }).join('') +
+    '<th>净资产</th></tr>';
+  var rows = (mtt.rows || []).slice().sort(function(a,b){ return b.month < a.month ? -1 : 1; });
+  body.innerHTML = rows.map(function(row){
+    var tds = types.map(function(t){
+      var v = row.totals[t];
+      return '<td data-label="' + (TYPE_LABEL[t]||t) + '">' + (v != null ? v : '—') + '</td>';
+    }).join('');
+    var netColor = row.net < 0 ? ' style="color:#cf1322;font-weight:bold;"' : '';
+    return '<tr><td data-label="月份">' + row.month + '</td>' + tds +
+      '<td data-label="净资产"' + netColor + '>' + row.net + '</td></tr>';
+  }).join('') || '<tr><td colspan="' + (types.length + 2) + '" class="muted">暂无记录</td></tr>';
+}
 function drawCharts(report) {
   var opts = { plugins:{ legend:{ display:false } } };
   if (nwChart) nwChart.destroy();
@@ -1374,8 +1396,9 @@ function drawCharts(report) {
     options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'净资产(元)' } } } } });
   if (csChart) csChart.destroy();
   csChart = new Chart(document.getElementById('consumeChart'), {
-    type:'bar', data:{ labels: report.months, datasets:[{ label:'消费', data: report.consumeSeries, backgroundColor:'#faad14' }] },
-    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'消费(元, 环比余额减少)' } } } } });
+    type:'bar', data:{ labels: report.months, datasets:[{ label:'净存', data: report.savingSeries,
+      backgroundColor: function(c){ return c.raw < 0 ? '#cf1322' : '#389e0d'; } }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'每月净存(元, 负为减少)' } } } } });
 }
 function renderMonthTable(wlist, records) {
   var nameOf = {}, typeOf = {}; wlist.forEach(function(w){ nameOf[w.id] = w.name; typeOf[w.id] = w.type; });

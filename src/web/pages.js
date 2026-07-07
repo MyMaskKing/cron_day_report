@@ -464,8 +464,17 @@ function assetPage(user) {
       <canvas id="netChart" style="max-height:300px;"></canvas>
     </div>
     <div class="card">
-      <h2>每月消费（环比余额减少）</h2>
+      <h2>每月净存（本月−上月净资产，负值为减少）</h2>
       <canvas id="consumeChart" style="max-height:300px;"></canvas>
+    </div>
+
+    <div class="card">
+      <h2>月度各类型合计</h2>
+      <table>
+        <thead id="mttHead"></thead>
+        <tbody id="mttBody"></tbody>
+      </table>
+      <p class="muted" style="margin-top:6px;">每行一个月，横向为各类型钱包当月合计；净资产为负标红。随上方时间区间联动。</p>
     </div>
 
     <div class="card">

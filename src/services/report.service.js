@@ -178,11 +178,10 @@ function fmtSign2(n) {
  * @returns {string}
  */
 function buildAssetReport(reportData, format = 'text', chartLink = '', target = null, walletLinkMap = null) {
-  const { latest, latestMonth, prevMonth, netWorthChange, consumeSeries, byType } = reportData;
-  const lastConsume = consumeSeries.length ? consumeSeries[consumeSeries.length - 1] : null;
+  const { latest, latestMonth, prevMonth, netWorthChange, byType } = reportData;
   const remaining = (target != null && target > 0) ? round2(target - latest.netWorth) : null;
-  if (format === 'html') return buildAssetReportHTML(reportData, chartLink, target, remaining, lastConsume, walletLinkMap);
-  if (format === 'markdown') return buildAssetReportMarkdown(reportData, chartLink, target, remaining, lastConsume, walletLinkMap);
+  if (format === 'html') return buildAssetReportHTML(reportData, chartLink, target, remaining, walletLinkMap);
+  if (format === 'markdown') return buildAssetReportMarkdown(reportData, chartLink, target, remaining, walletLinkMap);
 
   // ===== text 排版 =====
   const line = '━━━━━━━━━━━━━━';
@@ -191,7 +190,6 @@ function buildAssetReport(reportData, format = 'text', chartLink = '', target = 
   t += `负债(信用)：${latest.debt}\n`;
   t += `净资产：${latest.netWorth}\n`;
   if (netWorthChange != null) t += `较上月(${prevMonth})：${fmtSign2(netWorthChange)}\n`;
-  if (lastConsume != null) t += `本月消费(环比)：${lastConsume}\n`;
   if (remaining != null) t += `年度目标：${round2(target)} · 还差：${remaining}\n`;
   // 各类型当月 vs 上月明细
   if (byType && byType.length) {
@@ -213,13 +211,12 @@ function buildAssetReport(reportData, format = 'text', chartLink = '', target = 
  * 资产月报 Markdown（表格降级为列表；企业微信 markdown 不支持表格/图片）
  * 钱包附 [录入] 免密链接；趋势图链接由调用方经 chartLink 传入
  */
-function buildAssetReportMarkdown(reportData, chartLink, target, remaining, lastConsume, walletLinkMap) {
+function buildAssetReportMarkdown(reportData, chartLink, target, remaining, walletLinkMap) {
   const { latest, latestMonth, prevMonth, netWorthChange, byType } = reportData;
   let m = `## 💰 资产月报 ${latestMonth || ''}\n`;
   m += `资产合计：**${latest.assets}** · 负债：${latest.debt}\n`;
   m += `净资产：**${latest.netWorth}**\n`;
   if (netWorthChange != null) m += `较上月(${prevMonth})：${fmtSign2(netWorthChange)}\n`;
-  if (lastConsume != null) m += `本月消费(环比)：${lastConsume}\n`;
   if (remaining != null) m += `🎯 年度目标 ${round2(target)} · 还差 **${remaining}**\n`;
   // 各类型当月 vs 上月：降级为列表
   if (byType && byType.length) {
@@ -240,7 +237,7 @@ function buildAssetReportMarkdown(reportData, chartLink, target, remaining, last
 /**
  * 资产月报 HTML（手机适配：响应式表格，行内样式以兼容邮件客户端）
  */
-function buildAssetReportHTML(reportData, chartLink, target, remaining, lastConsume, walletLinkMap) {
+function buildAssetReportHTML(reportData, chartLink, target, remaining, walletLinkMap) {
   const { latest, latestMonth, prevMonth, netWorthChange, byType } = reportData;
   const changeColor = netWorthChange != null && netWorthChange < 0 ? '#cf1322' : '#389e0d';
   let h = `<div style="font-family:-apple-system,sans-serif;max-width:640px;margin:0 auto;padding:0 4px;">
@@ -250,7 +247,6 @@ function buildAssetReportHTML(reportData, chartLink, target, remaining, lastCons
   if (netWorthChange != null) {
     h += `<p style="margin:4px 0;color:${changeColor};">较上月(${prevMonth}): ${fmtSign2(netWorthChange)} 元</p>`;
   }
-  if (lastConsume != null) h += `<p style="margin:4px 0;">本月消费(环比): ${lastConsume} 元</p>`;
   if (remaining != null) {
     h += `<p style="margin:4px 0;">🎯 年度目标 ${round2(target)} · 还差 <b style="color:#cf1322;">${remaining}</b> 元</p>`;
   }

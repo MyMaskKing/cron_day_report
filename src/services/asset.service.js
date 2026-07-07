@@ -45,12 +45,13 @@ function calcNetWorth(records, walletType) {
  * 构建月度趋势报表
  * @param {Array} wallets - 用户钱包 [{ id, type, name }]
  * @param {Array} records - 全部月度记录 [{ wallet_id, month, balance }]
- * @returns {Object} { months, netWorthSeries, consumeSeries, latest, latestMonth,
+ * @returns {Object} { months, netWorthSeries, savingSeries, latest, latestMonth,
  *   prevMonth, prevNetWorth, netWorthChange, byType }
  *   netWorthSeries: 各月净资产
- *   consumeSeries:  各月消费（上月净资产 − 本月净资产），首月为 null
+ *   savingSeries:   各月净存（本月净资产 − 上月净资产），首月为 null；正=净存，负=减少
  *   byType: 按钱包类型分组的当月/上月对比 [{ type, wallets:[{ id, name, cur, prev }] }]
  *   byTypeTotal: 各类型最新月合计 [{ type, balance, principal, profit }]
+ *   monthlyTypeTotals: 月度各类型合计 { types:[type], rows:[{ month, totals:{type:balance}, net }] }
  */
 function buildAssetReportData(wallets, records) {
   const walletType = new Map(wallets.map(w => [w.id, w.type]));
@@ -64,15 +65,15 @@ function buildAssetReportData(wallets, records) {
   const months = [...byMonth.keys()].sort();
 
   const netWorthSeries = [];
-  const consumeSeries = [];
+  const savingSeries = [];
   months.forEach((m, i) => {
     const nw = calcNetWorth(byMonth.get(m), walletType).netWorth;
     netWorthSeries.push(nw);
     if (i === 0) {
-      consumeSeries.push(null);
+      savingSeries.push(null);
     } else {
-      // 消费 = 上月净资产 − 本月净资产（余额减少即消费）
-      consumeSeries.push(round2(netWorthSeries[i - 1] - nw));
+      // 净存 = 本月净资产 − 上月净资产（正=净存，负=减少）
+      savingSeries.push(round2(nw - netWorthSeries[i - 1]));
     }
   });
 
@@ -121,9 +122,23 @@ function buildAssetReportData(wallets, records) {
     type, balance: round2(v.balance), principal: round2(v.principal), profit: round2(v.profit)
   }));
 
+  // 月度各类型合计：每月一行，横向列出各类型 balance 合计 + 当月净资产
+  const mttTypeSet = new Set();
+  const mttRows = months.map(m => {
+    const totals = {};
+    for (const r of byMonth.get(m)) {
+      const type = walletType.get(r.wallet_id);
+      if (!type) continue;
+      mttTypeSet.add(type);
+      totals[type] = round2((totals[type] || 0) + (r.balance || 0));
+    }
+    return { month: m, totals, net: calcNetWorth(byMonth.get(m), walletType).netWorth };
+  });
+  const monthlyTypeTotals = { types: [...mttTypeSet], rows: mttRows };
+
   return {
-    months, netWorthSeries, consumeSeries, latest, latestMonth,
-    prevMonth, prevNetWorth, netWorthChange, byType, byTypeTotal
+    months, netWorthSeries, savingSeries, latest, latestMonth,
+    prevMonth, prevNetWorth, netWorthChange, byType, byTypeTotal, monthlyTypeTotals
   };
 }
 
