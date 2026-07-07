@@ -35,39 +35,59 @@ function setupPage() {
 
 /** 登录 / 注册页 */
 function loginPage() {
-  // 功能亮点跑马灯：模块 + 核心特性，内容渲染两遍以实现无缝循环
-  const feats = [
-    '🖥️ 网站监控', '📈 基金持仓日报', '⚖️ 体重曲线记录', '💰 资产月报',
-    '⏰ 定时自动推送', '📢 企业微信/Webhook/邮件', '🔗 免密公开链接', '👥 多用户 + 超管'
-  ];
-  const chips = feats.map(f => `<span class="feat-chip">${f}</span>`).join('');
-  const body = `<div class="login-wrap">
-    <div class="feat-marquee"><div class="feat-track">${chips}${chips}</div></div>
-    <div class="card">
-      <h1>🚀 控制台登录</h1>
-      <div id="msg" class="msg"></div>
-      <div class="row" style="margin-bottom:16px;">
-        <button id="tabLogin" class="btn">登录</button>
-        <button id="tabReg" class="btn gray">注册</button>
-      </div>
-      <form id="loginForm">
-        <label>用户名</label>
-        <input id="lu" autocomplete="username" required>
-        <label>密码</label>
-        <input id="lp" type="password" autocomplete="current-password" required>
-        <button class="btn" style="width:100%;" type="submit">登录</button>
-      </form>
-      <form id="regForm" style="display:none;">
-        <label>用户名 (3-32位，登录用)</label>
-        <input id="ru" required>
-        <label>昵称 (显示用，可选)</label>
-        <input id="rn" placeholder="留空则同用户名">
-        <label>密码 (至少6位)</label>
-        <input id="rp" type="password" required>
-        <button class="btn" style="width:100%;" type="submit">注册</button>
-      </form>
-    </div>
+  // 斜对角全屏流动词墙：三行不同速度/方向的功能关键词，铺满背景做氛围
+  // 每行内容渲染两遍以实现 translateX(-50%) 无缝循环
+  const rowA = ['🖥️ 网站监控', '📈 基金持仓日报', '⏰ 定时自动推送', '⚖️ 体重曲线', '💰 资产月报'];
+  const rowB = ['📢 企业微信', '🔗 免密公开链接', 'Webhook', '📧 邮件推送', '👥 多用户 · 超管'];
+  const rowC = ['✍️ 家人免登填写', '🎯 年度目标进度', '📊 持仓分析', '🕐 到点即达', '📉 净值追踪'];
+  const mkRow = (arr, cls, hotIdx) => {
+    const chips = arr.map((t, i) => {
+      const k = i % 3 === hotIdx ? ' hot' : (i % 4 === 2 ? ' glow' : '');
+      return `<span class="lg-chip${k}">${t}</span>`;
+    }).join('');
+    return `<div class="lg-row ${cls}">${chips}${chips}</div>`;
+  };
+  const field = `<div class="lg-field">
+    ${mkRow(rowA, 'a', 0)}
+    ${mkRow(rowB, 'b', 1)}
+    ${mkRow(rowC, 'c', 2)}
+    ${mkRow(rowA, 'b', 1)}
+    ${mkRow(rowB, 'a', 0)}
   </div>`;
+
+  const brand = `<div class="lg-brand">
+    <span class="lg-logo">🚀 生活面板 · 定时推送</span>
+    <div class="lg-title">你的数据<br>到点<em>自动送达</em></div>
+    <p class="lg-sub">网站监控、基金、体重、资产，一处管理，按你设定的时间推送到微信、Webhook 与邮件。</p>
+  </div>`;
+
+  const panel = `<div class="lg-panel">
+    <h2>🚀 控制台</h2>
+    <div class="lg-hint">登录或注册，开始搭建你的自动推送</div>
+    <div id="msg" class="msg"></div>
+    <div class="lg-tabs">
+      <button id="tabLogin" class="btn">登录</button>
+      <button id="tabReg" class="btn gray">注册</button>
+    </div>
+    <form id="loginForm">
+      <label>用户名</label>
+      <input id="lu" autocomplete="username" required>
+      <label>密码</label>
+      <input id="lp" type="password" autocomplete="current-password" required>
+      <button class="btn" style="width:100%;" type="submit">登录</button>
+    </form>
+    <form id="regForm" style="display:none;">
+      <label>用户名 (3-32位，登录用)</label>
+      <input id="ru" required>
+      <label>昵称 (显示用，可选)</label>
+      <input id="rn" placeholder="留空则同用户名">
+      <label>密码 (至少6位)</label>
+      <input id="rp" type="password" required>
+      <button class="btn" style="width:100%;" type="submit">注册</button>
+    </form>
+  </div>`;
+
+  const body = `<div class="lg-fs">${field}${brand}${panel}</div>`;
   return renderPage({ title: '登录', body, script: LOGIN_JS });
 }
 
