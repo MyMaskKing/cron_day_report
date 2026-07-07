@@ -1358,21 +1358,26 @@ function renderMonthTable(wlist, records) {
     return '<tr><td data-label="月份">' + r.month + '</td>' +
       '<td data-label="钱包">' + esc(nameOf[r.wallet_id]||'') + '</td>' +
       '<td data-label="金额">' + r.balance + (r.principal||r.profit ? ' <span class="muted">(本金'+r.principal+'/收益'+r.profit+')</span>' : '') + '</td>' +
-      '<td data-label="操作"><button class="btn sm gray" onclick="recEditRow(' + r.wallet_id + ",'" + r.month + "'" + ')">修改</button></td></tr>';
+      '<td data-label="操作"><button class="btn sm gray" onclick="recEditRow(' + r.wallet_id + ",'" + r.month + "'" + ')">修改</button> ' +
+        '<button class="btn sm danger" onclick="recDelRow(' + r.id + ')">删除</button></td></tr>';
   }).join('') || '<tr><td colspan="4" class="muted">暂无记录</td></tr>';
 }
 
 // 录入某月（month 省略=本月）。preset: 可选, 预填 { balance | total, profit }
-function openRecModal(id, type, month, preset) {
+// editMonth: 修改入口传入原月份, 此时月份可编辑; 改月保存时删除原月记录
+function openRecModal(id, type, month, preset, editMonth) {
   var w = wallets.filter(function(x){return x.id===id;})[0];
   preset = preset || {};
+  var monthField = editMonth
+    ? '<label>月份</label><input id="fMonth" type="month" value="' + month + '">'
+    : '';
   var fields = type === 'investment'
     ? '<label>当前总资产(元)</label><input id="fTotal" type="number" step="0.01" value="' + (preset.total != null ? preset.total : '') + '">' +
       '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01" value="' + (preset.profit != null ? preset.profit : '') + '">' +
       '<p class="muted" id="principalHint">本金将自动计算 = 总资产 − 收益</p>'
     : '<label>本月余额(元)</label><input id="fBalance" type="number" step="0.01" value="' + (preset.balance != null ? preset.balance : '') + '">';
   openModal('录入 · ' + w.name + ' (' + month + ')',
-    fields + '<div style="margin-top:12px;"><button class="btn" id="recConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    monthField + fields + '<div style="margin-top:12px;"><button class="btn" id="recConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   if (type === 'investment') {
     var calc = function(){
       var t = parseFloat(document.getElementById('fTotal').value)||0;
@@ -1383,10 +1388,19 @@ function openRecModal(id, type, month, preset) {
     document.getElementById('fProfit').addEventListener('input', calc);
   }
   document.getElementById('recConfirm').addEventListener('click', async function(){
-    var payload = { wallet_id: id, month: month };
+    var mm = editMonth ? document.getElementById('fMonth').value : month;
+    if (!mm) { alert('请选择月份'); return; }
+    var payload = { wallet_id: id, month: mm };
     if (type === 'investment') { payload.total = document.getElementById('fTotal').value; payload.profit = document.getElementById('fProfit').value; }
     else payload.balance = document.getElementById('fBalance').value;
-    try { await api('/api/asset/records', { method:'POST', body: payload }); closeModal(); await loadAll(); }
+    try {
+      // 修改入口改了月份: 先删原月记录, 再存到新月份
+      if (editMonth && mm !== editMonth) {
+        var old = fullRecords.filter(function(r){ return r.wallet_id===id && r.month===editMonth; })[0];
+        if (old) await api('/api/asset/records/' + old.id, { method:'DELETE' });
+      }
+      await api('/api/asset/records', { method:'POST', body: payload }); closeModal(); await loadAll();
+    }
     catch(e){ alert(e.message); }
   });
 }
@@ -1407,13 +1421,18 @@ window.wRecOther = function(id, type){
     openRecModal(id, type, mm, preset);
   });
 };
-// 修改某条已有月度记录
+// 修改某条已有月度记录（可改月份）
 window.recEditRow = function(walletId, month){
   var w = wallets.filter(function(x){return x.id===walletId;})[0];
   if (!w) return;
   var rec = fullRecords.filter(function(r){ return r.wallet_id===walletId && r.month===month; })[0];
   var preset = rec ? { balance: rec.balance, total: rec.balance, profit: rec.profit } : null;
-  openRecModal(walletId, w.type, month, preset);
+  openRecModal(walletId, w.type, month, preset, month);
+};
+// 删除某条月度记录
+window.recDelRow = async function(id){
+  if (!confirm('删除该月度记录?')) return;
+  try { await api('/api/asset/records/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alert(e.message); }
 };
 window.wEdit = function(id){
   var w = wallets.filter(function(x){return x.id===id;})[0];

@@ -120,6 +120,18 @@ async function saveRecord({ request, env }) {
   return json({ success: true, message: '记录已保存' });
 }
 
+/** DELETE /api/asset/records/:id  删除某条月度记录 */
+async function removeRecord({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const id = parseInt(params.id, 10);
+  const rec = await storage.asset.findRecordById(id);
+  if (!rec || rec.user_id !== auth.user_id) return error('记录不存在', 404);
+  await storage.asset.removeRecord(id, auth.user_id);
+  return json({ success: true, message: '记录已删除' });
+}
+
 /** GET /api/asset/report  报表数据（月度趋势 + 当前净资产 + 目标进度） */
 async function assetReport({ request, env }) {
   const auth = await requireAuth(request, env);
@@ -206,6 +218,6 @@ async function publicAssetReport({ env, params }) {
 
 export {
   listWallets, createWallet, updateWallet, removeWallet, getWalletShareLink,
-  saveRecord, assetReport, getGoal, setGoal,
+  saveRecord, removeRecord, assetReport, getGoal, setGoal,
   publicWalletInfo, publicSaveRecord, publicAssetReport
 };

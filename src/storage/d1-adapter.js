@@ -234,6 +234,8 @@ function createD1Adapter(env) {
         return res.meta.last_row_id;
       },
       async removeMember(id, userId) {
+        // 先删该成员的体重记录, 再删成员, 避免外键约束失败
+        await db.prepare('DELETE FROM weight_records WHERE member_id=? AND user_id=?').bind(id, userId).run();
         await db.prepare('DELETE FROM weight_members WHERE id=? AND user_id=?').bind(id, userId).run();
       },
       async listRecords(userId, memberId = null) {
@@ -322,6 +324,8 @@ function createD1Adapter(env) {
           .bind(w.type, w.name, id, userId).run();
       },
       async removeWallet(id, userId) {
+        // 先删该钱包的月度记录, 再删钱包, 避免外键约束失败
+        await db.prepare('DELETE FROM wallet_records WHERE wallet_id=? AND user_id=?').bind(id, userId).run();
         await db.prepare('DELETE FROM wallets WHERE id=? AND user_id=?').bind(id, userId).run();
       },
       async setWalletShareToken(id, token) {
@@ -339,21 +343,21 @@ function createD1Adapter(env) {
           'SELECT * FROM wallet_records WHERE wallet_id=? AND month=?'
         ).bind(walletId, month).first();
       },
-      // 新增或覆盖某钱包某月记录
+      async findRecordById(id) {
+        return await db.prepare('SELECT * FROM wallet_records WHERE id = ?').bind(id).first();
+      },
+      // 新增或覆盖某钱包某月记录（先删同钱包同月全部记录再插入, 自愈历史重复并保证唯一）
       async upsertRecord(r) {
-        const existing = await db.prepare(
-          'SELECT id FROM wallet_records WHERE wallet_id=? AND month=?'
-        ).bind(r.wallet_id, r.month).first();
-        if (existing) {
-          await db.prepare(
-            'UPDATE wallet_records SET balance=?, principal=?, profit=? WHERE id=?'
-          ).bind(r.balance || 0, r.principal || 0, r.profit || 0, existing.id).run();
-          return existing.id;
-        }
+        await db.prepare(
+          'DELETE FROM wallet_records WHERE wallet_id=? AND month=?'
+        ).bind(r.wallet_id, r.month).run();
         const res = await db.prepare(
           'INSERT INTO wallet_records (wallet_id, user_id, month, balance, principal, profit) VALUES (?, ?, ?, ?, ?, ?)'
         ).bind(r.wallet_id, r.user_id, r.month, r.balance || 0, r.principal || 0, r.profit || 0).run();
         return res.meta.last_row_id;
+      },
+      async removeRecord(id, userId) {
+        await db.prepare('DELETE FROM wallet_records WHERE id=? AND user_id=?').bind(id, userId).run();
       },
       async getGoal(userId, year) {
         return await db.prepare('SELECT * FROM asset_goals WHERE user_id=? AND year=?').bind(userId, year).first();
