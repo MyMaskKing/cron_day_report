@@ -88,10 +88,11 @@ function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis) {
       ${link}
     </div>`;
   });
-  // 持仓分布饼图（仅 HTML；text 无法内嵌图片，故不放）
+  // 持仓分布饼图（仅 HTML；text 无法内嵌图片，故不放）。外套链接，点击在浏览器打开大图
   const labels = items.map(i => i.name);
   const data = items.map(i => i.value);
-  h += `<div><img src="${buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } })}" alt="持仓分布"></div>`;
+  const chartUrl = buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } });
+  h += `<div><a href="${chartUrl}" target="_blank" rel="noopener"><img src="${chartUrl}" alt="持仓分布"></a></div>`;
   if (analysis) h += buildFundAnalysisHTML(analysis);
   h += '</div>';
   return h;
