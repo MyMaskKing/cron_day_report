@@ -40,7 +40,7 @@ src/
 ├── services/             【业务层】纯计算，无副作用、不碰存储
 │   ├── schedule.service.js  ★ shouldRun/nowCN —— 定时是否到点判断（平台无关核心）
 │   ├── monitor.service.js   批量访问 URL + formatResults 格式化
-│   ├── notify.service.js    ★ 按渠道类型发送（wechat/webhook/email）
+│   ├── notify.service.js    ★ 按渠道类型发送（wechat/webhook/email）；格式 text/html/markdown，markdown 仅 wechat/webhook（企业微信 markdown 类型，4096 字节截断）
 │   ├── fund.service.js      天天基金取净值 + 收益计算 + 日报
 │   ├── asset.service.js     净资产聚合 + 资产月报
 │   ├── chart.service.js     QuickChart URL 构造

@@ -165,6 +165,29 @@ document.addEventListener('click', function(e){
     document.querySelectorAll('.mp-menu.show').forEach(function(m){ m.classList.remove('show'); });
   }
 });
+
+// 推送格式选项按渠道类型联动：email 只支持 text/html；wechat/webhook 额外支持 markdown
+function fmtOptionsFor(type) {
+  var base = [['text','text'],['html','html']];
+  if (type === 'wechat' || type === 'webhook') base.push(['markdown','markdown']);
+  return base.map(function(o){ return '<option value="'+o[0]+'">'+o[1]+'</option>'; }).join('');
+}
+// 从渠道下拉当前选中项文本尾部 [type] 解析渠道类型
+function channelTypeOf(chSel) {
+  var opt = chSel.selectedOptions && chSel.selectedOptions[0];
+  var m = opt && opt.textContent.match(/\\[(\\w+)\\]\\s*$/);
+  return m ? m[1] : '';
+}
+// 绑定：渠道变化时重建格式下拉，尽量保留原选中值（新列表不含则回退 text）
+function bindFormatByChannel(chSel, fmtSel) {
+  function refresh() {
+    var prev = fmtSel.value;
+    fmtSel.innerHTML = fmtOptionsFor(channelTypeOf(chSel));
+    fmtSel.value = Array.prototype.some.call(fmtSel.options, function(o){ return o.value === prev; }) ? prev : 'text';
+  }
+  chSel.addEventListener('change', refresh);
+  return refresh;
+}
 `;
 
 // 登录页 JS
@@ -784,8 +807,12 @@ async function loadReportConfig() {
 
   var data = await api('/api/push/fund');
   var cfg = data.config;
-  document.getElementById('rcChannel').value = cfg.channel_id || '';
-  document.getElementById('rcFormat').value = cfg.format || 'text';
+  var rcChannel = document.getElementById('rcChannel');
+  var rcFormat = document.getElementById('rcFormat');
+  rcChannel.value = cfg.channel_id || '';
+  var rcFmtRefresh = bindFormatByChannel(rcChannel, rcFormat);
+  rcFmtRefresh();
+  rcFormat.value = cfg.format || 'text';
   document.getElementById('rcEnabled').checked = !!cfg.enabled;
   rcHourPick = initMultiPick(document.getElementById('rcHour'), 0, 23, cfg.hours || [15], function(n){ return n + '点'; });
 }
@@ -1120,8 +1147,12 @@ async function loadPush() {
   var opts = '<option value="">（选择渠道）</option>' + chs.channels.map(function(c){ return '<option value="'+c.id+'">'+esc(c.name)+' ['+c.type+']</option>'; }).join('');
   document.getElementById('pushCh').innerHTML = opts;
   var d = await api('/api/push/weight');
-  document.getElementById('pushCh').value = d.config.channel_id || '';
-  document.getElementById('pushFmt').value = d.config.format || 'text';
+  var wCh = document.getElementById('pushCh');
+  var wFmt = document.getElementById('pushFmt');
+  wCh.value = d.config.channel_id || '';
+  var wFmtRefresh = bindFormatByChannel(wCh, wFmt);
+  wFmtRefresh();
+  wFmt.value = d.config.format || 'text';
   wPushHourPick = initMultiPick(document.getElementById('pushHour'), 0, 23, d.config.hours || [10], function(n){ return n + '点'; });
   document.getElementById('pushEn').checked = !!d.config.enabled;
 }
@@ -1448,8 +1479,12 @@ async function loadPush() {
   var opts = '<option value="">（选择渠道）</option>' + chs.channels.map(function(c){ return '<option value="'+c.id+'">'+esc(c.name)+' ['+c.type+']</option>'; }).join('');
   document.getElementById('pushCh').innerHTML = opts;
   var d = await api('/api/push/asset');
-  document.getElementById('pushCh').value = d.config.channel_id || '';
-  document.getElementById('pushFmt').value = d.config.format || 'text';
+  var aCh = document.getElementById('pushCh');
+  var aFmt = document.getElementById('pushFmt');
+  aCh.value = d.config.channel_id || '';
+  var aFmtRefresh = bindFormatByChannel(aCh, aFmt);
+  aFmtRefresh();
+  aFmt.value = d.config.format || 'text';
   aPushDayPick = initMultiPick(document.getElementById('pushDay'), 1, 28, d.config.days || [15], function(n){ return n + '号'; });
   aPushHourPick = initMultiPick(document.getElementById('pushHour'), 0, 23, d.config.hours || [9], function(n){ return n + '点'; });
   document.getElementById('pushEn').checked = !!d.config.enabled;

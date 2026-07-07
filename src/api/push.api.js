@@ -6,6 +6,7 @@
 import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
+import { ALLOWED_FORMATS } from '../config.js';
 
 const MODULES = ['fund', 'weight', 'asset', 'monitor'];
 
@@ -62,7 +63,7 @@ async function setPushConfig({ request, env, params }) {
   const storage = getStorage(env);
   await storage.push.setConfig(auth.user_id, params.module, {
     channel_id: body.channel_id || null,
-    format: body.format === 'html' ? 'html' : 'text',
+    format: ALLOWED_FORMATS.includes(body.format) ? body.format : 'text',
     enabled: !!body.enabled,
     hours: hours.join(','),
     days: days.join(',')

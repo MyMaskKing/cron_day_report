@@ -5,6 +5,9 @@
 // 返回格式类型
 const RETURN_TYPES = { TEXT: 'text', HTML: 'html' };
 
+// 推送报告可选格式（markdown 仅企业微信/通用 webhook 有意义，email 收到按纯文本发）
+const ALLOWED_FORMATS = ['text', 'html', 'markdown'];
+
 // 默认超时/并发配置（毫秒）
 const DEFAULT_TIMEOUT = 30000;
 const DEFAULT_RESPONSE_TIMEOUT = 60000;
@@ -46,7 +49,7 @@ async function resolveBaseUrl(storage, env, url) {
 }
 
 export {
-  RETURN_TYPES, DEFAULT_TIMEOUT, DEFAULT_RESPONSE_TIMEOUT,
+  RETURN_TYPES, ALLOWED_FORMATS, DEFAULT_TIMEOUT, DEFAULT_RESPONSE_TIMEOUT,
   DEFAULT_CONCURRENCY_LIMIT, DEFAULT_BATCH_DELAY, SESSION_TTL,
   DEFAULT_WEBHOOK_URL, getTimeoutConfig, resolveBaseUrl
 };

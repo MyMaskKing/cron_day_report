@@ -18,9 +18,9 @@ import { analyzePortfolio } from './fund.service.js';
 // ==================== 基金持仓日报 ====================
 
 /**
- * 生成基金日报文本/HTML
+ * 生成基金日报文本/HTML/Markdown
  * @param {Object} portfolio - buildPortfolio 结果
- * @param {string} format - 'text' | 'html'
+ * @param {string} format - 'text' | 'html' | 'markdown'
  * @param {Object} linkMap - 可选, { [fundId]: 加仓链接URL }, 有则在每只基金后附上快速加仓链接
  * @param {number} tzOffset - 时区偏移（小时），用于报告时间戳
  * @returns {string}
@@ -29,6 +29,7 @@ function buildFundReport(portfolio, format = 'text', linkMap = null, tzOffset = 
   const { items, totals } = portfolio;
   const analysis = analyzePortfolio(portfolio);
   if (format === 'html') return buildFundReportHTML(items, totals, linkMap, tzOffset, analysis);
+  if (format === 'markdown') return buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis);
   return buildFundReportText(items, totals, linkMap, tzOffset, analysis);
 }
 
@@ -68,6 +69,40 @@ function buildFundReportText(items, totals, linkMap, tzOffset, analysis) {
   });
   if (analysis) t += `\n${buildAnalysisText(analysis)}`;
   return t;
+}
+
+/**
+ * 持仓分析 Markdown（精简，同 text 口径）：组合提示 + 各基金异常信号，过滤 info 级
+ */
+function buildAnalysisMarkdown(analysis) {
+  const lines = [];
+  (analysis.summary || []).forEach(s => lines.push(`- ${s}`));
+  for (const it of analysis.items) {
+    const alerts = it.signals.filter(s => s.level !== 'info');
+    for (const s of alerts) lines.push(`- **${it.name}**：${s.text}`);
+  }
+  if (lines.length === 0) return '';
+  return `\n**🔎 持仓分析**\n${lines.join('\n')}\n`;
+}
+
+function buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis) {
+  let m = `## 📈 基金持仓日报\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n\n`;
+  m += `💰 总本金：**${totals.cost}** · 现值：**${totals.value}**\n`;
+  m += `📊 总收益：**${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）**\n`;
+  items.forEach((it, i) => {
+    const icon = it.profit >= 0 ? '🔴' : '🟢';
+    m += `\n${icon} **${i + 1}. ${it.name}（${it.code}）**\n`;
+    m += `> 持仓 ${it.shares} 份 · 现价 ${it.current_nav}（${fmtSign(it.gszzl)}%）\n`;
+    m += `> 收益 ${fmtSign(it.profit)}（${fmtSign(it.rate)}%）\n`;
+    if (linkMap && linkMap[it.id]) m += `> [➕ 快速加仓](${linkMap[it.id]})\n`;
+  });
+  // 持仓分布饼图：markdown 不内嵌图片，改文字链接（QuickChart 图 URL 本身公开）
+  const labels = items.map(i => i.name);
+  const data = items.map(i => i.value);
+  const chartUrl = buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } });
+  m += `\n[📊 查看持仓分布图](${chartUrl})\n`;
+  if (analysis) m += buildAnalysisMarkdown(analysis);
+  return m;
 }
 
 function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis) {
@@ -147,6 +182,7 @@ function buildAssetReport(reportData, format = 'text', chartLink = '', target = 
   const lastConsume = consumeSeries.length ? consumeSeries[consumeSeries.length - 1] : null;
   const remaining = (target != null && target > 0) ? round2(target - latest.netWorth) : null;
   if (format === 'html') return buildAssetReportHTML(reportData, chartLink, target, remaining, lastConsume, walletLinkMap);
+  if (format === 'markdown') return buildAssetReportMarkdown(reportData, chartLink, target, remaining, lastConsume, walletLinkMap);
 
   // ===== text 排版 =====
   const line = '━━━━━━━━━━━━━━';
@@ -171,6 +207,34 @@ function buildAssetReport(reportData, format = 'text', chartLink = '', target = 
   }
   if (chartLink) t += chartLink;
   return t;
+}
+
+/**
+ * 资产月报 Markdown（表格降级为列表；企业微信 markdown 不支持表格/图片）
+ * 钱包附 [录入] 免密链接；趋势图链接由调用方经 chartLink 传入
+ */
+function buildAssetReportMarkdown(reportData, chartLink, target, remaining, lastConsume, walletLinkMap) {
+  const { latest, latestMonth, prevMonth, netWorthChange, byType } = reportData;
+  let m = `## 💰 资产月报 ${latestMonth || ''}\n`;
+  m += `资产合计：**${latest.assets}** · 负债：${latest.debt}\n`;
+  m += `净资产：**${latest.netWorth}**\n`;
+  if (netWorthChange != null) m += `较上月(${prevMonth})：${fmtSign2(netWorthChange)}\n`;
+  if (lastConsume != null) m += `本月消费(环比)：${lastConsume}\n`;
+  if (remaining != null) m += `🎯 年度目标 ${round2(target)} · 还差 **${remaining}**\n`;
+  // 各类型当月 vs 上月：降级为列表
+  if (byType && byType.length) {
+    for (const g of byType) {
+      m += `\n**${TYPE_LABEL[g.type] || g.type}**\n`;
+      for (const w of g.wallets) {
+        const cur = w.cur != null ? w.cur : '—';
+        const prev = w.prev != null ? w.prev : '—';
+        const link = walletLinkMap && walletLinkMap[w.id] ? ` [录入](${walletLinkMap[w.id]})` : '';
+        m += `- ${w.name}：${cur}（上月 ${prev}）${link}\n`;
+      }
+    }
+  }
+  if (chartLink) m += chartLink;
+  return m;
 }
 
 /**
@@ -231,6 +295,7 @@ function buildAssetReportHTML(reportData, chartLink, target, remaining, lastCons
  */
 function buildWeightReport(members, records, opts) {
   const { format, unit, base, today, tokenMap, reportToken } = opts;
+  if (format === 'markdown') return buildWeightReportMarkdown(members, records, opts);
   const unitLabel = unit === 'kg' ? '公斤' : '斤';
   const disp = kg => unit === 'jin' ? Math.round(kg * 2 * 10) / 10 : kg;
   // 按成员分组、按日期排序
@@ -293,6 +358,38 @@ function buildWeightReport(members, records, opts) {
   let t = `⚖️ 体重日报\n${line}\n\n` + parts.join('\n');
   if (base && reportToken) t += `\n📈 查看曲线图：${base}/wr/${reportToken}\n`;
   return t;
+}
+
+/**
+ * 体重日报 Markdown：成员名加粗，填写/曲线链接用 markdown 语法
+ */
+function buildWeightReportMarkdown(members, records, opts) {
+  const { unit, base, today, tokenMap, reportToken } = opts;
+  const unitLabel = unit === 'kg' ? '公斤' : '斤';
+  const disp = kg => unit === 'jin' ? Math.round(kg * 2 * 10) / 10 : kg;
+  const byMember = new Map();
+  for (const r of records) {
+    if (!byMember.has(r.member_id)) byMember.set(r.member_id, []);
+    byMember.get(r.member_id).push(r);
+  }
+  for (const arr of byMember.values()) arr.sort((a, b) => a.record_date < b.record_date ? -1 : 1);
+
+  let m = `## ⚖️ 体重日报\n`;
+  for (const mem of members) {
+    const arr = byMember.get(mem.id) || [];
+    const todayRec = arr.find(r => r.record_date === today);
+    const last7 = arr.slice(-7);
+    m += `\n**${mem.name}**\n`;
+    if (todayRec) m += `> 今日：${disp(todayRec.weight)} ${unitLabel}\n`;
+    else if (base) m += `> 今日未填 · [点此快速填写](${base}/w/${tokenMap[mem.id]})\n`;
+    else m += `> 今日未填\n`;
+    if (last7.length) {
+      const hist = last7.map(r => `${r.record_date.slice(5)} ${disp(r.weight)}${unitLabel}`).join(' · ');
+      m += `> 最近：${hist}\n`;
+    }
+  }
+  if (base && reportToken) m += `\n[📈 查看完整曲线图](${base}/wr/${reportToken})\n`;
+  return m;
 }
 
 export { buildFundReport, buildAssetReport, buildWeightReport };

@@ -489,9 +489,9 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
       }
       const reportToken = await storage.push.ensureReportToken(userId, 'asset', generateToken());
       const link = `${base}/ar/${reportToken}`;
-      chartLink = format === 'html'
-        ? `<p>📈 <a href="${link}">查看净资产趋势图</a></p>`
-        : `\n📈 查看趋势图：${link}\n`;
+      if (format === 'html') chartLink = `<p>📈 <a href="${link}">查看净资产趋势图</a></p>`;
+      else if (format === 'markdown') chartLink = `\n[📈 查看净资产趋势图](${link})\n`;
+      else chartLink = `\n📈 查看趋势图：${link}\n`;
     }
     return buildAssetReport(data, format, chartLink, target, walletLinkMap);
   }

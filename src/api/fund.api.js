@@ -14,7 +14,7 @@ import {
 import { sendNotification } from '../services/notify.service.js';
 import { buildFundReport } from '../services/report.service.js';
 import { parseOffset, fmtShort } from '../services/time.service.js';
-import { resolveBaseUrl } from '../config.js';
+import { resolveBaseUrl, ALLOWED_FORMATS } from '../config.js';
 
 /** 校验持仓字段 */
 function validateFund(f) {
@@ -126,7 +126,7 @@ async function setReportConfig({ request, env }) {
   }
   await storage.fund.setReportConfig(auth.user_id, {
     channel_id: body.channel_id || null,
-    format: body.format === 'html' ? 'html' : 'text',
+    format: ALLOWED_FORMATS.includes(body.format) ? body.format : 'text',
     enabled: !!body.enabled
   });
   return json({ success: true, message: '日报配置已保存' });

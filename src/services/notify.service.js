@@ -2,15 +2,14 @@
  * 通知服务：按渠道配置发送消息
  * 渠道类型: wechat(企业微信机器人) | webhook(通用/自定义POST) | email(通过webhook转发)
  * 迁移自原 index.js，扩展支持自定义 method/headers/body 模板。
+ * 格式 returnType: text | html | markdown（markdown 仅 wechat/webhook 有意义）
  */
-
-import { RETURN_TYPES } from '../config.js';
 
 /**
  * 发送通知
  * @param {string} message - 消息内容
  * @param {Object} channel - 通知渠道 { type, url, method, headers_json, body_template, name }
- * @param {string} returnType - 'text' | 'html'
+ * @param {string} returnType - 'text' | 'html' | 'markdown'
  * @param {string} subject - 邮件主题（仅 email 类型使用；含推送内容主题+时间）
  * @returns {Promise<Object>} { success, message }
  */
@@ -21,7 +20,7 @@ async function sendNotification(message, channel, returnType = 'text', subject =
   try {
     switch (channel.type) {
       case 'wechat':
-        return await sendToWeChat(message, channel.url);
+        return await sendToWeChat(message, channel.url, returnType === 'markdown');
       case 'email':
         return await sendToEmail(message, channel, subject);
       case 'webhook':
@@ -34,17 +33,43 @@ async function sendNotification(message, channel, returnType = 'text', subject =
 }
 
 /**
+ * 按 UTF-8 字节上限截断字符串（企业微信 markdown/text 单条上限 4096 字节）
+ * @param {string} str
+ * @param {number} maxBytes
+ * @returns {string} 超限则截断并附提示，否则原样返回
+ */
+function truncateBytes(str, maxBytes) {
+  const enc = new TextEncoder();
+  if (enc.encode(str).length <= maxBytes) return str;
+  const note = '\n…（内容过长已截断）';
+  const budget = maxBytes - enc.encode(note).length;
+  // 逐步逼近字节预算，避免把多字节字符截半
+  let lo = 0, hi = str.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (enc.encode(str.slice(0, mid)).length <= budget) lo = mid;
+    else hi = mid - 1;
+  }
+  return str.slice(0, lo) + note;
+}
+
+/**
  * 企业微信机器人
  * @param {string} message
  * @param {string} webhookUrl
+ * @param {boolean} isMarkdown - true 则以 markdown 类型发送
  * @returns {Promise<Object>}
  */
-async function sendToWeChat(message, webhookUrl) {
+async function sendToWeChat(message, webhookUrl, isMarkdown = false) {
   try {
+    const content = truncateBytes(message, 4096);
+    const payload = isMarkdown
+      ? { msgtype: 'markdown', markdown: { content } }
+      : { msgtype: 'text', text: { content } };
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ msgtype: 'text', text: { content: message } })
+      body: JSON.stringify(payload)
     });
     const result = await response.json();
     return result.errcode === 0
@@ -65,7 +90,8 @@ async function sendToWeChat(message, webhookUrl) {
  */
 async function sendToWebhook(message, channel, returnType) {
   try {
-    let headers = { 'Content-Type': returnType === RETURN_TYPES.HTML ? 'text/html' : 'text/plain' };
+    const ctMap = { html: 'text/html', markdown: 'text/markdown' };
+    let headers = { 'Content-Type': ctMap[returnType] || 'text/plain' };
     if (channel.headers_json) {
       try { headers = { ...headers, ...JSON.parse(channel.headers_json) }; } catch { /* 忽略非法JSON */ }
     }

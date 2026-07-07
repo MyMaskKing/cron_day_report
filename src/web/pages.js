@@ -228,7 +228,7 @@ function fundPage(user) {
       <div class="row">
         <div><label>通知渠道</label><select id="rcChannel"></select></div>
         <div><label>报告格式</label>
-          <select id="rcFormat"><option value="text">text</option><option value="html">html(附持仓图)</option></select>
+          <select id="rcFormat"></select>
         </div>
         <div><label>推送时间</label><div id="rcHour" class="multi-pick"></div></div>
       </div>
@@ -336,7 +336,7 @@ function weightPage(user) {
       <h2>每日推送</h2>
       <div class="row">
         <div><label>通知渠道</label><select id="pushCh"></select></div>
-        <div><label>格式</label><select id="pushFmt"><option value="text">text</option><option value="html">html(附曲线图)</option></select></div>
+        <div><label>格式</label><select id="pushFmt"></select></div>
         <div><label>推送时间</label><div id="pushHour" class="multi-pick"></div></div>
       </div>
       <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送</label>
@@ -453,7 +453,7 @@ function assetPage(user) {
       <h2>每月推送</h2>
       <div class="row">
         <div><label>通知渠道</label><select id="pushCh"></select></div>
-        <div><label>格式</label><select id="pushFmt"><option value="text">text</option><option value="html">html(附曲线图)</option></select></div>
+        <div><label>格式</label><select id="pushFmt"></select></div>
       </div>
       <div class="row">
         <div><label>每月几号</label><div id="pushDay" class="multi-pick"></div></div>
