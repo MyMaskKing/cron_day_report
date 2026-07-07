@@ -101,8 +101,8 @@ async function getWalletShareLink({ request, env, params, url }) {
 
 // ==================== 记录 ====================
 
-/** POST /api/asset/records  录入某钱包某月记录（覆盖）
- * body: { wallet_id, month?, balance? | principal?, profit? }
+/** POST /api/asset/records  录入某钱包某月记录（新增一条，同钱包同月允许多条）
+ * body: { wallet_id, month?, balance? | total?, profit? }
  */
 async function saveRecord({ request, env }) {
   const auth = await requireAuth(request, env);
@@ -116,8 +116,29 @@ async function saveRecord({ request, env }) {
   const month = body.month || currentMonth();
   if (!/^\d{4}-\d{2}$/.test(month)) return error('月份格式应为 YYYY-MM');
   const fields = resolveRecordFields(w.type, body);
-  await storage.asset.upsertRecord({ wallet_id: walletId, user_id: auth.user_id, month, ...fields });
+  await storage.asset.addRecord({ wallet_id: walletId, user_id: auth.user_id, month, ...fields });
   return json({ success: true, message: '记录已保存' });
+}
+
+/** PUT /api/asset/records/:id  按 id 修改某条月度记录（可改月份）
+ * body: { balance? | total?, profit?, month? }
+ */
+async function updateRecord({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const id = parseInt(params.id, 10);
+  const rec = await storage.asset.findRecordById(id);
+  if (!rec || rec.user_id !== auth.user_id) return error('记录不存在', 404);
+
+  const w = await storage.asset.findWallet(rec.wallet_id);
+  if (!w || w.user_id !== auth.user_id) return error('钱包不存在', 404);
+  const body = await request.json().catch(() => ({}));
+  const month = body.month || rec.month;
+  if (!/^\d{4}-\d{2}$/.test(month)) return error('月份格式应为 YYYY-MM');
+  const fields = resolveRecordFields(w.type, body);
+  await storage.asset.updateRecordById(id, auth.user_id, { month, ...fields });
+  return json({ success: true, message: '记录已更新' });
 }
 
 /** DELETE /api/asset/records/:id  删除某条月度记录 */
@@ -180,17 +201,15 @@ async function publicWalletInfo({ env, params }) {
   const w = await storage.asset.findWalletByShareToken(params.token);
   if (!w) return error('链接无效或已失效', 404);
   const month = currentMonth();
-  const rec = await storage.asset.findRecord(w.id, month);
   return json({
     success: true,
     wallet: { id: w.id, type: w.type, name: w.name },
-    month,
-    current: rec ? { balance: rec.balance, principal: rec.principal, profit: rec.profit } : null
+    month
   });
 }
 
-/** POST /api/public/asset/:token  免密录入当月记录
- * body: { balance? | principal?, profit? }  月份锁当月
+/** POST /api/public/asset/:token  免密录入当月记录（新增一条，同月允许多条）
+ * body: { balance? | total?, profit? }  月份锁当月
  */
 async function publicSaveRecord({ request, env, params }) {
   const storage = getStorage(env);
@@ -199,7 +218,7 @@ async function publicSaveRecord({ request, env, params }) {
   const body = await request.json().catch(() => ({}));
   const month = currentMonth();
   const fields = resolveRecordFields(w.type, body);
-  await storage.asset.upsertRecord({ wallet_id: w.id, user_id: w.user_id, month, ...fields });
+  await storage.asset.addRecord({ wallet_id: w.id, user_id: w.user_id, month, ...fields });
   return json({ success: true, message: '本月记录已保存' });
 }
 
@@ -218,6 +237,6 @@ async function publicAssetReport({ env, params }) {
 
 export {
   listWallets, createWallet, updateWallet, removeWallet, getWalletShareLink,
-  saveRecord, removeRecord, assetReport, getGoal, setGoal,
+  saveRecord, updateRecord, removeRecord, assetReport, getGoal, setGoal,
   publicWalletInfo, publicSaveRecord, publicAssetReport
 };

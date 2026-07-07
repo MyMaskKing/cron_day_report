@@ -346,15 +346,18 @@ function createD1Adapter(env) {
       async findRecordById(id) {
         return await db.prepare('SELECT * FROM wallet_records WHERE id = ?').bind(id).first();
       },
-      // 新增或覆盖某钱包某月记录（先删同钱包同月全部记录再插入, 自愈历史重复并保证唯一）
-      async upsertRecord(r) {
-        await db.prepare(
-          'DELETE FROM wallet_records WHERE wallet_id=? AND month=?'
-        ).bind(r.wallet_id, r.month).run();
+      // 新增一条月度记录（同钱包同月允许多条）
+      async addRecord(r) {
         const res = await db.prepare(
           'INSERT INTO wallet_records (wallet_id, user_id, month, balance, principal, profit) VALUES (?, ?, ?, ?, ?, ?)'
         ).bind(r.wallet_id, r.user_id, r.month, r.balance || 0, r.principal || 0, r.profit || 0).run();
         return res.meta.last_row_id;
+      },
+      // 按 id 修改某条月度记录（可改月份）
+      async updateRecordById(id, userId, r) {
+        await db.prepare(
+          'UPDATE wallet_records SET month=?, balance=?, principal=?, profit=? WHERE id=? AND user_id=?'
+        ).bind(r.month, r.balance || 0, r.principal || 0, r.profit || 0, id, userId).run();
       },
       async removeRecord(id, userId) {
         await db.prepare('DELETE FROM wallet_records WHERE id=? AND user_id=?').bind(id, userId).run();

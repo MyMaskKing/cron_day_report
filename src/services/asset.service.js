@@ -50,6 +50,7 @@ function calcNetWorth(records, walletType) {
  *   netWorthSeries: 各月净资产
  *   consumeSeries:  各月消费（上月净资产 − 本月净资产），首月为 null
  *   byType: 按钱包类型分组的当月/上月对比 [{ type, wallets:[{ id, name, cur, prev }] }]
+ *   byTypeTotal: 各类型最新月合计 [{ type, balance, principal, profit }]
  */
 function buildAssetReportData(wallets, records) {
   const walletType = new Map(wallets.map(w => [w.id, w.type]));
@@ -84,11 +85,11 @@ function buildAssetReportData(wallets, records) {
   // 本月净资产较上月涨幅金额（正=增长）
   const netWorthChange = prevNetWorth != null ? round2(latest.netWorth - prevNetWorth) : null;
 
-  // 按钱包类型分组：当月 vs 上月各钱包余额
-  const curMap = new Map();  // wallet_id -> balance（当月）
-  const prevMap = new Map(); // wallet_id -> balance（上月）
-  if (latestMonth) for (const r of byMonth.get(latestMonth)) curMap.set(r.wallet_id, r.balance || 0);
-  if (prevMonth) for (const r of byMonth.get(prevMonth)) prevMap.set(r.wallet_id, r.balance || 0);
+  // 按钱包类型分组：当月 vs 上月各钱包余额（同钱包同月多条累加）
+  const curMap = new Map();  // wallet_id -> balance（当月合计）
+  const prevMap = new Map(); // wallet_id -> balance（上月合计）
+  if (latestMonth) for (const r of byMonth.get(latestMonth)) curMap.set(r.wallet_id, (curMap.get(r.wallet_id) || 0) + (r.balance || 0));
+  if (prevMonth) for (const r of byMonth.get(prevMonth)) prevMap.set(r.wallet_id, (prevMap.get(r.wallet_id) || 0) + (r.balance || 0));
   const typeOrder = [];
   const typeGroup = new Map(); // type -> [{ id, name, cur, prev }]
   for (const w of wallets) {
@@ -103,9 +104,26 @@ function buildAssetReportData(wallets, records) {
   }
   const byType = typeOrder.map(type => ({ type, wallets: typeGroup.get(type) }));
 
+  // 各类型最新月合计（同类型所有钱包 balance 累加；投资类附本金/收益合计）
+  const typeTotalMap = new Map(); // type -> { balance, principal, profit }
+  if (latestMonth) {
+    for (const r of byMonth.get(latestMonth)) {
+      const type = walletType.get(r.wallet_id);
+      if (!type) continue;
+      if (!typeTotalMap.has(type)) typeTotalMap.set(type, { balance: 0, principal: 0, profit: 0 });
+      const acc = typeTotalMap.get(type);
+      acc.balance += r.balance || 0;
+      acc.principal += r.principal || 0;
+      acc.profit += r.profit || 0;
+    }
+  }
+  const byTypeTotal = [...typeTotalMap.entries()].map(([type, v]) => ({
+    type, balance: round2(v.balance), principal: round2(v.principal), profit: round2(v.profit)
+  }));
+
   return {
     months, netWorthSeries, consumeSeries, latest, latestMonth,
-    prevMonth, prevNetWorth, netWorthChange, byType
+    prevMonth, prevNetWorth, netWorthChange, byType, byTypeTotal
   };
 }
 

@@ -1338,6 +1338,20 @@ function renderSummary(report, goal, year) {
   } else {
     gbox.innerHTML = '<span class="muted">未设置 ' + year + ' 年度目标</span>';
   }
+  renderTypeTotal(report.byTypeTotal || []);
+}
+// 各类型最新月合计（投资类附本金/收益；信用类标注为负债）
+function renderTypeTotal(list) {
+  var box = document.getElementById('typeTotalBox');
+  if (!box) return;
+  if (!list.length) { box.innerHTML = ''; return; }
+  var cells = list.map(function(t){
+    var extra = t.type==='investment' ? '<div class="muted" style="font-size:12px;">本金 '+t.principal+' / 收益 '+t.profit+'</div>' : '';
+    var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag disabled">负债</span>' : '');
+    return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+t.balance+'</div>'+
+      '<div class="lbl">'+label+'</div>'+extra+'</div>';
+  }).join('');
+  box.innerHTML = '<div class="muted" style="margin-bottom:6px;">各类型合计（最新月）</div><div class="grid-stats">'+cells+'</div>';
 }
 function drawCharts(report) {
   var opts = { plugins:{ legend:{ display:false } } };
@@ -1351,24 +1365,25 @@ function drawCharts(report) {
     options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'消费(元, 环比余额减少)' } } } } });
 }
 function renderMonthTable(wlist, records) {
-  var nameOf = {}; wlist.forEach(function(w){ nameOf[w.id] = w.name; });
+  var nameOf = {}, typeOf = {}; wlist.forEach(function(w){ nameOf[w.id] = w.name; typeOf[w.id] = w.type; });
   var tb = document.getElementById('recTbody');
   var sorted = records.slice().sort(function(a,b){ return b.month < a.month ? -1 : 1; });
   tb.innerHTML = sorted.map(function(r){
     return '<tr><td data-label="月份">' + r.month + '</td>' +
+      '<td data-label="类型">' + (TYPE_LABEL[typeOf[r.wallet_id]] || '') + '</td>' +
       '<td data-label="钱包">' + esc(nameOf[r.wallet_id]||'') + '</td>' +
       '<td data-label="金额">' + r.balance + (r.principal||r.profit ? ' <span class="muted">(本金'+r.principal+'/收益'+r.profit+')</span>' : '') + '</td>' +
-      '<td data-label="操作"><button class="btn sm gray" onclick="recEditRow(' + r.wallet_id + ",'" + r.month + "'" + ')">修改</button> ' +
+      '<td data-label="操作"><button class="btn sm gray" onclick="recEditRow(' + r.id + ')">修改</button> ' +
         '<button class="btn sm danger" onclick="recDelRow(' + r.id + ')">删除</button></td></tr>';
-  }).join('') || '<tr><td colspan="4" class="muted">暂无记录</td></tr>';
+  }).join('') || '<tr><td colspan="5" class="muted">暂无记录</td></tr>';
 }
 
-// 录入某月（month 省略=本月）。preset: 可选, 预填 { balance | total, profit }
-// editMonth: 修改入口传入原月份, 此时月份可编辑; 改月保存时删除原月记录
-function openRecModal(id, type, month, preset, editMonth) {
+// 录入/修改某月记录。preset: 预填 { balance | total, profit }
+// editId: 传入=修改该条记录(PUT, 月份可编辑)；不传=新增一条(POST)
+function openRecModal(id, type, month, preset, editId) {
   var w = wallets.filter(function(x){return x.id===id;})[0];
   preset = preset || {};
-  var monthField = editMonth
+  var monthField = editId
     ? '<label>月份</label><input id="fMonth" type="month" value="' + month + '">'
     : '';
   var fields = type === 'investment'
@@ -1376,7 +1391,7 @@ function openRecModal(id, type, month, preset, editMonth) {
       '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01" value="' + (preset.profit != null ? preset.profit : '') + '">' +
       '<p class="muted" id="principalHint">本金将自动计算 = 总资产 − 收益</p>'
     : '<label>本月余额(元)</label><input id="fBalance" type="number" step="0.01" value="' + (preset.balance != null ? preset.balance : '') + '">';
-  openModal('录入 · ' + w.name + ' (' + month + ')',
+  openModal((editId ? '修改 · ' : '录入 · ') + w.name + ' (' + month + ')',
     monthField + fields + '<div style="margin-top:12px;"><button class="btn" id="recConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   if (type === 'investment') {
     var calc = function(){
@@ -1388,25 +1403,26 @@ function openRecModal(id, type, month, preset, editMonth) {
     document.getElementById('fProfit').addEventListener('input', calc);
   }
   document.getElementById('recConfirm').addEventListener('click', async function(){
-    var mm = editMonth ? document.getElementById('fMonth').value : month;
+    var mm = editId ? document.getElementById('fMonth').value : month;
     if (!mm) { alert('请选择月份'); return; }
-    var payload = { wallet_id: id, month: mm };
+    var payload = { month: mm };
     if (type === 'investment') { payload.total = document.getElementById('fTotal').value; payload.profit = document.getElementById('fProfit').value; }
     else payload.balance = document.getElementById('fBalance').value;
     try {
-      // 修改入口改了月份: 先删原月记录, 再存到新月份
-      if (editMonth && mm !== editMonth) {
-        var old = fullRecords.filter(function(r){ return r.wallet_id===id && r.month===editMonth; })[0];
-        if (old) await api('/api/asset/records/' + old.id, { method:'DELETE' });
+      if (editId) {
+        await api('/api/asset/records/' + editId, { method:'PUT', body: payload });
+      } else {
+        payload.wallet_id = id;
+        await api('/api/asset/records', { method:'POST', body: payload });
       }
-      await api('/api/asset/records', { method:'POST', body: payload }); closeModal(); await loadAll();
+      closeModal(); await loadAll();
     }
     catch(e){ alert(e.message); }
   });
 }
-// 录入本月
+// 录入本月（新增一条）
 window.wRec = function(id, type){ openRecModal(id, type, curMonth(), null); };
-// 录入其他月：先选月份
+// 录入其他月：先选月份，再新增一条
 window.wRecOther = function(id, type){
   var w = wallets.filter(function(x){return x.id===id;})[0];
   openModal('选择月份 · ' + w.name,
@@ -1415,19 +1431,17 @@ window.wRecOther = function(id, type){
   document.getElementById('omNext').addEventListener('click', function(){
     var mm = document.getElementById('omMonth').value;
     if (!mm) { alert('请选择月份'); return; }
-    // 若该月该钱包已有记录, 预填
-    var rec = fullRecords.filter(function(r){ return r.wallet_id===id && r.month===mm; })[0];
-    var preset = rec ? { balance: rec.balance, total: rec.balance, profit: rec.profit } : null;
-    openRecModal(id, type, mm, preset);
+    openRecModal(id, type, mm, null);
   });
 };
-// 修改某条已有月度记录（可改月份）
-window.recEditRow = function(walletId, month){
-  var w = wallets.filter(function(x){return x.id===walletId;})[0];
+// 修改某条已有月度记录（按 id, 可改月份）
+window.recEditRow = function(recId){
+  var rec = fullRecords.filter(function(r){ return r.id===recId; })[0];
+  if (!rec) return;
+  var w = wallets.filter(function(x){return x.id===rec.wallet_id;})[0];
   if (!w) return;
-  var rec = fullRecords.filter(function(r){ return r.wallet_id===walletId && r.month===month; })[0];
-  var preset = rec ? { balance: rec.balance, total: rec.balance, profit: rec.profit } : null;
-  openRecModal(walletId, w.type, month, preset, month);
+  var preset = { balance: rec.balance, total: rec.balance, profit: rec.profit };
+  openRecModal(rec.wallet_id, w.type, rec.month, preset, recId);
 };
 // 删除某条月度记录
 window.recDelRow = async function(id){
@@ -1550,11 +1564,11 @@ async function loadInfo() {
     document.getElementById('monthLabel').textContent = d.month + ' 月';
     var box = document.getElementById('fields');
     if (wType === 'investment') {
-      box.innerHTML = '<label>当前总资产(元)</label><input id="fTotal" type="number" step="0.01" value="' + (d.current?d.current.balance:'') + '">' +
-        '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01" value="' + (d.current?d.current.profit:'') + '">' +
+      box.innerHTML = '<label>当前总资产(元)</label><input id="fTotal" type="number" step="0.01">' +
+        '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01">' +
         '<p class="muted" id="pHint">本金将自动计算 = 总资产 − 收益</p>';
     } else {
-      box.innerHTML = '<label>本月余额(元)</label><input id="fBalance" type="number" step="0.01" value="' + (d.current?d.current.balance:'') + '">';
+      box.innerHTML = '<label>本月余额(元)</label><input id="fBalance" type="number" step="0.01">';
     }
     document.getElementById('content').style.display = 'block';
   } catch(e) {
@@ -1566,7 +1580,11 @@ document.getElementById('aForm').addEventListener('submit', async function(e){
   var payload = {};
   if (wType === 'investment') { payload.total = document.getElementById('fTotal').value; payload.profit = document.getElementById('fProfit').value; }
   else payload.balance = document.getElementById('fBalance').value;
-  try { await api('/api/public/asset/' + token, { method:'POST', body: payload }); showMsg(msg, '本月记录已保存！', true); }
+  try {
+    await api('/api/public/asset/' + token, { method:'POST', body: payload });
+    showMsg(msg, '本月记录已保存！可继续录入下一条', true);
+    document.getElementById('aForm').reset();
+  }
   catch(err){ showMsg(msg, err.message, false); }
 });
 loadInfo();

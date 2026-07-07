@@ -450,6 +450,7 @@ function assetPage(user) {
         <div class="stat"><div class="num" id="sMonth" style="font-size:18px;">—</div><div class="lbl">最新月份</div></div>
       </div>
       <div id="goalBox" style="margin-top:14px;padding:10px;background:#f8f9ff;border-radius:6px;font-size:14px;"></div>
+      <div id="typeTotalBox" style="margin-top:14px;"></div>
       <div class="row" style="margin-top:12px;">
         <div><label>设置当年目标净资产(元)</label><input id="goalInput" type="number" step="0.01"></div>
         <div style="display:flex;align-items:flex-end;"><button class="btn" id="goalSave">保存目标</button></div>
@@ -502,7 +503,7 @@ function assetPage(user) {
     <div class="card">
       <h2>月度记录</h2>
       <table>
-        <thead><tr><th>月份</th><th>钱包</th><th>金额</th><th>操作</th></tr></thead>
+        <thead><tr><th>月份</th><th>类型</th><th>钱包</th><th>金额</th><th>操作</th></tr></thead>
         <tbody id="recTbody"></tbody>
       </table>
     </div>

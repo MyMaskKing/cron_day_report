@@ -37,7 +37,7 @@ import {
 } from './api/weight.api.js';
 import {
   listWallets, createWallet, updateWallet, removeWallet, getWalletShareLink,
-  saveRecord, removeRecord as removeAssetRecord, assetReport, getGoal, setGoal,
+  saveRecord, updateRecord as updateAssetRecord, removeRecord as removeAssetRecord, assetReport, getGoal, setGoal,
   publicWalletInfo, publicSaveRecord, publicAssetReport
 } from './api/asset.api.js';
 import { buildAssetReportData } from './services/asset.service.js';
@@ -142,6 +142,7 @@ router.get('/api/asset/wallets/:id/share-link', getWalletShareLink);
 router.put('/api/asset/wallets/:id', updateWallet);
 router.delete('/api/asset/wallets/:id', removeWallet);
 router.post('/api/asset/records', saveRecord);
+router.put('/api/asset/records/:id', updateAssetRecord);
 router.delete('/api/asset/records/:id', removeAssetRecord);
 router.get('/api/asset/report', assetReport);
 router.get('/api/asset/goal', getGoal);
