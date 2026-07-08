@@ -773,10 +773,10 @@ function applyProfitFilter() {
     if (rng!=='all' && rng!=='7d' && s.date.slice(0,cutoff.length)!==cutoff) continue;
     var dc = s.delta != null ? (s.delta>=0?'#cf1322':'#389e0d') : '#999';
     var dt = s.delta != null ? sign(s.delta) : '—';
-    rows.push('<tr><td>'+s.date+'</td><td style="color:'+colorOf(s.profit)+'">'+sign(s.profit)+' 元</td><td style="color:'+dc+'">'+dt+' 元</td></tr>');
+    rows.push('<tr><td data-label="日期">'+s.date+'</td><td data-label="总收益" style="color:'+colorOf(s.profit)+'">'+sign(s.profit)+' 元</td><td data-label="较前一天增长" style="color:'+dc+'">'+dt+' 元</td></tr>');
   }
   var tb = document.getElementById('profitTbody');
-  tb.innerHTML = rows.join('') || '<tr><td colspan="3" class="muted">暂无数据</td></tr>';
+  tb.innerHTML = rows.join('') || '<tr><td colspan="3" data-label="提示" class="muted">暂无数据</td></tr>';
 }
 
 async function loadProfitHistory() {
@@ -1408,7 +1408,7 @@ function sign(n){ return (n>=0?'+':'') + n; }
         var s = series[i], dc = s.delta != null ? (s.delta>=0?'#cf1322':'#389e0d') : '#999';
         var dt = s.delta != null ? sign(s.delta) : '—';
         var pc = s.profit>=0?'#cf1322':'#389e0d';
-        rows.push('<tr><td>'+s.date+'</td><td style="color:'+pc+'">'+sign(s.profit)+' 元</td><td style="color:'+dc+'">'+dt+' 元</td></tr>');
+        rows.push('<tr><td data-label="日期">'+s.date+'</td><td data-label="总收益" style="color:'+pc+'">'+sign(s.profit)+' 元</td><td data-label="较前一天增长" style="color:'+dc+'">'+dt+' 元</td></tr>');
       }
       document.getElementById('profitTbody').innerHTML = rows.join('');
     }
