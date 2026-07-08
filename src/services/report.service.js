@@ -61,7 +61,8 @@ function buildFundReportText(items, totals, linkMap, tzOffset, analysis, reportL
   t += `💰 总本金：${totals.cost}\n`;
   t += `📈 现　值：${totals.value}\n`;
   t += `📊 总收益：${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）\n`;
-  if (profitDelta && profitDelta.delta != null) t += `📅 较昨日：${fmtSign(round2(profitDelta.delta))}\n`;
+  if (profitDelta && profitDelta.delta != null) t += `📅 较昨日：${fmtSign(round2(profitDelta.delta))} 元\n`;
+  else t += `📅 暂无昨日对比数据，次日 15:00 后可见\n`;
   t += `${line}\n`;
   items.forEach((it, i) => {
     const icon = it.profit >= 0 ? '🔴' : '🟢';
@@ -94,7 +95,8 @@ function buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis, rep
   let m = `## 📈 基金持仓日报\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n\n`;
   m += `💰 总本金：**${totals.cost}** · 现值：**${totals.value}**\n`;
   m += `📊 总收益：**${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）**\n`;
-  if (profitDelta && profitDelta.delta != null) m += `📅 较昨日：**${fmtSign(round2(profitDelta.delta))}**\n`;
+  if (profitDelta && profitDelta.delta != null) m += `📅 较昨日：**${fmtSign(round2(profitDelta.delta))} 元**\n`;
+  else m += `📅 暂无昨日对比数据，次日 15:00 后可见\n`;
   items.forEach((it, i) => {
     const icon = it.profit >= 0 ? '🔴' : '🟢';
     m += `\n${icon} **${i + 1}. ${it.name}（${it.code}）**\n`;
@@ -125,6 +127,8 @@ function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis, reportL
   if (profitDelta && profitDelta.delta != null) {
     const deltaColor = profitDelta.delta >= 0 ? '#cf1322' : '#389e0d';
     h += `<p style="color:${deltaColor};">📅 较昨日: ${fmtSign(round2(profitDelta.delta))} 元</p>`;
+  } else {
+    h += `<p style="color:#999;font-size:13px;">📅 暂无昨日对比数据，次日 15:00 后可见</p>`;
   }
   items.forEach((it, i) => {
     const color = it.profit >= 0 ? '#cf1322' : '#389e0d';
