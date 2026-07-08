@@ -185,6 +185,9 @@ function bindFormatByChannel(chSel, fmtSel) {
     fmtSel.innerHTML = fmtOptionsFor(channelTypeOf(chSel));
     fmtSel.value = Array.prototype.some.call(fmtSel.options, function(o){ return o.value === prev; }) ? prev : 'text';
   }
+  chSel.addEventListener('change', refresh);
+  return refresh;
+}
 // 免密页快速登录：点击按钮，按当前页 token 签发正式会话并跳转对应模块
 // kind ∈ fund | weight | asset | weight-report | asset-report；token 取路径末段
 function bindQuickLogin(kind) {
