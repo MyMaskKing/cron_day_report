@@ -735,18 +735,33 @@ async function loadReport() {
 function applyProfitFilter() {
   var rng = document.getElementById('profitRange').value;
   var labels = [], vals = [];
-  // 本月/本年按 YYYY-MM 前缀过滤，date 升序
-  var p = (new Date(Date.now()+8*3600*1000)).toISOString().slice(0, rng==='month'?7:4);
+  var now = new Date(Date.now()+8*3600*1000);
+  var cutoff = '';
+  if (rng==='7d') { cutoff = new Date(now.getTime()-7*86400000).toISOString().slice(0,10); }
+  else if (rng==='month') { cutoff = now.toISOString().slice(0,7); } // YYYY-MM
+  else if (rng==='year') { cutoff = now.toISOString().slice(0,4); }  // YYYY
+
   for (var i=0;i<window._profitSeries.length;i++) {
     var s = window._profitSeries[i];
-    if (rng!=='all' && s.date.slice(0,p.length)!==p) continue;
+    if (rng==='7d' && s.date < cutoff) continue;
+    if (rng!=='all' && rng!=='7d' && s.date.slice(0,cutoff.length)!==cutoff) continue;
     labels.push(s.date.slice(5)); // MM-DD
     vals.push(s.profit);
+  }
+  // 空数据：隐藏曲线、显示提示
+  var wrap = document.getElementById('profitChartWrap');
+  var empty = document.getElementById('profitEmpty');
+  if (!labels.length) {
+    if (wrap) wrap.style.display = 'none';
+    if (empty) empty.style.display = 'block';
+  } else {
+    if (wrap) wrap.style.display = 'block';
+    if (empty) empty.style.display = 'none';
   }
   // 画曲线
   var el = document.getElementById('profitChart');
   if (profitChart) profitChart.destroy();
-  if (el) profitChart = new Chart(el, {
+  if (el && labels.length) profitChart = new Chart(el, {
     type:'line', data:{labels:labels, datasets:[{label:'总收益',data:vals,borderColor:'#667eea',tension:0.3}]},
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
   });
@@ -754,7 +769,8 @@ function applyProfitFilter() {
   var rows = [];
   for (var i=window._profitSeries.length-1;i>=0;i--) {
     var s = window._profitSeries[i];
-    if (rng!=='all' && s.date.slice(0,p.length)!==p) continue;
+    if (rng==='7d' && s.date < cutoff) continue;
+    if (rng!=='all' && rng!=='7d' && s.date.slice(0,cutoff.length)!==cutoff) continue;
     var dc = s.delta != null ? (s.delta>=0?'#cf1322':'#389e0d') : '#999';
     var dt = s.delta != null ? sign(s.delta) : '—';
     rows.push('<tr><td>'+s.date+'</td><td style="color:'+colorOf(s.profit)+'">'+sign(s.profit)+'</td><td style="color:'+dc+'">'+dt+'</td></tr>');
