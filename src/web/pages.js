@@ -238,7 +238,7 @@ function fundPage(user) {
       <div id="profitChartWrap" style="height:280px;max-width:720px;margin:20px auto 0;"><canvas id="profitChart"></canvas></div>
       <h3 style="margin:24px 0 8px;font-size:16px;">每日明细</h3>
       <div style="max-height:240px;overflow-y:auto;">
-        <table><thead><tr><th>日期</th><th>总收益</th><th>较前一天</th></tr></thead><tbody id="profitTbody"></tbody></table>
+        <table><thead><tr style="background:#f8f9fa;"><th>日期</th><th>总收益(元)</th><th>较前一天增长(元)</th></tr></thead><tbody id="profitTbody"></tbody></table>
       </div>
     </div>
 
@@ -587,7 +587,7 @@ function fundReportPage() {
       <canvas id="profitChart" style="max-height:300px;"></canvas>
       <h3 style="margin:20px 0 8px;font-size:16px;">每日明细</h3>
       <div style="max-height:240px;overflow-y:auto;">
-        <table><thead><tr><th>日期</th><th>总收益</th><th>较前一天</th></tr></thead><tbody id="profitTbody"></tbody></table>
+        <table><thead><tr style="background:#f8f9fa;"><th>日期</th><th>总收益(元)</th><th>较前一天增长(元)</th></tr></thead><tbody id="profitTbody"></tbody></table>
       </div>
     </div>
   </div>`;
