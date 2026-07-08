@@ -763,7 +763,7 @@ function applyProfitFilter() {
   if (profitChart) profitChart.destroy();
   if (el && labels.length) profitChart = new Chart(el, {
     type:'line', data:{labels:labels, datasets:[{label:'总收益',data:vals,borderColor:'#667eea',tension:0.3}]},
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
+    options:{ responsive:true, maintainAspectRatio:true, aspectRatio:2.5, plugins:{legend:{display:false}} }
   });
   // 填表（日期倒序）
   var rows = [];
@@ -1400,7 +1400,7 @@ function sign(n){ return (n>=0?'+':'') + n; }
       var pv = series.map(function(s){ return s.profit; });
       new Chart(document.getElementById('profitChart'), { type:'line',
         data:{ labels: pl, datasets:[{ label:'总收益', data: pv, borderColor:'#667eea', tension:0.3 }] },
-        options:{ plugins:{ legend:{ display:false } } } });
+        options:{ responsive:true, maintainAspectRatio:true, aspectRatio:2.5, plugins:{ legend:{ display:false } } } });
       // 明细表（日期倒序）
       document.getElementById('profitBox').style.display = 'block';
       var rows = [];

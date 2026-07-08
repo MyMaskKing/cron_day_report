@@ -235,7 +235,7 @@ function fundPage(user) {
         </select>
       </h2>
       <div id="profitEmpty" class="muted" style="display:none;text-align:center;padding:40px;">暂无每日收益数据，次日 15:00 后自动生成首条快照</div>
-      <div id="profitChartWrap" style="max-width:720px;margin:20px auto 0;"><canvas id="profitChart" style="height:280px;"></canvas></div>
+      <div id="profitChartWrap" style="height:280px;max-width:720px;margin:20px auto 0;"><canvas id="profitChart"></canvas></div>
       <h3 style="margin:24px 0 8px;font-size:16px;">每日明细</h3>
       <div style="max-height:240px;overflow-y:auto;">
         <table><thead><tr><th>日期</th><th>总收益</th><th>较前一天</th></tr></thead><tbody id="profitTbody"></tbody></table>
