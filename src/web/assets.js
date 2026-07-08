@@ -685,7 +685,9 @@ const FUND_JS = `
 ${COMMON_JS}
 bindLogout();
 bindModal();
-var chart = null;
+var chart = null;   // 饼图
+var profitChart = null;
+window._profitSeries = [];    // 每日总收益全量，供过滤用
 
 function sign(n){ return (n>=0?'+':'') + n; }
 function colorOf(n){ return n>=0 ? '#cf1322' : '#389e0d'; }
@@ -727,6 +729,44 @@ async function loadReport() {
   window._items = data.items;
 
   drawChart(data.items);
+  await loadProfitHistory();
+}
+
+function applyProfitFilter() {
+  var rng = document.getElementById('profitRange').value;
+  var labels = [], vals = [];
+  // 本月/本年按 YYYY-MM 前缀过滤，date 升序
+  var p = (new Date(Date.now()+8*3600*1000)).toISOString().slice(0, rng==='month'?7:4);
+  for (var i=0;i<window._profitSeries.length;i++) {
+    var s = window._profitSeries[i];
+    if (rng!=='all' && s.date.slice(0,p.length)!==p) continue;
+    labels.push(s.date.slice(5)); // MM-DD
+    vals.push(s.profit);
+  }
+  // 画曲线
+  var el = document.getElementById('profitChart');
+  if (profitChart) profitChart.destroy();
+  if (el) profitChart = new Chart(el, {
+    type:'line', data:{labels:labels, datasets:[{label:'总收益',data:vals,borderColor:'#667eea',tension:0.3}]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
+  });
+  // 填表（日期倒序）
+  var rows = [];
+  for (var i=window._profitSeries.length-1;i>=0;i--) {
+    var s = window._profitSeries[i];
+    if (rng!=='all' && s.date.slice(0,p.length)!==p) continue;
+    var dc = s.delta != null ? (s.delta>=0?'#cf1322':'#389e0d') : '#999';
+    var dt = s.delta != null ? sign(s.delta) : '—';
+    rows.push('<tr><td>'+s.date+'</td><td style="color:'+colorOf(s.profit)+'">'+sign(s.profit)+'</td><td style="color:'+dc+'">'+dt+'</td></tr>');
+  }
+  var tb = document.getElementById('profitTbody');
+  tb.innerHTML = rows.join('') || '<tr><td colspan="3" class="muted">暂无数据</td></tr>';
+}
+
+async function loadProfitHistory() {
+  var data = await api('/api/fund/profit-history');
+  window._profitSeries = data.series || [];
+  applyProfitFilter();
 }
 
 function drawChart(items) {
@@ -918,6 +958,8 @@ document.getElementById('scRun').addEventListener('click', async function(){
 (async function(){
   try { await loadReport(); await loadReportConfig(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+  // 绑定筛选（select 在 loadReport 时 DOM 已就绪）
+  document.getElementById('profitRange').addEventListener('change', applyProfitFilter);
 })();
 `;
 
@@ -1324,15 +1366,36 @@ const FUND_REPORT_JS = `
 ${COMMON_JS}
 var token = location.pathname.split('/').filter(Boolean).pop();
 var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f96','#fa8c16','#a0d911','#2f54eb'];
+function sign(n){ return (n>=0?'+':'') + n; }
 (async function(){
   try {
     var d = await api('/api/public/fund-report/' + token);
+    // 饼图（持仓分布）
     var labels = d.items.map(function(i){ return i.name; });
     var data = d.items.map(function(i){ return i.value; });
     var bg = labels.map(function(_, i){ return COLORS[i % COLORS.length]; });
     new Chart(document.getElementById('pieChart'), { type:'doughnut',
       data:{ labels: labels, datasets:[{ data: data, backgroundColor: bg }] },
       options:{ plugins:{ legend:{ position:'bottom' } } } });
+    // 每日总收益曲线（近 30 天，联动）
+    var series = d.profitSeries || [];
+    if (series.length) {
+      var pl = series.map(function(s){ return s.date.slice(5); });
+      var pv = series.map(function(s){ return s.profit; });
+      new Chart(document.getElementById('profitChart'), { type:'line',
+        data:{ labels: pl, datasets:[{ label:'总收益', data: pv, borderColor:'#667eea', tension:0.3 }] },
+        options:{ plugins:{ legend:{ display:false } } } });
+      // 明细表（日期倒序）
+      document.getElementById('profitBox').style.display = 'block';
+      var rows = [];
+      for (var i=series.length-1;i>=0;i--) {
+        var s = series[i], dc = s.delta != null ? (s.delta>=0?'#cf1322':'#389e0d') : '#999';
+        var dt = s.delta != null ? sign(s.delta) : '—';
+        var pc = s.profit>=0?'#cf1322':'#389e0d';
+        rows.push('<tr><td>'+s.date+'</td><td style="color:'+pc+'">'+sign(s.profit)+'</td><td style="color:'+dc+'">'+dt+'</td></tr>');
+      }
+      document.getElementById('profitTbody').innerHTML = rows.join('');
+    }
     document.getElementById('content').style.display = 'block';
   } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
 })();

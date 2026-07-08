@@ -160,6 +160,10 @@ function createD1Adapter(env) {
         const { results } = await db.prepare('SELECT DISTINCT code FROM funds').all();
         return (results || []).map(r => r.code);
       },
+      async listUserIdsWithFunds() {
+        const { results } = await db.prepare('SELECT DISTINCT user_id FROM funds').all();
+        return (results || []).map(r => r.user_id);
+      },
       async findById(id) {
         return await db.prepare('SELECT * FROM funds WHERE id = ?').bind(id).first();
       },
@@ -196,6 +200,26 @@ function createD1Adapter(env) {
       },
       async getNav(code) {
         return await db.prepare('SELECT * FROM fund_nav_cache WHERE code = ?').bind(code).first();
+      },
+      async upsertProfitDaily(userId, date, t) {
+        await db.prepare(
+          `INSERT INTO fund_profit_daily (user_id, record_date, cost, value, profit, created_at)
+           VALUES (?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(user_id, record_date) DO UPDATE SET cost=excluded.cost,
+             value=excluded.value, profit=excluded.profit, created_at=datetime('now')`
+        ).bind(userId, date, t.cost || 0, t.value || 0, t.profit || 0).run();
+      },
+      async listProfitDaily(userId) {
+        const { results } = await db.prepare(
+          'SELECT record_date, cost, value, profit FROM fund_profit_daily WHERE user_id=? ORDER BY record_date'
+        ).bind(userId).all();
+        return results || [];
+      },
+      async getLatestTwoProfit(userId) {
+        const { results } = await db.prepare(
+          'SELECT record_date, profit FROM fund_profit_daily WHERE user_id=? ORDER BY record_date DESC LIMIT 2'
+        ).bind(userId).all();
+        return results || [];
       },
       async getReportConfig(userId) {
         return await db.prepare('SELECT * FROM fund_report_config WHERE user_id = ?').bind(userId).first();

@@ -13,7 +13,7 @@ import {
 } from '../services/fund.service.js';
 import { sendNotification } from '../services/notify.service.js';
 import { buildFundReport } from '../services/report.service.js';
-import { parseOffset, fmtShort } from '../services/time.service.js';
+import { parseOffset, fmtShort, localParts } from '../services/time.service.js';
 import { resolveBaseUrl, ALLOWED_FORMATS } from '../config.js';
 
 /** 校验持仓字段 */
@@ -105,6 +105,20 @@ async function fundReport({ request, env }) {
   return json({ success: true, ...portfolio });
 }
 
+/** GET /api/fund/profit-history  每日总收益历史（曲线图/表格用，含较前一天差额） */
+async function fundProfitHistory({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const rows = await storage.fund.listProfitDaily(auth.user_id);
+  const series = rows.map((r, i) => ({
+    date: r.record_date,
+    profit: r.profit,
+    delta: i > 0 ? Math.round((r.profit - rows[i - 1].profit) * 100) / 100 : null
+  }));
+  return json({ success: true, series });
+}
+
 /** GET /api/fund/report-config  读取日报配置 */
 async function getReportConfig({ request, env }) {
   const auth = await requireAuth(request, env);
@@ -165,7 +179,12 @@ async function sendReport({ request, env, url }) {
     const reportToken = await storage.push.ensureReportToken(auth.user_id, 'fund', generateToken());
     reportLink = `${base}/fr/${reportToken}`;
   }
-  const message = buildFundReport(portfolio, format, linkMap, tzOffset, reportLink);
+  // 记录当日总收益快照并计算较昨日差额（同日覆盖）
+  const dateStr = localParts(Date.now(), tzOffset).dateStr;
+  await storage.fund.upsertProfitDaily(auth.user_id, dateStr, portfolio.totals);
+  const two = await storage.fund.getLatestTwoProfit(auth.user_id);
+  const profitDelta = (two && two.length >= 2) ? { today: two[0].profit, yesterday: two[1].profit, delta: two[0].profit - two[1].profit } : null;
+  const message = buildFundReport(portfolio, format, linkMap, tzOffset, reportLink, profitDelta);
   const subject = `📈 基金持仓日报 ${fmtShort(Date.now(), tzOffset)}`;
   const result = await sendNotification(message, channel, format, subject);
   return json({ success: result.success, message: result.message });
@@ -325,7 +344,7 @@ async function buyFund({ request, env, params }) {
   });
 }
 
-/** GET /api/public/fund-report/:token  免密查看持仓分布（供饼图报告页）
+/** GET /api/public/fund-report/:token  免密查看持仓分布 + 近30天收益曲线（供免密报告页）
  * token = push_config(module=fund).report_token
  */
 async function publicFundReport({ env, params }) {
@@ -336,11 +355,20 @@ async function publicFundReport({ env, params }) {
   const navMap = await fetchNavBatch(funds.map(f => f.code));
   const portfolio = buildPortfolio(funds, navMap);
   const items = portfolio.items.map(it => ({ name: it.name, value: it.value }));
-  return json({ success: true, items, totals: portfolio.totals });
+  // 每日总收益历史近 30 天（含较前一天差额），供曲线图联动
+  const all = await storage.fund.listProfitDaily(row.user_id);
+  const recent = all.slice(-30);
+  const profitSeries = recent.map((r, i) => ({
+    date: r.record_date,
+    profit: r.profit,
+    delta: i > 0 ? Math.round((r.profit - recent[i - 1].profit) * 100) / 100 : null
+  }));
+  return json({ success: true, items, totals: portfolio.totals, profitSeries });
 }
 
 export {
   listFunds, createFund, updateFund, removeFund,
   fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
-  getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund
+  getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund,
+  fundProfitHistory
 };

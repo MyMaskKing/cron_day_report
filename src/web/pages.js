@@ -226,6 +226,19 @@ function fundPage(user) {
     </div>
 
     <div class="card">
+      <h2>每日总收益曲线
+        <select id="profitRange" class="btn sm gray" style="float:right;">
+          <option value="month">本月</option>
+          <option value="year">本年</option>
+          <option value="all">全部</option>
+        </select>
+      </h2>
+      <div style="max-width:720px;margin:20px auto 0;"><canvas id="profitChart" style="height:280px;"></canvas></div>
+      <h3 style="margin:24px 0 8px;font-size:16px;">每日明细</h3>
+      <table><thead><tr><th>日期</th><th>总收益</th><th>较前一天</th></tr></thead><tbody id="profitTbody"></tbody></table>
+    </div>
+
+    <div class="card">
       <h2>持仓明细
         <button class="btn sm" id="fNew" style="float:right;">+ 添加持仓</button>
       </h2>
@@ -564,6 +577,12 @@ function fundReportPage() {
       <div id="content" style="display:none;">
         <canvas id="pieChart" style="max-height:420px;"></canvas>
       </div>
+    </div>
+    <div class="card" id="profitBox" style="display:none;">
+      <h2>📈 近30天总收益曲线</h2>
+      <canvas id="profitChart" style="max-height:300px;"></canvas>
+      <h3 style="margin:20px 0 8px;font-size:16px;">每日明细</h3>
+      <table><thead><tr><th>日期</th><th>总收益</th><th>较前一天</th></tr></thead><tbody id="profitTbody"></tbody></table>
     </div>
   </div>`;
   return renderPage({ title: '持仓分布', body, script: FUND_REPORT_JS });

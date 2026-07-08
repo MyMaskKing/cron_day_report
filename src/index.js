@@ -26,7 +26,8 @@ import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './a
 import {
   listFunds, createFund, updateFund, removeFund,
   fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
-  getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund
+  getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund,
+  fundProfitHistory
 } from './api/fund.api.js';
 import { fetchNavBatch, buildPortfolio } from './services/fund.service.js';
 import {
@@ -105,6 +106,7 @@ router.delete('/api/monitor/tasks/:id', removeTask);
 // --- 基金追踪 API ---
 router.get('/api/fund/list', listFunds);
 router.get('/api/fund/report', fundReport);
+router.get('/api/fund/profit-history', fundProfitHistory);
 router.get('/api/fund/report-config', getReportConfig);
 router.put('/api/fund/report-config', setReportConfig);
 router.get('/api/fund/analysis', fundAnalysis);
@@ -382,6 +384,8 @@ async function handleScheduled(cron, env, ctx) {
         const navMap = await fetchNavBatch(codes);
         for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
       }
+      // 刷完净值后，为每个有持仓的用户记录当日总收益快照（同用户同日覆盖）
+      await snapshotFundProfit(storage, now.dateStr);
     }
     summary.fund = await runModulePush(env, storage, 'fund', now, manual, tzOffset);
   } catch (err) { summary.fund = { error: err.message }; }
@@ -461,7 +465,8 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
       const reportToken = await storage.push.ensureReportToken(userId, 'fund', generateToken());
       reportLink = `${base}/fr/${reportToken}`;
     }
-    return buildFundReport(portfolio, format, linkMap, tzOffset, reportLink);
+    const profitDelta = await getFundProfitDelta(storage, userId);
+    return buildFundReport(portfolio, format, linkMap, tzOffset, reportLink, profitDelta);
   }
   if (module === 'weight') {
     const members = await storage.weight.listMembers(userId);
@@ -533,6 +538,40 @@ async function buildShareLinkMap(env, storage, funds) {
     map[f.id] = `${base}/f/${token}`;
   }
   return map;
+}
+
+/**
+ * 为所有有持仓的用户记录当日总收益快照（同用户同日覆盖）
+ * @param {Object} storage
+ * @param {string} dateStr - 北京时区当日 YYYY-MM-DD
+ */
+async function snapshotFundProfit(storage, dateStr) {
+  const userIds = await storage.fund.listUserIdsWithFunds();
+  for (const uid of userIds) {
+    const funds = await storage.fund.listByUser(uid);
+    if (funds.length === 0) continue;
+    const navMap = new Map();
+    for (const f of funds) {
+      const nav = await storage.fund.getNav(f.code);
+      if (nav) navMap.set(f.code, { nav: nav.nav, gsz: nav.gsz, navDate: nav.nav_date });
+    }
+    const { totals } = buildPortfolio(funds, navMap);
+    await storage.fund.upsertProfitDaily(uid, dateStr, { cost: totals.cost, value: totals.value, profit: totals.profit });
+  }
+}
+
+/**
+ * 读取用户今日总收益较昨日差额（供推送展示）
+ * @param {Object} storage
+ * @param {number} userId
+ * @returns {Promise<Object|null>} { today, yesterday, delta } 或 null（不足两条）
+ */
+async function getFundProfitDelta(storage, userId) {
+  const rows = await storage.fund.getLatestTwoProfit(userId);
+  if (!rows || rows.length < 2) return null;
+  const today = rows[0].profit;
+  const yesterday = rows[1].profit;
+  return { today, yesterday, delta: today - yesterday };
 }
 
 export default {

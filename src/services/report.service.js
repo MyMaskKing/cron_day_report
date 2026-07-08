@@ -24,14 +24,15 @@ import { analyzePortfolio } from './fund.service.js';
  * @param {Object} linkMap - 可选, { [fundId]: 加仓链接URL }, 有则在每只基金后附上快速加仓链接
  * @param {number} tzOffset - 时区偏移（小时），用于报告时间戳
  * @param {string} reportLink - 可选, 免密报告页链接（持仓分布饼图）；有则替代 QuickChart 直链
+ * @param {Object} profitDelta - 可选, { today, yesterday, delta } 今日总收益较昨日差额；有则在总收益行下展示
  * @returns {string}
  */
-function buildFundReport(portfolio, format = 'text', linkMap = null, tzOffset = 8, reportLink = '') {
+function buildFundReport(portfolio, format = 'text', linkMap = null, tzOffset = 8, reportLink = '', profitDelta = null) {
   const { items, totals } = portfolio;
   const analysis = analyzePortfolio(portfolio);
-  if (format === 'html') return buildFundReportHTML(items, totals, linkMap, tzOffset, analysis, reportLink);
-  if (format === 'markdown') return buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis, reportLink);
-  return buildFundReportText(items, totals, linkMap, tzOffset, analysis, reportLink);
+  if (format === 'html') return buildFundReportHTML(items, totals, linkMap, tzOffset, analysis, reportLink, profitDelta);
+  if (format === 'markdown') return buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis, reportLink, profitDelta);
+  return buildFundReportText(items, totals, linkMap, tzOffset, analysis, reportLink, profitDelta);
 }
 
 function fmtSign(n) {
@@ -54,12 +55,14 @@ function buildAnalysisText(analysis) {
   return `${line}\n🔎 持仓分析\n${lines.join('\n')}\n`;
 }
 
-function buildFundReportText(items, totals, linkMap, tzOffset, analysis, reportLink = '') {
+function buildFundReportText(items, totals, linkMap, tzOffset, analysis, reportLink = '', profitDelta = null) {
   const line = '━━━━━━━━━━━━━━';
   let t = `📈 基金持仓日报\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n${line}\n`;
   t += `💰 总本金：${totals.cost}\n`;
   t += `📈 现　值：${totals.value}\n`;
-  t += `📊 总收益：${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）\n${line}\n`;
+  t += `📊 总收益：${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）\n`;
+  if (profitDelta && profitDelta.delta != null) t += `📅 较昨日：${fmtSign(round2(profitDelta.delta))}\n`;
+  t += `${line}\n`;
   items.forEach((it, i) => {
     const icon = it.profit >= 0 ? '🔴' : '🟢';
     t += `\n${icon} ${i + 1}. ${it.name}（${it.code}）\n`;
@@ -87,10 +90,11 @@ function buildAnalysisMarkdown(analysis) {
   return `\n**🔎 持仓分析**\n${lines.join('\n')}\n`;
 }
 
-function buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis, reportLink = '') {
+function buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis, reportLink = '', profitDelta = null) {
   let m = `## 📈 基金持仓日报\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n\n`;
   m += `💰 总本金：**${totals.cost}** · 现值：**${totals.value}**\n`;
   m += `📊 总收益：**${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）**\n`;
+  if (profitDelta && profitDelta.delta != null) m += `📅 较昨日：**${fmtSign(round2(profitDelta.delta))}**\n`;
   items.forEach((it, i) => {
     const icon = it.profit >= 0 ? '🔴' : '🟢';
     m += `\n${icon} **${i + 1}. ${it.name}（${it.code}）**\n`;
@@ -111,13 +115,17 @@ function buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis, rep
   return m;
 }
 
-function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis, reportLink = '') {
+function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis, reportLink = '', profitDelta = null) {
   const profitColor = totals.profit >= 0 ? '#cf1322' : '#389e0d';
   let h = `<div style="font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;">
     <h2>📈 基金持仓日报</h2>
     <p>${fmtDateTime(Date.now(), tzOffset)}</p>
     <p>💰 总本金: ${totals.cost} · 现值: ${totals.value}</p>
     <p style="color:${profitColor};font-weight:bold;">📊 总收益: ${fmtSign(totals.profit)} (${fmtSign(totals.rate)}%)</p>`;
+  if (profitDelta && profitDelta.delta != null) {
+    const deltaColor = profitDelta.delta >= 0 ? '#cf1322' : '#389e0d';
+    h += `<p style="color:${deltaColor};">📅 较昨日: ${fmtSign(round2(profitDelta.delta))} 元</p>`;
+  }
   items.forEach((it, i) => {
     const color = it.profit >= 0 ? '#cf1322' : '#389e0d';
     const link = linkMap && linkMap[it.id]
