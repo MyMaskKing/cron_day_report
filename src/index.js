@@ -26,7 +26,7 @@ import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './a
 import {
   listFunds, createFund, updateFund, removeFund,
   fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
-  getShareLink, fundScenario, publicFundInfo, publicFundBuy, buyFund
+  getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund
 } from './api/fund.api.js';
 import { fetchNavBatch, buildPortfolio } from './services/fund.service.js';
 import {
@@ -50,7 +50,7 @@ import { parseOffset, fmtShort } from './services/time.service.js';
 import {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
-  weightReportPage, assetReportPage
+  weightReportPage, assetReportPage, fundReportPage
 } from './web/pages.js';
 
 // ==================== 路由注册 ====================
@@ -118,6 +118,7 @@ router.delete('/api/fund/:id', removeFund);
 
 // --- 免密加仓公开 API（无需登录，靠 token）---
 router.get('/api/public/fund/:token', publicFundInfo);
+router.get('/api/public/fund-report/:token', publicFundReport);
 router.post('/api/public/fund/:token/buy', publicFundBuy);
 
 // --- 体重曲线 API ---
@@ -189,6 +190,10 @@ async function handlePages(request, env) {
   // 资产免密报告查看页 /ar/:token
   if (path.startsWith('/ar/') && path.split('/').filter(Boolean).length === 2) {
     return html(assetReportPage());
+  }
+  // 基金持仓分布免密报告页 /fr/:token
+  if (path.startsWith('/fr/') && path.split('/').filter(Boolean).length === 2) {
+    return html(fundReportPage());
   }
 
   // 需登录页面
@@ -449,7 +454,14 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
     for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
     const portfolio = buildPortfolio(funds, navMap);
     const linkMap = await buildShareLinkMap(env, storage, funds);
-    return buildFundReport(portfolio, format, linkMap, tzOffset);
+    // 持仓分布饼图免密报告页链接
+    let reportLink = '';
+    const base = await resolveBaseUrl(storage, env);
+    if (base) {
+      const reportToken = await storage.push.ensureReportToken(userId, 'fund', generateToken());
+      reportLink = `${base}/fr/${reportToken}`;
+    }
+    return buildFundReport(portfolio, format, linkMap, tzOffset, reportLink);
   }
   if (module === 'weight') {
     const members = await storage.weight.listMembers(userId);

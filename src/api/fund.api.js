@@ -159,7 +159,13 @@ async function sendReport({ request, env, url }) {
     if (!token) { token = generateToken(); await storage.fund.setShareToken(f.id, token); }
     linkMap[f.id] = `${base}/f/${token}`;
   }
-  const message = buildFundReport(portfolio, format, linkMap, tzOffset);
+  // 持仓分布饼图免密报告页链接
+  let reportLink = '';
+  if (base) {
+    const reportToken = await storage.push.ensureReportToken(auth.user_id, 'fund', generateToken());
+    reportLink = `${base}/fr/${reportToken}`;
+  }
+  const message = buildFundReport(portfolio, format, linkMap, tzOffset, reportLink);
   const subject = `📈 基金持仓日报 ${fmtShort(Date.now(), tzOffset)}`;
   const result = await sendNotification(message, channel, format, subject);
   return json({ success: result.success, message: result.message });
@@ -239,8 +245,7 @@ async function fundScenario({ request, env }) {
 }
 
 /** GET /api/public/fund/:token  免密查看基金信息（供加仓页展示） */
-async function publicFundInfo({ env, params }) {
-  const storage = getStorage(env);
+async function publicFundInfo({ env, params }) {  const storage = getStorage(env);
   const fund = await storage.fund.findByShareToken(params.token);
   if (!fund) return error('链接无效或已失效', 404);
 
@@ -320,8 +325,22 @@ async function buyFund({ request, env, params }) {
   });
 }
 
+/** GET /api/public/fund-report/:token  免密查看持仓分布（供饼图报告页）
+ * token = push_config(module=fund).report_token
+ */
+async function publicFundReport({ env, params }) {
+  const storage = getStorage(env);
+  const row = await storage.push.findByReportToken(params.token);
+  if (!row || row.module !== 'fund') return error('链接无效或已失效', 404);
+  const funds = await storage.fund.listByUser(row.user_id);
+  const navMap = await fetchNavBatch(funds.map(f => f.code));
+  const portfolio = buildPortfolio(funds, navMap);
+  const items = portfolio.items.map(it => ({ name: it.name, value: it.value }));
+  return json({ success: true, items, totals: portfolio.totals });
+}
+
 export {
   listFunds, createFund, updateFund, removeFund,
   fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
-  getShareLink, fundScenario, publicFundInfo, publicFundBuy, buyFund
+  getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund
 };

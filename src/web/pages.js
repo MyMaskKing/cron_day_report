@@ -7,7 +7,7 @@ import { renderPage, renderTopbar } from './layout.js';
 import {
   LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS,
   WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
-  WEIGHT_REPORT_JS, ASSET_REPORT_JS
+  WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS
 } from './assets.js';
 
 /** 初始化超管页 */
@@ -555,8 +555,22 @@ function assetReportPage() {
   return renderPage({ title: '资产趋势', body, script: ASSET_REPORT_JS });
 }
 
+/** 基金持仓分布免密报告页 */
+function fundReportPage() {
+  const body = `<div class="container" style="max-width:640px;margin:24px auto;">
+    <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
+    <div class="card">
+      <h2>📊 持仓分布</h2>
+      <div id="content" style="display:none;">
+        <canvas id="pieChart" style="max-height:420px;"></canvas>
+      </div>
+    </div>
+  </div>`;
+  return renderPage({ title: '持仓分布', body, script: FUND_REPORT_JS });
+}
+
 export {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
-  weightReportPage, assetReportPage
+  weightReportPage, assetReportPage, fundReportPage
 };

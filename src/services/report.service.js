@@ -23,14 +23,15 @@ import { analyzePortfolio } from './fund.service.js';
  * @param {string} format - 'text' | 'html' | 'markdown'
  * @param {Object} linkMap - 可选, { [fundId]: 加仓链接URL }, 有则在每只基金后附上快速加仓链接
  * @param {number} tzOffset - 时区偏移（小时），用于报告时间戳
+ * @param {string} reportLink - 可选, 免密报告页链接（持仓分布饼图）；有则替代 QuickChart 直链
  * @returns {string}
  */
-function buildFundReport(portfolio, format = 'text', linkMap = null, tzOffset = 8) {
+function buildFundReport(portfolio, format = 'text', linkMap = null, tzOffset = 8, reportLink = '') {
   const { items, totals } = portfolio;
   const analysis = analyzePortfolio(portfolio);
-  if (format === 'html') return buildFundReportHTML(items, totals, linkMap, tzOffset, analysis);
-  if (format === 'markdown') return buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis);
-  return buildFundReportText(items, totals, linkMap, tzOffset, analysis);
+  if (format === 'html') return buildFundReportHTML(items, totals, linkMap, tzOffset, analysis, reportLink);
+  if (format === 'markdown') return buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis, reportLink);
+  return buildFundReportText(items, totals, linkMap, tzOffset, analysis, reportLink);
 }
 
 function fmtSign(n) {
@@ -53,7 +54,7 @@ function buildAnalysisText(analysis) {
   return `${line}\n🔎 持仓分析\n${lines.join('\n')}\n`;
 }
 
-function buildFundReportText(items, totals, linkMap, tzOffset, analysis) {
+function buildFundReportText(items, totals, linkMap, tzOffset, analysis, reportLink = '') {
   const line = '━━━━━━━━━━━━━━';
   let t = `📈 基金持仓日报\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n${line}\n`;
   t += `💰 总本金：${totals.cost}\n`;
@@ -67,6 +68,7 @@ function buildFundReportText(items, totals, linkMap, tzOffset, analysis) {
     t += `　收益：${fmtSign(it.profit)}（${fmtSign(it.rate)}%）\n`;
     if (linkMap && linkMap[it.id]) t += `　➕ 快速加仓：${linkMap[it.id]}\n`;
   });
+  if (reportLink) t += `\n📊 查看持仓分布图：${reportLink}\n`;
   if (analysis) t += `\n${buildAnalysisText(analysis)}`;
   return t;
 }
@@ -85,7 +87,7 @@ function buildAnalysisMarkdown(analysis) {
   return `\n**🔎 持仓分析**\n${lines.join('\n')}\n`;
 }
 
-function buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis) {
+function buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis, reportLink = '') {
   let m = `## 📈 基金持仓日报\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n\n`;
   m += `💰 总本金：**${totals.cost}** · 现值：**${totals.value}**\n`;
   m += `📊 总收益：**${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）**\n`;
@@ -96,16 +98,20 @@ function buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis) {
     m += `> 收益 ${fmtSign(it.profit)}（${fmtSign(it.rate)}%）\n`;
     if (linkMap && linkMap[it.id]) m += `> [➕ 快速加仓](${linkMap[it.id]})\n`;
   });
-  // 持仓分布饼图：markdown 不内嵌图片，改文字链接（QuickChart 图 URL 本身公开）
-  const labels = items.map(i => i.name);
-  const data = items.map(i => i.value);
-  const chartUrl = buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } });
-  m += `\n[📊 查看持仓分布图](${chartUrl})\n`;
+  // 持仓分布饼图：有免密报告页链接则用之，否则回退 QuickChart 图 URL
+  if (reportLink) {
+    m += `\n[📊 查看持仓分布图](${reportLink})\n`;
+  } else {
+    const labels = items.map(i => i.name);
+    const data = items.map(i => i.value);
+    const chartUrl = buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } });
+    m += `\n[📊 查看持仓分布图](${chartUrl})\n`;
+  }
   if (analysis) m += buildAnalysisMarkdown(analysis);
   return m;
 }
 
-function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis) {
+function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis, reportLink = '') {
   const profitColor = totals.profit >= 0 ? '#cf1322' : '#389e0d';
   let h = `<div style="font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;">
     <h2>📈 基金持仓日报</h2>
@@ -123,11 +129,9 @@ function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis) {
       ${link}
     </div>`;
   });
-  // 持仓分布饼图：改为明确的文字链接，点击在浏览器打开图表（邮件客户端常屏蔽内联外链图片）
-  const labels = items.map(i => i.name);
-  const data = items.map(i => i.value);
-  const chartUrl = buildChartUrl({ type: 'doughnut', data: { labels, datasets: [{ data }] } });
-  h += `<div style="margin:12px 0;"><a href="${chartUrl}" target="_blank" rel="noopener" style="display:inline-block;padding:8px 14px;background:#4a6cf7;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;">📊 点击查看持仓分布饼状图</a></div>`;
+  // 持仓分布饼图：有免密报告页则链接到免密页（可交互 + 快速登录），否则回退 QuickChart 图 URL
+  const chartHref = reportLink || buildChartUrl({ type: 'doughnut', data: { labels: items.map(i => i.name), datasets: [{ data: items.map(i => i.value) }] } });
+  h += `<div style="margin:12px 0;"><a href="${chartHref}" target="_blank" rel="noopener" style="display:inline-block;padding:8px 14px;background:#4a6cf7;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;">📊 点击查看持仓分布饼状图</a></div>`;
   if (analysis) h += buildFundAnalysisHTML(analysis);
   h += '</div>';
   return h;
@@ -314,10 +318,10 @@ function buildWeightReport(members, records, opts) {
       block += `<b style="font-size:15px;">${m.name}</b><br>`;
       if (todayRec) {
         block += `<span style="color:#389e0d;">今日：${disp(todayRec.weight)} ${unitLabel}</span>`;
-        if (base) block += ` · <a href="${base}/w/${tokenMap[m.id]}">修改/补录</a>`;
+        if (base) block += ` · <a href="${base}/w/${tokenMap[m.id]}" style="display:inline-block;padding:2px 10px;background:#4a6cf7;color:#fff;border-radius:4px;text-decoration:none;font-size:13px;">快速录入</a>`;
         block += `<br>`;
       } else if (base) {
-        block += `<span style="color:#cf1322;">今日未填</span> · <a href="${base}/w/${tokenMap[m.id]}">点此快速填写</a><br>`;
+        block += `<span style="color:#cf1322;">今日未填</span> · <a href="${base}/w/${tokenMap[m.id]}" style="display:inline-block;padding:2px 10px;background:#4a6cf7;color:#fff;border-radius:4px;text-decoration:none;font-size:13px;">快速录入</a><br>`;
       } else {
         block += `今日未填<br>`;
       }
@@ -334,8 +338,8 @@ function buildWeightReport(members, records, opts) {
       block += `</div>`;
     } else {
       block += `【${m.name}】\n`;
-      if (todayRec) block += base ? `　今日：${disp(todayRec.weight)} ${unitLabel}，修改/补录：${base}/w/${tokenMap[m.id]}\n` : `　今日：${disp(todayRec.weight)} ${unitLabel}\n`;
-      else if (base) block += `　今日未填，快速填写：${base}/w/${tokenMap[m.id]}\n`;
+      if (todayRec) block += base ? `　今日：${disp(todayRec.weight)} ${unitLabel}，快速录入：${base}/w/${tokenMap[m.id]}\n` : `　今日：${disp(todayRec.weight)} ${unitLabel}\n`;
+      else if (base) block += `　今日未填，快速录入：${base}/w/${tokenMap[m.id]}\n`;
       else block += `　今日未填\n`;
       if (last7.length) {
         block += `　最近记录：\n`;
@@ -378,8 +382,8 @@ function buildWeightReportMarkdown(members, records, opts) {
     const todayRec = arr.find(r => r.record_date === today);
     const last7 = arr.slice(-7);
     m += `\n**${mem.name}**\n`;
-    if (todayRec) m += base ? `> 今日：${disp(todayRec.weight)} ${unitLabel} · [修改/补录](${base}/w/${tokenMap[mem.id]})\n` : `> 今日：${disp(todayRec.weight)} ${unitLabel}\n`;
-    else if (base) m += `> 今日未填 · [点此快速填写](${base}/w/${tokenMap[mem.id]})\n`;
+    if (todayRec) m += base ? `> 今日：${disp(todayRec.weight)} ${unitLabel} · [快速录入](${base}/w/${tokenMap[mem.id]})\n` : `> 今日：${disp(todayRec.weight)} ${unitLabel}\n`;
+    else if (base) m += `> 今日未填 · [快速录入](${base}/w/${tokenMap[mem.id]})\n`;
     else m += `> 今日未填\n`;
     if (last7.length) {
       const hist = last7.map(r => `${r.record_date.slice(5)} ${disp(r.weight)}${unitLabel}`).join(' · ');

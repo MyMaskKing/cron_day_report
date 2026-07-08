@@ -232,13 +232,10 @@ async function publicSubmitWeight({ request, env, params }) {
 
   const date = todayCN(); // 强制当天，不接受前端传入
   const existing = await storage.weight.findRecordByMemberDate(m.id, date);
-  if (existing) {
-    await storage.weight.updateRecord(existing.id, weight, body.note);
-  } else {
-    await storage.weight.addRecord({
-      member_id: m.id, user_id: m.user_id, weight, record_date: date, note: body.note
-    });
-  }
+  if (existing) return error('今日已录入，不可重复录入', 400);
+  await storage.weight.addRecord({
+    member_id: m.id, user_id: m.user_id, weight, record_date: date, note: body.note
+  });
   return json({ success: true, message: '已记录今日体重' });
 }
 

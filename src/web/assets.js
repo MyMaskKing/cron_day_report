@@ -1223,7 +1223,14 @@ async function loadInfo() {
     document.getElementById('monthDays').textContent = '本月已打卡 ' + d.monthDays + ' 天';
     document.getElementById('todayDate').value = d.today;
     document.getElementById('weightLabel').textContent = '今日体重(' + pLabel() + ')';
-    if (d.todayWeight != null) document.getElementById('weight').value = pDisplay(d.todayWeight);
+    if (d.todayWeight != null) {
+      // 今日已录入：显示数据、锁定输入、隐藏提交按钮，不允许重复录入
+      document.getElementById('weight').value = pDisplay(d.todayWeight);
+      document.getElementById('weight').disabled = true;
+      var sb = document.querySelector('#wForm button[type=submit]');
+      if (sb) sb.style.display = 'none';
+      showMsg(msg, '今日已录入：' + pDisplay(d.todayWeight) + ' ' + pLabel() + '，不可重复录入', true);
+    }
     document.getElementById('content').style.display = 'block';
     drawMini(d.records);
   } catch(e) {
@@ -1310,6 +1317,26 @@ var token = location.pathname.split('/').filter(Boolean).pop();
   } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
 })();
 bindQuickLogin('asset-report');
+`;
+
+// 基金持仓分布免密报告页 JS（doughnut 饼图，无需登录）
+const FUND_REPORT_JS = `
+${COMMON_JS}
+var token = location.pathname.split('/').filter(Boolean).pop();
+var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f96','#fa8c16','#a0d911','#2f54eb'];
+(async function(){
+  try {
+    var d = await api('/api/public/fund-report/' + token);
+    var labels = d.items.map(function(i){ return i.name; });
+    var data = d.items.map(function(i){ return i.value; });
+    var bg = labels.map(function(_, i){ return COLORS[i % COLORS.length]; });
+    new Chart(document.getElementById('pieChart'), { type:'doughnut',
+      data:{ labels: labels, datasets:[{ data: data, backgroundColor: bg }] },
+      options:{ plugins:{ legend:{ position:'bottom' } } } });
+    document.getElementById('content').style.display = 'block';
+  } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
+})();
+bindQuickLogin('fund-report');
 `;
 
 // 资产报表页 JS
@@ -1696,5 +1723,5 @@ bindQuickLogin('asset');
 export {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
-  WEIGHT_REPORT_JS, ASSET_REPORT_JS
+  WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS
 };

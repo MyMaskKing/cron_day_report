@@ -207,7 +207,7 @@ async function quickLoginByToken({ env, params }) {
   } else if (kind === 'asset') {
     const w = await storage.asset.findWalletByShareToken(token);
     if (w) userId = w.user_id;
-  } else if (kind === 'weight-report' || kind === 'asset-report') {
+  } else if (kind === 'weight-report' || kind === 'asset-report' || kind === 'fund-report') {
     const row = await storage.push.findByReportToken(token);
     if (row) userId = row.user_id;
   } else {
@@ -221,7 +221,7 @@ async function quickLoginByToken({ env, params }) {
 
   const REDIRECT = {
     fund: '/fund', weight: '/weight', asset: '/asset',
-    'weight-report': '/weight', 'asset-report': '/asset'
+    'weight-report': '/weight', 'asset-report': '/asset', 'fund-report': '/fund'
   };
   const sessionToken = await createSession(env, user);
   return json(
