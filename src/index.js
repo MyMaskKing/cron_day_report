@@ -15,7 +15,7 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword } from './api/auth.api.js';
+import { register, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
@@ -66,6 +66,7 @@ router.put('/api/auth/profile', updateProfile);
 router.put('/api/auth/password', changePassword);
 router.get('/api/auth/setup-status', setupStatus);
 router.post('/api/auth/bootstrap', bootstrap);
+router.post('/api/public/quick-login/:kind/:token', quickLoginByToken);
 
 // --- 超管用户管理 API ---
 router.get('/api/admin/users', listUsers);

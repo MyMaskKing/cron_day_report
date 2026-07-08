@@ -313,7 +313,9 @@ function buildWeightReport(members, records, opts) {
       block += `<div style="margin:10px 0;padding:12px;background:#f8f9fa;border-radius:6px;">`;
       block += `<b style="font-size:15px;">${m.name}</b><br>`;
       if (todayRec) {
-        block += `<span style="color:#389e0d;">今日：${disp(todayRec.weight)} ${unitLabel}</span><br>`;
+        block += `<span style="color:#389e0d;">今日：${disp(todayRec.weight)} ${unitLabel}</span>`;
+        if (base) block += ` · <a href="${base}/w/${tokenMap[m.id]}">修改/补录</a>`;
+        block += `<br>`;
       } else if (base) {
         block += `<span style="color:#cf1322;">今日未填</span> · <a href="${base}/w/${tokenMap[m.id]}">点此快速填写</a><br>`;
       } else {
@@ -332,7 +334,7 @@ function buildWeightReport(members, records, opts) {
       block += `</div>`;
     } else {
       block += `【${m.name}】\n`;
-      if (todayRec) block += `　今日：${disp(todayRec.weight)} ${unitLabel}\n`;
+      if (todayRec) block += base ? `　今日：${disp(todayRec.weight)} ${unitLabel}，修改/补录：${base}/w/${tokenMap[m.id]}\n` : `　今日：${disp(todayRec.weight)} ${unitLabel}\n`;
       else if (base) block += `　今日未填，快速填写：${base}/w/${tokenMap[m.id]}\n`;
       else block += `　今日未填\n`;
       if (last7.length) {
@@ -376,7 +378,7 @@ function buildWeightReportMarkdown(members, records, opts) {
     const todayRec = arr.find(r => r.record_date === today);
     const last7 = arr.slice(-7);
     m += `\n**${mem.name}**\n`;
-    if (todayRec) m += `> 今日：${disp(todayRec.weight)} ${unitLabel}\n`;
+    if (todayRec) m += base ? `> 今日：${disp(todayRec.weight)} ${unitLabel} · [修改/补录](${base}/w/${tokenMap[mem.id]})\n` : `> 今日：${disp(todayRec.weight)} ${unitLabel}\n`;
     else if (base) m += `> 今日未填 · [点此快速填写](${base}/w/${tokenMap[mem.id]})\n`;
     else m += `> 今日未填\n`;
     if (last7.length) {

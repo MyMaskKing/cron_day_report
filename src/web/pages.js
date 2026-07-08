@@ -286,6 +286,7 @@ function publicBuyPage() {
   const body = `<div class="login-wrap" style="max-width:420px;">
     <div class="card">
       <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:16px;">➕ 快速加仓</h1>
+      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
         <h2 id="fundName" style="font-size:16px;"></h2>
@@ -381,6 +382,7 @@ function publicWeightPage() {
       <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:6px;">⚖️ <span id="memberName"></span></h1>
       <p id="streakTitle" style="text-align:center;color:#389e0d;font-weight:600;margin-bottom:2px;"></p>
       <p id="monthDays" style="text-align:center;color:#888;font-size:13px;margin-bottom:16px;"></p>
+      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
         <form id="wForm">
@@ -517,6 +519,7 @@ function publicAssetPage() {
     <div class="card">
       <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:6px;">💰 <span id="walletName"></span></h1>
       <p style="text-align:center;color:#888;font-size:13px;margin-bottom:16px;">录入 <span id="monthLabel"></span>金额</p>
+      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
         <form id="aForm">
@@ -533,7 +536,7 @@ function publicAssetPage() {
 function weightReportPage() {
   const body = `<div class="container" style="max-width:760px;margin:24px auto;">
     <div class="card">
-      <h2>⚖️ 体重曲线</h2>
+      <h2>⚖️ 体重曲线 <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button></h2>
       <div id="content" style="display:none;"><canvas id="rptChart" style="max-height:420px;"></canvas></div>
     </div>
   </div>`;
@@ -543,6 +546,7 @@ function weightReportPage() {
 /** 资产免密报告查看页 */
 function assetReportPage() {
   const body = `<div class="container" style="max-width:760px;margin:24px auto;">
+    <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
     <div id="content" style="display:none;">
       <div class="card"><h2>💰 净资产趋势</h2><canvas id="netChart" style="max-height:340px;"></canvas></div>
       <div class="card"><h2>每月消费</h2><canvas id="consumeChart" style="max-height:340px;"></canvas></div>

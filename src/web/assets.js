@@ -185,8 +185,19 @@ function bindFormatByChannel(chSel, fmtSel) {
     fmtSel.innerHTML = fmtOptionsFor(channelTypeOf(chSel));
     fmtSel.value = Array.prototype.some.call(fmtSel.options, function(o){ return o.value === prev; }) ? prev : 'text';
   }
-  chSel.addEventListener('change', refresh);
-  return refresh;
+// 免密页快速登录：点击按钮，按当前页 token 签发正式会话并跳转对应模块
+// kind ∈ fund | weight | asset | weight-report | asset-report；token 取路径末段
+function bindQuickLogin(kind) {
+  var btn = document.getElementById('quickLoginBtn');
+  if (!btn) return;
+  var tk = location.pathname.split('/').filter(Boolean).pop();
+  btn.addEventListener('click', async function(e) {
+    e.preventDefault();
+    try {
+      var r = await api('/api/public/quick-login/' + kind + '/' + tk, { method: 'POST' });
+      location.href = r.redirect || '/dashboard';
+    } catch (err) { alert(err.message); }
+  });
 }
 `;
 
@@ -941,6 +952,7 @@ document.getElementById('buyForm').addEventListener('submit', async function(e){
   } catch(err) { showMsg(msg, err.message, false); }
 });
 loadInfo();
+bindQuickLogin('fund');
 `;
 
 // 体重曲线页 JS
@@ -1218,8 +1230,9 @@ async function loadInfo() {
 function drawMini(records) {
   var el = document.getElementById('miniChart');
   if (!el || !records.length) return;
-  var labels = records.map(function(r){ return r.record_date; });
-  var data = records.map(function(r){ return pDisplay(r.weight); });
+  var recent = records.slice(-7);
+  var labels = recent.map(function(r){ return r.record_date; });
+  var data = recent.map(function(r){ return pDisplay(r.weight); });
   if (pwChart) pwChart.destroy();
   pwChart = new Chart(el, { type:'line', data:{ labels: labels, datasets:[{ label:'体重('+pLabel()+')', data: data, borderColor:'#667eea', tension:.3 }] },
     options:{ plugins:{ legend:{ display:false } } } });
@@ -1233,6 +1246,7 @@ document.getElementById('wForm').addEventListener('submit', async function(e){
   } catch(err){ showMsg(msg, err.message, false); }
 });
 loadInfo();
+bindQuickLogin('weight');
 `;
 
 // 体重免密报告查看页 JS（曲线图，无需登录）
@@ -1246,10 +1260,14 @@ var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f
     var unit = d.weight_unit || 'jin';
     var uLabel = unit === 'kg' ? '公斤' : '斤';
     var disp = function(kg){ return unit === 'jin' ? Math.round(kg*2*10)/10 : kg; };
+    // 默认只显示本月记录（本月无数据则回退全部）
+    var curMonth = new Date(Date.now() + 8*3600*1000).toISOString().slice(0,7);
+    var recs = d.records.filter(function(r){ return (r.record_date||'').slice(0,7) === curMonth; });
+    if (!recs.length) recs = d.records;
     var byMember = {};
     d.members.forEach(function(m){ byMember[m.id] = {}; });
     var dates = {};
-    d.records.forEach(function(r){ if (byMember[r.member_id]) { byMember[r.member_id][r.record_date] = disp(r.weight); dates[r.record_date] = 1; } });
+    recs.forEach(function(r){ if (byMember[r.member_id]) { byMember[r.member_id][r.record_date] = disp(r.weight); dates[r.record_date] = 1; } });
     var labels = Object.keys(dates).sort();
     var datasets = d.members.map(function(m, i){
       return { label: m.name, data: labels.map(function(dt){ return byMember[m.id][dt] != null ? byMember[m.id][dt] : null; }),
@@ -1260,6 +1278,7 @@ var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f
     document.getElementById('content').style.display = 'block';
   } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
 })();
+bindQuickLogin('weight-report');
 `;
 
 // 资产免密报告查看页 JS
@@ -1270,16 +1289,24 @@ var token = location.pathname.split('/').filter(Boolean).pop();
   try {
     var d = await api('/api/public/asset-report/' + token);
     var r = d.report;
+    // 默认只显示本年月份（本年无数据则回退全部）
+    var curYear = new Date(Date.now() + 8*3600*1000).toISOString().slice(0,4);
+    var idx = r.months.map(function(m, i){ return { m: m, i: i }; }).filter(function(o){ return (o.m||'').slice(0,4) === curYear; });
+    if (!idx.length) idx = r.months.map(function(m, i){ return { m: m, i: i }; });
+    var months = idx.map(function(o){ return o.m; });
+    var netWorthSeries = idx.map(function(o){ return r.netWorthSeries[o.i]; });
+    var savingSeries = idx.map(function(o){ return r.savingSeries[o.i]; });
     new Chart(document.getElementById('netChart'), { type:'line',
-      data:{ labels: r.months, datasets:[{ label:'净资产', data: r.netWorthSeries, borderColor:'#667eea', tension:.3 }] },
+      data:{ labels: months, datasets:[{ label:'净资产', data: netWorthSeries, borderColor:'#667eea', tension:.3 }] },
       options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'净资产(元)' } } } } });
     new Chart(document.getElementById('consumeChart'), { type:'bar',
-      data:{ labels: r.months, datasets:[{ label:'净存', data: r.savingSeries,
+      data:{ labels: months, datasets:[{ label:'净存', data: savingSeries,
         backgroundColor: function(c){ return c.raw < 0 ? '#cf1322' : '#389e0d'; } }] },
       options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'每月净存(元, 负为减少)' } } } } });
     document.getElementById('content').style.display = 'block';
   } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
 })();
+bindQuickLogin('asset-report');
 `;
 
 // 资产报表页 JS
@@ -1660,6 +1687,7 @@ document.getElementById('aForm').addEventListener('submit', async function(e){
   catch(err){ showMsg(msg, err.message, false); }
 });
 loadInfo();
+bindQuickLogin('asset');
 `;
 
 export {

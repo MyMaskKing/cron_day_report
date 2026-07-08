@@ -189,7 +189,49 @@ async function bootstrap({ request, env }) {
   return json({ success: true, message: '超管初始化成功', user: { id, username, role: 'admin' } });
 }
 
+/**
+ * POST /api/public/quick-login/:kind/:token  免密页快速登录
+ * 按免密 token 定位其所属用户并签发正式会话（谁的链接就登入谁的账号）
+ * kind ∈ fund | weight | asset | weight-report | asset-report
+ */
+async function quickLoginByToken({ env, params }) {
+  const storage = getStorage(env);
+  const { kind, token } = params;
+  let userId = null;
+  if (kind === 'fund') {
+    const f = await storage.fund.findByShareToken(token);
+    if (f) userId = f.user_id;
+  } else if (kind === 'weight') {
+    const m = await storage.weight.findMemberByShareToken(token);
+    if (m) userId = m.user_id;
+  } else if (kind === 'asset') {
+    const w = await storage.asset.findWalletByShareToken(token);
+    if (w) userId = w.user_id;
+  } else if (kind === 'weight-report' || kind === 'asset-report') {
+    const row = await storage.push.findByReportToken(token);
+    if (row) userId = row.user_id;
+  } else {
+    return error('登录类型非法', 400);
+  }
+  if (userId == null) return error('链接无效或已失效', 404);
+
+  const user = await storage.users.findById(userId);
+  if (!user) return error('用户不存在', 404);
+  if (user.status === 'disabled') return error('账号已被禁用', 403);
+
+  const REDIRECT = {
+    fund: '/fund', weight: '/weight', asset: '/asset',
+    'weight-report': '/weight', 'asset-report': '/asset'
+  };
+  const sessionToken = await createSession(env, user);
+  return json(
+    { success: true, redirect: REDIRECT[kind] || '/dashboard' },
+    200,
+    { 'Set-Cookie': buildSessionCookie(sessionToken) }
+  );
+}
+
 export {
   register, login, logout, me, bootstrap, setupStatus,
-  getProfile, updateProfile, changePassword
+  getProfile, updateProfile, changePassword, quickLoginByToken
 };
