@@ -1922,7 +1922,7 @@ bindQuickLogin('asset');
 // opts 回调决定各页能力：{ today, hideDone, onToggle, onEdit, onDel, onAddChild, onShare, readOnly }
 // 用 createElement + addEventListener，规避模板串内引号转义。
 const TODO_TREE_CORE = `
-var PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
+var PRI_ICON = { 2: '🔴', 1: '🔵', 0: '⚪' };
 var PRI_TEXT = { 2: '高', 1: '中', 0: '低' };
 function todoBuildTree(rows) {
   var byId = {}, roots = [];
@@ -2084,7 +2084,7 @@ function todoFormHtml(t, isNew, isChild) {
     '<div class="row">' +
       '<div><label>优先级</label><select id="tfPri">' +
         '<option value="2"' + (t.priority === 2 ? ' selected' : '') + '>🔴 高</option>' +
-        '<option value="1"' + (t.priority == null || t.priority === 1 ? ' selected' : '') + '>🟡 中</option>' +
+        '<option value="1"' + (t.priority == null || t.priority === 1 ? ' selected' : '') + '>🔵 中</option>' +
         '<option value="0"' + (t.priority === 0 ? ' selected' : '') + '>⚪ 低</option>' +
       '</select></div>' +
       dueField +

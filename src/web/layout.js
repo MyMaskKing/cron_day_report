@@ -151,7 +151,7 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .todo-row:hover { box-shadow: 0 3px 14px rgba(74,108,247,.10); border-color: #dfe4fb; transform: translateX(1px); }
 /* 优先级左色带 */
 .todo-row.pri-2 { border-left: 4px solid #f5222d; }
-.todo-row.pri-1 { border-left: 4px solid #faad14; }
+.todo-row.pri-1 { border-left: 4px solid #4a6cf7; }
 .todo-row.pri-0 { border-left: 4px solid #c7ccd6; }
 /* 层级连接线：非顶层节点左侧竖向引导线 */
 .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before {
@@ -195,8 +195,9 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .todo-op { border: none; background: none; cursor: pointer; font-size: 15px; padding: 3px 5px; border-radius: 6px; line-height: 1; }
 .todo-op:hover { background: #f0f2f8; }
 .todo-children.collapsed { display: none; }
-/* 顶层任务栏：可分享，右侧显示链接按钮 */
-.todo-row.is-root { background: #f8f9ff; }
+/* 顶层任务栏：作为分组头，标题加粗、背景略深，与子任务明显区分 */
+.todo-row.is-root { background: #eef1fb; border-color: #dfe4fb; }
+.todo-row.is-root .todo-title { font-weight: 700; font-size: 15px; }
 .todo-count { font-size: 12px; color: #8890b8; margin-left: 6px; }
 /* 概览统计条 */
 .todo-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }

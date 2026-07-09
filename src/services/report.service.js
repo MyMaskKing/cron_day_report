@@ -446,7 +446,7 @@ function buildWeightReportMarkdown(members, records, opts) {
 // ==================== 待办日报 ====================
 
 /** 优先级图标（高/中/低） */
-const TODO_PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
+const TODO_PRI_ICON = { 2: '🔴', 1: '🔵', 0: '⚪' };
 const TODO_PRI_LABEL = { 2: '高', 1: '中', 0: '低' };
 
 /**
@@ -577,7 +577,7 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats) {
     if (stats.overdue) h += ` · <span style="color:#cf1322;">逾期 ${stats.overdue} 项</span>`;
     h += `</p>`;
   }
-  const PRI_COLOR = { 2: '#cf1322', 1: '#faad14', 0: '#c7ccd6' };
+  const PRI_COLOR = { 2: '#cf1322', 1: '#4a6cf7', 0: '#c7ccd6' };
   const catTag = (c) => c
     ? ` <span style="background:#eef1ff;color:#4a6cf7;border-radius:4px;padding:1px 7px;font-size:12px;">${c}</span>` : '';
   // 子任务：卡片内缩进 + 左侧连接线，明确从属于上方主任务
