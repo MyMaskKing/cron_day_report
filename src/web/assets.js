@@ -2113,6 +2113,65 @@ function bindTodoRange(fn) {
     fn(btn.getAttribute('data-range'));
   });
 }
+// 完成任务的庆祝特效：撒花 + toast，显示剩余数与按完成度分级的激励词
+// remaining=未完成数, total=总数（含子任务）
+function todoCelebrate(remaining, total) {
+  var pct = total > 0 ? (total - remaining) / total : 0;
+  var msg;
+  if (total > 0 && remaining === 0) msg = '🎉 全部完成！今天的你太靠谱了！';
+  else if (pct >= 0.8) msg = '🔥 就差一点，胜利在望！';
+  else if (pct >= 0.5) msg = '💪 已过半，保持这个节奏！';
+  else if (pct >= 0.2) msg = '✨ 势头不错，继续加油！';
+  else msg = '👍 迈出第一步，积少成多！';
+  var tip = remaining > 0 ? ('还剩 ' + remaining + ' 个待办') : '清单已清空 🧹';
+  todoConfetti(total > 0 && remaining === 0);
+  todoToast(msg, tip);
+}
+// 撒花：从顶部飘落的彩色碎片；grand=true 时数量更多、持续更久
+function todoConfetti(grand) {
+  if (typeof Element === 'undefined' || !Element.prototype.animate) return;
+  var colors = ['#4a6cf7', '#52c41a', '#faad14', '#f5222d', '#eb2f96', '#13c2c2'];
+  var n = grand ? 90 : 40;
+  var box = document.createElement('div');
+  box.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99999;overflow:hidden;';
+  document.body.appendChild(box);
+  var vh = window.innerHeight || 800;
+  for (var i = 0; i < n; i++) {
+    var p = document.createElement('div');
+    var size = 6 + Math.floor(Math.random() * 9);
+    p.style.cssText = 'position:absolute;top:-24px;left:' + (Math.random() * 100) + 'vw;width:' + size + 'px;height:' + size + 'px;background:' + colors[i % colors.length] + ';border-radius:' + (Math.random() < 0.5 ? '50%' : '2px') + ';';
+    box.appendChild(p);
+    var xdrift = (Math.random() * 2 - 1) * 180;
+    var rot = (Math.random() * 2 - 1) * 720;
+    p.animate([
+      { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+      { transform: 'translate(' + xdrift + 'px,' + (vh + 80) + 'px) rotate(' + rot + 'deg)', opacity: 0.9 }
+    ], { duration: 1600 + Math.random() * 1500, easing: 'cubic-bezier(.2,.6,.4,1)', delay: Math.random() * 260, fill: 'forwards' });
+  }
+  setTimeout(function(){ box.remove(); }, grand ? 3400 : 2800);
+}
+// 居中提示条：主文案 + 剩余数，自动淡出
+function todoToast(msg, tip) {
+  var old = document.getElementById('todoToast');
+  if (old) old.remove();
+  var t = document.createElement('div');
+  t.id = 'todoToast';
+  t.style.cssText = 'position:fixed;left:50%;top:20%;transform:translateX(-50%);z-index:100000;pointer-events:none;background:rgba(30,34,45,.92);color:#fff;padding:14px 22px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);text-align:center;max-width:80vw;';
+  t.innerHTML = '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">' + esc(msg) + '</div><div style="font-size:13px;opacity:.85;">' + esc(tip) + '</div>';
+  document.body.appendChild(t);
+  if (Element.prototype.animate) {
+    t.animate([
+      { opacity: 0, transform: 'translateX(-50%) translateY(-12px) scale(.92)' },
+      { opacity: 1, transform: 'translateX(-50%) translateY(0) scale(1)' }
+    ], { duration: 240, easing: 'ease-out' });
+  }
+  setTimeout(function(){
+    if (Element.prototype.animate) {
+      var a = t.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: 'ease-in', fill: 'forwards' });
+      a.onfinish = function(){ t.remove(); };
+    } else { t.remove(); }
+  }, 1800);
+}
 `;
 
 // ============ 待办清单页（登录态） ============
@@ -2122,12 +2181,14 @@ ${TODO_TREE_CORE}
 bindLogout();
 bindModal();
 var _rows = [];
+var _stats = { pending:0, overdue:0, done:0, total:0 };
 function todayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
 
 async function loadTodos() {
   var data = await api('/api/todo/list');
   _rows = data.todos || [];
   var s = data.stats || { pending:0, overdue:0, done:0, total:0 };
+  _stats = s;
   document.getElementById('stPending').textContent = s.pending;
   document.getElementById('stOverdue').textContent = s.overdue;
   document.getElementById('stDone').textContent = s.done;
@@ -2139,7 +2200,11 @@ function drawTree() {
   renderTodoTree(document.getElementById('todoTree'), todoBuildTree(_rows), {
     today: todayStr(), hideDone: hideDone,
     onToggle: async function(node, done){
-      try { await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } }); await loadTodos(); await loadChart(); }
+      try {
+        await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+        await loadTodos(); await loadChart();
+        if (done) todoCelebrate(_stats.total - _stats.done, _stats.total);
+      }
       catch(e){ alert(e.message); }
     },
     onEdit: function(node){
@@ -2261,7 +2326,15 @@ function drawTree() {
   renderTodoTree(document.getElementById('todoTree'), todoBuildTree(_rows), {
     today: _today,
     onToggle: async function(node, done){
-      try { await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } }); await loadPublic(); }
+      try {
+        await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+        await loadPublic();
+        if (done) {
+          var total = _rows.length, doneCnt = 0;
+          _rows.forEach(function(r){ if (r.done) doneCnt++; });
+          todoCelebrate(total - doneCnt, total);
+        }
+      }
       catch(e){ alert(e.message); }
     },
     onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务'); }
