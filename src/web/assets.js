@@ -1366,9 +1366,9 @@ function renderHist(records) {
       else if (delta < 0) cell = '<span style="color:#389e0d;">↓ -' + v + ' ' + pLabel() + '</span>';
       else cell = '<span style="color:#888;">0</span>';
     }
-    return '<tr><td style="padding:4px 0;text-align:left;">' + esc(r.record_date) + '</td>' +
-      '<td style="padding:4px 0;text-align:right;">' + pDisplay(r.weight) + ' ' + pLabel() + '</td>' +
-      '<td style="padding:4px 0;text-align:right;">' + cell + '</td></tr>';
+    return '<tr><td data-label="日期" style="padding:4px 0;text-align:left;">' + esc(r.record_date) + '</td>' +
+      '<td data-label="体重" style="padding:4px 0;text-align:right;">' + pDisplay(r.weight) + ' ' + pLabel() + '</td>' +
+      '<td data-label="较上次" style="padding:4px 0;text-align:right;">' + cell + '</td></tr>';
   }).reverse().join('');
   box.innerHTML = '<div style="color:#888;font-size:13px;margin-bottom:4px;">最近记录</div>' +
     '<table style="width:100%;border-collapse:collapse;font-size:13px;color:#666;">' +
