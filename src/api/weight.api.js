@@ -60,6 +60,21 @@ async function createMember({ request, env }) {
   return json({ success: true, message: '成员已添加', id });
 }
 
+/** PUT /api/weight/members/:id  修改成员名  body: { name } */
+async function updateMember({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const name = (body.name || '').trim();
+  if (!name) return error('请填写成员名称');
+  const storage = getStorage(env);
+  const id = parseInt(params.id, 10);
+  const m = await storage.weight.findMember(id);
+  if (!m || m.user_id !== auth.user_id) return error('成员不存在', 404);
+  await storage.weight.updateMember(id, auth.user_id, name);
+  return json({ success: true, message: '成员已更新' });
+}
+
 /** DELETE /api/weight/members/:id  删除成员 */
 async function removeMember({ request, env, params }) {
   const auth = await requireAuth(request, env);
@@ -281,7 +296,7 @@ async function adminCompare({ request, env, url }) {
 }
 
 export {
-  listMembers, createMember, removeMember, getMemberShareLink,
+  listMembers, createMember, updateMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
   publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare,
   getUnit, setUnit

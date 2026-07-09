@@ -48,8 +48,21 @@ async function resolveBaseUrl(storage, env, url) {
   return url ? url.origin : '';
 }
 
+/**
+ * 按渠道类型计算有效推送格式（自动降级）
+ * email: 支持 text/html，markdown 无意义降级为 text
+ * wechat/webhook: 支持 text/markdown，html 无意义降级为 text
+ * @param {string} format - 用户选择的格式 text|html|markdown
+ * @param {string} channelType - 渠道类型 email|wechat|webhook
+ * @returns {string} 该渠道实际使用的格式
+ */
+function effectiveFormat(format, channelType) {
+  if (channelType === 'email') return format === 'markdown' ? 'text' : format;
+  return format === 'html' ? 'text' : format;
+}
+
 export {
   RETURN_TYPES, ALLOWED_FORMATS, DEFAULT_TIMEOUT, DEFAULT_RESPONSE_TIMEOUT,
   DEFAULT_CONCURRENCY_LIMIT, DEFAULT_BATCH_DELAY, SESSION_TTL,
-  DEFAULT_WEBHOOK_URL, getTimeoutConfig, resolveBaseUrl
+  DEFAULT_WEBHOOK_URL, getTimeoutConfig, resolveBaseUrl, effectiveFormat
 };

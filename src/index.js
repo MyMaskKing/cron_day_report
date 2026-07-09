@@ -7,7 +7,7 @@
  */
 
 import { Router, json, html, error } from './router.js';
-import { getTimeoutConfig, resolveBaseUrl } from './config.js';
+import { getTimeoutConfig, resolveBaseUrl, effectiveFormat } from './config.js';
 import { getStorage } from './storage/adapter.js';
 import { getSession, getTokenFromRequest } from './auth/session.js';
 import { generateToken } from './auth/password.js';
@@ -31,7 +31,7 @@ import {
 } from './api/fund.api.js';
 import { fetchNavBatch, buildPortfolio } from './services/fund.service.js';
 import {
-  listMembers, createMember, removeMember, getMemberShareLink,
+  listMembers, createMember, updateMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
   publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare,
   getUnit, setUnit
@@ -126,6 +126,7 @@ router.post('/api/public/fund/:token/buy', publicFundBuy);
 // --- 体重曲线 API ---
 router.get('/api/weight/members', listMembers);
 router.post('/api/weight/members', createMember);
+router.put('/api/weight/members/:id', updateMember);
 router.get('/api/weight/members/:id/share-link', getMemberShareLink);
 router.delete('/api/weight/members/:id', removeMember);
 router.get('/api/weight/chart', weightChart);
@@ -283,15 +284,20 @@ async function runMyModulePush({ request, env, params }) {
   if (!channelIds.length) return error('请先配置推送渠道', 400);
 
   const format = (cfg && cfg.format) || 'text';
-  const message = await buildModuleMessage(env, storage, module, session.user_id, format, tzOffset);
-  if (!message) return error('暂无数据，无法生成推送内容', 400);
-  // 逐个绑定渠道发送
+  // 逐个绑定渠道发送，按渠道有效格式生成内容（同一有效格式只生成一次）
+  const msgCache = {};
   const results = [];
   let anySent = false;
   for (const cid of channelIds) {
     const channel = await storage.notify.findById(cid);
     if (!channel || channel.user_id !== session.user_id || !channel.enabled) continue;
-    const r = await sendNotification(message, channel, format, moduleSubject(module, tzOffset));
+    const fmt = effectiveFormat(format, channel.type);
+    if (!(fmt in msgCache)) {
+      msgCache[fmt] = await buildModuleMessage(env, storage, module, session.user_id, fmt, tzOffset);
+    }
+    const message = msgCache[fmt];
+    if (!message) return error('暂无数据，无法生成推送内容', 400);
+    const r = await sendNotification(message, channel, fmt, moduleSubject(module, tzOffset));
     results.push({ channel_id: cid, ...r });
     anySent = true;
   }
@@ -444,13 +450,18 @@ async function runModulePush(env, storage, module, now, manual, tzOffset) {
     const channelIds = parseChannelIds(cfg);
     if (!channelIds.length) continue;
     const format = cfg.format || 'text';
-    const message = await buildModuleMessage(env, storage, module, cfg.user_id, format, tzOffset);
-    if (!message) continue;
-    // 逐个绑定渠道发送同一条消息（格式共用，sendNotification 按渠道类型自动兼容）
+    // 按渠道有效格式生成消息并缓存（同一有效格式只生成一次）
+    const msgCache = {};
     for (const cid of channelIds) {
       const channel = await storage.notify.findById(cid);
       if (!channel || !channel.enabled) continue;
-      const r = await sendNotification(message, channel, format, moduleSubject(module, tzOffset));
+      const fmt = effectiveFormat(format, channel.type);
+      if (!(fmt in msgCache)) {
+        msgCache[fmt] = await buildModuleMessage(env, storage, module, cfg.user_id, fmt, tzOffset);
+      }
+      const message = msgCache[fmt];
+      if (!message) continue;
+      const r = await sendNotification(message, channel, fmt, moduleSubject(module, tzOffset));
       sent.push({ user_id: cfg.user_id, channel_id: cid, ...r });
     }
   }

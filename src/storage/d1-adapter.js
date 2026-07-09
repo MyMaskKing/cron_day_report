@@ -257,6 +257,9 @@ function createD1Adapter(env) {
         ).bind(userId, name).run();
         return res.meta.last_row_id;
       },
+      async updateMember(id, userId, name) {
+        await db.prepare('UPDATE weight_members SET name=? WHERE id=? AND user_id=?').bind(name, id, userId).run();
+      },
       async removeMember(id, userId) {
         // 先删该成员的体重记录, 再删成员, 避免外键约束失败
         await db.prepare('DELETE FROM weight_records WHERE member_id=? AND user_id=?').bind(id, userId).run();

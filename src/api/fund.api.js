@@ -14,7 +14,7 @@ import {
 import { sendNotification } from '../services/notify.service.js';
 import { buildFundReport } from '../services/report.service.js';
 import { parseOffset, fmtShort, localParts } from '../services/time.service.js';
-import { resolveBaseUrl, ALLOWED_FORMATS } from '../config.js';
+import { resolveBaseUrl, ALLOWED_FORMATS, effectiveFormat } from '../config.js';
 
 /** 校验持仓字段 */
 function validateFund(f) {
@@ -194,12 +194,14 @@ async function sendReport({ request, env, url }) {
   await storage.fund.upsertProfitDaily(auth.user_id, dateStr, portfolio.totals);
   const two = await storage.fund.getLatestTwoProfit(auth.user_id);
   const profitDelta = (two && two.length >= 2) ? { today: two[0].profit, yesterday: two[1].profit, delta: two[0].profit - two[1].profit } : null;
-  const message = buildFundReport(portfolio, format, linkMap, tzOffset, reportLink, profitDelta);
   const subject = `📈 基金持仓日报 ${fmtShort(Date.now(), tzOffset)}`;
-  // 逐个绑定渠道发送同一条消息
+  // 逐个绑定渠道发送，按渠道有效格式生成内容（同一有效格式只生成一次）
+  const msgCache = {};
   const results = [];
   for (const channel of channels) {
-    results.push(await sendNotification(message, channel, format, subject));
+    const fmt = effectiveFormat(format, channel.type);
+    if (!(fmt in msgCache)) msgCache[fmt] = buildFundReport(portfolio, fmt, linkMap, tzOffset, reportLink, profitDelta);
+    results.push(await sendNotification(msgCache[fmt], channel, fmt, subject));
   }
   const anyOk = results.some(r => r.success);
   const msg = results.map(r => r.message).join('；');

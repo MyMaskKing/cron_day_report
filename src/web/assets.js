@@ -1108,6 +1108,7 @@ function renderMembers(list) {
   box.innerHTML = list.map(function(m){
     return '<span class="tag user" style="margin:2px 4px;padding:4px 10px;">' +
       '<a href="#" onclick="selMember(' + m.id + ');return false;" style="color:inherit;text-decoration:none;">' + esc(m.name) + '</a>' +
+      ' <a href="#" onclick="mRename(' + m.id + ",'" + esc(m.name).replace(/'/g,'') + "'" + ');return false;" style="margin-left:4px;">改名</a>' +
       ' <a href="#" onclick="mShare(' + m.id + ');return false;" style="margin-left:4px;">链接</a>' +
       ' <a href="#" onclick="mDel(' + m.id + ');return false;" style="color:#cf1322;">×</a></span>';
   }).join('') || '<span class="muted">暂无成员</span>';
@@ -1170,6 +1171,16 @@ function deltaCell(deltaKg) {
 window.mDel = async function(id){
   if (!confirm('删除该成员及其记录?')) return;
   try { await api('/api/weight/members/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alert(e.message); }
+};
+window.mRename = function(id, curName){
+  openModal('修改成员名',
+    '<label>成员名称</label><input id="mReName" value="' + esc(curName) + '">' +
+    '<div style="margin-top:12px;"><button class="btn" id="mReConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('mReConfirm').addEventListener('click', async function(){
+    var name = document.getElementById('mReName').value;
+    try { await api('/api/weight/members/' + id, { method:'PUT', body:{ name: name } }); closeModal(); await loadAll(); }
+    catch(e){ alert(e.message); }
+  });
 };
 window.mShare = async function(id){
   try {
@@ -1423,9 +1434,41 @@ var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f
     });
     new Chart(document.getElementById('rptChart'), { type:'line', data:{ labels: labels, datasets: datasets },
       options:{ plugins:{ legend:{ position:'top' } }, scales:{ y:{ title:{ display:true, text:'体重('+uLabel+')' } } } } });
+    renderRptHist(d.members, d.records, disp, uLabel);
     document.getElementById('content').style.display = 'block';
   } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
 })();
+// 历史记录表格：按成员分组算相邻增减(升序)，展示倒序；增重红色加粗↑，减重绿色↓
+function renderRptHist(members, records, disp, uLabel) {
+  var box = document.getElementById('rptHist');
+  if (!box) return;
+  var nameOf = {}; members.forEach(function(m){ nameOf[m.id] = m.name; });
+  var deltaOf = {};
+  var byMember = {};
+  records.forEach(function(r){ (byMember[r.member_id] = byMember[r.member_id] || []).push(r); });
+  Object.keys(byMember).forEach(function(mid){
+    var arr = byMember[mid].slice().sort(function(a,b){ return (a.record_date||'').localeCompare(b.record_date||''); });
+    for (var i = 1; i < arr.length; i++) deltaOf[arr[i].id] = arr[i].weight - arr[i-1].weight;
+  });
+  var sorted = records.slice().sort(function(a,b){ return (b.record_date||'').localeCompare(a.record_date||''); });
+  var rows = sorted.map(function(r){
+    var cell = '<span style="color:#888;">—</span>';
+    var delta = deltaOf[r.id];
+    if (delta != null) {
+      var v = disp(Math.abs(delta));
+      if (delta > 0) cell = '<span style="color:#cf1322;font-weight:700;">↑ +' + v + ' ' + uLabel + '</span>';
+      else if (delta < 0) cell = '<span style="color:#389e0d;">↓ -' + v + ' ' + uLabel + '</span>';
+      else cell = '<span style="color:#888;">0</span>';
+    }
+    return '<tr><td data-label="日期">' + esc(r.record_date) + '</td>' +
+      '<td data-label="成员">' + esc(nameOf[r.member_id]||'') + '</td>' +
+      '<td data-label="体重">' + disp(r.weight) + ' ' + uLabel + '</td>' +
+      '<td data-label="较上次">' + cell + '</td></tr>';
+  }).join('') || '<tr><td colspan="4" class="muted">暂无记录</td></tr>';
+  box.innerHTML = '<h3 style="margin:0 0 10px;font-size:16px;">历史记录</h3>' +
+    '<table><thead><tr><th>日期</th><th>成员</th><th>体重</th><th>较上次</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table>';
+}
 bindQuickLogin('weight-report');
 `;
 

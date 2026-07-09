@@ -559,7 +559,10 @@ function weightReportPage() {
   const body = `<div class="container" style="max-width:760px;margin:24px auto;">
     <div class="card">
       <h2>⚖️ 体重曲线 <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button></h2>
-      <div id="content" style="display:none;"><canvas id="rptChart" style="max-height:420px;"></canvas></div>
+      <div id="content" style="display:none;">
+        <canvas id="rptChart" style="max-height:420px;"></canvas>
+        <div id="rptHist" style="margin-top:20px;"></div>
+      </div>
     </div>
   </div>`;
   return renderPage({ title: '体重曲线', body, script: WEIGHT_REPORT_JS });
