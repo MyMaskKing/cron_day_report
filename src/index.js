@@ -533,6 +533,12 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
       const reportToken = await storage.push.ensureReportToken(userId, 'fund', generateToken());
       reportLink = `${base}/fr/${reportToken}`;
     }
+    // 推送即更新当天总收益快照（同用户同日覆盖，靠 UNIQUE 约束保证每天一条），
+    // 使"较昨日"与每日明细在任意推送时点都是最新，不必等 15 点调度
+    const today = nowCN(Date.now(), tzOffset).dateStr;
+    await storage.fund.upsertProfitDaily(userId, today, {
+      cost: portfolio.totals.cost, value: portfolio.totals.value, profit: portfolio.totals.profit
+    });
     const profitDelta = await getFundProfitDelta(storage, userId);
     return buildFundReport(portfolio, format, linkMap, tzOffset, reportLink, profitDelta);
   }
