@@ -628,7 +628,7 @@ function todoPage(user) {
 
     <div class="card">
       <div class="todo-chart-head">
-        <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（每日新建 / 完成，含子任务）</span></h2>
+        <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（按截止日期：每日到期 / 完成，含子任务）</span></h2>
         <div class="todo-range" id="chartRange">
           <button data-range="7d" class="active">近7天</button>
           <button data-range="30d">近30天</button>
@@ -665,10 +665,15 @@ function publicTodoPage() {
       <p id="ownerLine" class="muted" style="margin-bottom:12px;"></p>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
+        <div class="todo-stats" style="margin-bottom:14px;">
+          <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
+          <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
+          <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
+        </div>
         <div style="margin-bottom:12px;"><button class="btn sm" id="tAddRoot">+ 添加任务</button></div>
         <div id="todoTree" class="todo-tree"></div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
-          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（每日新建 / 完成）</span></h2>
+          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（按截止日期：每日到期 / 完成）</span></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
       </div>
@@ -693,7 +698,7 @@ function todoReportPage() {
       </div>
       <div class="card">
         <div class="todo-chart-head">
-          <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（每日新建 / 完成）</span></h2>
+          <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（按截止日期：每日到期 / 完成）</span></h2>
           <div class="todo-range" id="chartRange">
             <button data-range="7d" class="active">近7天</button>
             <button data-range="30d">近30天</button>

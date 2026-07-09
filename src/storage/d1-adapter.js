@@ -520,24 +520,25 @@ function createD1Adapter(env) {
         ).bind(rootId).all();
         return results || [];
       },
-      // 图表原始数据：按北京日期分组的每日创建量与完成量（含子任务，即全表行）
-      // created 按 created_at(UTC) 加时区偏移后的日期；done 按 done_at（写入时已是北京日期）
+      // 图表原始数据：按截止日期(due_date)分组的每日到期量与其中完成量
+      // created 键沿用原名，语义为"该截止日到期的任务数"；done 为其中已完成数
+      // 仅统计设了 due_date 的任务（顶层任务；子任务日期继承主任务、自身 due_date 为空不计入）
       // idList 传入则仅统计这些 id（用于免密协作页限定某清单子树），否则统计该用户全部
+      // offsetHours 保留兼容调用签名，此口径下不再使用（due_date 本就是北京日期串）
       // 返回 { created: [{d, c}], done: [{d, c}] }，d 为 YYYY-MM-DD
       async chartRaw(userId, offsetHours = 8, idList = null) {
-        const shift = `'+${offsetHours} hours'`;
         let scope = 'user_id=?', args = [userId];
         if (idList && idList.length) {
           scope = `id IN (${idList.map(() => '?').join(',')})`;
           args = idList;
         }
         const createdQ = await db.prepare(
-          `SELECT date(created_at, ${shift}) AS d, COUNT(*) AS c
-           FROM todos WHERE ${scope} GROUP BY d`
+          `SELECT due_date AS d, COUNT(*) AS c
+           FROM todos WHERE ${scope} AND due_date IS NOT NULL GROUP BY due_date`
         ).bind(...args).all();
         const doneQ = await db.prepare(
-          `SELECT done_at AS d, COUNT(*) AS c
-           FROM todos WHERE ${scope} AND done=1 AND done_at IS NOT NULL GROUP BY done_at`
+          `SELECT due_date AS d, COUNT(*) AS c
+           FROM todos WHERE ${scope} AND due_date IS NOT NULL AND done=1 GROUP BY due_date`
         ).bind(...args).all();
         return { created: createdQ.results || [], done: doneQ.results || [] };
       }

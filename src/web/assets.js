@@ -1931,9 +1931,21 @@ function todoBuildTree(rows) {
     var n = byId[k], pid = n.parent_id;
     if (pid != null && byId[pid]) byId[pid].children.push(n); else roots.push(n);
   });
+  // 顶层按截止日期倒序（有日期的越晚越靠前，无日期排最后）；同日期或子任务按 sort_order+id
+  roots.sort(function(a, b){
+    var ad = a.due_date || '', bd = b.due_date || '';
+    if (ad !== bd) {
+      if (!ad) return 1;
+      if (!bd) return -1;
+      return ad < bd ? 1 : -1;
+    }
+    return (a.sort_order - b.sort_order) || (a.id - b.id);
+  });
   function sortRec(list){
-    list.sort(function(a,b){ return (a.sort_order - b.sort_order) || (a.id - b.id); });
-    list.forEach(function(n){ sortRec(n.children); });
+    list.forEach(function(n){
+      n.children.sort(function(a,b){ return (a.sort_order - b.sort_order) || (a.id - b.id); });
+      sortRec(n.children);
+    });
   }
   sortRec(roots);
   return roots;
@@ -2003,6 +2015,13 @@ function renderTodoTree(container, trees, opts) {
       dc.className = 'todo-chip due' + (over ? ' overdue' : '');
       dc.textContent = (over ? '⚠️ 逾期 ' : '📅 ') + effDue;
       meta.appendChild(dc);
+    }
+    // 完成时间 chip：已完成且有完成日期时显示
+    if (node.done && node.done_at) {
+      var doneC = document.createElement('span');
+      doneC.className = 'todo-chip done-at';
+      doneC.textContent = '✅ 完成于 ' + node.done_at;
+      meta.appendChild(doneC);
     }
     if (meta.childNodes.length) main.appendChild(meta);
     if (node.note) {
@@ -2095,7 +2114,7 @@ function drawTodoChart(canvasId, series) {
   _todoChartInst = new Chart(el, {
     type: 'line',
     data: { labels: series.labels, datasets: [
-      { label: '新建', data: series.created, borderColor: '#4a6cf7', backgroundColor: 'rgba(74,108,247,.12)', fill: true, tension: .3 },
+      { label: '到期', data: series.created, borderColor: '#4a6cf7', backgroundColor: 'rgba(74,108,247,.12)', fill: true, tension: .3 },
       { label: '完成', data: series.done, borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.12)', fill: true, tension: .3 }
     ] },
     options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
@@ -2314,9 +2333,21 @@ async function loadPublic() {
     document.getElementById('rootTitle').textContent = d.root.title;
     document.getElementById('ownerLine').textContent = d.owner_name ? ('来自 ' + d.owner_name + ' 的共享清单') : '';
     document.getElementById('content').style.display = 'block';
+    renderStats();
     drawTree();
     loadChart();
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
+}
+// 统计：未完成/逾期/已完成。逾期口径同 countStats：未完成且截止日早于今天
+function renderStats() {
+  var done = 0, overdue = 0;
+  _rows.forEach(function(r){
+    if (r.done) done++;
+    else if (r.due_date && _today && r.due_date < _today) overdue++;
+  });
+  document.getElementById('stPending').textContent = _rows.length - done;
+  document.getElementById('stOverdue').textContent = overdue;
+  document.getElementById('stDone').textContent = done;
 }
 async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=7d'); drawTodoChart('todoChart', c.series); }
@@ -2336,6 +2367,17 @@ function drawTree() {
         }
       }
       catch(e){ alert(e.message); }
+    },
+    onEdit: function(node){
+      var isChild = node.id !== _rootId;
+      openModal('编辑任务', todoFormHtml(node, false, isChild) +
+        '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+      document.getElementById('tfSave').addEventListener('click', async function(){
+        var body = todoFormRead();
+        if (!body.title) { alert('请填写标题'); return; }
+        try { await api('/api/public/todo/' + _token + '/' + node.id, { method:'PUT', body: body }); closeModal(); await loadPublic(); }
+        catch(e){ alert(e.message); }
+      });
     },
     onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务'); }
   });

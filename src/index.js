@@ -48,7 +48,7 @@ import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, 
 import { buildTree, flattenPending } from './services/todo.service.js';
 import {
   listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink as getTodoShareLink, todoChart,
-  publicTodoInfo, publicAddTodo, publicToggleTodo, publicTodoReport, publicTodoChart
+  publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicTodoReport, publicTodoChart
 } from './api/todo.api.js';
 import { parseOffset, fmtShort } from './services/time.service.js';
 
@@ -173,6 +173,7 @@ router.delete('/api/todo/:id', removeTodo);
 router.get('/api/public/todo/:token', publicTodoInfo);
 router.post('/api/public/todo/:token', publicAddTodo);
 router.put('/api/public/todo/:token/:id/done', publicToggleTodo);
+router.put('/api/public/todo/:token/:id', publicUpdateTodo);
 router.get('/api/public/todo-report/:token', publicTodoReport);
 router.get('/api/public/todo-chart/:token', publicTodoChart);
 

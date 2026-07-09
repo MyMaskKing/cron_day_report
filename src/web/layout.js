@@ -188,6 +188,7 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .todo-chip.cat { background: #eef1ff; color: #4a6cf7; }
 .todo-chip.due { background: #f0f5ff; color: #5a6b9a; }
 .todo-chip.due.overdue { background: #fff1f0; color: #cf1322; font-weight: 600; }
+.todo-chip.done-at { background: #f6ffed; color: #389e0d; }
 /* 行内操作按钮：默认淡，hover 行时显现 */
 .todo-ops { display: flex; gap: 2px; opacity: .35; transition: opacity .18s; flex-shrink: 0; }
 .todo-row:hover .todo-ops { opacity: 1; }

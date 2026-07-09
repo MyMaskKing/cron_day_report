@@ -216,6 +216,34 @@ async function publicToggleTodo({ request, env, params }) {
   return json({ success: true, message: done ? '已完成' : '已取消完成' });
 }
 
+/** PUT /api/public/todo/:token/:id  免密编辑任务，校验目标属该子树
+ * body: { title, priority?, due_date?, category?, note? }
+ * 仅该清单根任务(id===root.id)可改 due_date，其余为子任务日期继承主任务
+ */
+async function publicUpdateTodo({ request, env, params }) {
+  const storage = getStorage(env);
+  const root = await storage.todo.findByShareToken(params.token);
+  if (!root) return error('链接无效或已失效', 404);
+  const body = await request.json().catch(() => ({}));
+  const title = (body.title || '').trim();
+  if (!title) return error('请填写任务标题');
+
+  const id = parseInt(params.id, 10);
+  const subtree = await storage.todo.listSubtree(root.id);
+  const allowIds = new Set(subtree.map(r => r.id));
+  if (!allowIds.has(id)) return error('任务不属于此清单', 400);
+  // 仅清单根任务是顶层，可设截止日期；其余子任务日期继承主任务
+  const dueDate = id === root.id ? ((body.due_date || '').trim() || null) : null;
+  await storage.todo.update(id, root.user_id, {
+    title,
+    priority: normPriority(body.priority),
+    due_date: dueDate,
+    category: (body.category || '').trim() || null,
+    note: (body.note || '').trim() || null
+  });
+  return json({ success: true, message: '任务已更新' });
+}
+
 /** GET /api/public/todo-report/:token  免密报告查看：该用户全部待办
  * token 优先匹配 push_config(module=todo).report_token，回退顶层任务 share_token
  */
@@ -265,5 +293,5 @@ async function publicTodoChart({ env, params, url }) {
 
 export {
   listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink, todoChart,
-  publicTodoInfo, publicAddTodo, publicToggleTodo, publicTodoReport, publicTodoChart
+  publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicTodoReport, publicTodoChart
 };
