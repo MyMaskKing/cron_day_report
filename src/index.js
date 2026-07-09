@@ -47,8 +47,8 @@ import { shouldRun, nowCN } from './services/schedule.service.js';
 import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport } from './services/report.service.js';
 import { buildTree, flattenPending, countStats } from './services/todo.service.js';
 import {
-  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink as getTodoShareLink,
-  publicTodoInfo, publicAddTodo, publicToggleTodo, publicTodoReport
+  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink as getTodoShareLink, todoChart,
+  publicTodoInfo, publicAddTodo, publicToggleTodo, publicTodoReport, publicTodoChart
 } from './api/todo.api.js';
 import { parseOffset, fmtShort } from './services/time.service.js';
 
@@ -164,6 +164,7 @@ router.get('/api/public/asset-report/:token', publicAssetReport);
 
 // --- 待办 API ---
 router.get('/api/todo/list', listTodos);
+router.get('/api/todo/chart', todoChart);
 router.post('/api/todo', createTodo);
 router.get('/api/todo/:id/share-link', getTodoShareLink);
 router.put('/api/todo/:id/done', toggleTodo);
@@ -173,6 +174,7 @@ router.get('/api/public/todo/:token', publicTodoInfo);
 router.post('/api/public/todo/:token', publicAddTodo);
 router.put('/api/public/todo/:token/:id/done', publicToggleTodo);
 router.get('/api/public/todo-report/:token', publicTodoReport);
+router.get('/api/public/todo-chart/:token', publicTodoChart);
 
 // --- 通用推送配置 API ---
 router.get('/api/push/:module', getPushConfig);

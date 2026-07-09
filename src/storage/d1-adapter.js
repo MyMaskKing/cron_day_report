@@ -461,26 +461,26 @@ function createD1Adapter(env) {
       },
       async create(userId, t) {
         const res = await db.prepare(
-          'INSERT INTO todos (user_id, parent_id, title, priority, due_date, category, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO todos (user_id, parent_id, title, priority, due_date, category, note, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
           userId, t.parent_id != null ? t.parent_id : null, t.title,
           t.priority != null ? t.priority : 1,
-          t.due_date || null, t.category || null, t.sort_order != null ? t.sort_order : 0
+          t.due_date || null, t.category || null, t.note || null, t.sort_order != null ? t.sort_order : 0
         ).run();
         return res.meta.last_row_id;
       },
       async update(id, userId, t) {
         await db.prepare(
-          'UPDATE todos SET title=?, priority=?, due_date=?, category=? WHERE id=? AND user_id=?'
-        ).bind(t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, id, userId).run();
+          'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=? WHERE id=? AND user_id=?'
+        ).bind(t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, t.note || null, id, userId).run();
       },
-      // 批量置完成状态（勾选父任务级联子树时用）
-      async setDone(idList, done) {
+      // 批量置完成状态（勾选父任务级联子树时用）；done=1 写完成日期，done=0 清空
+      async setDone(idList, done, doneAt) {
         if (!idList || idList.length === 0) return;
         const placeholders = idList.map(() => '?').join(',');
         await db.prepare(
-          `UPDATE todos SET done=? WHERE id IN (${placeholders})`
-        ).bind(done ? 1 : 0, ...idList).run();
+          `UPDATE todos SET done=?, done_at=? WHERE id IN (${placeholders})`
+        ).bind(done ? 1 : 0, done ? (doneAt || null) : null, ...idList).run();
       },
       // 递归收集某任务的全部后代 id（不含自身），供级联完成/删除
       async collectDescendantIds(id) {
@@ -519,6 +519,27 @@ function createD1Adapter(env) {
            SELECT t.* FROM todos t JOIN sub ON t.id = sub.id ORDER BY t.sort_order, t.id`
         ).bind(rootId).all();
         return results || [];
+      },
+      // 图表原始数据：按北京日期分组的每日创建量与完成量（含子任务，即全表行）
+      // created 按 created_at(UTC) 加时区偏移后的日期；done 按 done_at（写入时已是北京日期）
+      // idList 传入则仅统计这些 id（用于免密协作页限定某清单子树），否则统计该用户全部
+      // 返回 { created: [{d, c}], done: [{d, c}] }，d 为 YYYY-MM-DD
+      async chartRaw(userId, offsetHours = 8, idList = null) {
+        const shift = `'+${offsetHours} hours'`;
+        let scope = 'user_id=?', args = [userId];
+        if (idList && idList.length) {
+          scope = `id IN (${idList.map(() => '?').join(',')})`;
+          args = idList;
+        }
+        const createdQ = await db.prepare(
+          `SELECT date(created_at, ${shift}) AS d, COUNT(*) AS c
+           FROM todos WHERE ${scope} GROUP BY d`
+        ).bind(...args).all();
+        const doneQ = await db.prepare(
+          `SELECT done_at AS d, COUNT(*) AS c
+           FROM todos WHERE ${scope} AND done=1 AND done_at IS NOT NULL GROUP BY done_at`
+        ).bind(...args).all();
+        return { created: createdQ.results || [], done: doneQ.results || [] };
       }
     },
 

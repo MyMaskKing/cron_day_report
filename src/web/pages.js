@@ -38,7 +38,7 @@ function setupPage() {
 function loginPage() {
   // 斜对角全屏流动词墙：三行不同速度/方向的功能关键词，铺满背景做氛围
   // 每行内容渲染两遍以实现 translateX(-50%) 无缝循环
-  const rowA = ['🖥️ 网站监控', '📈 基金持仓日报', '⏰ 定时自动推送', '⚖️ 体重曲线', '💰 资产月报'];
+  const rowA = ['🖥️ 网站监控', '📈 基金持仓日报', '⏰ 定时自动推送', '⚖️ 体重曲线', '💰 资产月报', '📝 待办日报'];
   const rowB = ['📢 企业微信', '🔗 免密公开链接', 'Webhook', '📧 邮件推送', '👥 多用户 · 超管'];
   const rowC = ['✍️ 家人免登填写', '🎯 年度目标进度', '📊 持仓分析', '🕐 到点即达', '📉 净值追踪'];
   const mkRow = (arr, cls, hotIdx) => {
@@ -627,6 +627,21 @@ function todoPage(user) {
     </div>
 
     <div class="card">
+      <div class="todo-chart-head">
+        <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（每日新建 / 完成，含子任务）</span></h2>
+        <div class="todo-range" id="chartRange">
+          <button data-range="7d" class="active">近7天</button>
+          <button data-range="30d">近30天</button>
+          <button data-range="60d">近60天</button>
+          <button data-range="6m">近半年</button>
+          <button data-range="1y">近1年</button>
+          <button data-range="3y">近3年</button>
+        </div>
+      </div>
+      <canvas id="todoChart" style="max-height:300px;"></canvas>
+    </div>
+
+    <div class="card">
       <h2>每日推送</h2>
       <div class="row">
         <div><label>通知渠道（可多选）</label><div id="pushCh" class="multi-pick"></div></div>
@@ -652,6 +667,10 @@ function publicTodoPage() {
       <div id="content" style="display:none;">
         <div style="margin-bottom:12px;"><button class="btn sm" id="tAddRoot">+ 添加任务</button></div>
         <div id="todoTree" class="todo-tree"></div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
+          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（每日新建 / 完成）</span></h2>
+          <canvas id="todoChart" style="max-height:240px;"></canvas>
+        </div>
       </div>
     </div>
   </div>`;
@@ -671,6 +690,20 @@ function todoReportPage() {
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
         <div id="todoTree" class="todo-tree" style="margin-top:14px;"></div>
+      </div>
+      <div class="card">
+        <div class="todo-chart-head">
+          <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（每日新建 / 完成）</span></h2>
+          <div class="todo-range" id="chartRange">
+            <button data-range="7d" class="active">近7天</button>
+            <button data-range="30d">近30天</button>
+            <button data-range="60d">近60天</button>
+            <button data-range="6m">近半年</button>
+            <button data-range="1y">近1年</button>
+            <button data-range="3y">近3年</button>
+          </div>
+        </div>
+        <canvas id="todoChart" style="max-height:280px;"></canvas>
       </div>
     </div>
   </div>`;

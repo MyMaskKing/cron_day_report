@@ -8,7 +8,7 @@ import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
 import { generateToken } from '../auth/password.js';
 import { resolveBaseUrl } from '../config.js';
-import { countStats } from '../services/todo.service.js';
+import { countStats, buildChartSeries, CHART_RANGES } from '../services/todo.service.js';
 
 /** 取北京时区当天 YYYY-MM-DD */
 function todayCN() {
@@ -53,7 +53,8 @@ async function createTodo({ request, env }) {
     parent_id: parentId, title,
     priority: normPriority(body.priority),
     due_date: (body.due_date || '').trim() || null,
-    category: (body.category || '').trim() || null
+    category: (body.category || '').trim() || null,
+    note: (body.note || '').trim() || null
   });
   return json({ success: true, message: '任务已添加', id });
 }
@@ -74,7 +75,8 @@ async function updateTodo({ request, env, params }) {
     title,
     priority: normPriority(body.priority),
     due_date: (body.due_date || '').trim() || null,
-    category: (body.category || '').trim() || null
+    category: (body.category || '').trim() || null,
+    note: (body.note || '').trim() || null
   });
   return json({ success: true, message: '任务已更新' });
 }
@@ -93,7 +95,7 @@ async function toggleTodo({ request, env, params }) {
   const t = await storage.todo.findById(id);
   if (!t || t.user_id !== auth.user_id) return error('任务不存在', 404);
   const descendants = await storage.todo.collectDescendantIds(id);
-  await storage.todo.setDone([id, ...descendants], done);
+  await storage.todo.setDone([id, ...descendants], done, todayCN());
   return json({ success: true, message: done ? '已完成' : '已取消完成' });
 }
 
@@ -127,6 +129,19 @@ async function getShareLink({ request, env, params, url }) {
   }
   const base = await resolveBaseUrl(storage, env, url);
   return json({ success: true, token, link: `${base}/t/${token}` });
+}
+
+/** GET /api/todo/chart?range=  当前用户每日/每月创建量与完成量序列
+ * range ∈ 7d|30d|60d|6m|1y|3y，默认 7d
+ */
+async function todoChart({ request, env, url }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const range = CHART_RANGES[url.searchParams.get('range')] ? url.searchParams.get('range') : '7d';
+  const raw = await storage.todo.chartRaw(auth.user_id);
+  const series = buildChartSeries(raw, range, todayCN());
+  return json({ success: true, series });
 }
 
 // ==================== 免密公开 ====================
@@ -171,7 +186,8 @@ async function publicAddTodo({ request, env, params }) {
     parent_id: parentId, title,
     priority: normPriority(body.priority),
     due_date: (body.due_date || '').trim() || null,
-    category: (body.category || '').trim() || null
+    category: (body.category || '').trim() || null,
+    note: (body.note || '').trim() || null
   });
   return json({ success: true, message: '已添加', id });
 }
@@ -191,7 +207,7 @@ async function publicToggleTodo({ request, env, params }) {
   const allowIds = new Set(subtree.map(r => r.id));
   if (!allowIds.has(id)) return error('任务不属于此清单', 400);
   const descendants = await storage.todo.collectDescendantIds(id);
-  await storage.todo.setDone([id, ...descendants], done);
+  await storage.todo.setDone([id, ...descendants], done, todayCN());
   return json({ success: true, message: done ? '已完成' : '已取消完成' });
 }
 
@@ -221,7 +237,28 @@ async function publicTodoReport({ env, params }) {
   });
 }
 
+/** GET /api/public/todo-chart/:token?range=  免密图表数据
+ * token 匹配 push_config(module=todo).report_token → 统计该用户全部任务；
+ * 否则匹配顶层任务 share_token → 仅统计该清单子树。默认 7d
+ */
+async function publicTodoChart({ env, params, url }) {
+  const storage = getStorage(env);
+  const range = CHART_RANGES[url.searchParams.get('range')] ? url.searchParams.get('range') : '7d';
+  let raw = null;
+  const pushRow = await storage.push.findByReportToken(params.token);
+  if (pushRow && pushRow.module === 'todo') {
+    raw = await storage.todo.chartRaw(pushRow.user_id);
+  } else {
+    const root = await storage.todo.findByShareToken(params.token);
+    if (!root) return error('链接无效或已失效', 404);
+    const subtree = await storage.todo.listSubtree(root.id);
+    raw = await storage.todo.chartRaw(root.user_id, 8, subtree.map(r => r.id));
+  }
+  const series = buildChartSeries(raw, range, todayCN());
+  return json({ success: true, series });
+}
+
 export {
-  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink,
-  publicTodoInfo, publicAddTodo, publicToggleTodo, publicTodoReport
+  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink, todoChart,
+  publicTodoInfo, publicAddTodo, publicToggleTodo, publicTodoReport, publicTodoChart
 };

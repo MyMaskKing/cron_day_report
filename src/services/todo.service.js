@@ -65,4 +65,63 @@ function countStats(rows, today) {
   return { total: rows.length, done, pending: rows.length - done, overdue };
 }
 
-export { buildTree, flattenPending, countStats };
+/** range → { unit: 'day'|'month', span } 天数或月数 */
+const CHART_RANGES = {
+  '7d': { unit: 'day', span: 7 },
+  '30d': { unit: 'day', span: 30 },
+  '60d': { unit: 'day', span: 60 },
+  '6m': { unit: 'month', span: 6 },
+  '1y': { unit: 'month', span: 12 },
+  '3y': { unit: 'month', span: 36 }
+};
+
+/** 从 YYYY-MM-DD 解析为 UTC 毫秒（仅用于日期算术，不涉及时区显示） */
+function dayMs(dateStr) {
+  return Date.UTC(+dateStr.slice(0, 4), +dateStr.slice(5, 7) - 1, +dateStr.slice(8, 10));
+}
+/** UTC 毫秒 → YYYY-MM-DD */
+function msDay(ms) {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/**
+ * 构造图表序列：按 range 决定按天/按月，产出连续标签与对应创建/完成计数
+ * ≤60 天按天，半年/1年/3年按月
+ * @param {Object} raw - storage.chartRaw 结果 { created:[{d,c}], done:[{d,c}] }
+ * @param {string} range - 7d|30d|60d|6m|1y|3y
+ * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
+ * @returns {Object} { range, unit, labels[], created[], done[] }
+ */
+function buildChartSeries(raw, range, today) {
+  const cfg = CHART_RANGES[range] || CHART_RANGES['7d'];
+  const createdMap = {}, doneMap = {};
+  (raw.created || []).forEach(r => { if (r.d) createdMap[r.d] = r.c; });
+  (raw.done || []).forEach(r => { if (r.d) doneMap[r.d] = r.c; });
+
+  const labels = [], created = [], done = [];
+  if (cfg.unit === 'day') {
+    const endMs = dayMs(today);
+    for (let i = cfg.span - 1; i >= 0; i--) {
+      const day = msDay(endMs - i * 86400000);
+      labels.push(day.slice(5)); // MM-DD
+      created.push(createdMap[day] || 0);
+      done.push(doneMap[day] || 0);
+    }
+  } else {
+    // 按月：聚合当月所有天的计数
+    const y = +today.slice(0, 4), m = +today.slice(5, 7) - 1;
+    for (let i = cfg.span - 1; i >= 0; i--) {
+      const d = new Date(Date.UTC(y, m - i, 1));
+      const ym = d.toISOString().slice(0, 7); // YYYY-MM
+      labels.push(ym);
+      let cc = 0, dc = 0;
+      for (const k in createdMap) if (k.slice(0, 7) === ym) cc += createdMap[k];
+      for (const k in doneMap) if (k.slice(0, 7) === ym) dc += doneMap[k];
+      created.push(cc);
+      done.push(dc);
+    }
+  }
+  return { range, unit: cfg.unit, labels, created, done };
+}
+
+export { buildTree, flattenPending, countStats, buildChartSeries, CHART_RANGES };

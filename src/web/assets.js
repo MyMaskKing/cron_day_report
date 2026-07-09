@@ -2006,6 +2006,12 @@ function renderTodoTree(container, trees, opts) {
       meta.appendChild(dc);
     }
     if (meta.childNodes.length) main.appendChild(meta);
+    if (node.note) {
+      var noteEl = document.createElement('div');
+      noteEl.className = 'todo-note';
+      noteEl.textContent = node.note;
+      main.appendChild(noteEl);
+    }
     row.appendChild(main);
 
     // 行内操作
@@ -2036,27 +2042,61 @@ function renderTodoTree(container, trees, opts) {
   trees.forEach(function(t){ var el = walk(t, 0); if (el) { container.appendChild(el); any = true; } });
   if (!any) container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
 }
-// 任务编辑表单 HTML（新建/编辑共用），字段：标题/优先级/截止/分类
-function todoFormHtml(t) {
+// 任务编辑表单 HTML（新建/编辑共用）：标题(多行长文本)/优先级/截止(默认当天)/分类/备注
+// isNew=true 时截止日期默认填当天
+function todoFormHtml(t, isNew) {
   t = t || {};
-  return '<label>标题</label><input id="tfTitle" value="' + esc(t.title || '') + '" placeholder="要做什么？">' +
+  var defDue = t.due_date || (isNew ? todoTodayStr() : '');
+  return '<label>标题</label>' +
+    '<textarea id="tfTitle" rows="2" placeholder="要做什么？（支持换行）" style="resize:vertical;">' + esc(t.title || '') + '</textarea>' +
     '<div class="row">' +
       '<div><label>优先级</label><select id="tfPri">' +
         '<option value="2"' + (t.priority === 2 ? ' selected' : '') + '>🔴 高</option>' +
         '<option value="1"' + (t.priority == null || t.priority === 1 ? ' selected' : '') + '>🟡 中</option>' +
         '<option value="0"' + (t.priority === 0 ? ' selected' : '') + '>⚪ 低</option>' +
       '</select></div>' +
-      '<div><label>截止日期</label><input id="tfDue" type="date" value="' + (t.due_date || '') + '"></div>' +
+      '<div><label>截止日期</label><input id="tfDue" type="date" value="' + defDue + '"></div>' +
     '</div>' +
-    '<label>分类（可选）</label><input id="tfCat" value="' + esc(t.category || '') + '" placeholder="如 工作 / 家庭">';
+    '<label>分类（可选）</label><input id="tfCat" value="' + esc(t.category || '') + '" placeholder="如 工作 / 家庭">' +
+    '<label>备注（可选）</label>' +
+    '<textarea id="tfNote" rows="2" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
 }
 function todoFormRead() {
   return {
     title: document.getElementById('tfTitle').value.trim(),
     priority: parseInt(document.getElementById('tfPri').value, 10),
     due_date: document.getElementById('tfDue').value || null,
-    category: document.getElementById('tfCat').value.trim() || null
+    category: document.getElementById('tfCat').value.trim() || null,
+    note: document.getElementById('tfNote').value.trim() || null
   };
+}
+function todoTodayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
+// 共享：绘制"每日新建/完成"折线图。series = { labels[], created[], done[] }
+var _todoChartInst = null;
+function drawTodoChart(canvasId, series) {
+  var el = document.getElementById(canvasId);
+  if (!el || typeof Chart === 'undefined') return;
+  if (_todoChartInst) { _todoChartInst.destroy(); _todoChartInst = null; }
+  _todoChartInst = new Chart(el, {
+    type: 'line',
+    data: { labels: series.labels, datasets: [
+      { label: '新建', data: series.created, borderColor: '#4a6cf7', backgroundColor: 'rgba(74,108,247,.12)', fill: true, tension: .3 },
+      { label: '完成', data: series.done, borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.12)', fill: true, tension: .3 }
+    ] },
+    options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+}
+// 共享：区间按钮组绑定，点击回调 fn(range)
+function bindTodoRange(fn) {
+  var box = document.getElementById('chartRange');
+  if (!box) return;
+  box.addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-range]');
+    if (!btn) return;
+    box.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    fn(btn.getAttribute('data-range'));
+  });
 }
 `;
 
@@ -2088,7 +2128,7 @@ function drawTree() {
       catch(e){ alert(e.message); }
     },
     onEdit: function(node){
-      openModal('编辑任务', todoFormHtml(node) +
+      openModal('编辑任务', todoFormHtml(node, false) +
         '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
       document.getElementById('tfSave').addEventListener('click', async function(){
         var body = todoFormRead();
@@ -2116,7 +2156,7 @@ function drawTree() {
 }
 window.todoCopy = function(){ var el=document.getElementById('tShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
 function openAddForm(parentId, title) {
-  openModal(title, todoFormHtml({}) +
+  openModal(title, todoFormHtml({}, true) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   document.getElementById('tfCreate').addEventListener('click', async function(){
     var body = todoFormRead();
@@ -2128,6 +2168,16 @@ function openAddForm(parentId, title) {
 }
 document.getElementById('tAdd').addEventListener('click', function(){ openAddForm(null, '新建任务'); });
 document.getElementById('hideDone').addEventListener('change', drawTree);
+
+// 任务趋势图（含子任务）
+var _curRange = '7d';
+async function loadChart() {
+  try {
+    var d = await api('/api/todo/chart?range=' + _curRange);
+    drawTodoChart('todoChart', d.series);
+  } catch(e){ /* 图表失败不阻断页面 */ }
+}
+bindTodoRange(function(r){ _curRange = r; loadChart(); });
 
 // 推送配置（待办日报）
 var tPushHourPick = null, tPushChannelPick = null;
@@ -2159,7 +2209,7 @@ document.getElementById('pushSend').addEventListener('click', async function(){
 });
 
 (async function(){
-  try { await loadTodos(); await loadPush(); }
+  try { await loadTodos(); await loadChart(); await loadPush(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
 })();
 `;
@@ -2184,7 +2234,12 @@ async function loadPublic() {
     document.getElementById('ownerLine').textContent = d.owner_name ? ('来自 ' + d.owner_name + ' 的共享清单') : '';
     document.getElementById('content').style.display = 'block';
     drawTree();
+    loadChart();
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
+}
+async function loadChart() {
+  try { var c = await api('/api/public/todo-chart/' + _token + '?range=7d'); drawTodoChart('todoChart', c.series); }
+  catch(e){ /* 图表失败不阻断 */ }
 }
 function drawTree() {
   renderTodoTree(document.getElementById('todoTree'), todoBuildTree(_rows), {
@@ -2197,7 +2252,7 @@ function drawTree() {
   });
 }
 function openAddForm(parentId, title) {
-  openModal(title, todoFormHtml({}) +
+  openModal(title, todoFormHtml({}, true) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   document.getElementById('tfCreate').addEventListener('click', async function(){
     var body = todoFormRead();
@@ -2217,6 +2272,11 @@ ${COMMON_JS}
 ${TODO_TREE_CORE}
 bindQuickLogin('todo-report');
 var _token = location.pathname.split('/').filter(Boolean).pop();
+var _curRange = '7d';
+async function loadChart() {
+  try { var c = await api('/api/public/todo-chart/' + _token + '?range=' + _curRange); drawTodoChart('todoChart', c.series); }
+  catch(e){ /* 图表失败不阻断 */ }
+}
 (async function(){
   try {
     var d = await api('/api/public/todo-report/' + _token);
@@ -2226,6 +2286,8 @@ var _token = location.pathname.split('/').filter(Boolean).pop();
     document.getElementById('stDone').textContent = s.done;
     document.getElementById('content').style.display = 'block';
     renderTodoTree(document.getElementById('todoTree'), todoBuildTree(d.todos || []), { today: d.today || '', readOnly: true });
+    bindTodoRange(function(r){ _curRange = r; loadChart(); });
+    await loadChart();
   } catch(e) { document.body.innerHTML = '<div class="todo-empty" style="margin-top:60px;">' + esc(e.message || '链接无效') + '</div>'; }
 })();
 `;

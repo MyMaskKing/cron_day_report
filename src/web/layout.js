@@ -204,6 +204,15 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .todo-stat.overdue .n { color: #cf1322; }
 .todo-stat.done .n { color: #52c41a; }
 .todo-stat .l { font-size: 12px; color: #8890b8; margin-top: 2px; }
+/* 标题支持换行长文本；备注次级灰字 */
+.todo-title { white-space: pre-wrap; }
+.todo-note { font-size: 13px; color: #8890b8; margin-top: 4px; white-space: pre-wrap; line-height: 1.5; }
+/* 图表卡片头部 + 区间选择 */
+.todo-chart-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.todo-range { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.todo-range button { border: 1px solid #dfe3ee; background: #fff; color: #5a6b9a; font-size: 13px; padding: 5px 12px; border-radius: 999px; cursor: pointer; transition: .15s; }
+.todo-range button:hover { border-color: #4a6cf7; color: #4a6cf7; }
+.todo-range button.active { background: #4a6cf7; border-color: #4a6cf7; color: #fff; }
 @media (prefers-reduced-motion: reduce) { .todo-row, .todo-check, .todo-check::after, .todo-caret { transition: none; } }
 
 
