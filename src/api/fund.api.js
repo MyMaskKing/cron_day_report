@@ -153,9 +153,19 @@ async function sendReport({ request, env, url }) {
   const storage = getStorage(env);
 
   const config = await storage.push.getConfig(auth.user_id, 'fund');
-  if (!config || !config.channel_id) return error('请先配置日报通知渠道', 400);
-  const channel = await storage.notify.findById(config.channel_id);
-  if (!channel || channel.user_id !== auth.user_id) return error('通知渠道不存在', 400);
+  const rawIds = config && config.channel_ids != null && config.channel_ids !== ''
+    ? config.channel_ids : (config && config.channel_id);
+  const channelIds = rawIds == null || rawIds === ''
+    ? []
+    : [...new Set(String(rawIds).split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n)))];
+  if (!channelIds.length) return error('请先配置日报通知渠道', 400);
+  // 逐个校验归属，收集可用渠道
+  const channels = [];
+  for (const cid of channelIds) {
+    const ch = await storage.notify.findById(cid);
+    if (ch && ch.user_id === auth.user_id && ch.enabled) channels.push(ch);
+  }
+  if (!channels.length) return error('绑定的通知渠道不存在或已停用', 400);
 
   const funds = await storage.fund.listByUser(auth.user_id);
   if (funds.length === 0) return error('暂无持仓，无法生成日报', 400);
@@ -186,8 +196,14 @@ async function sendReport({ request, env, url }) {
   const profitDelta = (two && two.length >= 2) ? { today: two[0].profit, yesterday: two[1].profit, delta: two[0].profit - two[1].profit } : null;
   const message = buildFundReport(portfolio, format, linkMap, tzOffset, reportLink, profitDelta);
   const subject = `📈 基金持仓日报 ${fmtShort(Date.now(), tzOffset)}`;
-  const result = await sendNotification(message, channel, format, subject);
-  return json({ success: result.success, message: result.message });
+  // 逐个绑定渠道发送同一条消息
+  const results = [];
+  for (const channel of channels) {
+    results.push(await sendNotification(message, channel, format, subject));
+  }
+  const anyOk = results.some(r => r.success);
+  const msg = results.map(r => r.message).join('；');
+  return json({ success: anyOk, message: msg });
 }
 
 /** GET /api/fund/analysis  规则化持仓分析（可带 stopLoss/takeProfit/concentration 查询参数） */

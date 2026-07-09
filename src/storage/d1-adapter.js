@@ -408,14 +408,18 @@ function createD1Adapter(env) {
         const days = cfg.days || String(cfg.day != null ? cfg.day : 15);
         const firstHour = parseInt(hours.split(',')[0], 10) || 9;
         const firstDay = parseInt(days.split(',')[0], 10) || 15;
+        // channel_ids 为逗号分隔多值；channel_id 存首值兼容
+        const channelIds = cfg.channel_ids || (cfg.channel_id != null ? String(cfg.channel_id) : '');
+        const firstChannel = channelIds ? (parseInt(channelIds.split(',')[0], 10) || null) : null;
         await db.prepare(
-          `INSERT INTO push_config (user_id, module, channel_id, format, enabled, hour, day, hours, days)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO push_config (user_id, module, channel_id, channel_ids, format, enabled, hour, day, hours, days)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(user_id, module) DO UPDATE SET channel_id=excluded.channel_id,
+             channel_ids=excluded.channel_ids,
              format=excluded.format, enabled=excluded.enabled, hour=excluded.hour, day=excluded.day,
              hours=excluded.hours, days=excluded.days`
         ).bind(
-          userId, module, cfg.channel_id || null, cfg.format || 'text',
+          userId, module, firstChannel, channelIds || null, cfg.format || 'text',
           cfg.enabled ? 1 : 0, firstHour, firstDay, hours, days
         ).run();
       },

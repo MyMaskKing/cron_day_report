@@ -279,16 +279,24 @@ async function runMyModulePush({ request, env, params }) {
   const storage = getStorage(env);
   const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
   const cfg = await storage.push.getConfig(session.user_id, module);
-  if (!cfg || !cfg.channel_id) return error('请先配置推送渠道', 400);
-  const channel = await storage.notify.findById(cfg.channel_id);
-  if (!channel || channel.user_id !== session.user_id) return error('通知渠道不存在', 400);
-  if (!channel.enabled) return error('通知渠道已停用', 400);
+  const channelIds = cfg ? parseChannelIds(cfg) : [];
+  if (!channelIds.length) return error('请先配置推送渠道', 400);
 
-  const format = cfg.format || 'text';
+  const format = (cfg && cfg.format) || 'text';
   const message = await buildModuleMessage(env, storage, module, session.user_id, format, tzOffset);
   if (!message) return error('暂无数据，无法生成推送内容', 400);
-  const r = await sendNotification(message, channel, format, moduleSubject(module, tzOffset));
-  return json({ success: true, message: '已推送', result: r });
+  // 逐个绑定渠道发送
+  const results = [];
+  let anySent = false;
+  for (const cid of channelIds) {
+    const channel = await storage.notify.findById(cid);
+    if (!channel || channel.user_id !== session.user_id || !channel.enabled) continue;
+    const r = await sendNotification(message, channel, format, moduleSubject(module, tzOffset));
+    results.push({ channel_id: cid, ...r });
+    anySent = true;
+  }
+  if (!anySent) return error('绑定的通知渠道不存在或已停用', 400);
+  return json({ success: true, message: '已推送', results });
 }
 
 /**
@@ -433,16 +441,31 @@ async function runModulePush(env, storage, module, now, manual, tzOffset) {
   const sent = [];
   for (const cfg of configs) {
     if (!manual && !shouldRun(module, cfg, now)) continue;
-    if (!cfg.channel_id) continue;
-    const channel = await storage.notify.findById(cfg.channel_id);
-    if (!channel || !channel.enabled) continue;
+    const channelIds = parseChannelIds(cfg);
+    if (!channelIds.length) continue;
     const format = cfg.format || 'text';
     const message = await buildModuleMessage(env, storage, module, cfg.user_id, format, tzOffset);
     if (!message) continue;
-    const r = await sendNotification(message, channel, format, moduleSubject(module, tzOffset));
-    sent.push({ user_id: cfg.user_id, ...r });
+    // 逐个绑定渠道发送同一条消息（格式共用，sendNotification 按渠道类型自动兼容）
+    for (const cid of channelIds) {
+      const channel = await storage.notify.findById(cid);
+      if (!channel || !channel.enabled) continue;
+      const r = await sendNotification(message, channel, format, moduleSubject(module, tzOffset));
+      sent.push({ user_id: cfg.user_id, channel_id: cid, ...r });
+    }
   }
   return { sent };
+}
+
+/**
+ * 从推送配置解析绑定的渠道 id 列表（channel_ids 多值优先，回退旧 channel_id 单值）
+ * @param {Object} cfg - push_config 行
+ * @returns {number[]}
+ */
+function parseChannelIds(cfg) {
+  const raw = cfg.channel_ids != null && cfg.channel_ids !== '' ? cfg.channel_ids : cfg.channel_id;
+  if (raw == null || raw === '') return [];
+  return [...new Set(String(raw).split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n)))];
 }
 
 /**

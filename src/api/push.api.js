@@ -29,15 +29,17 @@ async function getPushConfig({ request, env, params }) {
     return String(str).split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
   }
   const config = cfg ? {
-    channel_id: cfg.channel_id, format: cfg.format, enabled: cfg.enabled,
+    channel_id: cfg.channel_id,
+    channel_ids: toArr(cfg.channel_ids != null ? cfg.channel_ids : cfg.channel_id, []),
+    format: cfg.format, enabled: cfg.enabled,
     hours: toArr(cfg.hours != null ? cfg.hours : cfg.hour, defaults[params.module].hours),
     days: toArr(cfg.days != null ? cfg.days : cfg.day, defaults[params.module].days)
-  } : { channel_id: null, format: 'text', enabled: 0, ...defaults[params.module] };
+  } : { channel_id: null, channel_ids: [], format: 'text', enabled: 0, ...defaults[params.module] };
   return json({ success: true, config });
 }
 
 /** PUT /api/push/:module  保存某模块推送配置
- * body: { channel_id, format, enabled, hours[], days[] }
+ * body: { channel_ids[], format, enabled, hours[], days[] }
  */
 async function setPushConfig({ request, env, params }) {
   const auth = await requireAuth(request, env);
@@ -45,9 +47,15 @@ async function setPushConfig({ request, env, params }) {
   if (!MODULES.includes(params.module)) return error('模块非法', 400);
   const body = await request.json().catch(() => ({}));
 
-  if (body.channel_id) {
-    const storage0 = getStorage(env);
-    const ch = await storage0.notify.findById(parseInt(body.channel_id, 10));
+  const storage = getStorage(env);
+  // 接收 channel_ids 数组或逗号串；兼容旧 channel_id 单值。逐个校验归属当前用户
+  let channelIds = Array.isArray(body.channel_ids)
+    ? body.channel_ids
+    : (typeof body.channel_ids === 'string' ? body.channel_ids.split(',') : []);
+  if (!channelIds.length && body.channel_id) channelIds = [body.channel_id];
+  channelIds = [...new Set(channelIds.map(x => parseInt(x, 10)).filter(n => !isNaN(n)))];
+  for (const cid of channelIds) {
+    const ch = await storage.notify.findById(cid);
     if (!ch || ch.user_id !== auth.user_id) return error('通知渠道不存在', 400);
   }
   // 接收数组或逗号字符串，规范化去重排序
@@ -60,9 +68,8 @@ async function setPushConfig({ request, env, params }) {
   const hours = normList(body.hours, 0, 23, [9]);
   const days = normList(body.days, 1, 28, [1]);
 
-  const storage = getStorage(env);
   await storage.push.setConfig(auth.user_id, params.module, {
-    channel_id: body.channel_id || null,
+    channel_ids: channelIds.join(','),
     format: ALLOWED_FORMATS.includes(body.format) ? body.format : 'text',
     enabled: !!body.enabled,
     hours: hours.join(','),

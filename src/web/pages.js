@@ -256,9 +256,9 @@ function fundPage(user) {
     <div class="card">
       <h2>每日报告推送</h2>
       <div class="row">
-        <div><label>通知渠道</label><select id="rcChannel"></select></div>
+        <div><label>通知渠道（可多选）</label><div id="rcChannel" class="multi-pick"></div></div>
         <div><label>报告格式</label>
-          <select id="rcFormat"></select>
+          <select id="rcFormat"><option value="text">text</option><option value="html">html</option><option value="markdown">markdown</option></select>
         </div>
         <div><label>推送时间</label><div id="rcHour" class="multi-pick"></div></div>
       </div>
@@ -366,8 +366,10 @@ function weightPage(user) {
     <div class="card">
       <h2>每日推送</h2>
       <div class="row">
-        <div><label>通知渠道</label><select id="pushCh"></select></div>
-        <div><label>格式</label><select id="pushFmt"></select></div>
+        <div><label>通知渠道（可多选）</label><div id="pushCh" class="multi-pick"></div></div>
+        <div><label>格式</label>
+          <select id="pushFmt"><option value="text">text</option><option value="html">html</option><option value="markdown">markdown</option></select>
+        </div>
         <div><label>推送时间</label><div id="pushHour" class="multi-pick"></div></div>
       </div>
       <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送</label>
@@ -377,7 +379,7 @@ function weightPage(user) {
     <div class="card">
       <h2>历史记录</h2>
       <table>
-        <thead><tr><th>日期</th><th>成员</th><th>体重</th><th>操作</th></tr></thead>
+        <thead><tr><th>日期</th><th>成员</th><th>体重</th><th>较上次</th><th>操作</th></tr></thead>
         <tbody id="recTbody"></tbody>
       </table>
     </div>
@@ -410,6 +412,7 @@ function publicWeightPage() {
           <button class="btn" style="width:100%;" type="submit">提交今日体重</button>
         </form>
         <canvas id="miniChart" style="margin-top:16px;max-height:220px;"></canvas>
+        <div id="histBox" style="margin-top:16px;"></div>
       </div>
     </div>
   </div>`;
@@ -490,8 +493,10 @@ function assetPage(user) {
     <div class="card">
       <h2>每月推送</h2>
       <div class="row">
-        <div><label>通知渠道</label><select id="pushCh"></select></div>
-        <div><label>格式</label><select id="pushFmt"></select></div>
+        <div><label>通知渠道（可多选）</label><div id="pushCh" class="multi-pick"></div></div>
+        <div><label>格式</label>
+          <select id="pushFmt"><option value="text">text</option><option value="html">html</option><option value="markdown">markdown</option></select>
+        </div>
       </div>
       <div class="row">
         <div><label>每月几号</label><div id="pushDay" class="multi-pick"></div></div>

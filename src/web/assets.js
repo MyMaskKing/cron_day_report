@@ -166,6 +166,52 @@ document.addEventListener('click', function(e){
   }
 });
 
+// 动态列表多选面板：同 initMultiPick, 但选项来自 items 数组([{value,label}])而非数字区间
+// container 为 .multi-pick 元素；vals 初始已选 value 数组
+function initListPick(container, items, vals) {
+  var selected = {};
+  (vals || []).forEach(function(v){ selected[v] = true; });
+  var btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'mp-btn';
+  var menu = document.createElement('div');
+  menu.className = 'mp-menu';
+  var labelOf = {};
+  (items || []).forEach(function(it){
+    labelOf[it.value] = it.label;
+    var lbl = document.createElement('label');
+    lbl.className = 'mp-item';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.value = it.value; cb.checked = !!selected[it.value];
+    cb.addEventListener('change', function(){
+      if (cb.checked) selected[it.value] = true; else delete selected[it.value];
+      refresh();
+    });
+    lbl.appendChild(cb);
+    var span = document.createElement('span');
+    span.textContent = it.label;
+    lbl.appendChild(span);
+    menu.appendChild(lbl);
+  });
+  function values() {
+    return Object.keys(selected).map(function(k){ return parseInt(k,10); }).filter(function(n){ return !isNaN(n); });
+  }
+  function refresh() {
+    var vs = values();
+    btn.textContent = vs.length ? vs.map(function(v){ return labelOf[v] || v; }).join('、') : '未选择';
+  }
+  btn.addEventListener('click', function(e){
+    e.stopPropagation();
+    var open = menu.classList.contains('show');
+    document.querySelectorAll('.mp-menu.show').forEach(function(m){ m.classList.remove('show'); });
+    if (!open) menu.classList.add('show');
+  });
+  container.innerHTML = '';
+  container.appendChild(btn);
+  container.appendChild(menu);
+  refresh();
+  return { getValues: values, getString: function(){ return values().join(','); } };
+}
+
 // 推送格式选项按渠道类型联动：email 只支持 text/html；wechat/webhook 额外支持 markdown
 function fmtOptionsFor(type) {
   var base = [['text','text'],['html','html']];
@@ -875,27 +921,22 @@ window.buyFundUI = function(id){
 document.getElementById('fNew').addEventListener('click', function(){ fundForm({}); });
 
 // ---------- 日报配置（走通用 push API, module=fund）----------
+var rcChannelPick = null;
 async function loadReportConfig() {
   var chData = await api('/api/notify/channels');
-  var opts = '<option value="">（选择通知渠道）</option>';
-  chData.channels.forEach(function(c){ opts += '<option value="' + c.id + '">' + esc(c.name) + ' [' + c.type + ']</option>'; });
-  document.getElementById('rcChannel').innerHTML = opts;
+  var items = chData.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + c.type + ']' }; });
 
   var data = await api('/api/push/fund');
   var cfg = data.config;
-  var rcChannel = document.getElementById('rcChannel');
-  var rcFormat = document.getElementById('rcFormat');
-  rcChannel.value = cfg.channel_id || '';
-  var rcFmtRefresh = bindFormatByChannel(rcChannel, rcFormat);
-  rcFmtRefresh();
-  rcFormat.value = cfg.format || 'text';
+  rcChannelPick = initListPick(document.getElementById('rcChannel'), items, cfg.channel_ids || []);
+  document.getElementById('rcFormat').value = cfg.format || 'text';
   document.getElementById('rcEnabled').checked = !!cfg.enabled;
   rcHourPick = initMultiPick(document.getElementById('rcHour'), 0, 23, cfg.hours || [15], function(n){ return n + '点'; });
 }
 var rcHourPick = null;
 document.getElementById('rcSave').addEventListener('click', async function(){
   var payload = {
-    channel_id: document.getElementById('rcChannel').value || null,
+    channel_ids: rcChannelPick ? rcChannelPick.getValues() : [],
     format: document.getElementById('rcFormat').value,
     hours: rcHourPick ? rcHourPick.getString() : '15',
     enabled: document.getElementById('rcEnabled').checked
@@ -1099,14 +1140,31 @@ function drawChart(mlist, records) {
 function renderRecordTable(mlist, records) {
   var nameOf = {}; mlist.forEach(function(m){ nameOf[m.id] = m.name; });
   var tb = document.getElementById('recTbody');
+  // 计算每条记录较同成员上一条(时间更早)的增减：按成员分组升序算差值, 存 id->delta
+  var deltaOf = {};
+  var byMember = {};
+  records.forEach(function(r){ (byMember[r.member_id] = byMember[r.member_id] || []).push(r); });
+  Object.keys(byMember).forEach(function(mid){
+    var arr = byMember[mid].slice().sort(function(a,b){ return (a.record_date||'').localeCompare(b.record_date||''); });
+    for (var i = 1; i < arr.length; i++) deltaOf[arr[i].id] = arr[i].weight - arr[i-1].weight;
+  });
   var sorted = records.slice().sort(function(a,b){ return (b.record_date||'').localeCompare(a.record_date||''); });
   tb.innerHTML = sorted.map(function(r){
     return '<tr><td data-label="日期">' + esc(r.record_date) + '</td>' +
       '<td data-label="成员">' + esc(nameOf[r.member_id]||'') + '</td>' +
       '<td data-label="体重">' + toDisplay(r.weight) + ' ' + unitLabel() + '</td>' +
+      '<td data-label="较上次">' + deltaCell(deltaOf[r.id]) + '</td>' +
       '<td data-label="操作"><button class="btn sm gray" onclick="recEdit(' + r.id + ',' + r.weight + ",'" + r.record_date + "'" + ')">改</button> ' +
       '<button class="btn sm danger" onclick="recDel(' + r.id + ')">删</button></td></tr>';
-  }).join('') || '<tr><td colspan="4" class="muted">暂无记录</td></tr>';
+  }).join('') || '<tr><td colspan="5" class="muted">暂无记录</td></tr>';
+}
+// 增减单元格：增重红色加粗↑, 减重绿色↓, 无上一条显示 —
+function deltaCell(deltaKg) {
+  if (deltaKg == null) return '<span class="muted">—</span>';
+  var d = toDisplay(Math.abs(deltaKg));
+  if (deltaKg > 0) return '<span style="color:#cf1322;font-weight:700;">↑ +' + d + ' ' + unitLabel() + '</span>';
+  if (deltaKg < 0) return '<span style="color:#389e0d;">↓ -' + d + ' ' + unitLabel() + '</span>';
+  return '<span class="muted">0</span>';
 }
 
 window.mDel = async function(id){
@@ -1221,17 +1279,13 @@ function initFilter() {
 
 // 推送配置（体重日报）
 var wPushHourPick = null;
+var wPushChannelPick = null;
 async function loadPush() {
   var chs = await api('/api/notify/channels');
-  var opts = '<option value="">（选择渠道）</option>' + chs.channels.map(function(c){ return '<option value="'+c.id+'">'+esc(c.name)+' ['+c.type+']</option>'; }).join('');
-  document.getElementById('pushCh').innerHTML = opts;
+  var items = chs.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + c.type + ']' }; });
   var d = await api('/api/push/weight');
-  var wCh = document.getElementById('pushCh');
-  var wFmt = document.getElementById('pushFmt');
-  wCh.value = d.config.channel_id || '';
-  var wFmtRefresh = bindFormatByChannel(wCh, wFmt);
-  wFmtRefresh();
-  wFmt.value = d.config.format || 'text';
+  wPushChannelPick = initListPick(document.getElementById('pushCh'), items, d.config.channel_ids || []);
+  document.getElementById('pushFmt').value = d.config.format || 'text';
   wPushHourPick = initMultiPick(document.getElementById('pushHour'), 0, 23, d.config.hours || [10], function(n){ return n + '点'; });
   document.getElementById('pushEn').checked = !!d.config.enabled;
 }
@@ -1239,7 +1293,7 @@ var pushSave = document.getElementById('pushSave');
 if (pushSave) pushSave.addEventListener('click', async function(){
   try {
     await api('/api/push/weight', { method:'PUT', body:{
-      channel_id: document.getElementById('pushCh').value || null,
+      channel_ids: wPushChannelPick ? wPushChannelPick.getValues() : [],
       format: document.getElementById('pushFmt').value,
       hours: wPushHourPick ? wPushHourPick.getString() : '10',
       enabled: document.getElementById('pushEn').checked
@@ -1291,9 +1345,35 @@ async function loadInfo() {
     }
     document.getElementById('content').style.display = 'block';
     drawMini(d.records);
+    renderHist(d.records);
   } catch(e) {
     document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>';
   }
+}
+// 最近记录列表（升序算相邻增减）：增重红色加粗↑, 减重绿色↓
+function renderHist(records) {
+  var box = document.getElementById('histBox');
+  if (!box) return;
+  if (!records || !records.length) { box.innerHTML = ''; return; }
+  var asc = records.slice().sort(function(a,b){ return (a.record_date||'').localeCompare(b.record_date||''); });
+  var recent = asc.slice(-7);
+  var rows = recent.map(function(r, i){
+    var cell = '<span style="color:#888;">—</span>';
+    if (i > 0) {
+      var delta = r.weight - recent[i-1].weight;
+      var v = pDisplay(Math.abs(delta));
+      if (delta > 0) cell = '<span style="color:#cf1322;font-weight:700;">↑ +' + v + ' ' + pLabel() + '</span>';
+      else if (delta < 0) cell = '<span style="color:#389e0d;">↓ -' + v + ' ' + pLabel() + '</span>';
+      else cell = '<span style="color:#888;">0</span>';
+    }
+    return '<tr><td style="padding:4px 0;text-align:left;">' + esc(r.record_date) + '</td>' +
+      '<td style="padding:4px 0;text-align:right;">' + pDisplay(r.weight) + ' ' + pLabel() + '</td>' +
+      '<td style="padding:4px 0;text-align:right;">' + cell + '</td></tr>';
+  }).reverse().join('');
+  box.innerHTML = '<div style="color:#888;font-size:13px;margin-bottom:4px;">最近记录</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;color:#666;">' +
+    '<thead><tr><th style="text-align:left;font-weight:600;">日期</th><th style="text-align:right;font-weight:600;">体重</th><th style="text-align:right;font-weight:600;">较上次</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table>';
 }
 function drawMini(records) {
   var el = document.getElementById('miniChart');
@@ -1714,18 +1794,13 @@ function initAssetFilter() {
   applyPreset();
 }
 // 推送配置（资产月报）
-var aPushDayPick = null, aPushHourPick = null;
+var aPushDayPick = null, aPushHourPick = null, aPushChannelPick = null;
 async function loadPush() {
   var chs = await api('/api/notify/channels');
-  var opts = '<option value="">（选择渠道）</option>' + chs.channels.map(function(c){ return '<option value="'+c.id+'">'+esc(c.name)+' ['+c.type+']</option>'; }).join('');
-  document.getElementById('pushCh').innerHTML = opts;
+  var items = chs.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + c.type + ']' }; });
   var d = await api('/api/push/asset');
-  var aCh = document.getElementById('pushCh');
-  var aFmt = document.getElementById('pushFmt');
-  aCh.value = d.config.channel_id || '';
-  var aFmtRefresh = bindFormatByChannel(aCh, aFmt);
-  aFmtRefresh();
-  aFmt.value = d.config.format || 'text';
+  aPushChannelPick = initListPick(document.getElementById('pushCh'), items, d.config.channel_ids || []);
+  document.getElementById('pushFmt').value = d.config.format || 'text';
   aPushDayPick = initMultiPick(document.getElementById('pushDay'), 1, 28, d.config.days || [15], function(n){ return n + '号'; });
   aPushHourPick = initMultiPick(document.getElementById('pushHour'), 0, 23, d.config.hours || [9], function(n){ return n + '点'; });
   document.getElementById('pushEn').checked = !!d.config.enabled;
@@ -1733,7 +1808,7 @@ async function loadPush() {
 document.getElementById('pushSave').addEventListener('click', async function(){
   try {
     await api('/api/push/asset', { method:'PUT', body:{
-      channel_id: document.getElementById('pushCh').value || null,
+      channel_ids: aPushChannelPick ? aPushChannelPick.getValues() : [],
       format: document.getElementById('pushFmt').value,
       days: aPushDayPick ? aPushDayPick.getString() : '15',
       hours: aPushHourPick ? aPushHourPick.getString() : '9',

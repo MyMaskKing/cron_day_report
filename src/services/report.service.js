@@ -298,6 +298,19 @@ function buildAssetReportHTML(reportData, chartLink, target, remaining, walletLi
 // ==================== 体重日报 ====================
 
 /**
+ * 取成员记录最近 7 条（按时间倒序），每条附较前一条的体重差（kg）
+ * @param {Array} arr - 已按 record_date 升序排序的记录
+ * @returns {Array} [{ r, delta }] delta 为 null 表示无更早记录
+ */
+function recentWithDelta(arr) {
+  const last7 = arr.slice(-7);
+  const start = arr.length - last7.length;
+  return last7
+    .map((r, i) => ({ r, delta: (start + i) > 0 ? r.weight - arr[start + i - 1].weight : null }))
+    .reverse();
+}
+
+/**
  * 构造体重日报
  * 每个成员：已填当日则显示当日体重，未填则给快速填写链接；附最近7次历史；单位按用户设置；曲线给查看链接
  * @param {Array} members
@@ -338,13 +351,19 @@ function buildWeightReport(members, records, opts) {
         block += `今日未填<br>`;
       }
       if (last7.length) {
-        // 最近记录纵向小列表（每条一行），窄屏不挤成一行
+        // 最近记录纵向小列表（倒序，每条一行），附较前一日增减；增重红色加粗
         block += `<div style="color:#888;font-size:13px;margin-top:6px;">最近记录：</div>`;
         block += `<table style="width:100%;border-collapse:collapse;font-size:13px;color:#666;">`;
-        block += last7.map(r =>
-          `<tr><td style="padding:2px 0;text-align:left;">${r.record_date.slice(5)}</td>` +
-          `<td style="padding:2px 0;text-align:right;">${disp(r.weight)} ${unitLabel}</td></tr>`
-        ).join('');
+        block += recentWithDelta(arr).map(({ r, delta }) => {
+          let deltaHtml = '';
+          if (delta != null) {
+            const dv = disp(Math.abs(delta));
+            if (delta > 0) deltaHtml = ` <span style="color:#cf1322;font-weight:700;">(+${dv} ${unitLabel})</span>`;
+            else if (delta < 0) deltaHtml = ` <span style="color:#389e0d;">(-${dv} ${unitLabel})</span>`;
+          }
+          return `<tr><td style="padding:2px 0;text-align:left;">${r.record_date.slice(5)}</td>` +
+            `<td style="padding:2px 0;text-align:right;">${disp(r.weight)} ${unitLabel}${deltaHtml}</td></tr>`;
+        }).join('');
         block += `</table>`;
       }
       block += `</div>`;
@@ -355,7 +374,16 @@ function buildWeightReport(members, records, opts) {
       else block += `　今日未填\n`;
       if (last7.length) {
         block += `　最近记录：\n`;
-        block += last7.map(r => `　　${r.record_date.slice(5)}　${disp(r.weight)} ${unitLabel}`).join('\n') + '\n';
+        block += recentWithDelta(arr).map(({ r, delta }) => {
+          let d = '';
+          if (delta != null) {
+            const dv = disp(Math.abs(delta));
+            // text 无颜色，增重用 ⚠️+↑ 着重标明
+            if (delta > 0) d = `（⚠️ +${dv} ${unitLabel} ↑）`;
+            else if (delta < 0) d = `（-${dv} ${unitLabel}）`;
+          }
+          return `　　${r.record_date.slice(5)}　${disp(r.weight)} ${unitLabel}${d}`;
+        }).join('\n') + '\n';
       }
     }
     parts.push(block);
@@ -398,8 +426,17 @@ function buildWeightReportMarkdown(members, records, opts) {
     else if (base) m += `> 今日未填 · [快速录入](${base}/w/${tokenMap[mem.id]})\n`;
     else m += `> 今日未填\n`;
     if (last7.length) {
-      const hist = last7.map(r => `${r.record_date.slice(5)} ${disp(r.weight)}${unitLabel}`).join(' · ');
-      m += `> 最近：${hist}\n`;
+      // 倒序逐行，附较前一日增减；增重用加粗着重
+      const hist = recentWithDelta(arr).map(({ r, delta }) => {
+        let d = '';
+        if (delta != null) {
+          const dv = disp(Math.abs(delta));
+          if (delta > 0) d = ` **(+${dv}${unitLabel} ↑)**`;
+          else if (delta < 0) d = ` (-${dv}${unitLabel})`;
+        }
+        return `${r.record_date.slice(5)} ${disp(r.weight)}${unitLabel}${d}`;
+      }).join('\n> ');
+      m += `> 最近：\n> ${hist}\n`;
     }
   }
   if (base && reportToken) m += `\n[📈 查看完整曲线图](${base}/wr/${reportToken})\n`;
