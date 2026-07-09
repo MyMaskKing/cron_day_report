@@ -48,7 +48,8 @@ import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, 
 import { buildTree, flattenPending } from './services/todo.service.js';
 import {
   listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink as getTodoShareLink, todoChart,
-  publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicTodoReport, publicTodoChart
+  publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicTodoReport, publicTodoChart,
+  publicAllAdd, publicAllToggle, publicAllUpdate
 } from './api/todo.api.js';
 import { parseOffset, fmtShort } from './services/time.service.js';
 
@@ -57,7 +58,7 @@ import {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
   weightReportPage, assetReportPage, fundReportPage,
-  todoPage, publicTodoPage, todoReportPage
+  todoPage, publicTodoPage, todoReportPage, todoCollabPage
 } from './web/pages.js';
 
 // ==================== 路由注册 ====================
@@ -176,6 +177,9 @@ router.put('/api/public/todo/:token/:id/done', publicToggleTodo);
 router.put('/api/public/todo/:token/:id', publicUpdateTodo);
 router.get('/api/public/todo-report/:token', publicTodoReport);
 router.get('/api/public/todo-chart/:token', publicTodoChart);
+router.post('/api/public/todo-all/:token', publicAllAdd);
+router.put('/api/public/todo-all/:token/:id/done', publicAllToggle);
+router.put('/api/public/todo-all/:token/:id', publicAllUpdate);
 
 // --- 通用推送配置 API ---
 router.get('/api/push/:module', getPushConfig);
@@ -226,6 +230,10 @@ async function handlePages(request, env) {
   // 待办免密报告查看页 /tr/:token
   if (path.startsWith('/tr/') && path.split('/').filter(Boolean).length === 2) {
     return html(todoReportPage());
+  }
+  // 待办免密汇总协作页 /tc/:token（跨全部清单，今天+逾期，可写）
+  if (path.startsWith('/tc/') && path.split('/').filter(Boolean).length === 2) {
+    return html(todoCollabPage());
   }
 
   // 需登录页面
@@ -599,18 +607,10 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
     // 仅当存在"截止今天或已逾期"的未完成任务时才推送，否则跳过（不发空日报）
     if (filterTodayOverdue(pendingTrees, today).length === 0) return null;
     const base = await resolveBaseUrl(storage, env);
-    // 顶层任务 token（协作添加/勾选）：取第一个顶层任务，无 token 则生成持久化
-    let token = null;
-    const roots = rows.filter(r => r.parent_id == null);
-    if (base && roots.length) {
-      const first = roots[0];
-      token = first.share_token;
-      if (!token) { token = generateToken(); await storage.todo.setShareToken(first.id, token); }
-    }
-    // 用户级报告 token（查看全部待办）
+    // 用户级报告 token：汇总协作页(/tc/)与查看全部(/tr/)共用
     let reportToken = null;
     if (base) reportToken = await storage.push.ensureReportToken(userId, 'todo', generateToken());
-    return buildTodoReport(pendingTrees, { format, base, token, reportToken, today });
+    return buildTodoReport(pendingTrees, { format, base, reportToken, today });
   }
   return null;
 }

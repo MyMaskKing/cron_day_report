@@ -2437,9 +2437,102 @@ async function loadChart() {
 })();
 `;
 
+// ============ 待办免密汇总协作页（跨全部清单，今天+逾期，可写） ============
+const TODO_COLLAB_JS = `
+${COMMON_JS}
+${TODO_TREE_CORE}
+bindModal();
+bindQuickLogin('todo-report');
+var _token = location.pathname.split('/').filter(Boolean).pop();
+var _rows = [], _today = '';
+
+async function loadCollab() {
+  var msg = document.getElementById('msg');
+  try {
+    var d = await api('/api/public/todo-report/' + _token);
+    _rows = d.todos || [];
+    _today = d.today || '';
+    if (d.owner_name) document.getElementById('ownerTitle').textContent = d.owner_name + ' 的待办';
+    document.getElementById('content').style.display = 'block';
+    var trees = visibleTrees();
+    renderStats(trees);
+    drawTree(trees);
+    loadChart();
+  } catch(e) { showMsg(msg, e.message || '链接无效', false); }
+}
+// 可见树：仅截止今天或已逾期的顶层任务（与日报口径一致），子任务随顶层
+function visibleTrees() {
+  return todoBuildTree(_rows).filter(function(t){
+    return t.due_date && _today && t.due_date <= _today;
+  });
+}
+// 统计（口径同日报 statsOfReport）：基于可见树，子任务继承顶层截止日期判逾期
+function renderStats(trees) {
+  var pending = 0, overdue = 0, done = 0;
+  function walk(node, rootDue){
+    if (node.done) done++;
+    else {
+      pending++;
+      if (rootDue && _today && rootDue < _today) overdue++;
+    }
+    node.children.forEach(function(c){ walk(c, rootDue); });
+  }
+  trees.forEach(function(root){ walk(root, root.due_date); });
+  document.getElementById('stPending').textContent = pending;
+  document.getElementById('stOverdue').textContent = overdue;
+  document.getElementById('stDone').textContent = done;
+}
+async function loadChart() {
+  try { var c = await api('/api/public/todo-chart/' + _token + '?range=7d'); drawTodoChart('todoChart', c.series); }
+  catch(e){ /* 图表失败不阻断 */ }
+}
+function drawTree(trees) {
+  renderTodoTree(document.getElementById('todoTree'), trees, {
+    today: _today,
+    onToggle: async function(node, done){
+      try {
+        await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+        await loadCollab();
+        if (done) {
+          var total = 0, doneCnt = 0;
+          (function count(list){ list.forEach(function(n){ total++; if (n.done) doneCnt++; count(n.children); }); })(visibleTrees());
+          todoCelebrate(total - doneCnt, total);
+        }
+      }
+      catch(e){ alert(e.message); }
+    },
+    onEdit: function(node){
+      var isChild = node.parent_id != null;
+      openModal('编辑任务', todoFormHtml(node, false, isChild) +
+        '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+      document.getElementById('tfSave').addEventListener('click', async function(){
+        var body = todoFormRead();
+        if (!body.title) { alert('请填写标题'); return; }
+        try { await api('/api/public/todo-all/' + _token + '/' + node.id, { method:'PUT', body: body }); closeModal(); await loadCollab(); }
+        catch(e){ alert(e.message); }
+      });
+    },
+    onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务', true); }
+  });
+}
+function openAddForm(parentId, title, isChild) {
+  openModal(title, todoFormHtml({}, true, !!isChild) +
+    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('tfCreate').addEventListener('click', async function(){
+    var body = todoFormRead();
+    if (!body.title) { alert('请填写标题'); return; }
+    if (parentId != null) body.parent_id = parentId;
+    try { await api('/api/public/todo-all/' + _token, { method:'POST', body: body }); closeModal(); await loadCollab(); }
+    catch(e){ alert(e.message); }
+  });
+}
+document.getElementById('tAddRoot').addEventListener('click', function(){ openAddForm(null, '新建任务', false); });
+loadCollab();
+`;
+
 export {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
-  TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS
+  TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS
 };

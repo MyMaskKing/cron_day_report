@@ -8,7 +8,7 @@ import {
   LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS,
   WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
-  TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS
+  TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS
 } from './assets.js';
 
 /** 初始化超管页 */
@@ -715,9 +715,34 @@ function todoReportPage() {
   return renderPage({ title: '全部待办', body, script: TODO_REPORT_JS });
 }
 
+/** 待办免密汇总协作页（跨全部清单，今天+逾期，可勾选/编辑/添加） */
+function todoCollabPage() {
+  const body = `<div class="container" style="max-width:640px;margin:24px auto;">
+    <div class="card">
+      <h2>📝 <span id="ownerTitle">待办协作</span> <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button></h2>
+      <p class="muted" style="margin-bottom:12px;">今日到期与逾期任务，可直接勾选、编辑或添加。</p>
+      <div id="msg" class="msg"></div>
+      <div id="content" style="display:none;">
+        <div class="todo-stats" style="margin-bottom:14px;">
+          <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
+          <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
+          <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
+        </div>
+        <div style="margin-bottom:12px;"><button class="btn sm" id="tAddRoot">+ 添加任务</button></div>
+        <div id="todoTree" class="todo-tree"></div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
+          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（按截止日期：每日到期 / 完成）</span></h2>
+          <canvas id="todoChart" style="max-height:240px;"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  return renderPage({ title: '待办协作', body, script: TODO_COLLAB_JS });
+}
+
 export {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
   weightReportPage, assetReportPage, fundReportPage,
-  todoPage, publicTodoPage, todoReportPage
+  todoPage, publicTodoPage, todoReportPage, todoCollabPage
 };

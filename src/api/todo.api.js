@@ -291,7 +291,91 @@ async function publicTodoChart({ env, params, url }) {
   return json({ success: true, series });
 }
 
+// ==================== 免密汇总协作（用户级 report_token，跨全部清单可写） ====================
+
+/** 由 report_token 解析用户 id（module=todo），无效返回 null */
+async function resolveUserByReportToken(storage, token) {
+  const pushRow = await storage.push.findByReportToken(token);
+  if (pushRow && pushRow.module === 'todo') return pushRow.user_id;
+  return null;
+}
+
+/** POST /api/public/todo-all/:token  免密汇总页添加任务
+ * body: { title, parent_id?, priority?, due_date?, category?, note? }
+ * parent_id 缺省则新建顶层清单(可设 due_date)；指定则须属该用户，作为其子任务(日期继承)
+ */
+async function publicAllAdd({ request, env, params }) {
+  const storage = getStorage(env);
+  const userId = await resolveUserByReportToken(storage, params.token);
+  if (userId == null) return error('链接无效或已失效', 404);
+  const body = await request.json().catch(() => ({}));
+  const title = (body.title || '').trim();
+  if (!title) return error('请填写任务标题');
+
+  let parentId = null;
+  if (body.parent_id != null && body.parent_id !== '') {
+    parentId = parseInt(body.parent_id, 10);
+    const parent = await storage.todo.findById(parentId);
+    if (!parent || parent.user_id !== userId) return error('父任务不属于此清单', 400);
+  }
+  // 顶层可设截止日期；子任务日期继承主任务，不单独存
+  const dueDate = parentId != null ? null : ((body.due_date || '').trim() || null);
+  const id = await storage.todo.create(userId, {
+    parent_id: parentId, title,
+    priority: normPriority(body.priority),
+    due_date: dueDate,
+    category: (body.category || '').trim() || null,
+    note: (body.note || '').trim() || null
+  });
+  return json({ success: true, message: '已添加', id });
+}
+
+/** PUT /api/public/todo-all/:token/:id/done  免密汇总页勾选（级联子树），校验任务属该用户
+ * body: { done }
+ */
+async function publicAllToggle({ request, env, params }) {
+  const storage = getStorage(env);
+  const userId = await resolveUserByReportToken(storage, params.token);
+  if (userId == null) return error('链接无效或已失效', 404);
+  const body = await request.json().catch(() => ({}));
+  const done = !!body.done;
+
+  const id = parseInt(params.id, 10);
+  const t = await storage.todo.findById(id);
+  if (!t || t.user_id !== userId) return error('任务不存在', 404);
+  const descendants = await storage.todo.collectDescendantIds(id);
+  await storage.todo.setDone([id, ...descendants], done, todayCN());
+  return json({ success: true, message: done ? '已完成' : '已取消完成' });
+}
+
+/** PUT /api/public/todo-all/:token/:id  免密汇总页编辑，校验任务属该用户
+ * body: { title, priority?, due_date?, category?, note? }
+ * 仅顶层任务(parent_id 为空)可改 due_date，子任务日期继承主任务
+ */
+async function publicAllUpdate({ request, env, params }) {
+  const storage = getStorage(env);
+  const userId = await resolveUserByReportToken(storage, params.token);
+  if (userId == null) return error('链接无效或已失效', 404);
+  const body = await request.json().catch(() => ({}));
+  const title = (body.title || '').trim();
+  if (!title) return error('请填写任务标题');
+
+  const id = parseInt(params.id, 10);
+  const t = await storage.todo.findById(id);
+  if (!t || t.user_id !== userId) return error('任务不存在', 404);
+  const dueDate = t.parent_id != null ? null : ((body.due_date || '').trim() || null);
+  await storage.todo.update(id, userId, {
+    title,
+    priority: normPriority(body.priority),
+    due_date: dueDate,
+    category: (body.category || '').trim() || null,
+    note: (body.note || '').trim() || null
+  });
+  return json({ success: true, message: '任务已更新' });
+}
+
 export {
   listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink, todoChart,
-  publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicTodoReport, publicTodoChart
+  publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicTodoReport, publicTodoChart,
+  publicAllAdd, publicAllToggle, publicAllUpdate
 };
