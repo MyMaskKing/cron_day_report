@@ -507,20 +507,22 @@ function statsOfReport(trees, today) {
 }
 
 /** 日报里任务的日期标签：逾期红色标注，否则普通显示；dueDate 为继承后的有效日期
- * 显示只取月/日（MM/DD），逾期判断仍用完整日期 */
+ * 显示只取月/日（MM/DD），逾期判断仍用完整日期
+ * 日报只含今天到期或逾期(filterTodayOverdue)，非逾期即当天到期，用醒目徽章突出 */
 function todoDateTag(dueDate, today, kind) {
   if (!dueDate) return '';
   const over = today && dueDate < today;
   const disp = dueDate.length >= 10 ? `${dueDate.slice(5, 7)}/${dueDate.slice(8, 10)}` : dueDate;
   if (kind === 'html') {
+    const pill = 'display:inline-block;border-radius:11px;padding:1px 10px;font-size:12px;font-weight:600;line-height:1.7;margin-left:2px;';
     return over
-      ? ` <span style="color:#cf1322;font-weight:600;">⚠️ 逾期 ${disp}</span>`
-      : ` <span style="color:#8890b8;">📅 ${disp}</span>`;
+      ? ` <span style="${pill}background:#fff1f0;color:#cf1322;">⚠️ 逾期 ${disp}</span>`
+      : ` <span style="${pill}background:#e6f4ff;color:#0958d9;">📌 今日 ${disp}</span>`;
   }
   if (kind === 'markdown') {
-    return over ? ` **⚠️ 逾期 ${disp}**` : ` 📅 ${disp}`;
+    return over ? ` **⚠️ 逾期 ${disp}**` : ` **📌 今日 ${disp}**`;
   }
-  return over ? ` ⚠️逾期 ${disp}` : ` 📅 ${disp}`;
+  return over ? ` ⚠️逾期 ${disp}` : ` 📌今日 ${disp}`;
 }
 
 function buildTodoReportText(trees, base, token, reportToken, today, stats) {
@@ -536,7 +538,7 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats) {
   };
   for (const root of trees) walk(root, 0, root.due_date);
   if (trees.length === 0) t += '🎉 今日无到期或逾期待办\n';
-  if (base && token) t += `\n➕ 协作添加/勾选：${base}/t/${token}\n`;
+  if (base && reportToken) t += `\n➕ 协作添加/勾选：${base}/tc/${reportToken}\n`;
   if (base && reportToken) t += `📋 查看全部待办：${base}/tr/${reportToken}\n`;
   return t;
 }
@@ -552,7 +554,7 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats) 
   };
   for (const root of trees) walk(root, 0, root.due_date);
   if (trees.length === 0) m += `\n🎉 今日无到期或逾期待办\n`;
-  if (base && token) m += `\n[➕ 协作添加/勾选](${base}/t/${token})\n`;
+  if (base && reportToken) m += `\n[➕ 协作添加/勾选](${base}/tc/${reportToken})\n`;
   if (base && reportToken) m += `[📋 查看全部待办](${base}/tr/${reportToken})\n`;
   return m;
 }
@@ -578,8 +580,8 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats) {
   };
   for (const root of trees) walk(root, 0, root.due_date);
   if (trees.length === 0) h += `<p style="color:#389e0d;">🎉 今日无到期或逾期待办</p>`;
-  if (base && token) {
-    h += `<div style="margin:12px 0;"><a href="${base}/t/${token}" target="_blank" rel="noopener" style="display:inline-block;padding:8px 14px;background:#4a6cf7;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;">➕ 协作添加 / 勾选</a></div>`;
+  if (base && reportToken) {
+    h += `<div style="margin:12px 0;"><a href="${base}/tc/${reportToken}" target="_blank" rel="noopener" style="display:inline-block;padding:8px 14px;background:#4a6cf7;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;">➕ 协作添加 / 勾选</a></div>`;
   }
   if (base && reportToken) {
     h += `<p style="margin:8px 0;"><a href="${base}/tr/${reportToken}" style="color:#4a6cf7;">📋 查看全部待办</a></p>`;
