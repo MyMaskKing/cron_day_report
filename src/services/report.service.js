@@ -529,14 +529,19 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats) {
   const line = '━━━━━━━━━━━━━━';
   let t = `📝 待办日报${todoTitleDate(today)}\n${line}\n`;
   if (stats) t += `未完成 ${stats.pending} 项${stats.overdue ? `，其中逾期 ${stats.overdue} 项` : ''}\n${line}\n`;
-  // rootDue：顶层截止日期，子任务继承展示
-  const walk = (node, depth, rootDue) => {
-    const indent = '　'.repeat(depth);
+  // 子任务用树形连接线体现从属；日期继承主任务，只在主任务行显示一次
+  const walkChild = (node, prefix, isLast) => {
     const cat = node.category ? `〔${node.category}〕` : '';
-    t += `${indent}${TODO_PRI_ICON[node.priority] || '⚪'} ${node.title}${cat}${todoDateTag(rootDue, today, 'text')}\n`;
-    for (const c of node.children) walk(c, depth + 1, rootDue);
+    t += `${prefix}${isLast ? '└─ ' : '├─ '}${TODO_PRI_ICON[node.priority] || '⚪'} ${node.title}${cat}\n`;
+    const childPrefix = prefix + (isLast ? '   ' : '│  ');
+    node.children.forEach((c, i) => walkChild(c, childPrefix, i === node.children.length - 1));
   };
-  for (const root of trees) walk(root, 0, root.due_date);
+  trees.forEach((root, ri) => {
+    if (ri > 0) t += '\n';
+    const cat = root.category ? `〔${root.category}〕` : '';
+    t += `📂 ${TODO_PRI_ICON[root.priority] || '⚪'} ${root.title}${cat}${todoDateTag(root.due_date, today, 'text')}\n`;
+    root.children.forEach((c, i) => walkChild(c, '', i === root.children.length - 1));
+  });
   if (trees.length === 0) t += '🎉 今日无到期或逾期待办\n';
   if (base && reportToken) t += `\n➕ 协作添加/勾选：${base}/tc/${reportToken}\n`;
   if (base && reportToken) t += `📋 查看全部待办：${base}/tr/${reportToken}\n`;
@@ -546,13 +551,18 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats) {
 function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats) {
   let m = `## 📝 待办日报${todoTitleDate(today)}\n`;
   if (stats) m += `未完成 **${stats.pending}** 项${stats.overdue ? ` · 逾期 **${stats.overdue}** 项` : ''}\n`;
-  const walk = (node, depth, rootDue) => {
+  // 子任务用嵌套列表；日期继承主任务，只在主任务标题显示一次
+  const walkChild = (node, depth) => {
     const indent = '  '.repeat(depth);
     const cat = node.category ? ` \`${node.category}\`` : '';
-    m += `${indent}- ${TODO_PRI_ICON[node.priority] || '⚪'} ${node.title}${cat}${todoDateTag(rootDue, today, 'markdown')}\n`;
-    for (const c of node.children) walk(c, depth + 1, rootDue);
+    m += `${indent}- ${TODO_PRI_ICON[node.priority] || '⚪'} ${node.title}${cat}\n`;
+    for (const c of node.children) walkChild(c, depth + 1);
   };
-  for (const root of trees) walk(root, 0, root.due_date);
+  for (const root of trees) {
+    const cat = root.category ? ` \`${root.category}\`` : '';
+    m += `\n**📂 ${TODO_PRI_ICON[root.priority] || '⚪'} ${root.title}**${cat}${todoDateTag(root.due_date, today, 'markdown')}\n`;
+    for (const c of root.children) walkChild(c, 0);
+  }
   if (trees.length === 0) m += `\n🎉 今日无到期或逾期待办\n`;
   if (base && reportToken) m += `\n[➕ 协作添加/勾选](${base}/tc/${reportToken})\n`;
   if (base && reportToken) m += `[📋 查看全部待办](${base}/tr/${reportToken})\n`;
@@ -568,17 +578,31 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats) {
     h += `</p>`;
   }
   const PRI_COLOR = { 2: '#cf1322', 1: '#faad14', 0: '#c7ccd6' };
-  const walk = (node, depth, rootDue) => {
-    const pad = 12 + depth * 20;
+  const catTag = (c) => c
+    ? ` <span style="background:#eef1ff;color:#4a6cf7;border-radius:4px;padding:1px 7px;font-size:12px;">${c}</span>` : '';
+  // 子任务：卡片内缩进 + 左侧连接线，明确从属于上方主任务
+  const walkChild = (node) => {
     const bar = PRI_COLOR[node.priority] || '#c7ccd6';
-    const cat = node.category
-      ? ` <span style="background:#eef1ff;color:#4a6cf7;border-radius:4px;padding:1px 7px;font-size:12px;">${node.category}</span>` : '';
-    h += `<div style="margin:6px 0 6px ${pad}px;padding:8px 12px;background:#f8f9fa;border-left:3px solid ${bar};border-radius:6px;">
-      <span style="font-size:14px;">${node.title}</span>${cat}${todoDateTag(rootDue, today, 'html')}
+    h += `<div style="margin:4px 0 4px 14px;padding:5px 10px;border-left:2px solid #e3e8f0;">
+      <span style="color:${bar};">${TODO_PRI_ICON[node.priority] || '⚪'}</span>
+      <span style="font-size:13px;color:#333;">${node.title}</span>${catTag(node.category)}
     </div>`;
-    for (const c of node.children) walk(c, depth + 1, rootDue);
+    for (const c of node.children) walkChild(c);
   };
-  for (const root of trees) walk(root, 0, root.due_date);
+  for (const root of trees) {
+    const bar = PRI_COLOR[root.priority] || '#c7ccd6';
+    // 主任务卡片：色条头 + 加粗标题 + 日期只此一处
+    h += `<div style="margin:14px 0;border:1px solid #eceff5;border-radius:8px;overflow:hidden;">
+      <div style="padding:9px 12px;background:#f4f6fb;border-left:4px solid ${bar};">
+        <span style="font-size:15px;font-weight:700;color:#1f2430;">📂 ${root.title}</span>${catTag(root.category)}${todoDateTag(root.due_date, today, 'html')}
+      </div>`;
+    if (root.children.length) {
+      h += `<div style="padding:6px 10px 8px;">`;
+      for (const c of root.children) walkChild(c);
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
   if (trees.length === 0) h += `<p style="color:#389e0d;">🎉 今日无到期或逾期待办</p>`;
   if (base && reportToken) {
     h += `<div style="margin:12px 0;"><a href="${base}/tc/${reportToken}" target="_blank" rel="noopener" style="display:inline-block;padding:8px 14px;background:#4a6cf7;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;">➕ 协作添加 / 勾选</a></div>`;
