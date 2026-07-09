@@ -192,7 +192,7 @@ async function bootstrap({ request, env }) {
 /**
  * POST /api/public/quick-login/:kind/:token  免密页快速登录
  * 按免密 token 定位其所属用户并签发正式会话（谁的链接就登入谁的账号）
- * kind ∈ fund | weight | asset | weight-report | asset-report
+ * kind ∈ fund | weight | asset | todo | weight-report | asset-report | fund-report | todo-report
  */
 async function quickLoginByToken({ env, params }) {
   const storage = getStorage(env);
@@ -207,7 +207,10 @@ async function quickLoginByToken({ env, params }) {
   } else if (kind === 'asset') {
     const w = await storage.asset.findWalletByShareToken(token);
     if (w) userId = w.user_id;
-  } else if (kind === 'weight-report' || kind === 'asset-report' || kind === 'fund-report') {
+  } else if (kind === 'todo') {
+    const t = await storage.todo.findByShareToken(token);
+    if (t) userId = t.user_id;
+  } else if (kind === 'weight-report' || kind === 'asset-report' || kind === 'fund-report' || kind === 'todo-report') {
     const row = await storage.push.findByReportToken(token);
     if (row) userId = row.user_id;
   } else {
@@ -220,8 +223,8 @@ async function quickLoginByToken({ env, params }) {
   if (user.status === 'disabled') return error('账号已被禁用', 403);
 
   const REDIRECT = {
-    fund: '/fund', weight: '/weight', asset: '/asset',
-    'weight-report': '/weight', 'asset-report': '/asset', 'fund-report': '/fund'
+    fund: '/fund', weight: '/weight', asset: '/asset', todo: '/todo',
+    'weight-report': '/weight', 'asset-report': '/asset', 'fund-report': '/fund', 'todo-report': '/todo'
   };
   const sessionToken = await createSession(env, user);
   return json(

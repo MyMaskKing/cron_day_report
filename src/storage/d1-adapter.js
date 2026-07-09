@@ -448,6 +448,80 @@ function createD1Adapter(env) {
       }
     },
 
+    // ==================== 待办任务 ====================
+    todo: {
+      async listByUser(userId) {
+        const { results } = await db.prepare(
+          'SELECT * FROM todos WHERE user_id=? ORDER BY sort_order, id'
+        ).bind(userId).all();
+        return results || [];
+      },
+      async findById(id) {
+        return await db.prepare('SELECT * FROM todos WHERE id=?').bind(id).first();
+      },
+      async create(userId, t) {
+        const res = await db.prepare(
+          'INSERT INTO todos (user_id, parent_id, title, priority, due_date, category, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).bind(
+          userId, t.parent_id != null ? t.parent_id : null, t.title,
+          t.priority != null ? t.priority : 1,
+          t.due_date || null, t.category || null, t.sort_order != null ? t.sort_order : 0
+        ).run();
+        return res.meta.last_row_id;
+      },
+      async update(id, userId, t) {
+        await db.prepare(
+          'UPDATE todos SET title=?, priority=?, due_date=?, category=? WHERE id=? AND user_id=?'
+        ).bind(t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, id, userId).run();
+      },
+      // 批量置完成状态（勾选父任务级联子树时用）
+      async setDone(idList, done) {
+        if (!idList || idList.length === 0) return;
+        const placeholders = idList.map(() => '?').join(',');
+        await db.prepare(
+          `UPDATE todos SET done=? WHERE id IN (${placeholders})`
+        ).bind(done ? 1 : 0, ...idList).run();
+      },
+      // 递归收集某任务的全部后代 id（不含自身），供级联完成/删除
+      async collectDescendantIds(id) {
+        const all = [];
+        let frontier = [id];
+        while (frontier.length) {
+          const placeholders = frontier.map(() => '?').join(',');
+          const { results } = await db.prepare(
+            `SELECT id FROM todos WHERE parent_id IN (${placeholders})`
+          ).bind(...frontier).all();
+          const children = (results || []).map(r => r.id);
+          all.push(...children);
+          frontier = children;
+        }
+        return all;
+      },
+      async remove(idList) {
+        if (!idList || idList.length === 0) return;
+        const placeholders = idList.map(() => '?').join(',');
+        await db.prepare(`DELETE FROM todos WHERE id IN (${placeholders})`).bind(...idList).run();
+      },
+      async findByShareToken(token) {
+        return await db.prepare('SELECT * FROM todos WHERE share_token=?').bind(token).first();
+      },
+      async setShareToken(id, token) {
+        await db.prepare('UPDATE todos SET share_token=? WHERE id=?').bind(token, id).run();
+      },
+      // 某顶层任务及其全部后代（递归子树），供免密页展示
+      async listSubtree(rootId) {
+        const { results } = await db.prepare(
+          `WITH RECURSIVE sub(id) AS (
+             SELECT id FROM todos WHERE id=?
+             UNION ALL
+             SELECT t.id FROM todos t JOIN sub ON t.parent_id = sub.id
+           )
+           SELECT t.* FROM todos t JOIN sub ON t.id = sub.id ORDER BY t.sort_order, t.id`
+        ).bind(rootId).all();
+        return results || [];
+      }
+    },
+
     // ==================== 全局设置 ====================
     settings: {
       async get(key) {

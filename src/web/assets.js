@@ -1917,8 +1917,322 @@ loadInfo();
 bindQuickLogin('asset');
 `;
 
+// ============ 待办树渲染核心（三页共用，内联注入） ============
+// 提供 buildTree(rows)->trees、renderTree(container, trees, opts) 纯 DOM 构建。
+// opts 回调决定各页能力：{ today, hideDone, onToggle, onEdit, onDel, onAddChild, onShare, readOnly }
+// 用 createElement + addEventListener，规避模板串内引号转义。
+const TODO_TREE_CORE = `
+var PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
+var PRI_TEXT = { 2: '高', 1: '中', 0: '低' };
+function todoBuildTree(rows) {
+  var byId = {}, roots = [];
+  rows.forEach(function(r){ byId[r.id] = Object.assign({}, r, { children: [] }); });
+  Object.keys(byId).forEach(function(k){
+    var n = byId[k], pid = n.parent_id;
+    if (pid != null && byId[pid]) byId[pid].children.push(n); else roots.push(n);
+  });
+  function sortRec(list){
+    list.sort(function(a,b){ return (a.sort_order - b.sort_order) || (a.id - b.id); });
+    list.forEach(function(n){ sortRec(n.children); });
+  }
+  sortRec(roots);
+  return roots;
+}
+// 子树是否含未完成（隐藏已完成时用于判断整枝是否隐藏）
+function todoSubtreePending(node){
+  if (!node.done) return true;
+  return node.children.some(todoSubtreePending);
+}
+var _todoCollapsed = {}; // id -> true 折叠状态（前端会话内保留）
+function renderTodoTree(container, trees, opts) {
+  opts = opts || {};
+  var today = opts.today || '';
+  container.innerHTML = '';
+  function walk(node, depth) {
+    if (opts.hideDone && !todoSubtreePending(node)) return null;
+    var wrap = document.createElement('div');
+    wrap.className = 'todo-node';
+    wrap.setAttribute('data-depth', depth);
+    wrap.style.setProperty('--depth', depth);
+
+    var row = document.createElement('div');
+    row.className = 'todo-row pri-' + (node.priority != null ? node.priority : 1) + (node.done ? ' is-done' : '') + (depth === 0 ? ' is-root' : '');
+    row.style.setProperty('--depth', depth);
+
+    // 折叠三角
+    var caret = document.createElement('span');
+    caret.className = 'todo-caret' + (node.children.length ? '' : ' leaf') + (_todoCollapsed[node.id] ? ' collapsed' : '');
+    caret.textContent = '▼';
+    if (node.children.length) caret.addEventListener('click', function(){
+      _todoCollapsed[node.id] = !_todoCollapsed[node.id];
+      caret.classList.toggle('collapsed');
+      childBox.classList.toggle('collapsed');
+    });
+    row.appendChild(caret);
+
+    // 圆形勾选框
+    var check = document.createElement('button');
+    check.type = 'button';
+    check.className = 'todo-check' + (node.done ? ' done' : '');
+    check.title = node.done ? '取消完成' : '标记完成';
+    if (opts.onToggle) check.addEventListener('click', function(){ opts.onToggle(node, !node.done); });
+    row.appendChild(check);
+
+    // 主体：标题 + 元信息
+    var main = document.createElement('div');
+    main.className = 'todo-main';
+    var title = document.createElement('div');
+    title.className = 'todo-title';
+    title.textContent = node.title;
+    if (node.children.length) {
+      var cnt = document.createElement('span');
+      cnt.className = 'todo-count';
+      var total = 0, done = 0;
+      (function count(n){ n.children.forEach(function(c){ total++; if (c.done) done++; count(c); }); })(node);
+      cnt.textContent = '(' + done + '/' + total + ')';
+      title.appendChild(cnt);
+    }
+    main.appendChild(title);
+    var meta = document.createElement('div');
+    meta.className = 'todo-meta';
+    if (node.category) {
+      var cc = document.createElement('span'); cc.className = 'todo-chip cat'; cc.textContent = node.category; meta.appendChild(cc);
+    }
+    if (node.due_date && !node.done) {
+      var over = today && node.due_date < today;
+      var dc = document.createElement('span');
+      dc.className = 'todo-chip due' + (over ? ' overdue' : '');
+      dc.textContent = (over ? '⚠️ 逾期 ' : '📅 ') + node.due_date;
+      meta.appendChild(dc);
+    }
+    if (meta.childNodes.length) main.appendChild(meta);
+    row.appendChild(main);
+
+    // 行内操作
+    if (!opts.readOnly) {
+      var ops = document.createElement('div');
+      ops.className = 'todo-ops';
+      if (opts.onAddChild) { var b1 = mkOp('➕', '添加子任务', function(){ opts.onAddChild(node); }); ops.appendChild(b1); }
+      if (opts.onEdit)     { var b2 = mkOp('✏️', '编辑', function(){ opts.onEdit(node); }); ops.appendChild(b2); }
+      if (opts.onShare && depth === 0) { var b3 = mkOp('🔗', '协作链接', function(){ opts.onShare(node); }); ops.appendChild(b3); }
+      if (opts.onDel)      { var b4 = mkOp('🗑️', '删除', function(){ opts.onDel(node); }); ops.appendChild(b4); }
+      if (ops.childNodes.length) row.appendChild(ops);
+    }
+    wrap.appendChild(row);
+
+    var childBox = document.createElement('div');
+    childBox.className = 'todo-children' + (_todoCollapsed[node.id] ? ' collapsed' : '');
+    node.children.forEach(function(c){ var el = walk(c, depth + 1); if (el) childBox.appendChild(el); });
+    wrap.appendChild(childBox);
+    return wrap;
+  }
+  function mkOp(icon, title, fn) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'todo-op'; b.title = title; b.textContent = icon;
+    b.addEventListener('click', fn);
+    return b;
+  }
+  var any = false;
+  trees.forEach(function(t){ var el = walk(t, 0); if (el) { container.appendChild(el); any = true; } });
+  if (!any) container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
+}
+// 任务编辑表单 HTML（新建/编辑共用），字段：标题/优先级/截止/分类
+function todoFormHtml(t) {
+  t = t || {};
+  return '<label>标题</label><input id="tfTitle" value="' + esc(t.title || '') + '" placeholder="要做什么？">' +
+    '<div class="row">' +
+      '<div><label>优先级</label><select id="tfPri">' +
+        '<option value="2"' + (t.priority === 2 ? ' selected' : '') + '>🔴 高</option>' +
+        '<option value="1"' + (t.priority == null || t.priority === 1 ? ' selected' : '') + '>🟡 中</option>' +
+        '<option value="0"' + (t.priority === 0 ? ' selected' : '') + '>⚪ 低</option>' +
+      '</select></div>' +
+      '<div><label>截止日期</label><input id="tfDue" type="date" value="' + (t.due_date || '') + '"></div>' +
+    '</div>' +
+    '<label>分类（可选）</label><input id="tfCat" value="' + esc(t.category || '') + '" placeholder="如 工作 / 家庭">';
+}
+function todoFormRead() {
+  return {
+    title: document.getElementById('tfTitle').value.trim(),
+    priority: parseInt(document.getElementById('tfPri').value, 10),
+    due_date: document.getElementById('tfDue').value || null,
+    category: document.getElementById('tfCat').value.trim() || null
+  };
+}
+`;
+
+// ============ 待办清单页（登录态） ============
+const TODO_JS = `
+${COMMON_JS}
+${TODO_TREE_CORE}
+bindLogout();
+bindModal();
+var _rows = [];
+function todayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
+
+async function loadTodos() {
+  var data = await api('/api/todo/list');
+  _rows = data.todos || [];
+  var s = data.stats || { pending:0, overdue:0, done:0, total:0 };
+  document.getElementById('stPending').textContent = s.pending;
+  document.getElementById('stOverdue').textContent = s.overdue;
+  document.getElementById('stDone').textContent = s.done;
+  document.getElementById('stTotal').textContent = s.total;
+  drawTree();
+}
+function drawTree() {
+  var hideDone = document.getElementById('hideDone').checked;
+  renderTodoTree(document.getElementById('todoTree'), todoBuildTree(_rows), {
+    today: todayStr(), hideDone: hideDone,
+    onToggle: async function(node, done){
+      try { await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } }); await loadTodos(); }
+      catch(e){ alert(e.message); }
+    },
+    onEdit: function(node){
+      openModal('编辑任务', todoFormHtml(node) +
+        '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+      document.getElementById('tfSave').addEventListener('click', async function(){
+        var body = todoFormRead();
+        if (!body.title) { alert('请填写标题'); return; }
+        try { await api('/api/todo/' + node.id, { method:'PUT', body: body }); closeModal(); await loadTodos(); }
+        catch(e){ alert(e.message); }
+      });
+    },
+    onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务'); },
+    onDel: async function(node){
+      if (!confirm('删除「' + node.title + '」及其全部子任务？')) return;
+      try { await api('/api/todo/' + node.id, { method:'DELETE' }); await loadTodos(); }
+      catch(e){ alert(e.message); }
+    },
+    onShare: async function(node){
+      try {
+        var d = await api('/api/todo/' + node.id + '/share-link');
+        openModal('免密协作链接',
+          '<p class="muted">此链接长期有效，打开无需登录即可查看、添加、勾选该清单下的任务。</p>' +
+          '<input id="tShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
+          '<button class="btn" onclick="todoCopy()">复制链接</button>');
+      } catch(e){ alert(e.message); }
+    }
+  });
+}
+window.todoCopy = function(){ var el=document.getElementById('tShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
+function openAddForm(parentId, title) {
+  openModal(title, todoFormHtml({}) +
+    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('tfCreate').addEventListener('click', async function(){
+    var body = todoFormRead();
+    if (!body.title) { alert('请填写标题'); return; }
+    if (parentId != null) body.parent_id = parentId;
+    try { await api('/api/todo', { method:'POST', body: body }); closeModal(); await loadTodos(); }
+    catch(e){ alert(e.message); }
+  });
+}
+document.getElementById('tAdd').addEventListener('click', function(){ openAddForm(null, '新建任务'); });
+document.getElementById('hideDone').addEventListener('change', drawTree);
+
+// 推送配置（待办日报）
+var tPushHourPick = null, tPushChannelPick = null;
+async function loadPush() {
+  var chs = await api('/api/notify/channels');
+  var items = chs.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + c.type + ']' }; });
+  var d = await api('/api/push/todo');
+  tPushChannelPick = initListPick(document.getElementById('pushCh'), items, d.config.channel_ids || []);
+  document.getElementById('pushFmt').value = d.config.format || 'text';
+  tPushHourPick = initMultiPick(document.getElementById('pushHour'), 0, 23, d.config.hours || [9], function(n){ return n + '点'; });
+  document.getElementById('pushEn').checked = !!d.config.enabled;
+}
+document.getElementById('pushSave').addEventListener('click', async function(){
+  try {
+    await api('/api/push/todo', { method:'PUT', body:{
+      channel_ids: tPushChannelPick ? tPushChannelPick.getValues() : [],
+      format: document.getElementById('pushFmt').value,
+      hours: tPushHourPick ? tPushHourPick.getString() : '9',
+      enabled: document.getElementById('pushEn').checked
+    }});
+    alert('推送配置已保存');
+  } catch(e){ alert(e.message); }
+});
+document.getElementById('pushSend').addEventListener('click', async function(){
+  var btn = this; btn.disabled = true; btn.textContent = '推送中...';
+  try { var r = await api('/api/push/todo/send', { method:'POST' }); alert(r.message || '已推送'); }
+  catch(e){ alert(e.message); }
+  finally { btn.disabled = false; btn.textContent = '立即推送'; }
+});
+
+(async function(){
+  try { await loadTodos(); await loadPush(); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+})();
+`;
+
+// ============ 待办免密协作公开页 ============
+const PUBLIC_TODO_JS = `
+${COMMON_JS}
+${TODO_TREE_CORE}
+bindModal();
+bindQuickLogin('todo');
+var _token = location.pathname.split('/').filter(Boolean).pop();
+var _rows = [], _rootId = null, _today = '';
+
+async function loadPublic() {
+  var msg = document.getElementById('msg');
+  try {
+    var d = await api('/api/public/todo/' + _token);
+    _rows = d.todos || [];
+    _rootId = d.root.id;
+    _today = d.today || '';
+    document.getElementById('rootTitle').textContent = d.root.title;
+    document.getElementById('ownerLine').textContent = d.owner_name ? ('来自 ' + d.owner_name + ' 的共享清单') : '';
+    document.getElementById('content').style.display = 'block';
+    drawTree();
+  } catch(e) { showMsg(msg, e.message || '链接无效', false); }
+}
+function drawTree() {
+  renderTodoTree(document.getElementById('todoTree'), todoBuildTree(_rows), {
+    today: _today,
+    onToggle: async function(node, done){
+      try { await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } }); await loadPublic(); }
+      catch(e){ alert(e.message); }
+    },
+    onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务'); }
+  });
+}
+function openAddForm(parentId, title) {
+  openModal(title, todoFormHtml({}) +
+    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  document.getElementById('tfCreate').addEventListener('click', async function(){
+    var body = todoFormRead();
+    if (!body.title) { alert('请填写标题'); return; }
+    if (parentId != null) body.parent_id = parentId;
+    try { await api('/api/public/todo/' + _token, { method:'POST', body: body }); closeModal(); await loadPublic(); }
+    catch(e){ alert(e.message); }
+  });
+}
+document.getElementById('tAddRoot').addEventListener('click', function(){ openAddForm(_rootId, '添加任务'); });
+loadPublic();
+`;
+
+// ============ 待办免密报告查看页（只读） ============
+const TODO_REPORT_JS = `
+${COMMON_JS}
+${TODO_TREE_CORE}
+bindQuickLogin('todo-report');
+var _token = location.pathname.split('/').filter(Boolean).pop();
+(async function(){
+  try {
+    var d = await api('/api/public/todo-report/' + _token);
+    var s = d.stats || { pending:0, overdue:0, done:0 };
+    document.getElementById('stPending').textContent = s.pending;
+    document.getElementById('stOverdue').textContent = s.overdue;
+    document.getElementById('stDone').textContent = s.done;
+    document.getElementById('content').style.display = 'block';
+    renderTodoTree(document.getElementById('todoTree'), todoBuildTree(d.todos || []), { today: d.today || '', readOnly: true });
+  } catch(e) { document.body.innerHTML = '<div class="todo-empty" style="margin-top:60px;">' + esc(e.message || '链接无效') + '</div>'; }
+})();
+`;
+
 export {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
-  WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS
+  WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
+  TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS
 };

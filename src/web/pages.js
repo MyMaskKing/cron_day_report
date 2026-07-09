@@ -7,7 +7,8 @@ import { renderPage, renderTopbar } from './layout.js';
 import {
   LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS,
   WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
-  WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS
+  WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
+  TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS
 } from './assets.js';
 
 /** 初始化超管页 */
@@ -105,6 +106,7 @@ function dashboardPage(user) {
         <a class="stat" href="/fund"><div class="num">📈</div><div class="lbl">基金追踪</div></a>
         <a class="stat" href="/asset"><div class="num">💰</div><div class="lbl">资产报表</div></a>
         <a class="stat" href="/weight"><div class="num">⚖️</div><div class="lbl">体重曲线</div></a>
+        <a class="stat" href="/todo"><div class="num">📝</div><div class="lbl">待办清单</div></a>
         ${user.role === 'admin' ? '<a class="stat" href="/admin"><div class="num">👥</div><div class="lbl">用户管理</div></a>' : ''}
       </div>
     </div>
@@ -602,8 +604,82 @@ function fundReportPage() {
   return renderPage({ title: '持仓分布', body, script: FUND_REPORT_JS });
 }
 
+/** 待办清单页 */
+function todoPage(user) {
+  const body = renderTopbar(user, 'todo') + `<div class="container">
+    <div class="card">
+      <h2>概览</h2>
+      <div class="todo-stats">
+        <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
+        <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
+        <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
+        <div class="todo-stat"><div class="n" id="stTotal">0</div><div class="l">总计</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>待办清单
+        <button class="btn sm" id="tAdd" style="float:right;">+ 新建任务</button>
+        <label style="float:right;margin-right:14px;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;"> 隐藏已完成</label>
+      </h2>
+      <div id="todoTree" class="todo-tree"></div>
+      <p class="muted" style="margin-top:8px;">勾选父任务将连带其全部子任务；每个顶层任务可生成免密协作链接，家人无需登录即可添加或勾选。</p>
+    </div>
+
+    <div class="card">
+      <h2>每日推送</h2>
+      <div class="row">
+        <div><label>通知渠道（可多选）</label><div id="pushCh" class="multi-pick"></div></div>
+        <div><label>格式</label>
+          <select id="pushFmt"><option value="text">text</option><option value="html">html</option><option value="markdown">markdown</option></select>
+        </div>
+        <div><label>推送时间</label><div id="pushHour" class="multi-pick"></div></div>
+      </div>
+      <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送（仅推送未完成待办，逾期优先）</label>
+      <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button> <button class="btn gray" id="pushSend">立即推送</button></div>
+    </div>
+  </div>`;
+  return renderPage({ title: '待办清单', body, script: TODO_JS });
+}
+
+/** 待办免密协作公开页 */
+function publicTodoPage() {
+  const body = `<div class="container" style="max-width:560px;margin:24px auto;">
+    <div class="card">
+      <h2>📝 <span id="rootTitle">待办</span> <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button></h2>
+      <p id="ownerLine" class="muted" style="margin-bottom:12px;"></p>
+      <div id="msg" class="msg"></div>
+      <div id="content" style="display:none;">
+        <div style="margin-bottom:12px;"><button class="btn sm" id="tAddRoot">+ 添加任务</button></div>
+        <div id="todoTree" class="todo-tree"></div>
+      </div>
+    </div>
+  </div>`;
+  return renderPage({ title: '待办协作', body, script: PUBLIC_TODO_JS });
+}
+
+/** 待办免密报告查看页 */
+function todoReportPage() {
+  const body = `<div class="container" style="max-width:640px;margin:24px auto;">
+    <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
+    <div id="content" style="display:none;">
+      <div class="card">
+        <h2>📝 全部待办</h2>
+        <div class="todo-stats">
+          <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
+          <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
+          <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
+        </div>
+        <div id="todoTree" class="todo-tree" style="margin-top:14px;"></div>
+      </div>
+    </div>
+  </div>`;
+  return renderPage({ title: '全部待办', body, script: TODO_REPORT_JS });
+}
+
 export {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
-  weightReportPage, assetReportPage, fundReportPage
+  weightReportPage, assetReportPage, fundReportPage,
+  todoPage, publicTodoPage, todoReportPage
 };

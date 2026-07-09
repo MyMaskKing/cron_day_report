@@ -8,7 +8,7 @@ import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
 import { ALLOWED_FORMATS } from '../config.js';
 
-const MODULES = ['fund', 'weight', 'asset', 'monitor'];
+const MODULES = ['fund', 'weight', 'asset', 'monitor', 'todo'];
 
 /** GET /api/push/:module  读取当前用户某模块推送配置 */
 async function getPushConfig({ request, env, params }) {
@@ -22,7 +22,8 @@ async function getPushConfig({ request, env, params }) {
     fund: { hours: [15], days: [15] },
     weight: { hours: [10], days: [1] },
     asset: { hours: [9], days: [15] },
-    monitor: { hours: [6], days: [1] }
+    monitor: { hours: [6], days: [1] },
+    todo: { hours: [9], days: [1] }
   };
   function toArr(str, fallback) {
     if (str == null || str === '') return fallback;

@@ -44,14 +44,20 @@ import {
 import { buildAssetReportData } from './services/asset.service.js';
 import { getPushConfig, setPushConfig } from './api/push.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
-import { buildFundReport, buildAssetReport, buildWeightReport } from './services/report.service.js';
+import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport } from './services/report.service.js';
+import { buildTree, flattenPending, countStats } from './services/todo.service.js';
+import {
+  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink as getTodoShareLink,
+  publicTodoInfo, publicAddTodo, publicToggleTodo, publicTodoReport
+} from './api/todo.api.js';
 import { parseOffset, fmtShort } from './services/time.service.js';
 
 // Pages
 import {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
-  weightReportPage, assetReportPage, fundReportPage
+  weightReportPage, assetReportPage, fundReportPage,
+  todoPage, publicTodoPage, todoReportPage
 } from './web/pages.js';
 
 // ==================== 路由注册 ====================
@@ -156,6 +162,18 @@ router.get('/api/public/asset/:token', publicWalletInfo);
 router.post('/api/public/asset/:token', publicSaveRecord);
 router.get('/api/public/asset-report/:token', publicAssetReport);
 
+// --- 待办 API ---
+router.get('/api/todo/list', listTodos);
+router.post('/api/todo', createTodo);
+router.get('/api/todo/:id/share-link', getTodoShareLink);
+router.put('/api/todo/:id/done', toggleTodo);
+router.put('/api/todo/:id', updateTodo);
+router.delete('/api/todo/:id', removeTodo);
+router.get('/api/public/todo/:token', publicTodoInfo);
+router.post('/api/public/todo/:token', publicAddTodo);
+router.put('/api/public/todo/:token/:id/done', publicToggleTodo);
+router.get('/api/public/todo-report/:token', publicTodoReport);
+
 // --- 通用推送配置 API ---
 router.get('/api/push/:module', getPushConfig);
 router.put('/api/push/:module', setPushConfig);
@@ -198,6 +216,14 @@ async function handlePages(request, env) {
   if (path.startsWith('/fr/') && path.split('/').filter(Boolean).length === 2) {
     return html(fundReportPage());
   }
+  // 待办免密协作页 /t/:token
+  if (path.startsWith('/t/') && path.split('/').filter(Boolean).length === 2) {
+    return html(publicTodoPage());
+  }
+  // 待办免密报告查看页 /tr/:token
+  if (path.startsWith('/tr/') && path.split('/').filter(Boolean).length === 2) {
+    return html(todoReportPage());
+  }
 
   // 需登录页面
   const pageMap = {
@@ -207,6 +233,7 @@ async function handlePages(request, env) {
     '/fund': 'fund',
     '/asset': 'asset',
     '/weight': 'weight',
+    '/todo': 'todo',
     '/settings': 'settings',
     '/admin': 'admin'
   };
@@ -235,6 +262,8 @@ async function handlePages(request, env) {
         return html(assetPage(user));
       case 'weight':
         return html(weightPage(user));
+      case 'todo':
+        return html(todoPage(user));
       case 'settings':
         return html(settingsPage(user));
       case 'admin':
@@ -275,7 +304,7 @@ async function runMyModulePush({ request, env, params }) {
   const session = await getSession(env, token);
   if (!session) return error('未登录', 401);
   const module = params.module;
-  if (!['fund', 'weight', 'asset'].includes(module)) return error('模块非法', 400);
+  if (!['fund', 'weight', 'asset', 'todo'].includes(module)) return error('模块非法', 400);
 
   const storage = getStorage(env);
   const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
@@ -374,7 +403,7 @@ async function handleScheduled(cron, env, ctx) {
   const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
   const now = nowCN(Date.now(), tzOffset);
   const manual = !cron; // /cron 手动调用时 cron 为空，全部执行
-  const summary = { at: `${now.dateStr} ${now.hour}:00`, monitor: null, fund: null, weight: null, asset: null };
+  const summary = { at: `${now.dateStr} ${now.hour}:00`, monitor: null, fund: null, weight: null, asset: null, todo: null };
 
   // 1. 监控任务：每个用户按自己 push_config(module=monitor) 的时间执行其启用任务
   try {
@@ -412,6 +441,10 @@ async function handleScheduled(cron, env, ctx) {
   try { summary.asset = await runModulePush(env, storage, 'asset', now, manual, tzOffset); }
   catch (err) { summary.asset = { error: err.message }; }
 
+  // 5. 待办日报
+  try { summary.todo = await runModulePush(env, storage, 'todo', now, manual, tzOffset); }
+  catch (err) { summary.todo = { error: err.message }; }
+
   return json({ success: true, message: '定时调度执行完成', ...summary });
 }
 
@@ -427,6 +460,7 @@ function moduleSubject(module, tzOffset) {
     case 'fund': return `📈 基金持仓日报 ${at}`;
     case 'weight': return `⚖️ 体重日报 ${at}`;
     case 'asset': return `💰 资产月报 ${at}`;
+    case 'todo': return `📝 待办日报 ${at}`;
     case 'monitor': return `🌅 定时任务执行报告 ${at}`;
     default: return `定时任务执行报告 ${at}`;
   }
@@ -548,6 +582,26 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
       else chartLink = `\n📈 查看趋势图：${link}\n`;
     }
     return buildAssetReport(data, format, chartLink, target, walletLinkMap);
+  }
+  if (module === 'todo') {
+    const rows = await storage.todo.listByUser(userId);
+    const stats = countStats(rows, nowCN(Date.now(), tzOffset).dateStr);
+    if (stats.pending === 0) return null; // 无未完成待办不推送
+    const today = nowCN(Date.now(), tzOffset).dateStr;
+    const pendingTrees = flattenPending(buildTree(rows));
+    const base = await resolveBaseUrl(storage, env);
+    // 顶层任务 token（协作添加/勾选）：取第一个顶层任务，无 token 则生成持久化
+    let token = null;
+    const roots = rows.filter(r => r.parent_id == null);
+    if (base && roots.length) {
+      const first = roots[0];
+      token = first.share_token;
+      if (!token) { token = generateToken(); await storage.todo.setShareToken(first.id, token); }
+    }
+    // 用户级报告 token（查看全部待办）
+    let reportToken = null;
+    if (base) reportToken = await storage.push.ensureReportToken(userId, 'todo', generateToken());
+    return buildTodoReport(pendingTrees, { format, base, token, reportToken, today, stats });
   }
   return null;
 }

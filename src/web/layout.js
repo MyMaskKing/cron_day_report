@@ -136,6 +136,77 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .mp-item:hover { background: #f5f7ff; }
 .mp-item input { width: auto; margin: 0; }
 
+/* ============ 待办树（signature） ============ */
+/* 层级缩进靠 --depth 变量驱动；每个节点一行，左侧优先级色带 + 圆形勾选框 */
+.todo-tree { margin-top: 4px; }
+.todo-empty { text-align: center; color: #99a; padding: 40px 12px; font-size: 14px; }
+.todo-node { position: relative; }
+.todo-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; margin: 4px 0;
+  background: #fff; border: 1px solid #eef0f5; border-radius: 10px;
+  margin-left: calc(var(--depth, 0) * 26px);
+  transition: box-shadow .18s, border-color .18s, transform .18s;
+}
+.todo-row:hover { box-shadow: 0 3px 14px rgba(74,108,247,.10); border-color: #dfe4fb; transform: translateX(1px); }
+/* 优先级左色带 */
+.todo-row.pri-2 { border-left: 4px solid #f5222d; }
+.todo-row.pri-1 { border-left: 4px solid #faad14; }
+.todo-row.pri-0 { border-left: 4px solid #c7ccd6; }
+/* 层级连接线：非顶层节点左侧竖向引导线 */
+.todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before {
+  content: ''; position: absolute; left: calc(var(--depth, 0) * 26px - 13px); top: -4px; bottom: 50%;
+  border-left: 1.5px solid #e3e7f3; border-bottom: 1.5px solid #e3e7f3;
+  width: 12px; border-bottom-left-radius: 8px;
+}
+/* 圆形勾选框 */
+.todo-check {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #c7ccd6; background: #fff; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .18s, border-color .18s; padding: 0;
+}
+.todo-check:hover { border-color: #4a6cf7; }
+.todo-check::after { content: '✓'; color: #fff; font-size: 13px; font-weight: 700; opacity: 0; transform: scale(.4); transition: .18s; }
+.todo-check.done { background: linear-gradient(135deg, #52c41a, #34b34a); border-color: #34b34a; }
+.todo-check.done::after { opacity: 1; transform: scale(1); }
+/* 折叠三角 */
+.todo-caret {
+  flex-shrink: 0; width: 16px; height: 16px; cursor: pointer; color: #b0b6c8;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
+  transition: transform .18s, color .18s; user-select: none;
+}
+.todo-caret:hover { color: #4a6cf7; }
+.todo-caret.collapsed { transform: rotate(-90deg); }
+.todo-caret.leaf { visibility: hidden; }
+/* 标题与元信息 */
+.todo-main { flex: 1; min-width: 0; }
+.todo-title { font-size: 14px; color: #1f2329; word-break: break-word; transition: color .2s; }
+.todo-row.is-done .todo-title { color: #b0b6c8; text-decoration: line-through; }
+.todo-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.todo-chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; line-height: 1.6; }
+.todo-chip.cat { background: #eef1ff; color: #4a6cf7; }
+.todo-chip.due { background: #f0f5ff; color: #5a6b9a; }
+.todo-chip.due.overdue { background: #fff1f0; color: #cf1322; font-weight: 600; }
+/* 行内操作按钮：默认淡，hover 行时显现 */
+.todo-ops { display: flex; gap: 2px; opacity: .35; transition: opacity .18s; flex-shrink: 0; }
+.todo-row:hover .todo-ops { opacity: 1; }
+.todo-op { border: none; background: none; cursor: pointer; font-size: 15px; padding: 3px 5px; border-radius: 6px; line-height: 1; }
+.todo-op:hover { background: #f0f2f8; }
+.todo-children.collapsed { display: none; }
+/* 顶层任务栏：可分享，右侧显示链接按钮 */
+.todo-row.is-root { background: #f8f9ff; }
+.todo-count { font-size: 12px; color: #8890b8; margin-left: 6px; }
+/* 概览统计条 */
+.todo-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.todo-stat { flex: 1; min-width: 90px; background: #f8f9ff; border-radius: 10px; padding: 12px 14px; text-align: center; }
+.todo-stat .n { font-size: 24px; font-weight: 700; color: #4a6cf7; }
+.todo-stat.overdue .n { color: #cf1322; }
+.todo-stat.done .n { color: #52c41a; }
+.todo-stat .l { font-size: 12px; color: #8890b8; margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .todo-row, .todo-check, .todo-check::after, .todo-caret { transition: none; } }
+
+
 /* ============ 移动端适配 (<=640px) ============ */
 @media (max-width: 640px) {
   .topbar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
@@ -165,6 +236,11 @@ th { color: #666; font-weight: 600; background: #fafafa; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */
   .dropdown-menu { right: auto; left: 0; }
   .modal-mask { padding: 20px 10px; }
+  /* 待办树：缩进收窄, 操作按钮常显 */
+  .todo-row { margin-left: calc(var(--depth, 0) * 16px); gap: 8px; padding: 8px 10px; }
+  .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
+  .todo-ops { opacity: 1; }
+  .todo-stat { min-width: 70px; padding: 10px; }
 }
 `;
 
@@ -181,7 +257,8 @@ function renderTopbar(user, active = '') {
     { key: 'channels', href: '/channels', text: '通知渠道' },
     { key: 'fund', href: '/fund', text: '基金追踪' },
     { key: 'asset', href: '/asset', text: '资产报表' },
-    { key: 'weight', href: '/weight', text: '体重曲线' }
+    { key: 'weight', href: '/weight', text: '体重曲线' },
+    { key: 'todo', href: '/todo', text: '待办' }
   ];
   if (user.role === 'admin') links.push({ key: 'admin', href: '/admin', text: '用户管理' });
 
