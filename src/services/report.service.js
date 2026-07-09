@@ -506,19 +506,21 @@ function statsOfReport(trees, today) {
   return { pending, overdue };
 }
 
-/** 日报里任务的日期标签：逾期红色标注，否则普通显示；dueDate 为继承后的有效日期 */
+/** 日报里任务的日期标签：逾期红色标注，否则普通显示；dueDate 为继承后的有效日期
+ * 显示只取月/日（MM/DD），逾期判断仍用完整日期 */
 function todoDateTag(dueDate, today, kind) {
   if (!dueDate) return '';
   const over = today && dueDate < today;
+  const disp = dueDate.length >= 10 ? `${dueDate.slice(5, 7)}/${dueDate.slice(8, 10)}` : dueDate;
   if (kind === 'html') {
     return over
-      ? ` <span style="color:#cf1322;font-weight:600;">⚠️ 逾期 ${dueDate}</span>`
-      : ` <span style="color:#8890b8;">📅 ${dueDate}</span>`;
+      ? ` <span style="color:#cf1322;font-weight:600;">⚠️ 逾期 ${disp}</span>`
+      : ` <span style="color:#8890b8;">📅 ${disp}</span>`;
   }
   if (kind === 'markdown') {
-    return over ? ` **⚠️ 逾期 ${dueDate}**` : ` 📅 ${dueDate}`;
+    return over ? ` **⚠️ 逾期 ${disp}**` : ` 📅 ${disp}`;
   }
-  return over ? ` ⚠️逾期 ${dueDate}` : ` 📅 ${dueDate}`;
+  return over ? ` ⚠️逾期 ${disp}` : ` 📅 ${disp}`;
 }
 
 function buildTodoReportText(trees, base, token, reportToken, today, stats) {

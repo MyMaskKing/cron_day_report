@@ -2333,19 +2333,31 @@ async function loadPublic() {
     document.getElementById('rootTitle').textContent = d.root.title;
     document.getElementById('ownerLine').textContent = d.owner_name ? ('来自 ' + d.owner_name + ' 的共享清单') : '';
     document.getElementById('content').style.display = 'block';
-    renderStats();
-    drawTree();
+    var trees = visibleTrees();
+    renderStats(trees);
+    drawTree(trees);
     loadChart();
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
 }
-// 统计：未完成/逾期/已完成。逾期口径同 countStats：未完成且截止日早于今天
-function renderStats() {
-  var done = 0, overdue = 0;
-  _rows.forEach(function(r){
-    if (r.done) done++;
-    else if (r.due_date && _today && r.due_date < _today) overdue++;
+// 可见树：仅截止今天或已逾期的顶层任务（与日报 filterTodayOverdue 口径一致），子任务随顶层
+function visibleTrees() {
+  return todoBuildTree(_rows).filter(function(t){
+    return t.due_date && _today && t.due_date <= _today;
   });
-  document.getElementById('stPending').textContent = _rows.length - done;
+}
+// 统计（口径同日报 statsOfReport）：基于可见树，子任务继承顶层截止日期判逾期
+function renderStats(trees) {
+  var pending = 0, overdue = 0, done = 0;
+  function walk(node, rootDue){
+    if (node.done) done++;
+    else {
+      pending++;
+      if (rootDue && _today && rootDue < _today) overdue++;
+    }
+    node.children.forEach(function(c){ walk(c, rootDue); });
+  }
+  trees.forEach(function(root){ walk(root, root.due_date); });
+  document.getElementById('stPending').textContent = pending;
   document.getElementById('stOverdue').textContent = overdue;
   document.getElementById('stDone').textContent = done;
 }
@@ -2353,16 +2365,18 @@ async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=7d'); drawTodoChart('todoChart', c.series); }
   catch(e){ /* 图表失败不阻断 */ }
 }
-function drawTree() {
-  renderTodoTree(document.getElementById('todoTree'), todoBuildTree(_rows), {
+function drawTree(trees) {
+  // 列表仅显示截止今天或已逾期的顶层任务（与日报口径一致），子任务随顶层展示；曲线图不受此过滤影响
+  renderTodoTree(document.getElementById('todoTree'), trees, {
     today: _today,
     onToggle: async function(node, done){
       try {
         await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadPublic();
         if (done) {
-          var total = _rows.length, doneCnt = 0;
-          _rows.forEach(function(r){ if (r.done) doneCnt++; });
+          // 庆祝口径与可见列表一致：统计当天/逾期范围内的任务数
+          var total = 0, doneCnt = 0;
+          (function count(list){ list.forEach(function(n){ total++; if (n.done) doneCnt++; count(n.children); }); })(visibleTrees());
           todoCelebrate(total - doneCnt, total);
         }
       }
