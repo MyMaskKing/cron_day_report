@@ -450,16 +450,31 @@ const TODO_PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
 const TODO_PRI_LABEL = { 2: '高', 1: '中', 0: '低' };
 
 /**
- * 判断节点或其任一后代是否逾期未完成（用于顶层子树排序：逾期优先）
+ * 待办日报的顶层筛选：仅保留"截止=今天 或 已逾期"的顶层任务
+ * 子任务日期继承顶层，故按顶层 due_date 判断整棵树
+ * @param {Array} trees - flattenPending 后的未完成任务树
+ * @param {string} today - 北京时区当天 YYYY-MM-DD
+ * @returns {Array} 过滤并按截止日期倒序（晚→早，无日期排最后）的顶层树
  */
-function subtreeHasOverdue(node, today) {
-  if (!node.done && node.due_date && today && node.due_date < today) return true;
-  return (node.children || []).some(c => subtreeHasOverdue(c, today));
+function filterTodayOverdue(trees, today) {
+  const kept = trees.filter(t => t.due_date && today && t.due_date <= today);
+  // 截止日期倒序：日期晚的在前；同日期按 id 稳定
+  kept.sort((a, b) => {
+    if (a.due_date !== b.due_date) return a.due_date < b.due_date ? 1 : -1;
+    return (a.id || 0) - (b.id || 0);
+  });
+  return kept;
+}
+
+/** 待办日报标题日期后缀，如 （07/09） */
+function todoTitleDate(today) {
+  if (!today || today.length < 10) return '';
+  return `（${today.slice(5, 7)}/${today.slice(8, 10)}）`;
 }
 
 /**
  * 生成待办日报文本/HTML/Markdown
- * 只呈现"含未完成项"的树（调用方已用 flattenPending 剪枝），逾期子树排在最前，展开全部子任务
+ * 仅呈现"截止今天或已逾期"的未完成顶层任务（含其未完成子任务），顶层按截止日期倒序
  * @param {Array} trees - flattenPending 后的未完成任务树
  * @param {Object} opts - { format, base, token, reportToken, today, stats }
  *   token: 顶层无 token 时可为 null；base+token 有值则在末尾附免密协作链接
@@ -467,60 +482,74 @@ function subtreeHasOverdue(node, today) {
  * @returns {string}
  */
 function buildTodoReport(trees, opts = {}) {
-  const { format = 'text', base = '', token = null, reportToken = null, today = '', stats = null } = opts;
-  // 逾期子树优先
-  const sorted = trees.slice().sort((a, b) => {
-    const ao = subtreeHasOverdue(a, today) ? 0 : 1;
-    const bo = subtreeHasOverdue(b, today) ? 0 : 1;
-    return ao - bo;
-  });
+  const { format = 'text', base = '', token = null, reportToken = null, today = '' } = opts;
+  // 仅留截止今天/逾期的顶层任务，并按截止日期倒序
+  const sorted = filterTodayOverdue(trees, today);
+  // 日报口径统计：基于筛选后的树，统计未完成任务数与其中逾期数（含子任务）
+  const stats = statsOfReport(sorted, today);
   if (format === 'html') return buildTodoReportHTML(sorted, base, token, reportToken, today, stats);
   if (format === 'markdown') return buildTodoReportMarkdown(sorted, base, token, reportToken, today, stats);
   return buildTodoReportText(sorted, base, token, reportToken, today, stats);
 }
 
-function todoOverdueTag(node, today, kind) {
-  if (node.done || !node.due_date) return '';
-  const over = today && node.due_date < today;
+/** 统计筛选后树里的未完成任务数与逾期数（含各层子任务；子任务日期继承顶层） */
+function statsOfReport(trees, today) {
+  let pending = 0, overdue = 0;
+  const walk = (node, rootDue) => {
+    if (!node.done) {
+      pending++;
+      if (rootDue && today && rootDue < today) overdue++;
+    }
+    for (const c of node.children) walk(c, rootDue);
+  };
+  for (const root of trees) walk(root, root.due_date);
+  return { pending, overdue };
+}
+
+/** 日报里任务的日期标签：逾期红色标注，否则普通显示；dueDate 为继承后的有效日期 */
+function todoDateTag(dueDate, today, kind) {
+  if (!dueDate) return '';
+  const over = today && dueDate < today;
   if (kind === 'html') {
     return over
-      ? ` <span style="color:#cf1322;font-weight:600;">⚠️ 逾期 ${node.due_date}</span>`
-      : ` <span style="color:#8890b8;">📅 ${node.due_date}</span>`;
+      ? ` <span style="color:#cf1322;font-weight:600;">⚠️ 逾期 ${dueDate}</span>`
+      : ` <span style="color:#8890b8;">📅 ${dueDate}</span>`;
   }
   if (kind === 'markdown') {
-    return over ? ` **⚠️ 逾期 ${node.due_date}**` : ` 📅 ${node.due_date}`;
+    return over ? ` **⚠️ 逾期 ${dueDate}**` : ` 📅 ${dueDate}`;
   }
-  return over ? ` ⚠️逾期 ${node.due_date}` : ` 📅 ${node.due_date}`;
+  return over ? ` ⚠️逾期 ${dueDate}` : ` 📅 ${dueDate}`;
 }
 
 function buildTodoReportText(trees, base, token, reportToken, today, stats) {
   const line = '━━━━━━━━━━━━━━';
-  let t = `📝 待办日报\n${line}\n`;
+  let t = `📝 待办日报${todoTitleDate(today)}\n${line}\n`;
   if (stats) t += `未完成 ${stats.pending} 项${stats.overdue ? `，其中逾期 ${stats.overdue} 项` : ''}\n${line}\n`;
-  const walk = (node, depth) => {
+  // rootDue：顶层截止日期，子任务继承展示
+  const walk = (node, depth, rootDue) => {
     const indent = '　'.repeat(depth);
     const cat = node.category ? `〔${node.category}〕` : '';
-    t += `${indent}${TODO_PRI_ICON[node.priority] || '⚪'} ${node.title}${cat}${todoOverdueTag(node, today, 'text')}\n`;
-    for (const c of node.children) walk(c, depth + 1);
+    t += `${indent}${TODO_PRI_ICON[node.priority] || '⚪'} ${node.title}${cat}${todoDateTag(rootDue, today, 'text')}\n`;
+    for (const c of node.children) walk(c, depth + 1, rootDue);
   };
-  for (const root of trees) walk(root, 0);
-  if (trees.length === 0) t += '🎉 全部完成，暂无未完成待办\n';
+  for (const root of trees) walk(root, 0, root.due_date);
+  if (trees.length === 0) t += '🎉 今日无到期或逾期待办\n';
   if (base && token) t += `\n➕ 协作添加/勾选：${base}/t/${token}\n`;
   if (base && reportToken) t += `📋 查看全部待办：${base}/tr/${reportToken}\n`;
   return t;
 }
 
 function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats) {
-  let m = `## 📝 待办日报\n`;
+  let m = `## 📝 待办日报${todoTitleDate(today)}\n`;
   if (stats) m += `未完成 **${stats.pending}** 项${stats.overdue ? ` · 逾期 **${stats.overdue}** 项` : ''}\n`;
-  const walk = (node, depth) => {
+  const walk = (node, depth, rootDue) => {
     const indent = '  '.repeat(depth);
     const cat = node.category ? ` \`${node.category}\`` : '';
-    m += `${indent}- ${TODO_PRI_ICON[node.priority] || '⚪'} ${node.title}${cat}${todoOverdueTag(node, today, 'markdown')}\n`;
-    for (const c of node.children) walk(c, depth + 1);
+    m += `${indent}- ${TODO_PRI_ICON[node.priority] || '⚪'} ${node.title}${cat}${todoDateTag(rootDue, today, 'markdown')}\n`;
+    for (const c of node.children) walk(c, depth + 1, rootDue);
   };
-  for (const root of trees) walk(root, 0);
-  if (trees.length === 0) m += `\n🎉 全部完成，暂无未完成待办\n`;
+  for (const root of trees) walk(root, 0, root.due_date);
+  if (trees.length === 0) m += `\n🎉 今日无到期或逾期待办\n`;
   if (base && token) m += `\n[➕ 协作添加/勾选](${base}/t/${token})\n`;
   if (base && reportToken) m += `[📋 查看全部待办](${base}/tr/${reportToken})\n`;
   return m;
@@ -528,25 +557,25 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats) 
 
 function buildTodoReportHTML(trees, base, token, reportToken, today, stats) {
   let h = `<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;">
-    <h2 style="font-size:18px;">📝 待办日报</h2>`;
+    <h2 style="font-size:18px;">📝 待办日报${todoTitleDate(today)}</h2>`;
   if (stats) {
     h += `<p style="margin:4px 0;color:#4a6cf7;font-weight:600;">未完成 ${stats.pending} 项`;
     if (stats.overdue) h += ` · <span style="color:#cf1322;">逾期 ${stats.overdue} 项</span>`;
     h += `</p>`;
   }
   const PRI_COLOR = { 2: '#cf1322', 1: '#faad14', 0: '#c7ccd6' };
-  const walk = (node, depth) => {
+  const walk = (node, depth, rootDue) => {
     const pad = 12 + depth * 20;
     const bar = PRI_COLOR[node.priority] || '#c7ccd6';
     const cat = node.category
       ? ` <span style="background:#eef1ff;color:#4a6cf7;border-radius:4px;padding:1px 7px;font-size:12px;">${node.category}</span>` : '';
     h += `<div style="margin:6px 0 6px ${pad}px;padding:8px 12px;background:#f8f9fa;border-left:3px solid ${bar};border-radius:6px;">
-      <span style="font-size:14px;">${node.title}</span>${cat}${todoOverdueTag(node, today, 'html')}
+      <span style="font-size:14px;">${node.title}</span>${cat}${todoDateTag(rootDue, today, 'html')}
     </div>`;
-    for (const c of node.children) walk(c, depth + 1);
+    for (const c of node.children) walk(c, depth + 1, rootDue);
   };
-  for (const root of trees) walk(root, 0);
-  if (trees.length === 0) h += `<p style="color:#389e0d;">🎉 全部完成，暂无未完成待办</p>`;
+  for (const root of trees) walk(root, 0, root.due_date);
+  if (trees.length === 0) h += `<p style="color:#389e0d;">🎉 今日无到期或逾期待办</p>`;
   if (base && token) {
     h += `<div style="margin:12px 0;"><a href="${base}/t/${token}" target="_blank" rel="noopener" style="display:inline-block;padding:8px 14px;background:#4a6cf7;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;">➕ 协作添加 / 勾选</a></div>`;
   }
@@ -557,4 +586,4 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats) {
   return h;
 }
 
-export { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport };
+export { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue };

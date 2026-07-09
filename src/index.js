@@ -44,8 +44,8 @@ import {
 import { buildAssetReportData } from './services/asset.service.js';
 import { getPushConfig, setPushConfig } from './api/push.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
-import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport } from './services/report.service.js';
-import { buildTree, flattenPending, countStats } from './services/todo.service.js';
+import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue } from './services/report.service.js';
+import { buildTree, flattenPending } from './services/todo.service.js';
 import {
   listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink as getTodoShareLink, todoChart,
   publicTodoInfo, publicAddTodo, publicToggleTodo, publicTodoReport, publicTodoChart
@@ -593,10 +593,10 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
   }
   if (module === 'todo') {
     const rows = await storage.todo.listByUser(userId);
-    const stats = countStats(rows, nowCN(Date.now(), tzOffset).dateStr);
-    if (stats.pending === 0) return null; // 无未完成待办不推送
     const today = nowCN(Date.now(), tzOffset).dateStr;
     const pendingTrees = flattenPending(buildTree(rows));
+    // 仅当存在"截止今天或已逾期"的未完成任务时才推送，否则跳过（不发空日报）
+    if (filterTodayOverdue(pendingTrees, today).length === 0) return null;
     const base = await resolveBaseUrl(storage, env);
     // 顶层任务 token（协作添加/勾选）：取第一个顶层任务，无 token 则生成持久化
     let token = null;
@@ -609,7 +609,7 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
     // 用户级报告 token（查看全部待办）
     let reportToken = null;
     if (base) reportToken = await storage.push.ensureReportToken(userId, 'todo', generateToken());
-    return buildTodoReport(pendingTrees, { format, base, token, reportToken, today, stats });
+    return buildTodoReport(pendingTrees, { format, base, token, reportToken, today });
   }
   return null;
 }

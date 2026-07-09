@@ -49,10 +49,12 @@ async function createTodo({ request, env }) {
     const parent = await storage.todo.findById(parentId);
     if (!parent || parent.user_id !== auth.user_id) return error('父任务不存在', 404);
   }
+  // 子任务日期继承主任务，不单独存日期；仅顶层任务可设 due_date
+  const dueDate = parentId != null ? null : ((body.due_date || '').trim() || null);
   const id = await storage.todo.create(auth.user_id, {
     parent_id: parentId, title,
     priority: normPriority(body.priority),
-    due_date: (body.due_date || '').trim() || null,
+    due_date: dueDate,
     category: (body.category || '').trim() || null,
     note: (body.note || '').trim() || null
   });
@@ -71,10 +73,12 @@ async function updateTodo({ request, env, params }) {
   const id = parseInt(params.id, 10);
   const t = await storage.todo.findById(id);
   if (!t || t.user_id !== auth.user_id) return error('任务不存在', 404);
+  // 子任务日期继承主任务，不单独存日期；仅顶层任务可设 due_date
+  const dueDate = t.parent_id != null ? null : ((body.due_date || '').trim() || null);
   await storage.todo.update(id, auth.user_id, {
     title,
     priority: normPriority(body.priority),
-    due_date: (body.due_date || '').trim() || null,
+    due_date: dueDate,
     category: (body.category || '').trim() || null,
     note: (body.note || '').trim() || null
   });
@@ -182,10 +186,11 @@ async function publicAddTodo({ request, env, params }) {
     parentId = parseInt(body.parent_id, 10);
     if (!allowIds.has(parentId)) return error('父任务不属于此清单', 400);
   }
+  // 免密添加的任务均为某任务的子任务（挂在 root 或其后代下），日期继承主任务，不单独存
   const id = await storage.todo.create(root.user_id, {
     parent_id: parentId, title,
     priority: normPriority(body.priority),
-    due_date: (body.due_date || '').trim() || null,
+    due_date: null,
     category: (body.category || '').trim() || null,
     note: (body.note || '').trim() || null
   });
