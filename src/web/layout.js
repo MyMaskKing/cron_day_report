@@ -216,7 +216,14 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .todo-range button { border: 1px solid #dfe3ee; background: #fff; color: #5a6b9a; font-size: 13px; padding: 5px 12px; border-radius: 999px; cursor: pointer; transition: .15s; }
 .todo-range button:hover { border-color: #4a6cf7; color: #4a6cf7; }
 .todo-range button.active { background: #4a6cf7; border-color: #4a6cf7; color: #fff; }
+/* 筛选 tab：复用 range pill 样式，与列表间留白 */
+.todo-filter { margin: 4px 0 12px; }
 @media (prefers-reduced-motion: reduce) { .todo-row, .todo-check, .todo-check::after, .todo-caret { transition: none; } }
+/* 子任务长按拖拽：拖动中的节点浮起，拖动期间全局禁选中并显示抓取光标 */
+.todo-node.dragging { opacity: .92; }
+.todo-node.dragging > .todo-row { box-shadow: 0 8px 24px rgba(74,108,247,.28); border-color: #4a6cf7; background: #fff; cursor: grabbing; transform: scale(1.01); }
+body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action: none; cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) { .todo-node.dragging > .todo-row { transform: none; } }
 
 
 /* ============ 移动端适配 (<=640px) ============ */

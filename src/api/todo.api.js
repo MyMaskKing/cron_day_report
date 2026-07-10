@@ -103,6 +103,29 @@ async function toggleTodo({ request, env, params }) {
   return json({ success: true, message: done ? '已完成' : '已取消完成' });
 }
 
+/** PUT /api/todo/reorder  子任务同级重排  body: { parent_id, ids:[...] }
+ * 校验 ids 全属该用户且 parent_id 与 body 一致，再批量写 sort_order
+ */
+async function reorderTodo({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const parentId = body.parent_id != null && body.parent_id !== '' ? parseInt(body.parent_id, 10) : null;
+  const ids = Array.isArray(body.ids) ? body.ids.map(v => parseInt(v, 10)).filter(n => !isNaN(n)) : [];
+  if (ids.length === 0) return error('缺少排序列表');
+
+  const storage = getStorage(env);
+  // 逐个校验归属与同父，防越权/跨级
+  for (const id of ids) {
+    const t = await storage.todo.findById(id);
+    if (!t || t.user_id !== auth.user_id) return error('任务不存在', 404);
+    const tp = t.parent_id != null ? t.parent_id : null;
+    if (tp !== parentId) return error('存在跨层级的任务，无法排序', 400);
+  }
+  await storage.todo.reorder(auth.user_id, parentId, ids);
+  return json({ success: true, message: '顺序已更新' });
+}
+
 /** DELETE /api/todo/:id  删除任务（级联删除全部子任务） */
 async function removeTodo({ request, env, params }) {
   const auth = await requireAuth(request, env);
@@ -374,8 +397,30 @@ async function publicAllUpdate({ request, env, params }) {
   return json({ success: true, message: '任务已更新' });
 }
 
+/** PUT /api/public/todo-all/:token/reorder  免密汇总页子任务同级重排  body: { parent_id, ids:[...] }
+ * 校验 ids 全属该用户且 parent_id 与 body 一致，再批量写 sort_order
+ */
+async function publicAllReorder({ request, env, params }) {
+  const storage = getStorage(env);
+  const userId = await resolveUserByReportToken(storage, params.token);
+  if (userId == null) return error('链接无效或已失效', 404);
+  const body = await request.json().catch(() => ({}));
+  const parentId = body.parent_id != null && body.parent_id !== '' ? parseInt(body.parent_id, 10) : null;
+  const ids = Array.isArray(body.ids) ? body.ids.map(v => parseInt(v, 10)).filter(n => !isNaN(n)) : [];
+  if (ids.length === 0) return error('缺少排序列表');
+
+  for (const id of ids) {
+    const t = await storage.todo.findById(id);
+    if (!t || t.user_id !== userId) return error('任务不存在', 404);
+    const tp = t.parent_id != null ? t.parent_id : null;
+    if (tp !== parentId) return error('存在跨层级的任务，无法排序', 400);
+  }
+  await storage.todo.reorder(userId, parentId, ids);
+  return json({ success: true, message: '顺序已更新' });
+}
+
 export {
-  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink, todoChart,
+  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, getShareLink, todoChart, reorderTodo,
   publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicTodoReport, publicTodoChart,
-  publicAllAdd, publicAllToggle, publicAllUpdate
+  publicAllAdd, publicAllToggle, publicAllUpdate, publicAllReorder
 };

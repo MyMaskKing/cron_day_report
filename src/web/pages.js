@@ -620,8 +620,15 @@ function todoPage(user) {
     <div class="card">
       <h2>待办清单
         <button class="btn sm" id="tAdd" style="float:right;">+ 新建任务</button>
-        <label style="float:right;margin-right:14px;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;"> 隐藏已完成</label>
+        <label style="float:right;margin-right:14px;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
       </h2>
+      <div class="todo-range todo-filter" id="todoFilter">
+        <button data-filter="all" class="active">全部</button>
+        <button data-filter="today">今日</button>
+        <button data-filter="future">未来</button>
+        <button data-filter="memo">备忘录</button>
+        <button data-filter="done">已完成</button>
+      </div>
       <div id="todoTree" class="todo-tree"></div>
       <p class="muted" style="margin-top:8px;">勾选父任务将连带其全部子任务；每个顶层任务可生成免密协作链接，家人无需登录即可添加或勾选。</p>
     </div>

@@ -529,17 +529,18 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats) {
   const line = '━━━━━━━━━━━━━━';
   let t = `📝 待办日报${todoTitleDate(today)}\n${line}\n`;
   if (stats) t += `未完成 ${stats.pending} 项${stats.overdue ? `，其中逾期 ${stats.overdue} 项` : ''}\n${line}\n`;
-  // 子任务用树形连接线体现从属；日期继承主任务，只在主任务行显示一次
+  // 子任务用树形连接线体现从属；方块 ▪ 与主任务圆点形成形状对比；子任务不标优先级，日期继承主任务
   const walkChild = (node, prefix, isLast) => {
     const cat = node.category ? `〔${node.category}〕` : '';
-    t += `${prefix}${isLast ? '└─ ' : '├─ '}${TODO_PRI_ICON[node.priority] || '⚪'} ${node.title}${cat}\n`;
+    t += `${prefix}${isLast ? '└─ ' : '├─ '}▪ ${node.title}${cat}\n`;
     const childPrefix = prefix + (isLast ? '   ' : '│  ');
     node.children.forEach((c, i) => walkChild(c, childPrefix, i === node.children.length - 1));
   };
   trees.forEach((root, ri) => {
     if (ri > 0) t += '\n';
     const cat = root.category ? `〔${root.category}〕` : '';
-    t += `📂 ${TODO_PRI_ICON[root.priority] || '⚪'} ${root.title}${cat}${todoDateTag(root.due_date, today, 'text')}\n`;
+    // 主任务：竖条 ▍ 作层级标识 + 彩色圆点表优先级
+    t += `▍${TODO_PRI_ICON[root.priority] || '⚪'} ${root.title}${cat}${todoDateTag(root.due_date, today, 'text')}\n`;
     root.children.forEach((c, i) => walkChild(c, '', i === root.children.length - 1));
   });
   if (trees.length === 0) t += '🎉 今日无到期或逾期待办\n';
@@ -551,16 +552,17 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats) {
 function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats) {
   let m = `## 📝 待办日报${todoTitleDate(today)}\n`;
   if (stats) m += `未完成 **${stats.pending}** 项${stats.overdue ? ` · 逾期 **${stats.overdue}** 项` : ''}\n`;
-  // 子任务用嵌套列表；日期继承主任务，只在主任务标题显示一次
+  // 子任务用嵌套列表；方块 ▪ 与主任务圆点形成形状对比；子任务不标优先级，日期继承主任务
   const walkChild = (node, depth) => {
     const indent = '  '.repeat(depth);
     const cat = node.category ? ` \`${node.category}\`` : '';
-    m += `${indent}- ${TODO_PRI_ICON[node.priority] || '⚪'} ${node.title}${cat}\n`;
+    m += `${indent}- ▪ ${node.title}${cat}\n`;
     for (const c of node.children) walkChild(c, depth + 1);
   };
   for (const root of trees) {
     const cat = root.category ? ` \`${root.category}\`` : '';
-    m += `\n**📂 ${TODO_PRI_ICON[root.priority] || '⚪'} ${root.title}**${cat}${todoDateTag(root.due_date, today, 'markdown')}\n`;
+    // 主任务：竖条 ▍ 作层级标识 + 彩色圆点表优先级
+    m += `\n**▍${TODO_PRI_ICON[root.priority] || '⚪'} ${root.title}**${cat}${todoDateTag(root.due_date, today, 'markdown')}\n`;
     for (const c of root.children) walkChild(c, 0);
   }
   if (trees.length === 0) m += `\n🎉 今日无到期或逾期待办\n`;

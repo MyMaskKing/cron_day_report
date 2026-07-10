@@ -1967,6 +1967,7 @@ function renderTodoTree(container, trees, opts) {
     var wrap = document.createElement('div');
     wrap.className = 'todo-node';
     wrap.setAttribute('data-depth', depth);
+    wrap.setAttribute('data-id', node.id);
     wrap.style.setProperty('--depth', depth);
 
     var row = document.createElement('div');
@@ -2065,6 +2066,10 @@ function renderTodoTree(container, trees, opts) {
         childBox.classList.toggle('collapsed');
       });
     }
+    // 子任务长按拖拽排序：仅非只读、提供 onReorder、且为子任务(depth>0)时启用
+    if (!opts.readOnly && opts.onReorder && depth > 0) {
+      todoBindDrag(row, wrap, node, opts);
+    }
     return wrap;
   }
   function mkOp(icon, title, fn) {
@@ -2077,6 +2082,76 @@ function renderTodoTree(container, trees, opts) {
   var any = false;
   trees.forEach(function(t){ var el = walk(t, 0, t.due_date); if (el) { container.appendChild(el); any = true; } });
   if (!any) container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
+}
+// 子任务长按拖拽排序（仅同级重排）：长按 400ms 激活，同父兄弟间按位置插入，松手回调 onReorder
+// row: 触发拖拽的行；wrap: 该节点 .todo-node 容器；node: 数据节点；opts.onReorder(parentId, ids)
+function todoBindDrag(row, wrap, node, opts) {
+  var LONG_PRESS = 400, MOVE_TOL = 8;
+  var timer = null, dragging = false, startY = 0, startX = 0, parentBox = null;
+  function siblings() {
+    // 同父下的兄弟 .todo-node（parentBox 的直接子节点中带 data-id 的）
+    return Array.prototype.filter.call(parentBox.children, function(el){
+      return el.classList && el.classList.contains('todo-node');
+    });
+  }
+  function cleanup() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (dragging) {
+      dragging = false;
+      wrap.classList.remove('dragging');
+      document.body.classList.remove('todo-dragging');
+    }
+    document.removeEventListener('pointermove', onMove, true);
+    document.removeEventListener('pointerup', onUp, true);
+    document.removeEventListener('pointercancel', onUp, true);
+  }
+  function activate() {
+    dragging = true;
+    parentBox = wrap.parentNode; // .todo-children
+    wrap.classList.add('dragging');
+    document.body.classList.add('todo-dragging');
+    if (navigator.vibrate) { try { navigator.vibrate(15); } catch(e){} }
+  }
+  function onMove(e) {
+    var y = e.clientY, x = e.clientX;
+    if (!dragging) {
+      // 激活前：移动超阈值判为滚动/误触，取消长按
+      if (Math.abs(y - startY) > MOVE_TOL || Math.abs(x - startX) > MOVE_TOL) cleanup();
+      return;
+    }
+    e.preventDefault();
+    // 在同父兄弟中找到应插入的位置：以各兄弟中点为界
+    var sibs = siblings();
+    for (var i = 0; i < sibs.length; i++) {
+      var el = sibs[i];
+      if (el === wrap) continue;
+      var r = el.getBoundingClientRect();
+      var mid = r.top + r.height / 2;
+      if (y < mid) { if (el !== wrap.nextSibling) parentBox.insertBefore(wrap, el); return; }
+    }
+    // 落到末尾
+    if (wrap !== parentBox.lastChild) parentBox.appendChild(wrap);
+  }
+  function onUp() {
+    var wasDragging = dragging;
+    var box = parentBox;
+    cleanup();
+    if (!wasDragging || !box) return;
+    var ids = Array.prototype.filter.call(box.children, function(el){
+      return el.classList && el.classList.contains('todo-node');
+    }).map(function(el){ return parseInt(el.getAttribute('data-id'), 10); });
+    var pid = node.parent_id != null ? node.parent_id : null;
+    opts.onReorder(pid, ids);
+  }
+  row.addEventListener('pointerdown', function(e){
+    // 忽略勾选框/操作按钮上的按压，避免与点击冲突
+    if (e.target.closest('.todo-check') || e.target.closest('.todo-ops')) return;
+    startY = e.clientY; startX = e.clientX;
+    timer = setTimeout(activate, LONG_PRESS);
+    document.addEventListener('pointermove', onMove, true);
+    document.addEventListener('pointerup', onUp, true);
+    document.addEventListener('pointercancel', onUp, true);
+  });
 }
 // 任务编辑表单 HTML：标题(多行长文本)/优先级/截止(仅顶层, 新建默认当天)/分类/备注
 // isNew=true 新建；isChild=true 为子任务(日期继承主任务, 不显示日期字段)
@@ -2095,7 +2170,8 @@ function todoFormHtml(t, isNew, isChild) {
       '</select></div>' +
       dueField +
     '</div>' +
-    (isChild ? '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📅 子任务的截止日期跟随主任务</p>' : '') +
+    (isChild ? '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📅 子任务的截止日期跟随主任务</p>'
+             : '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📌 留空截止日期即作备忘录，不计入日报</p>') +
     '<label>分类（可选）</label><input id="tfCat" value="' + esc(t.category || '') + '" placeholder="如 工作 / 家庭">' +
     '<label>备注（可选）</label>' +
     '<textarea id="tfNote" rows="2" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
@@ -2220,9 +2296,21 @@ async function loadTodos() {
   document.getElementById('stTotal').textContent = s.total;
   drawTree();
 }
+var _filter = 'all'; // all | today | future | memo | done
+// 按筛选归类顶层任务（子任务随顶层，因日期继承主任务）
+function todoFilterTrees(trees) {
+  var t = todayStr();
+  if (_filter === 'today')  return trees.filter(function(n){ return n.due_date && n.due_date <= t; });
+  if (_filter === 'future') return trees.filter(function(n){ return n.due_date && n.due_date > t; });
+  if (_filter === 'memo')   return trees.filter(function(n){ return !n.due_date; });
+  if (_filter === 'done')   return trees.filter(function(n){ return n.done; });
+  return trees;
+}
 function drawTree() {
-  var hideDone = document.getElementById('hideDone').checked;
-  renderTodoTree(document.getElementById('todoTree'), todoBuildTree(_rows), {
+  // 已完成 tab 下强制显示完成项，否则遵从复选框
+  var hideDone = _filter === 'done' ? false : document.getElementById('hideDone').checked;
+  var trees = todoFilterTrees(todoBuildTree(_rows));
+  renderTodoTree(document.getElementById('todoTree'), trees, {
     today: todayStr(), hideDone: hideDone,
     onToggle: async function(node, done){
       try {
@@ -2257,6 +2345,10 @@ function drawTree() {
           '<input id="tShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
           '<button class="btn" onclick="todoCopy()">复制链接</button>');
       } catch(e){ alert(e.message); }
+    },
+    onReorder: async function(parentId, ids){
+      try { await api('/api/todo/reorder', { method:'PUT', body:{ parent_id: parentId, ids: ids } }); await loadTodos(); }
+      catch(e){ alert(e.message); await loadTodos(); }
     }
   });
 }
@@ -2274,6 +2366,15 @@ function openAddForm(parentId, title, isChild) {
 }
 document.getElementById('tAdd').addEventListener('click', function(){ openAddForm(null, '新建任务', false); });
 document.getElementById('hideDone').addEventListener('change', drawTree);
+// 筛选 tab：点击切换 active 并重绘
+document.getElementById('todoFilter').addEventListener('click', function(e){
+  var btn = e.target.closest('button[data-filter]');
+  if (!btn) return;
+  _filter = btn.getAttribute('data-filter');
+  Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  drawTree();
+});
 
 // 任务趋势图（含子任务）
 var _curRange = '7d';
@@ -2518,7 +2619,11 @@ function drawTree(trees) {
         catch(e){ alert(e.message); }
       });
     },
-    onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务', true); }
+    onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务', true); },
+    onReorder: async function(parentId, ids){
+      try { await api('/api/public/todo-all/' + _token + '/reorder', { method:'PUT', body:{ parent_id: parentId, ids: ids } }); await loadCollab(); }
+      catch(e){ alert(e.message); await loadCollab(); }
+    }
   });
 }
 function openAddForm(parentId, title, isChild) {

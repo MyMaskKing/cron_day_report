@@ -474,6 +474,21 @@ function createD1Adapter(env) {
           'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=? WHERE id=? AND user_id=?'
         ).bind(t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, t.note || null, id, userId).run();
       },
+      // 同级重排：按 orderedIds 顺序批量写 sort_order=0..n
+      // 双校验 user_id + parent_id，越权或跨级的 id 不会被更新；parentId 为 null 表顶层
+      async reorder(userId, parentId, orderedIds) {
+        if (!orderedIds || orderedIds.length === 0) return;
+        const parentCond = parentId == null ? 'parent_id IS NULL' : 'parent_id=?';
+        const stmts = orderedIds.map((id, i) => {
+          const stmt = db.prepare(
+            `UPDATE todos SET sort_order=? WHERE id=? AND user_id=? AND ${parentCond}`
+          );
+          return parentId == null
+            ? stmt.bind(i, id, userId)
+            : stmt.bind(i, id, userId, parentId);
+        });
+        await db.batch(stmts);
+      },
       // 批量置完成状态（勾选父任务级联子树时用）；done=1 写完成日期，done=0 清空
       async setDone(idList, done, doneAt) {
         if (!idList || idList.length === 0) return;
