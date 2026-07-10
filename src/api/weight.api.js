@@ -15,22 +15,22 @@ function todayCN() {
   return now.toISOString().slice(0, 10);
 }
 
-/** 计算坚持天数（从首次记录日期至今，含当天） */
-function daysSince(firstDate) {
-  if (!firstDate) return 1;
-  const start = new Date(firstDate + 'T00:00:00Z');
-  const today = new Date(todayCN() + 'T00:00:00Z');
-  const diff = Math.floor((today - start) / (24 * 3600 * 1000)) + 1;
-  return diff > 0 ? diff : 1;
+/** 本年累计打卡天数（按记录日期去重，仅计当年，跨年归零） */
+function yearCheckins(records, today) {
+  const year = (today || '').slice(0, 4);
+  if (!year) return 0;
+  return new Set(
+    records.filter(r => (r.record_date || '').slice(0, 4) === year).map(r => r.record_date)
+  ).size;
 }
 
-/** 根据坚持天数生成鼓励标题 */
+/** 根据本年累计打卡天数生成鼓励标题 */
 function streakTitle(days) {
-  if (days <= 1) return '开始记录第 1 天，加油！';
-  if (days < 7) return `已坚持 ${days} 天，继续保持！`;
-  if (days < 30) return `已坚持 ${days} 天，习惯正在养成！`;
-  if (days < 100) return `已坚持 ${days} 天，非常棒！`;
-  return `已坚持 ${days} 天，了不起的毅力！`;
+  if (days <= 1) return '今年开始记录第 1 天，加油！';
+  if (days < 7) return `今年已累计打卡 ${days} 天，继续保持！`;
+  if (days < 30) return `今年已累计打卡 ${days} 天，习惯正在养成！`;
+  if (days < 100) return `今年已累计打卡 ${days} 天，非常棒！`;
+  return `今年已累计打卡 ${days} 天，了不起的毅力！`;
 }
 
 // ==================== 成员 ====================
@@ -223,10 +223,9 @@ async function publicMemberInfo({ env, params }) {
   const m = await storage.weight.findMemberByShareToken(params.token);
   if (!m) return error('链接无效或已失效', 404);
 
-  const firstDate = await storage.weight.getMemberFirstDate(m.id);
-  const days = daysSince(firstDate);
   const records = await storage.weight.listRecords(m.user_id, m.id);
   const today = todayCN();
+  const days = yearCheckins(records, today);
   const todayRecord = records.find(r => r.record_date === today);
   // 本月已打卡天数（按记录日期去重，YYYY-MM 匹配当月）
   const month = today.slice(0, 7);
