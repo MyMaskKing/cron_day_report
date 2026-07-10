@@ -238,13 +238,25 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 }
 .card:hover .chart-fs-btn { opacity: 1; }
 .chart-fs-btn:hover { background: #eef1ff; color: #4a6cf7; }
-/* 全屏遮罩层 + 旋转舞台：舞台尺寸取视口对调后旋转 90°，竖屏手机上铺满成横向 */
-.chart-fs-mask { position: fixed; inset: 0; z-index: 9998; background: #fff; overflow: hidden; }
+/* 全屏遮罩层：半透明底 + 居中舞台。横屏(PC/平板)直接放大；竖屏(手机)旋转 90° 铺满 */
+.chart-fs-mask { position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,.55); overflow: hidden; }
 .chart-fs-stage {
   position: absolute; top: 50%; left: 50%;
-  width: 100vh; height: 100vw;
-  transform: translate(-50%, -50%) rotate(90deg);
-  padding: 16px 44px 16px 16px; box-sizing: border-box;
+  transform: translate(-50%, -50%);
+  background: #fff; border-radius: 12px; box-shadow: 0 12px 48px rgba(0,0,0,.35);
+  padding: 24px; box-sizing: border-box;
+}
+/* 横屏(PC/宽屏)：大弹窗，取视口九成，不旋转 */
+@media (orientation: landscape) {
+  .chart-fs-stage { width: 90vw; height: 88vh; }
+}
+/* 竖屏(手机)：舞台取视口对调后旋转 90°，铺满成横向大图 */
+@media (orientation: portrait) {
+  .chart-fs-mask { background: #fff; }
+  .chart-fs-stage {
+    width: 100vh; height: 100vw; border-radius: 0; box-shadow: none; padding: 16px 44px 16px 16px;
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
 }
 /* 全屏时图表填满舞台：关掉宽高比后由 Chart.js 按容器 100% 铺满 */
 .chart-fs-stage canvas { width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important; display: block; }

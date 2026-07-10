@@ -288,9 +288,11 @@ function openChartFullscreen(cv) {
   mask.appendChild(stage);
   mask.appendChild(close);
   document.body.appendChild(mask);
-  // 用原图的 type/data + 覆盖 maintainAspectRatio 的 options 副本新建（浅拷贝 options，不改原对象）
+  // 用原图的 type/data + options 副本新建；data 深拷贝，避免两实例共享引用导致图例 toggle 互相污染
   var opts = Object.assign({}, src.config.options, { responsive: true, maintainAspectRatio: false });
-  fsChart = new Chart(fsCanvas, { type: src.config.type, data: src.config.data, options: opts });
+  var dataCopy;
+  try { dataCopy = JSON.parse(JSON.stringify(src.config.data)); } catch(e) { dataCopy = src.config.data; }
+  fsChart = new Chart(fsCanvas, { type: src.config.type, data: dataCopy, options: opts });
 }
 // 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
 if (document.readyState === 'loading') {
