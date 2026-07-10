@@ -118,7 +118,7 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .stat .num { font-size: 28px; font-weight: 700; color: #4a6cf7; }
 .stat .lbl { font-size: 13px; color: #666; margin-top: 4px; }
 #globalLoading { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.55); backdrop-filter: blur(1px); z-index: 9999; align-items: center; justify-content: center; }
-#globalLoading .spinner { width: 46px; height: 46px; border: 4px solid #d9d9d9; border-top-color: #4a6cf7; border-radius: 50%; animation: spin .8s linear infinite; }
+#globalLoading .spinner { width: 46px; height: 46px; margin: 0 auto; border: 4px solid #d9d9d9; border-top-color: #4a6cf7; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* 弹窗 modal */
