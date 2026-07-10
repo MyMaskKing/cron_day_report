@@ -79,7 +79,7 @@ function bindLogout() {
   if (stopBtn) stopBtn.addEventListener('click', async function(e) {
     e.preventDefault();
     try { await api('/api/admin/stop-impersonate', { method: 'POST' }); location.href = '/admin'; }
-    catch (err) { alert(err.message); }
+    catch (err) { alertModal(err.message, {ok:false}); }
   });
 }
 function esc(s) {
@@ -287,7 +287,7 @@ function bindQuickLogin(kind) {
     try {
       var r = await api('/api/public/quick-login/' + kind + '/' + tk, { method: 'POST' });
       location.href = r.redirect || '/dashboard';
-    } catch (err) { alert(err.message); }
+    } catch (err) { alertModal(err.message, {ok:false}); }
   });
 }
 // 图表横屏全屏查看：给页面每个图表 canvas 加「⛶」按钮，点击把 canvas 移入旋转 90° 的全屏层
@@ -513,7 +513,7 @@ async function loadUsers() {
           '</div>' +
         '</div></td></tr>';
     }).join('');
-  } catch (err) { alert(err.message); if (err.message.indexOf('权限') >= 0 || err.message.indexOf('登录') >= 0) location.href = '/login'; }
+  } catch (err) { alertModal(err.message, {ok:false}); if (err.message.indexOf('权限') >= 0 || err.message.indexOf('登录') >= 0) location.href = '/login'; }
 }
 async function viewUser(id) {
   try {
@@ -535,32 +535,32 @@ async function viewUser(id) {
         '<button class="btn sm gray" onclick="adminResetShare(' + d.user.id + ",'todo'" + ')">待办</button>' +
       '</div>';
     detail.scrollIntoView({ behavior: 'smooth' });
-  } catch (err) { alert(err.message); }
+  } catch (err) { alertModal(err.message, {ok:false}); }
 }
 window.adminResetShare = async function(userId, module){
   var names = { fund:'基金', weight:'体重', asset:'资产', todo:'待办' };
   if (!confirm('确认重置该用户「' + (names[module]||module) + '」的全部免密链接？旧链接将立即失效。')) return;
   try {
     var r = await api('/api/admin/share/reset/' + module + '/' + userId, { method:'POST' });
-    alert(r.message);
-  } catch(err){ alert(err.message); }
+    alertModal(r.message);
+  } catch(err){ alertModal(err.message, {ok:false}); }
 };
 async function toggleRole(id, cur) {
   var role = cur === 'admin' ? 'user' : 'admin';
   if (!confirm('确认修改角色为 ' + role + ' ?')) return;
   try { await api('/api/admin/users/' + id + '/role', { method: 'PUT', body: { role: role } }); loadUsers(); }
-  catch (err) { alert(err.message); }
+  catch (err) { alertModal(err.message, {ok:false}); }
 }
 async function toggleStatus(id, cur) {
   var status = cur === 'active' ? 'disabled' : 'active';
   if (!confirm('确认修改状态为 ' + status + ' ?')) return;
   try { await api('/api/admin/users/' + id + '/status', { method: 'PUT', body: { status: status } }); loadUsers(); }
-  catch (err) { alert(err.message); }
+  catch (err) { alertModal(err.message, {ok:false}); }
 }
 async function impersonate(id, name) {
   if (!confirm('确认切换到 ' + name + ' 的身份浏览?')) return;
   try { await api('/api/admin/users/' + id + '/impersonate', { method: 'POST' }); location.href = '/dashboard'; }
-  catch (err) { alert(err.message); }
+  catch (err) { alertModal(err.message, {ok:false}); }
 }
 function resetPwd(id, name) {
   openModal('重置密码 · ' + name,
@@ -572,8 +572,8 @@ function resetPwd(id, name) {
     var pwd = document.getElementById('rpPwd').value;
     try {
       var r = await api('/api/admin/users/' + id + '/password', { method: 'PUT', body: pwd ? { password: pwd } : {} });
-      closeModal(); alert(r.message);
-    } catch (err) { alert(err.message); }
+      closeModal(); alertModal(r.message);
+    } catch (err) { alertModal(err.message, {ok:false}); }
   });
 }
 function editNick(id, cur) {
@@ -584,8 +584,8 @@ function editNick(id, cur) {
   document.getElementById('enConfirm').addEventListener('click', async function(){
     try {
       var r = await api('/api/admin/users/' + id + '/nickname', { method: 'PUT', body: { nickname: document.getElementById('enNick').value } });
-      closeModal(); alert(r.message); loadUsers();
-    } catch (err) { alert(err.message); }
+      closeModal(); alertModal(r.message); loadUsers();
+    } catch (err) { alertModal(err.message, {ok:false}); }
   });
 }
 function newUser() {
@@ -603,8 +603,8 @@ function newUser() {
       password: document.getElementById('nuPwd').value || undefined,
       role: document.getElementById('nuRole').value
     };
-    try { var r = await api('/api/admin/users', { method: 'POST', body: payload }); closeModal(); alert(r.message); loadUsers(); }
-    catch (err) { alert(err.message); }
+    try { var r = await api('/api/admin/users', { method: 'POST', body: payload }); closeModal(); alertModal(r.message); loadUsers(); }
+    catch (err) { alertModal(err.message, {ok:false}); }
   });
 }
 window.viewUser = viewUser; window.toggleRole = toggleRole; window.toggleStatus = toggleStatus;
@@ -710,7 +710,7 @@ window.editTask = function(id){ taskForm((window._tasks||[]).filter(function(x){
 window.delTask = async function(id){
   if (!confirm('确认删除该任务?')) return;
   try { await api('/api/monitor/tasks/' + id, { method:'DELETE' }); await loadTasks(); }
-  catch(e){ alert(e.message); }
+  catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.viewLogs = async function(id, name){
   try {
@@ -726,7 +726,7 @@ window.viewLogs = async function(id, name){
           '<td data-label="耗时">' + (l.response_time||0) + 'ms</td><td data-label="大小">' + (l.response_size||0) + '</td></tr>';
       }).join('') || '<tr><td colspan="5" class="muted">暂无日志</td></tr>') + '</tbody></table>';
     box.scrollIntoView({ behavior:'smooth' });
-  } catch(e){ alert(e.message); }
+  } catch(e){ alertModal(e.message, {ok:false}); }
 };
 document.getElementById('tSave').addEventListener('click', async function(){
   var id = document.getElementById('tId').value;
@@ -743,7 +743,7 @@ document.getElementById('tSave').addEventListener('click', async function(){
     else await api('/api/monitor/tasks', { method:'POST', body: payload });
     document.getElementById('taskFormWrap').style.display = 'none';
     await loadTasks();
-  } catch(e){ alert(e.message); }
+  } catch(e){ alertModal(e.message, {ok:false}); }
 });
 document.getElementById('tNew').addEventListener('click', function(){ taskForm({}); });
 document.getElementById('tCancel').addEventListener('click', function(){ document.getElementById('taskFormWrap').style.display='none'; });
@@ -773,8 +773,8 @@ if (mpSave) mpSave.addEventListener('click', async function(){
       hours: mpHourPick ? mpHourPick.getString() : '6',
       enabled: document.getElementById('mpEn').checked
     }});
-    alert('定时配置已保存');
-  } catch(e){ alert(e.message); }
+    alertModal('定时配置已保存');
+  } catch(e){ alertModal(e.message, {ok:false}); }
 });
 var mpSend = document.getElementById('mpSend');
 if (mpSend) mpSend.addEventListener('click', async function(){
@@ -786,7 +786,7 @@ if (mpSend) mpSend.addEventListener('click', async function(){
 
 (async function(){
   try { await loadChannels(); await loadTasks(); await loadMonitorPush(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
 })();
 `;
 
@@ -844,18 +844,18 @@ function chModal(c) {
       if (id) await api('/api/notify/channels/' + id, { method:'PUT', body: payload });
       else await api('/api/notify/channels', { method:'POST', body: payload });
       closeModal(); await loadChannels();
-    } catch(e){ alert(e.message); }
+    } catch(e){ alertModal(e.message, {ok:false}); }
   });
 }
 window.editCh = function(id){ chModal((window._channels||[]).filter(function(x){return x.id===id;})[0]); };
 window.delCh = async function(id){
   if (!confirm('确认删除该渠道?')) return;
-  try { await api('/api/notify/channels/' + id, { method:'DELETE' }); await loadChannels(); } catch(e){ alert(e.message); }
+  try { await api('/api/notify/channels/' + id, { method:'DELETE' }); await loadChannels(); } catch(e){ alertModal(e.message, {ok:false}); }
 };
 document.getElementById('chNew').addEventListener('click', function(){ chModal({}); });
 (async function(){
   try { await loadChannels(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
 })();
 `;
 
@@ -1009,14 +1009,14 @@ function fundForm(f) {
       else await api('/api/fund', { method:'POST', body: payload });
       closeModal();
       await loadReport();
-    } catch(e){ alert(e.message); }
+    } catch(e){ alertModal(e.message, {ok:false}); }
   });
 }
 window.editFund = function(id){ fundForm((window._items||[]).filter(function(x){return x.id===id;})[0]); };
 window.delFund = async function(id){
   if (!confirm('确认删除该持仓?')) return;
   try { await api('/api/fund/' + id, { method:'DELETE' }); await loadReport(); }
-  catch(e){ alert(e.message); }
+  catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.shareLink = async function(id, reset){
   if (reset && !confirm('重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？')) return;
@@ -1028,12 +1028,12 @@ window.shareLink = async function(id, reset){
       '<button class="btn" onclick="copyShare()">复制链接</button> ' +
       '<button class="btn gray" onclick="shareLink(' + id + ', true)">重置链接</button>' +
       (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
-  } catch(e){ alert(e.message); }
+  } catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.copyShare = function(){
   var el = document.getElementById('shareUrl');
   el.select();
-  try { document.execCommand('copy'); alert('已复制'); } catch(e) { alert('请手动复制'); }
+  try { document.execCommand('copy'); alertModal('已复制'); } catch(e) { alertModal('请手动复制', {ok:false}); }
 };
 // 页面内加仓（弹窗）
 window.buyFundUI = function(id){
@@ -1055,9 +1055,9 @@ window.buyFundUI = function(id){
     try {
       var r = await api('/api/fund/' + id + '/buy', { method:'POST', body: payload });
       closeModal();
-      alert('加仓成功！新增 ' + r.addShares + ' 份，当前共 ' + r.newShares + ' 份，成本净值 ' + r.newCostNav);
+      alertModal('加仓成功！新增 ' + r.addShares + ' 份，当前共 ' + r.newShares + ' 份，成本净值 ' + r.newCostNav);
       await loadReport();
-    } catch(e){ alert(e.message); }
+    } catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
 document.getElementById('fNew').addEventListener('click', function(){ fundForm({}); });
@@ -1083,8 +1083,8 @@ document.getElementById('rcSave').addEventListener('click', async function(){
     hours: rcHourPick ? rcHourPick.getString() : '15',
     enabled: document.getElementById('rcEnabled').checked
   };
-  try { await api('/api/push/fund', { method:'PUT', body: payload }); alert('日报配置已保存'); }
-  catch(e){ alert(e.message); }
+  try { await api('/api/push/fund', { method:'PUT', body: payload }); alertModal('日报配置已保存'); }
+  catch(e){ alertModal(e.message, {ok:false}); }
 });
 document.getElementById('rcSend').addEventListener('click', async function(){
   var btn = this; btn.disabled = true; btn.textContent = '发送中...';
@@ -1122,7 +1122,7 @@ document.getElementById('anRun').addEventListener('click', async function(){
     }).join('');
     html += '<p class="muted" style="font-size:12px;margin-top:8px;">' + esc(d.disclaimer) + '</p>';
     box.innerHTML = html;
-  } catch(e){ alert(e.message); }
+  } catch(e){ alertModal(e.message, {ok:false}); }
 });
 
 // ---------- 情景测算 ----------
@@ -1151,14 +1151,14 @@ document.getElementById('scRun').addEventListener('click', async function(){
         '🛑 止损 ' + sign(d.targets.stopLossPct) + '% → 净值 ' + d.targets.stopLossNav + '，亏损约 ' + d.targets.stopLossProfit + ' 元' +
       '</div>' +
       '<p class="muted" style="font-size:12px;margin-top:8px;">' + esc(d.disclaimer) + '</p>';
-  } catch(e){ alert(e.message); }
+  } catch(e){ alertModal(e.message, {ok:false}); }
 });
 
 (async function(){
   _initTotal = 4; _initStep = 0;   // loadReport(净值汇总+收益曲线) + loadReportConfig(渠道+推送配置)
   showLoading('加载中…');   // 外层占位：保持计数>0，使 4 个串行请求间进度不被归零重置
   try { await loadReport(); await loadReportConfig(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
   finally { _initTotal = 0; hideLoading(); }
   // 绑定筛选（select 在 loadReport 时 DOM 已就绪）
   document.getElementById('profitRange').addEventListener('change', applyProfitFilter);
@@ -1351,7 +1351,7 @@ function deltaCell(deltaKg) {
 
 window.mDel = async function(id){
   if (!confirm('删除该成员及其记录?')) return;
-  try { await api('/api/weight/members/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alert(e.message); }
+  try { await api('/api/weight/members/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.mRename = function(id, curName){
   openModal('修改成员名',
@@ -1360,7 +1360,7 @@ window.mRename = function(id, curName){
   document.getElementById('mReConfirm').addEventListener('click', async function(){
     var name = document.getElementById('mReName').value;
     try { await api('/api/weight/members/' + id, { method:'PUT', body:{ name: name } }); closeModal(); await loadAll(); }
-    catch(e){ alert(e.message); }
+    catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
 window.mShare = async function(id, reset){
@@ -1373,9 +1373,9 @@ window.mShare = async function(id, reset){
       '<button class="btn" onclick="wCopy()">复制链接</button> ' +
       '<button class="btn gray" onclick="mShare(' + id + ', true)">重置链接</button>' +
       (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
-  } catch(e){ alert(e.message); }
+  } catch(e){ alertModal(e.message, {ok:false}); }
 };
-window.wCopy = function(){ var el=document.getElementById('wShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
+window.wCopy = function(){ var el=document.getElementById('wShareUrl'); el.select(); try{document.execCommand('copy');alertModal('已复制');}catch(e){alertModal('请手动复制', {ok:false});} };
 window.recEdit = function(id, curKg, curDate){
   openModal('修改记录',
     '<label>日期</label><input id="reD" type="date" value="' + curDate + '">' +
@@ -1388,12 +1388,12 @@ window.recEdit = function(id, curKg, curDate){
         record_date: document.getElementById('reD').value
       }});
       closeModal(); await loadAll();
-    } catch(e){ alert(e.message); }
+    } catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
 window.recDel = async function(id){
   if (!confirm('删除该记录?')) return;
-  try { await api('/api/weight/records/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alert(e.message); }
+  try { await api('/api/weight/records/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
 };
 
 document.getElementById('mAdd').addEventListener('click', function(){
@@ -1402,23 +1402,23 @@ document.getElementById('mAdd').addEventListener('click', function(){
     '<div style="margin-top:12px;"><button class="btn" id="mConfirm">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   document.getElementById('mConfirm').addEventListener('click', async function(){
     try { await api('/api/weight/members', { method:'POST', body:{ name: document.getElementById('mName').value } }); closeModal(); await loadAll(); }
-    catch(e){ alert(e.message); }
+    catch(e){ alertModal(e.message, {ok:false}); }
   });
 });
 document.getElementById('recAdd').addEventListener('click', async function(){
   var w = document.getElementById('recWeight').value;
-  if (!w) { alert('请填写体重'); return; }
+  if (!w) { alertModal('请填写体重', {ok:false}); return; }
   var payload = { member_id: document.getElementById('recMember').value, weight: toKg(w),
     record_date: document.getElementById('recDate').value || undefined };
-  try { var r = await api('/api/weight/records', { method:'POST', body: payload }); alert(r.message);
+  try { var r = await api('/api/weight/records', { method:'POST', body: payload }); alertModal(r.message);
     document.getElementById('recWeight').value = ''; await loadAll(); }
-  catch(e){ alert(e.message); }
+  catch(e){ alertModal(e.message, {ok:false}); }
 });
 // 单位设置
 var unitSel = document.getElementById('unitSel');
 if (unitSel) unitSel.addEventListener('change', async function(){
   try { await api('/api/weight/unit', { method:'PUT', body:{ weight_unit: this.value } }); await loadAll(); }
-  catch(e){ alert(e.message); }
+  catch(e){ alertModal(e.message, {ok:false}); }
 });
 
 // 超管对比
@@ -1454,15 +1454,15 @@ async function initShare() {
 async function runShare() {
   var sel = document.getElementById('shareMemberSel');
   var mid = sel && sel.value ? parseInt(sel.value, 10) : NaN;
-  if (isNaN(mid)) { alert('请选择要引用的成员'); return; }
+  if (isNaN(mid)) { alertModal('请选择要引用的成员', {ok:false}); return; }
   try {
     var r = await api('/api/admin/weight/share', { method:'POST', body:{ member_id: mid } });
-    alert(r.message); await loadAll(); await initShare();
-  } catch(e){ alert(e.message); }
+    alertModal(r.message); await loadAll(); await initShare();
+  } catch(e){ alertModal(e.message, {ok:false}); }
 }
 async function runCompare() {
   var ids = Array.prototype.slice.call(document.querySelectorAll('#cmpUsers input:checked')).map(function(x){ return x.value; });
-  if (!ids.length) { alert('请至少选择一个用户'); return; }
+  if (!ids.length) { alertModal('请至少选择一个用户', {ok:false}); return; }
   var d = await api('/api/admin/weight/compare?userIds=' + ids.join(','));
   var byKey = {}; var dates = {};
   d.records.forEach(function(r){
@@ -1521,8 +1521,8 @@ if (pushSave) pushSave.addEventListener('click', async function(){
       hours: wPushHourPick ? wPushHourPick.getString() : '10',
       enabled: document.getElementById('pushEn').checked
     }});
-    alert('推送配置已保存');
-  } catch(e){ alert(e.message); }
+    alertModal('推送配置已保存');
+  } catch(e){ alertModal(e.message, {ok:false}); }
 });
 var pushSend = document.getElementById('pushSend');
 if (pushSend) pushSend.addEventListener('click', async function(){
@@ -1534,7 +1534,7 @@ if (pushSend) pushSend.addEventListener('click', async function(){
 
 (async function(){
   try { await loadAll(); initFilter(); await loadPush(); await initCompare(); await initShare(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
 })();
 `;
 
@@ -1974,7 +1974,7 @@ function openRecModal(id, type, month, preset, editId) {
   }
   document.getElementById('recConfirm').addEventListener('click', async function(){
     var mm = editId ? document.getElementById('fMonth').value : month;
-    if (!mm) { alert('请选择月份'); return; }
+    if (!mm) { alertModal('请选择月份', {ok:false}); return; }
     var payload = { month: mm };
     if (type === 'investment') { payload.total = document.getElementById('fTotal').value; payload.profit = document.getElementById('fProfit').value; }
     else payload.balance = document.getElementById('fBalance').value;
@@ -1987,7 +1987,7 @@ function openRecModal(id, type, month, preset, editId) {
       }
       closeModal(); await loadAll();
     }
-    catch(e){ alert(e.message); }
+    catch(e){ alertModal(e.message, {ok:false}); }
   });
 }
 // 查看某钱包最新数据月份的记录明细（同月可能多条；创建时间倒序）
@@ -2016,7 +2016,7 @@ window.wRecOther = function(id, type){
     '<div style="margin-top:12px;"><button class="btn" id="omNext">下一步</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   document.getElementById('omNext').addEventListener('click', function(){
     var mm = document.getElementById('omMonth').value;
-    if (!mm) { alert('请选择月份'); return; }
+    if (!mm) { alertModal('请选择月份', {ok:false}); return; }
     openRecModal(id, type, mm, null);
   });
 };
@@ -2032,7 +2032,7 @@ window.recEditRow = function(recId){
 // 删除某条月度记录
 window.recDelRow = async function(id){
   if (!confirm('删除该月度记录?')) return;
-  try { await api('/api/asset/records/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alert(e.message); }
+  try { await api('/api/asset/records/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.wEdit = function(id){
   var w = wallets.filter(function(x){return x.id===id;})[0];
@@ -2043,12 +2043,12 @@ window.wEdit = function(id){
     '<div style="margin-top:12px;"><button class="btn" id="eConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   document.getElementById('eConfirm').addEventListener('click', async function(){
     try { await api('/api/asset/wallets/' + id, { method:'PUT', body:{ type: document.getElementById('eType').value, name: document.getElementById('eName').value } }); closeModal(); await loadAll(); }
-    catch(e){ alert(e.message); }
+    catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
 window.wDel = async function(id){
   if (!confirm('删除该钱包?')) return;
-  try { await api('/api/asset/wallets/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alert(e.message); }
+  try { await api('/api/asset/wallets/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.wShare = async function(id, reset){
   if (reset && !confirm('重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？')) return;
@@ -2060,9 +2060,9 @@ window.wShare = async function(id, reset){
       '<button class="btn" onclick="aCopy()">复制链接</button> ' +
       '<button class="btn gray" onclick="wShare(' + id + ', true)">重置链接</button>' +
       (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
-  } catch(e){ alert(e.message); }
+  } catch(e){ alertModal(e.message, {ok:false}); }
 };
-window.aCopy = function(){ var el=document.getElementById('aShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
+window.aCopy = function(){ var el=document.getElementById('aShareUrl'); el.select(); try{document.execCommand('copy');alertModal('已复制');}catch(e){alertModal('请手动复制', {ok:false});} };
 
 document.getElementById('walletAdd').addEventListener('click', function(){
   var opts = Object.keys(TYPE_LABEL).map(function(k){ return '<option value="'+k+'">'+TYPE_LABEL[k]+'</option>'; }).join('');
@@ -2072,12 +2072,12 @@ document.getElementById('walletAdd').addEventListener('click', function(){
     '<div style="margin-top:12px;"><button class="btn" id="nConfirm">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   document.getElementById('nConfirm').addEventListener('click', async function(){
     try { await api('/api/asset/wallets', { method:'POST', body:{ type: document.getElementById('nType').value, name: document.getElementById('nName').value } }); closeModal(); await loadAll(); }
-    catch(e){ alert(e.message); }
+    catch(e){ alertModal(e.message, {ok:false}); }
   });
 });
 document.getElementById('goalSave').addEventListener('click', async function(){
-  try { await api('/api/asset/goal', { method:'PUT', body:{ target_amount: document.getElementById('goalInput').value } }); await loadAll(); alert('目标已保存'); }
-  catch(e){ alert(e.message); }
+  try { await api('/api/asset/goal', { method:'PUT', body:{ target_amount: document.getElementById('goalInput').value } }); await loadAll(); alertModal('目标已保存'); }
+  catch(e){ alertModal(e.message, {ok:false}); }
 });
 
 // 时间筛选（按月, 默认本年）
@@ -2115,8 +2115,8 @@ document.getElementById('pushSave').addEventListener('click', async function(){
       hours: aPushHourPick ? aPushHourPick.getString() : '9',
       enabled: document.getElementById('pushEn').checked
     }});
-    alert('推送配置已保存');
-  } catch(e){ alert(e.message); }
+    alertModal('推送配置已保存');
+  } catch(e){ alertModal(e.message, {ok:false}); }
 });
 var aPushSend = document.getElementById('pushSend');
 if (aPushSend) aPushSend.addEventListener('click', async function(){
@@ -2128,7 +2128,7 @@ if (aPushSend) aPushSend.addEventListener('click', async function(){
 
 (async function(){
   try { await loadAll(); initAssetFilter(); await loadPush(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
 })();
 `;
 
@@ -2590,7 +2590,7 @@ function drawTree() {
         await loadTodos(); await loadChart();
         if (done) todoCelebrate(_stats.total - _stats.done, _stats.total);
       }
-      catch(e){ alert(e.message); }
+      catch(e){ alertModal(e.message, {ok:false}); }
     },
     onEdit: function(node){
       var isChild = node.parent_id != null;
@@ -2598,21 +2598,21 @@ function drawTree() {
         '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
       document.getElementById('tfSave').addEventListener('click', async function(){
         var body = todoFormRead();
-        if (!body.title) { alert('请填写标题'); return; }
+        if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
         try { await api('/api/todo/' + node.id, { method:'PUT', body: body }); closeModal(); await loadTodos(); }
-        catch(e){ alert(e.message); }
+        catch(e){ alertModal(e.message, {ok:false}); }
       });
     },
     onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务', true); },
     onDel: async function(node){
       if (!confirm('删除「' + node.title + '」及其全部子任务？')) return;
       try { await api('/api/todo/' + node.id, { method:'DELETE' }); await loadTodos(); await loadChart(); }
-      catch(e){ alert(e.message); }
+      catch(e){ alertModal(e.message, {ok:false}); }
     },
     onShare: function(node){ todoShareLink(node.id); },
     onReorder: async function(parentId, ids){
       try { await api('/api/todo/reorder', { method:'PUT', body:{ parent_id: parentId, ids: ids } }); await loadTodos(); }
-      catch(e){ alert(e.message); await loadTodos(); }
+      catch(e){ alertModal(e.message, {ok:false}); await loadTodos(); }
     }
   });
 }
@@ -2626,18 +2626,18 @@ window.todoShareLink = async function(id, reset){
       '<button class="btn" onclick="todoCopy()">复制链接</button> ' +
       '<button class="btn gray" onclick="todoShareLink(' + id + ', true)">重置链接</button>' +
       (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
-  } catch(e){ alert(e.message); }
+  } catch(e){ alertModal(e.message, {ok:false}); }
 };
-window.todoCopy = function(){ var el=document.getElementById('tShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
+window.todoCopy = function(){ var el=document.getElementById('tShareUrl'); el.select(); try{document.execCommand('copy');alertModal('已复制');}catch(e){alertModal('请手动复制', {ok:false});} };
 function openAddForm(parentId, title, isChild) {
   openModal(title, todoFormHtml({}, true, !!isChild) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   document.getElementById('tfCreate').addEventListener('click', async function(){
     var body = todoFormRead();
-    if (!body.title) { alert('请填写标题'); return; }
+    if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     if (parentId != null) body.parent_id = parentId;
     try { await api('/api/todo', { method:'POST', body: body }); closeModal(); await loadTodos(); await loadChart(); }
-    catch(e){ alert(e.message); }
+    catch(e){ alertModal(e.message, {ok:false}); }
   });
 }
 document.getElementById('tAdd').addEventListener('click', function(){ openAddForm(null, '新建任务', false); });
@@ -2681,8 +2681,8 @@ document.getElementById('pushSave').addEventListener('click', async function(){
       hours: tPushHourPick ? tPushHourPick.getString() : '9',
       enabled: document.getElementById('pushEn').checked
     }});
-    alert('推送配置已保存');
-  } catch(e){ alert(e.message); }
+    alertModal('推送配置已保存');
+  } catch(e){ alertModal(e.message, {ok:false}); }
 });
 document.getElementById('pushSend').addEventListener('click', async function(){
   var btn = this; btn.disabled = true; btn.textContent = '推送中...';
@@ -2693,7 +2693,7 @@ document.getElementById('pushSend').addEventListener('click', async function(){
 
 (async function(){
   try { await loadTodos(); await loadChart(); await loadPush(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
 })();
 `;
 
@@ -2763,7 +2763,7 @@ function drawTree(trees) {
           todoCelebrate(total - doneCnt, total);
         }
       }
-      catch(e){ alert(e.message); }
+      catch(e){ alertModal(e.message, {ok:false}); }
     },
     onEdit: function(node){
       var isChild = node.id !== _rootId;
@@ -2771,9 +2771,9 @@ function drawTree(trees) {
         '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
       document.getElementById('tfSave').addEventListener('click', async function(){
         var body = todoFormRead();
-        if (!body.title) { alert('请填写标题'); return; }
+        if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
         try { await api('/api/public/todo/' + _token + '/' + node.id, { method:'PUT', body: body }); closeModal(); await loadPublic(); }
-        catch(e){ alert(e.message); }
+        catch(e){ alertModal(e.message, {ok:false}); }
       });
     },
     onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务'); }
@@ -2784,10 +2784,10 @@ function openAddForm(parentId, title) {
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   document.getElementById('tfCreate').addEventListener('click', async function(){
     var body = todoFormRead();
-    if (!body.title) { alert('请填写标题'); return; }
+    if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     if (parentId != null) body.parent_id = parentId;
     try { await api('/api/public/todo/' + _token, { method:'POST', body: body }); closeModal(); await loadPublic(); }
-    catch(e){ alert(e.message); }
+    catch(e){ alertModal(e.message, {ok:false}); }
   });
 }
 document.getElementById('tAddRoot').addEventListener('click', function(){ openAddForm(_rootId, '添加任务'); });
@@ -2882,7 +2882,7 @@ function drawTree(trees) {
           todoCelebrate(total - doneCnt, total);
         }
       }
-      catch(e){ alert(e.message); }
+      catch(e){ alertModal(e.message, {ok:false}); }
     },
     onEdit: function(node){
       var isChild = node.parent_id != null;
@@ -2890,15 +2890,15 @@ function drawTree(trees) {
         '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
       document.getElementById('tfSave').addEventListener('click', async function(){
         var body = todoFormRead();
-        if (!body.title) { alert('请填写标题'); return; }
+        if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
         try { await api('/api/public/todo-all/' + _token + '/' + node.id, { method:'PUT', body: body }); closeModal(); await loadCollab(); }
-        catch(e){ alert(e.message); }
+        catch(e){ alertModal(e.message, {ok:false}); }
       });
     },
     onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务', true); },
     onReorder: async function(parentId, ids){
       try { await api('/api/public/todo-all/' + _token + '/reorder', { method:'PUT', body:{ parent_id: parentId, ids: ids } }); await loadCollab(); }
-      catch(e){ alert(e.message); await loadCollab(); }
+      catch(e){ alertModal(e.message, {ok:false}); await loadCollab(); }
     }
   });
 }
@@ -2907,10 +2907,10 @@ function openAddForm(parentId, title, isChild) {
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   document.getElementById('tfCreate').addEventListener('click', async function(){
     var body = todoFormRead();
-    if (!body.title) { alert('请填写标题'); return; }
+    if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     if (parentId != null) body.parent_id = parentId;
     try { await api('/api/public/todo-all/' + _token, { method:'POST', body: body }); closeModal(); await loadCollab(); }
-    catch(e){ alert(e.message); }
+    catch(e){ alertModal(e.message, {ok:false}); }
   });
 }
 document.getElementById('tAddRoot').addEventListener('click', function(){ openAddForm(null, '新建任务', false); });
