@@ -264,6 +264,9 @@ function initChartFullscreen() {
   });
 }
 function openChartFullscreen(cv) {
+  // 取该 canvas 的 Chart 实例，全屏时临时关掉宽高比以铺满舞台，关闭时还原
+  var inst = (typeof Chart !== 'undefined' && Chart.getChart) ? Chart.getChart(cv) : null;
+  var prevMaintain = inst ? inst.options.maintainAspectRatio : null;
   var placeholder = document.createComment('chart-fs');
   cv.parentNode.insertBefore(placeholder, cv);
   var mask = document.createElement('div');
@@ -277,6 +280,8 @@ function openChartFullscreen(cv) {
     placeholder.parentNode.removeChild(placeholder);
     mask.remove();
     document.removeEventListener('keydown', onKey, true);
+    // 还原宽高比并重绘回原容器尺寸
+    if (inst) { inst.options.maintainAspectRatio = prevMaintain; inst.resize(); }
   }
   function onKey(e){ if (e.key === 'Escape') shut(); }
   close.addEventListener('click', shut);
@@ -286,6 +291,11 @@ function openChartFullscreen(cv) {
   mask.appendChild(stage);
   mask.appendChild(close);
   document.body.appendChild(mask);
+  // 铺满舞台：关掉宽高比后按容器 100% resize（下一帧待布局生效）
+  if (inst) {
+    inst.options.maintainAspectRatio = false;
+    requestAnimationFrame(function(){ inst.resize(); });
+  }
 }
 // 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
 if (document.readyState === 'loading') {
