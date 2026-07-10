@@ -1549,6 +1549,120 @@ function pLabel(){ return pUnit === 'kg' ? '公斤' : '斤'; }
 function pDisplay(kg){ return pUnit === 'jin' ? Math.round(kg*2*10)/10 : kg; }
 function pKg(v){ v = parseFloat(v); return pUnit === 'jin' ? v/2 : v; }
 
+// 真实连续打卡天数：从今天(或最近打卡日)起往回数，日期连续则累加，断签即止
+function calcStreak(records, today){
+  if (!records || !records.length) return 0;
+  var set = {};
+  records.forEach(function(r){ if (r.record_date) set[r.record_date] = 1; });
+  // 未打卡时从昨天起算，避免今日未打卡就显示 0 打断连续感
+  var cur = set[today] ? today : _shiftDay(today, -1);
+  var n = 0;
+  while (set[cur]) { n++; cur = _shiftDay(cur, -1); }
+  return n;
+}
+function _shiftDay(ymd, delta){
+  var d = new Date(ymd + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0,10);
+}
+// 火苗强度：天数越多火越旺
+function renderStreak(streak){
+  var el = document.getElementById('streakLine');
+  if (!el) return;
+  if (streak <= 0) { el.style.display = 'none'; return; }
+  var flames = streak >= 100 ? '🔥🔥🔥' : streak >= 30 ? '🔥🔥' : '🔥';
+  el.style.display = 'block';
+  el.innerHTML = '<span class="wk-flame">' + flames + '</span> 连续打卡 ' + streak + ' 天';
+}
+// 里程碑庆祝：命中 7/30/100 天弹成功弹窗
+function milestoneCheer(streak){
+  var map = { 7: '坚持满一周啦，习惯正在养成！🎉', 30: '连续打卡满 30 天，太自律了！🏆', 100: '连续 100 天！了不起的毅力！👑' };
+  if (map[streak]) alertModal(map[streak], { title: '连续打卡 ' + streak + ' 天' });
+}
+// 本月打卡日历热力图：打过卡的日子绿色，justDay 为刚打卡的日子加点亮动画
+function renderCalendar(records, today, justDay){
+  var box = document.getElementById('calBox');
+  if (!box) return;
+  var month = today.slice(0,7);
+  var done = {};
+  records.forEach(function(r){ if ((r.record_date||'').slice(0,7) === month) done[r.record_date] = 1; });
+  var y = parseInt(month.slice(0,4),10), mo = parseInt(month.slice(5,7),10);
+  var first = new Date(Date.UTC(y, mo-1, 1));
+  var startWd = first.getUTCDay(); // 0=周日
+  var daysInMonth = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  var heads = ['日','一','二','三','四','五','六'];
+  var html = '<div style="color:#888;font-size:13px;margin-bottom:6px;">' + mo + ' 月打卡</div><div class="wk-cal-grid">';
+  heads.forEach(function(h){ html += '<div class="wk-cal-head">' + h + '</div>'; });
+  for (var i=0;i<startWd;i++) html += '<div></div>';
+  for (var d=1;d<=daysInMonth;d++){
+    var ymd = month + '-' + (d<10?'0':'') + d;
+    var cls = 'wk-cal-cell';
+    if (done[ymd]) cls += ' wk-cal-done';
+    if (ymd === today) cls += ' wk-cal-today';
+    if (justDay && ymd === justDay) cls += ' wk-cal-pop';
+    html += '<div class="' + cls + '">' + d + '</div>';
+  }
+  html += '</div>';
+  box.innerHTML = html;
+}
+// 数字滚动：把今日体重从 0 滚到实际值
+function animateWeight(elId, target){
+  var el = document.getElementById(elId);
+  if (!el) return;
+  var dur = 700, start = null, from = 0;
+  function step(ts){
+    if (start === null) start = ts;
+    var p = Math.min(1, (ts - start) / dur);
+    var val = (from + (target - from) * p);
+    el.value = (Math.round(val*10)/10);
+    if (p < 1) requestAnimationFrame(step);
+    else el.value = target;
+  }
+  requestAnimationFrame(step);
+}
+// 情绪反馈：对比昨日，减重😄 增重💪 持平😐
+function renderMood(records, today){
+  var box = document.getElementById('moodBox');
+  if (!box) return;
+  var asc = records.slice().sort(function(a,b){ return (a.record_date||'').localeCompare(b.record_date||''); });
+  if (asc.length < 2) { box.textContent = ''; return; }
+  var last = asc[asc.length-1], prev = asc[asc.length-2];
+  if (last.record_date !== today) { box.textContent = ''; return; }
+  var delta = last.weight - prev.weight;
+  var v = pDisplay(Math.abs(delta));
+  if (delta < 0) { box.style.color = '#389e0d'; box.textContent = '😄 较上次 -' + v + ' ' + pLabel() + '，继续加油！'; }
+  else if (delta > 0) { box.style.color = '#d46b08'; box.textContent = '💪 较上次 +' + v + ' ' + pLabel() + '，明天会更好！'; }
+  else { box.style.color = '#888'; box.textContent = '😐 与上次持平，稳住！'; }
+}
+// 五彩纸屑：从页面顶部中间喷洒，短暂飘落后自动清除
+function confetti(){
+  var cvs = document.createElement('canvas');
+  cvs.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:10002;';
+  cvs.width = window.innerWidth; cvs.height = window.innerHeight;
+  document.body.appendChild(cvs);
+  var ctx = cvs.getContext('2d');
+  var colors = ['#f5222d','#faad14','#52c41a','#4a6cf7','#eb2f96','#13c2c2'];
+  var parts = [];
+  for (var i=0;i<120;i++){
+    parts.push({ x: cvs.width/2, y: cvs.height*0.28,
+      vx:(Math.random()-0.5)*10, vy:(Math.random()*-8-3),
+      c: colors[i % colors.length], s: 4+Math.random()*5, r: Math.random()*Math.PI, vr:(Math.random()-0.5)*0.3 });
+  }
+  var frames = 0;
+  function tick(){
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    parts.forEach(function(p){
+      p.vy += 0.28; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.r);
+      ctx.fillStyle = p.c; ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6); ctx.restore();
+    });
+    frames++;
+    if (frames < 130) requestAnimationFrame(tick);
+    else cvs.remove();
+  }
+  requestAnimationFrame(tick);
+}
+
 async function loadInfo() {
   try {
     var d = await api('/api/public/weight/' + token);
@@ -1567,10 +1681,15 @@ async function loadInfo() {
       showMsg(msg, '今日已录入：' + pDisplay(d.todayWeight) + ' ' + pLabel() + '，不可重复录入', true);
     }
     document.getElementById('content').style.display = 'block';
+    renderStreak(calcStreak(d.records, d.today));
+    renderCalendar(d.records, d.today);
+    renderMood(d.records, d.today);
     drawMini(d.records);
     renderHist(d.records);
+    return d;
   } catch(e) {
     document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>';
+    return null;
   }
 }
 // 最近记录列表（升序算相邻增减）：增重红色加粗↑, 减重绿色↓
@@ -1611,9 +1730,17 @@ function drawMini(records) {
 document.getElementById('wForm').addEventListener('submit', async function(e){
   e.preventDefault();
   try {
-    await api('/api/public/weight/' + token, { method:'POST', body:{ weight: pKg(document.getElementById('weight').value) } });
+    var shown = parseFloat(document.getElementById('weight').value); // 提交前的显示值(当前单位)，用于数字滚动
+    await api('/api/public/weight/' + token, { method:'POST', body:{ weight: pKg(shown) } });
     showMsg(msg, '今日体重已记录！', true);
-    await loadInfo();
+    var d = await loadInfo();
+    confetti();
+    if (d) {
+      var streak = calcStreak(d.records, d.today);
+      renderCalendar(d.records, d.today, d.today); // 今日格点亮动画
+      if (!isNaN(shown)) animateWeight('weight', shown);
+      milestoneCheer(streak);
+    }
   } catch(err){ showMsg(msg, err.message, false); }
 });
 loadInfo();

@@ -417,9 +417,21 @@ function weightPage(user) {
 
 /** 体重免密快速填写公开页 */
 function publicWeightPage() {
-  const body = `<div class="login-wrap" style="max-width:420px;">
+  const body = `<style>
+    @keyframes wkFlame { 0%,100%{transform:scale(1) rotate(-3deg);} 50%{transform:scale(1.2) rotate(3deg);} }
+    .wk-flame{display:inline-block;animation:wkFlame 1s ease-in-out infinite;}
+    @keyframes wkPop { 0%{transform:scale(.3);opacity:0;} 60%{transform:scale(1.18);opacity:1;} 100%{transform:scale(1);} }
+    .wk-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+    .wk-cal-head{font-size:11px;color:#aaa;text-align:center;padding:2px 0;}
+    .wk-cal-cell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:6px;color:#bbb;background:#f5f5f7;}
+    .wk-cal-done{background:#d9f7be;color:#389e0d;font-weight:700;}
+    .wk-cal-today{outline:2px solid #4a6cf7;color:#4a6cf7;}
+    .wk-cal-pop{animation:wkPop .5s ease;}
+  </style>
+  <div class="login-wrap" style="max-width:420px;">
     <div class="card">
       <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:6px;">⚖️ <span id="memberName"></span></h1>
+      <div id="streakLine" style="text-align:center;font-size:22px;font-weight:700;margin-bottom:4px;display:none;"></div>
       <p id="streakTitle" style="text-align:center;color:#389e0d;font-weight:600;margin-bottom:2px;"></p>
       <p id="monthDays" style="text-align:center;color:#888;font-size:13px;margin-bottom:16px;"></p>
       <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
@@ -432,6 +444,8 @@ function publicWeightPage() {
           <input id="weight" type="number" step="0.1" required placeholder="如 130">
           <button class="btn" style="width:100%;" type="submit">提交今日体重</button>
         </form>
+        <div id="moodBox" style="text-align:center;font-size:15px;font-weight:600;margin-top:12px;min-height:22px;"></div>
+        <div id="calBox" style="margin-top:16px;"></div>
         <canvas id="miniChart" style="margin-top:16px;max-height:220px;"></canvas>
         <div id="histBox" style="margin-top:16px;"></div>
       </div>
