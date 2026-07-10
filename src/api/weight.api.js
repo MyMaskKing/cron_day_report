@@ -70,21 +70,28 @@ async function updateMember({ request, env, params }) {
   const storage = getStorage(env);
   const id = parseInt(params.id, 10);
   const m = await storage.weight.findMember(id);
-  if (!m || m.user_id !== auth.user_id) return error('成员不存在', 404);
-  await storage.weight.updateMember(id, auth.user_id, name);
+  if (!m || !(await storage.weight.canAccessMember(auth.user_id, id))) return error('成员不存在', 404);
+  // 改名作用于成员本身（属主与共享方共用同一条），故按属主 user_id 更新
+  await storage.weight.updateMember(id, m.user_id, name);
   return json({ success: true, message: '成员已更新' });
 }
 
-/** DELETE /api/weight/members/:id  删除成员 */
+/** DELETE /api/weight/members/:id  删除成员
+ * 属主删除 → 真删成员+全部记录+所有引用；共享方删除 → 仅解除自己的引用
+ */
 async function removeMember({ request, env, params }) {
   const auth = await requireAuth(request, env);
   if (auth instanceof Response) return auth;
   const storage = getStorage(env);
   const id = parseInt(params.id, 10);
   const m = await storage.weight.findMember(id);
-  if (!m || m.user_id !== auth.user_id) return error('成员不存在', 404);
-  await storage.weight.removeMember(id, auth.user_id);
-  return json({ success: true, message: '成员已删除' });
+  if (!m || !(await storage.weight.canAccessMember(auth.user_id, id))) return error('成员不存在', 404);
+  if (m.user_id === auth.user_id) {
+    await storage.weight.removeMemberCascade(id);
+    return json({ success: true, message: '成员已删除' });
+  }
+  await storage.weight.unshareMember(id, auth.user_id);
+  return json({ success: true, message: '已移除共享成员' });
 }
 
 /** GET /api/weight/members/:id/share-link  获取/生成成员免密填写链接 */
@@ -94,7 +101,7 @@ async function getMemberShareLink({ request, env, params, url }) {
   const storage = getStorage(env);
   const id = parseInt(params.id, 10);
   const m = await storage.weight.findMember(id);
-  if (!m || m.user_id !== auth.user_id) return error('成员不存在', 404);
+  if (!m || !(await storage.weight.canAccessMember(auth.user_id, id))) return error('成员不存在', 404);
 
   let token = m.share_token;
   if (!token) {
@@ -155,7 +162,7 @@ async function addRecord({ request, env }) {
 
   const storage = getStorage(env);
   const m = await storage.weight.findMember(memberId);
-  if (!m || m.user_id !== auth.user_id) return error('成员不存在', 404);
+  if (!m || !(await storage.weight.canAccessMember(auth.user_id, memberId))) return error('成员不存在', 404);
 
   const date = body.record_date || todayCN();
   const existing = await storage.weight.findRecordByMemberDate(memberId, date);
@@ -163,8 +170,9 @@ async function addRecord({ request, env }) {
     await storage.weight.updateRecord(existing.id, weight, body.note);
     return json({ success: true, message: '记录已更新', id: existing.id });
   }
+  // 记录归属成员属主 user_id（共享方与属主写入同一份数据）
   const id = await storage.weight.addRecord({
-    member_id: memberId, user_id: auth.user_id, weight, record_date: date, note: body.note
+    member_id: memberId, user_id: m.user_id, weight, record_date: date, note: body.note
   });
   return json({ success: true, message: '记录已添加', id });
 }
@@ -180,7 +188,7 @@ async function updateRecord({ request, env, params }) {
   const storage = getStorage(env);
   const id = parseInt(params.id, 10);
   const rec = await storage.weight.findRecord(id);
-  if (!rec || rec.user_id !== auth.user_id) return error('记录不存在', 404);
+  if (!rec || !(await storage.weight.canAccessMember(auth.user_id, rec.member_id))) return error('记录不存在', 404);
 
   const newDate = body.record_date;
   if (newDate && newDate !== rec.record_date) {
@@ -201,8 +209,8 @@ async function removeRecord({ request, env, params }) {
   const storage = getStorage(env);
   const id = parseInt(params.id, 10);
   const rec = await storage.weight.findRecord(id);
-  if (!rec || rec.user_id !== auth.user_id) return error('记录不存在', 404);
-  await storage.weight.removeRecord(id, auth.user_id);
+  if (!rec || !(await storage.weight.canAccessMember(auth.user_id, rec.member_id))) return error('记录不存在', 404);
+  await storage.weight.removeRecord(id, rec.user_id);
   return json({ success: true, message: '记录已删除' });
 }
 
@@ -295,9 +303,18 @@ async function adminCompare({ request, env, url }) {
   return json({ success: true, records });
 }
 
+/** GET /api/admin/weight/all-members  超管：列全部成员（含属主名），供新建用户时勾选引用 */
+async function adminAllMembers({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const members = await storage.weight.listAllMembersWithOwner();
+  return json({ success: true, members });
+}
+
 export {
   listMembers, createMember, updateMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
-  publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare,
+  publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers,
   getUnit, setUnit
 };

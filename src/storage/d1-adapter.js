@@ -242,11 +242,40 @@ function createD1Adapter(env) {
 
     // ==================== 体重 ====================
     weight: {
+      // 可访问成员 = 自己拥有的(user_id=me) ∪ 共享给自己的(weight_member_shares)
+      // 共享来的行附 shared=1，自己拥有的 shared=0
       async listMembers(userId) {
         const { results } = await db.prepare(
-          'SELECT * FROM weight_members WHERE user_id = ? ORDER BY id'
-        ).bind(userId).all();
+          `SELECT m.*, 0 AS shared FROM weight_members m WHERE m.user_id = ?
+           UNION
+           SELECT m.*, 1 AS shared FROM weight_members m
+             JOIN weight_member_shares s ON s.member_id = m.id
+             WHERE s.user_id = ?
+           ORDER BY id`
+        ).bind(userId, userId).all();
         return results || [];
+      },
+      // 该成员是否属于或共享给该用户
+      async canAccessMember(userId, memberId) {
+        const row = await db.prepare(
+          `SELECT 1 AS ok FROM weight_members WHERE id = ? AND user_id = ?
+           UNION
+           SELECT 1 AS ok FROM weight_member_shares WHERE member_id = ? AND user_id = ?
+           LIMIT 1`
+        ).bind(memberId, userId, memberId, userId).first();
+        return !!row;
+      },
+      // 登记引用（幂等）
+      async shareMember(memberId, userId) {
+        await db.prepare(
+          'INSERT OR IGNORE INTO weight_member_shares (member_id, user_id) VALUES (?, ?)'
+        ).bind(memberId, userId).run();
+      },
+      // 解除某用户对某成员的引用（不影响属主与数据）
+      async unshareMember(memberId, userId) {
+        await db.prepare(
+          'DELETE FROM weight_member_shares WHERE member_id = ? AND user_id = ?'
+        ).bind(memberId, userId).run();
       },
       async findMember(id) {
         return await db.prepare('SELECT * FROM weight_members WHERE id = ?').bind(id).first();
@@ -265,16 +294,27 @@ function createD1Adapter(env) {
         await db.prepare('DELETE FROM weight_records WHERE member_id=? AND user_id=?').bind(id, userId).run();
         await db.prepare('DELETE FROM weight_members WHERE id=? AND user_id=?').bind(id, userId).run();
       },
+      // 属主级联真删：记录 + 全部引用 + 成员本身（不限 records.user_id，清干净共享写入的记录）
+      async removeMemberCascade(id) {
+        await db.prepare('DELETE FROM weight_records WHERE member_id=?').bind(id).run();
+        await db.prepare('DELETE FROM weight_member_shares WHERE member_id=?').bind(id).run();
+        await db.prepare('DELETE FROM weight_members WHERE id=?').bind(id).run();
+      },
       async listRecords(userId, memberId = null) {
         let stmt;
         if (memberId) {
           stmt = db.prepare(
-            'SELECT * FROM weight_records WHERE user_id=? AND member_id=? ORDER BY record_date'
-          ).bind(userId, memberId);
+            'SELECT * FROM weight_records WHERE member_id=? ORDER BY record_date'
+          ).bind(memberId);
         } else {
+          // 按可访问成员集合查（含共享），而非 records.user_id
           stmt = db.prepare(
-            'SELECT * FROM weight_records WHERE user_id=? ORDER BY record_date'
-          ).bind(userId);
+            `SELECT * FROM weight_records WHERE member_id IN (
+               SELECT id FROM weight_members WHERE user_id=?
+               UNION
+               SELECT member_id FROM weight_member_shares WHERE user_id=?
+             ) ORDER BY record_date`
+          ).bind(userId, userId);
         }
         const { results } = await stmt.all();
         return results || [];
@@ -322,6 +362,15 @@ function createD1Adapter(env) {
            FROM weight_records r JOIN weight_members m ON r.member_id = m.id
            WHERE m.user_id IN (${placeholders}) ORDER BY r.record_date`
         ).bind(...userIds).all();
+        return results || [];
+      },
+      // 超管用：全部成员（仅真属主行，不含引用），附属主用户名，供新建用户时勾选引用
+      async listAllMembersWithOwner() {
+        const { results } = await db.prepare(
+          `SELECT m.id, m.name, m.user_id, u.username AS owner_name, u.nickname AS owner_nick
+           FROM weight_members m JOIN users u ON m.user_id = u.id
+           ORDER BY u.username, m.id`
+        ).all();
         return results || [];
       }
     },

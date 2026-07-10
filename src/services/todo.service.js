@@ -51,18 +51,35 @@ function flattenPending(trees) {
 }
 
 /**
- * 统计概览
+ * 统计概览（叶子口径）
+ * 有子任务的父任务不计入，只统计最末端叶子任务；子任务逾期继承顶层祖先的截止日期
  * @param {Array} rows - todos 扁平行
  * @param {string} today - 北京时区当天 YYYY-MM-DD，用于逾期判断
  * @returns {Object} { total, done, pending, overdue }
  */
 function countStats(rows, today) {
-  let done = 0, overdue = 0;
+  const byId = new Map();
+  for (const r of rows) byId.set(r.id, r);
+  // 有子任务的父 id 集合：这些父不是叶子，不计入统计
+  const hasChild = new Set();
+  for (const r of rows) if (r.parent_id != null) hasChild.add(r.parent_id);
+  // 有效截止日期：顶层用自身，子任务继承顶层祖先（与树渲染 effDue 口径一致）
+  const effDue = (r) => {
+    let cur = r;
+    while (cur.parent_id != null && byId.has(cur.parent_id)) cur = byId.get(cur.parent_id);
+    return cur.due_date;
+  };
+  let total = 0, done = 0, overdue = 0;
   for (const r of rows) {
+    if (hasChild.has(r.id)) continue; // 非叶子（父任务）跳过
+    total++;
     if (r.done) done++;
-    else if (r.due_date && today && r.due_date < today) overdue++;
+    else {
+      const due = effDue(r);
+      if (due && today && due < today) overdue++;
+    }
   }
-  return { total: rows.length, done, pending: rows.length - done, overdue };
+  return { total, done, pending: total - done, overdue };
 }
 
 /** range → { unit: 'day'|'month', span } 天数或月数 */

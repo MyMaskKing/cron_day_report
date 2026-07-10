@@ -195,6 +195,9 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .todo-row:hover .todo-ops { opacity: 1; }
 .todo-op { border: none; background: none; cursor: pointer; font-size: 15px; padding: 3px 5px; border-radius: 6px; line-height: 1; }
 .todo-op:hover { background: #f0f2f8; }
+/* 拖拽手柄：按住即可拖动排序；touch-action:none 抑制移动端触摸滚动争抢 */
+.todo-drag { cursor: grab; color: #b0b6c8; font-size: 17px; touch-action: none; }
+.todo-drag:active { cursor: grabbing; }
 .todo-children.collapsed { display: none; }
 /* 顶层任务栏：作为分组头。浅灰底 + 左侧品牌蓝分组条表"这是一组"，与优先级圆点分属不同通道 */
 .todo-row.is-root { background: #f7f8fa; border-color: #e9ecf3; border-left: 4px solid #4a6cf7; padding-left: 12px; }

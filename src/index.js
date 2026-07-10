@@ -33,7 +33,7 @@ import { fetchNavBatch, buildPortfolio } from './services/fund.service.js';
 import {
   listMembers, createMember, updateMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
-  publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare,
+  publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers,
   getUnit, setUnit
 } from './api/weight.api.js';
 import {
@@ -143,6 +143,7 @@ router.post('/api/weight/records', addRecord);
 router.put('/api/weight/records/:id', updateRecord);
 router.delete('/api/weight/records/:id', removeRecord);
 router.get('/api/admin/weight/compare', adminCompare);
+router.get('/api/admin/weight/all-members', adminAllMembers);
 router.get('/api/public/weight/:token', publicMemberInfo);
 router.post('/api/public/weight/:token', publicSubmitWeight);
 router.get('/api/public/weight-report/:token', publicWeightReport);

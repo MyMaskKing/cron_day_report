@@ -462,14 +462,31 @@ function newUser() {
     '<label>昵称（显示用，可选）</label><input id="nuNick" placeholder="留空则同用户名">' +
     '<label>密码（留空=123456）</label><input id="nuPwd" type="text" placeholder="留空=123456">' +
     '<label>角色</label><select id="nuRole"><option value="user">用户</option><option value="admin">超管</option></select>' +
+    '<label>引用体重成员（可选，多选 · 与原账号共用同一份数据）</label>' +
+    '<div id="nuMembers" class="muted" style="max-height:160px;overflow:auto;border:1px solid #eee;border-radius:8px;padding:8px;font-size:13px;">加载中…</div>' +
     '<div style="margin-top:12px;"><button class="btn" id="nuConfirm">创建</button> ' +
     '<button class="btn gray" onclick="closeModal()">取消</button></div>');
+  // 异步载入全部成员供勾选引用
+  (async function(){
+    var box = document.getElementById('nuMembers');
+    try {
+      var d = await api('/api/admin/weight/all-members');
+      if (!d.members.length) { box.textContent = '暂无可引用的成员'; return; }
+      box.innerHTML = d.members.map(function(m){
+        return '<label style="display:block;margin:3px 0;font-weight:normal;"><input type="checkbox" value="' + m.id + '" style="width:auto;"> ' +
+          esc(m.name) + ' <span style="color:#8890b8;">· ' + esc(m.owner_nick || m.owner_name) + '</span></label>';
+      }).join('');
+    } catch(e){ box.textContent = '成员加载失败：' + e.message; }
+  })();
   document.getElementById('nuConfirm').addEventListener('click', async function(){
+    var shareMemberIds = Array.prototype.slice.call(
+      document.querySelectorAll('#nuMembers input:checked')).map(function(x){ return parseInt(x.value, 10); });
     var payload = {
       username: document.getElementById('nuName').value.trim(),
       nickname: document.getElementById('nuNick').value.trim() || undefined,
       password: document.getElementById('nuPwd').value || undefined,
-      role: document.getElementById('nuRole').value
+      role: document.getElementById('nuRole').value,
+      shareMemberIds: shareMemberIds
     };
     try { var r = await api('/api/admin/users', { method: 'POST', body: payload }); closeModal(); alert(r.message); loadUsers(); }
     catch (err) { alert(err.message); }
@@ -1106,11 +1123,13 @@ function updateUnitLabels() {
 function renderMembers(list) {
   var box = document.getElementById('memberList');
   box.innerHTML = list.map(function(m){
+    var sharedTag = m.shared ? ' <span class="tag" style="background:#eef1ff;color:#4a6cf7;padding:0 6px;border-radius:8px;font-size:11px;">共享</span>' : '';
+    var delTitle = m.shared ? '移除共享' : '删除';
     return '<span class="tag user" style="margin:2px 4px;padding:4px 10px;">' +
-      '<a href="#" onclick="selMember(' + m.id + ');return false;" style="color:inherit;text-decoration:none;">' + esc(m.name) + '</a>' +
+      '<a href="#" onclick="selMember(' + m.id + ');return false;" style="color:inherit;text-decoration:none;">' + esc(m.name) + '</a>' + sharedTag +
       ' <a href="#" onclick="mRename(' + m.id + ",'" + esc(m.name).replace(/'/g,'') + "'" + ');return false;" style="margin-left:4px;">改名</a>' +
       ' <a href="#" onclick="mShare(' + m.id + ');return false;" style="margin-left:4px;">链接</a>' +
-      ' <a href="#" onclick="mDel(' + m.id + ');return false;" style="color:#cf1322;">×</a></span>';
+      ' <a href="#" title="' + delTitle + '" onclick="mDel(' + m.id + ');return false;" style="color:#cf1322;">×</a></span>';
   }).join('') || '<span class="muted">暂无成员</span>';
 }
 function selMember(id) {
@@ -2043,11 +2062,21 @@ function renderTodoTree(container, trees, opts) {
     if (!opts.readOnly) {
       var ops = document.createElement('div');
       ops.className = 'todo-ops';
+      // 子任务拖拽手柄：按住手柄拖动排序（手柄上禁用触摸滚动，规避移动端争抢）
+      var dragHandle = null;
+      if (opts.onReorder && depth > 0) {
+        dragHandle = document.createElement('button');
+        dragHandle.type = 'button'; dragHandle.className = 'todo-op todo-drag'; dragHandle.title = '拖动排序';
+        dragHandle.textContent = '≡';
+        ops.appendChild(dragHandle);
+      }
       if (opts.onAddChild) { var b1 = mkOp('➕', '添加子任务', function(){ opts.onAddChild(node); }); ops.appendChild(b1); }
       if (opts.onEdit)     { var b2 = mkOp('✏️', '编辑', function(){ opts.onEdit(node); }); ops.appendChild(b2); }
       if (opts.onShare && depth === 0) { var b3 = mkOp('🔗', '协作链接', function(){ opts.onShare(node); }); ops.appendChild(b3); }
       if (opts.onDel)      { var b4 = mkOp('🗑️', '删除', function(){ opts.onDel(node); }); ops.appendChild(b4); }
       if (ops.childNodes.length) row.appendChild(ops);
+      // 手柄插入后再绑定拖拽
+      if (dragHandle) todoBindDrag(dragHandle, wrap, node, opts);
     }
     wrap.appendChild(row);
 
@@ -2066,10 +2095,6 @@ function renderTodoTree(container, trees, opts) {
         childBox.classList.toggle('collapsed');
       });
     }
-    // 子任务长按拖拽排序：仅非只读、提供 onReorder、且为子任务(depth>0)时启用
-    if (!opts.readOnly && opts.onReorder && depth > 0) {
-      todoBindDrag(row, wrap, node, opts);
-    }
     return wrap;
   }
   function mkOp(icon, title, fn) {
@@ -2083,19 +2108,16 @@ function renderTodoTree(container, trees, opts) {
   trees.forEach(function(t){ var el = walk(t, 0, t.due_date); if (el) { container.appendChild(el); any = true; } });
   if (!any) container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
 }
-// 子任务长按拖拽排序（仅同级重排）：长按 400ms 激活，同父兄弟间按位置插入，松手回调 onReorder
-// row: 触发拖拽的行；wrap: 该节点 .todo-node 容器；node: 数据节点；opts.onReorder(parentId, ids)
-function todoBindDrag(row, wrap, node, opts) {
-  var LONG_PRESS = 400, MOVE_TOL = 8;
-  var timer = null, dragging = false, startY = 0, startX = 0, parentBox = null;
+// 子任务拖拽排序（仅同级重排）：按住行尾手柄即可拖动，同父兄弟间按位置插入，松手回调 onReorder
+// handle: 拖拽手柄按钮；wrap: 该节点 .todo-node 容器；node: 数据节点；opts.onReorder(parentId, ids)
+function todoBindDrag(handle, wrap, node, opts) {
+  var dragging = false, parentBox = null;
   function siblings() {
-    // 同父下的兄弟 .todo-node（parentBox 的直接子节点中带 data-id 的）
     return Array.prototype.filter.call(parentBox.children, function(el){
       return el.classList && el.classList.contains('todo-node');
     });
   }
   function cleanup() {
-    if (timer) { clearTimeout(timer); timer = null; }
     if (dragging) {
       dragging = false;
       wrap.classList.remove('dragging');
@@ -2105,22 +2127,11 @@ function todoBindDrag(row, wrap, node, opts) {
     document.removeEventListener('pointerup', onUp, true);
     document.removeEventListener('pointercancel', onUp, true);
   }
-  function activate() {
-    dragging = true;
-    parentBox = wrap.parentNode; // .todo-children
-    wrap.classList.add('dragging');
-    document.body.classList.add('todo-dragging');
-    if (navigator.vibrate) { try { navigator.vibrate(15); } catch(e){} }
-  }
   function onMove(e) {
-    var y = e.clientY, x = e.clientX;
-    if (!dragging) {
-      // 激活前：移动超阈值判为滚动/误触，取消长按
-      if (Math.abs(y - startY) > MOVE_TOL || Math.abs(x - startX) > MOVE_TOL) cleanup();
-      return;
-    }
+    if (!dragging) return;
     e.preventDefault();
-    // 在同父兄弟中找到应插入的位置：以各兄弟中点为界
+    var y = e.clientY;
+    // 在同父兄弟中按各兄弟中点定位插入位置
     var sibs = siblings();
     for (var i = 0; i < sibs.length; i++) {
       var el = sibs[i];
@@ -2129,7 +2140,6 @@ function todoBindDrag(row, wrap, node, opts) {
       var mid = r.top + r.height / 2;
       if (y < mid) { if (el !== wrap.nextSibling) parentBox.insertBefore(wrap, el); return; }
     }
-    // 落到末尾
     if (wrap !== parentBox.lastChild) parentBox.appendChild(wrap);
   }
   function onUp() {
@@ -2143,15 +2153,19 @@ function todoBindDrag(row, wrap, node, opts) {
     var pid = node.parent_id != null ? node.parent_id : null;
     opts.onReorder(pid, ids);
   }
-  row.addEventListener('pointerdown', function(e){
-    // 忽略勾选框/操作按钮上的按压，避免与点击冲突
-    if (e.target.closest('.todo-check') || e.target.closest('.todo-ops')) return;
-    startY = e.clientY; startX = e.clientX;
-    timer = setTimeout(activate, LONG_PRESS);
+  handle.addEventListener('pointerdown', function(e){
+    e.preventDefault(); e.stopPropagation();
+    dragging = true;
+    parentBox = wrap.parentNode; // .todo-children
+    wrap.classList.add('dragging');
+    document.body.classList.add('todo-dragging');
+    if (navigator.vibrate) { try { navigator.vibrate(15); } catch(err){} }
     document.addEventListener('pointermove', onMove, true);
     document.addEventListener('pointerup', onUp, true);
     document.addEventListener('pointercancel', onUp, true);
   });
+  // 手柄上点击不触发行展开
+  handle.addEventListener('click', function(e){ e.stopPropagation(); });
 }
 // 任务编辑表单 HTML：标题(多行长文本)/优先级/截止(仅顶层, 新建默认当天)/分类/备注
 // isNew=true 新建；isChild=true 为子任务(日期继承主任务, 不显示日期字段)
@@ -2296,14 +2310,15 @@ async function loadTodos() {
   document.getElementById('stTotal').textContent = s.total;
   drawTree();
 }
-var _filter = 'all'; // all | today | future | memo | done
+var _filter = 'all'; // all | today | overdue | future | memo | done
 // 按筛选归类顶层任务（子任务随顶层，因日期继承主任务）
 function todoFilterTrees(trees) {
   var t = todayStr();
-  if (_filter === 'today')  return trees.filter(function(n){ return n.due_date && n.due_date <= t; });
-  if (_filter === 'future') return trees.filter(function(n){ return n.due_date && n.due_date > t; });
-  if (_filter === 'memo')   return trees.filter(function(n){ return !n.due_date; });
-  if (_filter === 'done')   return trees.filter(function(n){ return n.done; });
+  if (_filter === 'today')   return trees.filter(function(n){ return n.due_date && n.due_date === t; });
+  if (_filter === 'overdue') return trees.filter(function(n){ return n.due_date && n.due_date < t; });
+  if (_filter === 'future')  return trees.filter(function(n){ return n.due_date && n.due_date > t; });
+  if (_filter === 'memo')    return trees.filter(function(n){ return !n.due_date; });
+  if (_filter === 'done')    return trees.filter(function(n){ return n.done; });
   return trees;
 }
 function drawTree() {
