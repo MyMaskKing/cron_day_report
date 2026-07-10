@@ -17,12 +17,34 @@ function hideLoading() {
   if (_loadingCount === 0) {
     var el = document.getElementById('globalLoading');
     if (el) el.style.display = 'none';
+    resetLoadingProgress();
   }
 }
 // setLoadingText: 不改变计数, 仅更新提示文字(用于同一请求内多阶段说明)
 function setLoadingText(text) {
   var t = document.getElementById('loadingText');
   if (t && _loadingCount > 0) t.textContent = text;
+}
+// 平滑进度：显示 #loadingPct，用定时器让当前值逐 1% 爬升至 target(0-100)，到 100 稍停后自动收起
+var _pctVal = 0, _pctTarget = 0, _pctTimer = null;
+function _pctRender() {
+  var el = document.getElementById('loadingPct');
+  if (el) { el.style.display = 'block'; el.textContent = _pctVal + '%'; }
+}
+function setLoadingProgress(target) {
+  _pctTarget = Math.max(_pctTarget, Math.min(100, target || 0));
+  _pctRender();
+  if (_pctTimer) return;
+  _pctTimer = setInterval(function(){
+    if (_pctVal < _pctTarget) { _pctVal++; _pctRender(); }
+    else { clearInterval(_pctTimer); _pctTimer = null; }
+  }, 20);
+}
+function resetLoadingProgress() {
+  if (_pctTimer) { clearInterval(_pctTimer); _pctTimer = null; }
+  _pctVal = 0; _pctTarget = 0;
+  var el = document.getElementById('loadingPct');
+  if (el) { el.style.display = 'none'; el.textContent = ''; }
 }
 async function api(path, opts) {
   opts = opts || {};
@@ -824,9 +846,12 @@ bindModal();
 var chart = null;   // 饼图
 var profitChart = null;
 window._profitSeries = [];    // 每日总收益全量，供过滤用
-// 初始化加载进度：_initTotal>0 时给 loadingText 前缀百分比，复用调用(如加仓后)时 _initTotal=0 仅显示描述
+// 初始化加载进度：_initTotal>0 时按步数把进度目标推到累计百分比(平滑爬升)，复用调用(如加仓后)时 _initTotal=0 不动进度
 var _initTotal = 0, _initStep = 0;
-function stepText(t){ return _initTotal ? Math.round((++_initStep) / _initTotal * 100) + '% ' + t : t; }
+function stepText(t){
+  if (_initTotal) setLoadingProgress(Math.round((++_initStep) / _initTotal * 100));
+  return t;
+}
 
 function sign(n){ return (n>=0?'+':'') + n; }
 function colorOf(n){ return n>=0 ? '#cf1322' : '#389e0d'; }
@@ -1110,9 +1135,10 @@ document.getElementById('scRun').addEventListener('click', async function(){
 
 (async function(){
   _initTotal = 4; _initStep = 0;   // loadReport(净值汇总+收益曲线) + loadReportConfig(渠道+推送配置)
+  showLoading('加载中…');   // 外层占位：保持计数>0，使 4 个串行请求间进度不被归零重置
   try { await loadReport(); await loadReportConfig(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
-  finally { _initTotal = 0; }
+  finally { _initTotal = 0; hideLoading(); }
   // 绑定筛选（select 在 loadReport 时 DOM 已就绪）
   document.getElementById('profitRange').addEventListener('change', applyProfitFilter);
 })();
@@ -1158,6 +1184,7 @@ function drawProfitChart(series) {
 
 async function loadInfo() {
   try {
+    setLoadingProgress(90);   // 单请求：推进度条爬升，营造实时加载进度感
     var d = await api('/api/public/fund/' + token, { loadingText: '正在加载基金信息与近30天收益曲线…' });
     var f = d.fund;
     document.getElementById('fundName').textContent = f.name + ' (' + f.code + ')';

@@ -21,7 +21,8 @@ function renderPage({ title = '控制台', body = '', script = '' }) {
 <div id="globalLoading">
   <div style="text-align:center;">
     <div class="spinner"></div>
-    <div id="loadingText" style="margin-top:12px;color:#4a6cf7;font-size:14px;"></div>
+    <div id="loadingPct" style="display:none;margin-top:12px;color:#4a6cf7;font-size:24px;font-weight:700;line-height:1;"></div>
+    <div id="loadingText" style="margin-top:8px;color:#4a6cf7;font-size:14px;"></div>
   </div>
 </div>
 <div id="modalMask" class="modal-mask">
