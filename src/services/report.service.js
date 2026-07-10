@@ -446,7 +446,7 @@ function buildWeightReportMarkdown(members, records, opts) {
 // ==================== 待办日报 ====================
 
 /** 优先级图标（高/中/低） */
-const TODO_PRI_ICON = { 2: '🔴', 1: '🔵', 0: '⚪' };
+const TODO_PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
 const TODO_PRI_LABEL = { 2: '高', 1: '中', 0: '低' };
 
 /**
@@ -577,24 +577,24 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats) {
     if (stats.overdue) h += ` · <span style="color:#cf1322;">逾期 ${stats.overdue} 项</span>`;
     h += `</p>`;
   }
-  const PRI_COLOR = { 2: '#cf1322', 1: '#4a6cf7', 0: '#c7ccd6' };
+  // 优先级圆点色板（红=高 琥珀=中 灰=低）；与网页端 .todo-dot 一致，仅表达优先级
+  const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#b4bccb' };
+  // 内联圆点：邮件客户端 emoji 渲染不一，用 background 画点更统一可控
+  const dot = (p) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:6px;vertical-align:middle;"></span>`;
   const catTag = (c) => c
     ? ` <span style="background:#eef1ff;color:#4a6cf7;border-radius:4px;padding:1px 7px;font-size:12px;">${c}</span>` : '';
-  // 子任务：卡片内缩进 + 左侧连接线，明确从属于上方主任务
+  // 子任务：卡片内缩进 + 左侧连接线，明确从属于上方主任务；优先级用圆点
   const walkChild = (node) => {
-    const bar = PRI_COLOR[node.priority] || '#c7ccd6';
     h += `<div style="margin:4px 0 4px 14px;padding:5px 10px;border-left:2px solid #e3e8f0;">
-      <span style="color:${bar};">${TODO_PRI_ICON[node.priority] || '⚪'}</span>
-      <span style="font-size:13px;color:#333;">${node.title}</span>${catTag(node.category)}
+      ${dot(node.priority)}<span style="font-size:13px;color:#333;vertical-align:middle;">${node.title}</span>${catTag(node.category)}
     </div>`;
     for (const c of node.children) walkChild(c);
   };
   for (const root of trees) {
-    const bar = PRI_COLOR[root.priority] || '#c7ccd6';
-    // 主任务卡片：色条头 + 加粗标题 + 日期只此一处
+    // 主任务卡片：品牌蓝分组条头（层级通道）+ 优先级圆点 + 加粗标题 + 日期只此一处
     h += `<div style="margin:14px 0;border:1px solid #eceff5;border-radius:8px;overflow:hidden;">
-      <div style="padding:9px 12px;background:#f4f6fb;border-left:4px solid ${bar};">
-        <span style="font-size:15px;font-weight:700;color:#1f2430;">📂 ${root.title}</span>${catTag(root.category)}${todoDateTag(root.due_date, today, 'html')}
+      <div style="padding:9px 12px;background:#f7f8fa;border-left:4px solid #4a6cf7;">
+        ${dot(root.priority)}<span style="font-size:15px;font-weight:700;color:#1f2430;vertical-align:middle;">${root.title}</span>${catTag(root.category)}${todoDateTag(root.due_date, today, 'html')}
       </div>`;
     if (root.children.length) {
       h += `<div style="padding:6px 10px 8px;">`;

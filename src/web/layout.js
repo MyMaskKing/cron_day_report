@@ -149,10 +149,11 @@ th { color: #666; font-weight: 600; background: #fafafa; }
   transition: box-shadow .18s, border-color .18s, transform .18s;
 }
 .todo-row:hover { box-shadow: 0 3px 14px rgba(74,108,247,.10); border-color: #dfe4fb; transform: translateX(1px); }
-/* 优先级左色带 */
-.todo-row.pri-2 { border-left: 4px solid #f5222d; }
-.todo-row.pri-1 { border-left: 4px solid #4a6cf7; }
-.todo-row.pri-0 { border-left: 4px solid #c7ccd6; }
+/* 优先级：标题前一枚小圆点（克制点缀，不占左色带）。红=高 琥珀=中 灰=低 */
+.todo-dot { flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; background: #b4bccb; }
+.todo-dot.pri-2 { background: #e5484d; }
+.todo-dot.pri-1 { background: #e8a317; }
+.todo-dot.pri-0 { background: #b4bccb; }
 /* 层级连接线：非顶层节点左侧竖向引导线 */
 .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before {
   content: ''; position: absolute; left: calc(var(--depth, 0) * 26px - 13px); top: -4px; bottom: 50%;
@@ -195,8 +196,8 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .todo-op { border: none; background: none; cursor: pointer; font-size: 15px; padding: 3px 5px; border-radius: 6px; line-height: 1; }
 .todo-op:hover { background: #f0f2f8; }
 .todo-children.collapsed { display: none; }
-/* 顶层任务栏：作为分组头，标题加粗、背景略深，与子任务明显区分 */
-.todo-row.is-root { background: #eef1fb; border-color: #dfe4fb; }
+/* 顶层任务栏：作为分组头。浅灰底 + 左侧品牌蓝分组条表"这是一组"，与优先级圆点分属不同通道 */
+.todo-row.is-root { background: #f7f8fa; border-color: #e9ecf3; border-left: 4px solid #4a6cf7; padding-left: 12px; }
 .todo-row.is-root .todo-title { font-weight: 700; font-size: 15px; }
 .todo-count { font-size: 12px; color: #8890b8; margin-left: 6px; }
 /* 概览统计条 */

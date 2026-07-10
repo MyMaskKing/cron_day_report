@@ -1922,7 +1922,7 @@ bindQuickLogin('asset');
 // opts 回调决定各页能力：{ today, hideDone, onToggle, onEdit, onDel, onAddChild, onShare, readOnly }
 // 用 createElement + addEventListener，规避模板串内引号转义。
 const TODO_TREE_CORE = `
-var PRI_ICON = { 2: '🔴', 1: '🔵', 0: '⚪' };
+var PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
 var PRI_TEXT = { 2: '高', 1: '中', 0: '低' };
 function todoBuildTree(rows) {
   var byId = {}, roots = [];
@@ -1987,6 +1987,12 @@ function renderTodoTree(container, trees, opts) {
     check.title = node.done ? '取消完成' : '标记完成';
     if (opts.onToggle) check.addEventListener('click', function(e){ e.stopPropagation(); opts.onToggle(node, !node.done); });
     row.appendChild(check);
+
+    // 优先级圆点：标题前克制点缀（红=高 琥珀=中 灰=低），不占左色带
+    var dot = document.createElement('span');
+    dot.className = 'todo-dot pri-' + (node.priority != null ? node.priority : 1);
+    dot.title = PRI_TEXT[node.priority != null ? node.priority : 1] + '优先级';
+    row.appendChild(dot);
 
     // 主体：标题 + 元信息
     var main = document.createElement('div');
@@ -2084,7 +2090,7 @@ function todoFormHtml(t, isNew, isChild) {
     '<div class="row">' +
       '<div><label>优先级</label><select id="tfPri">' +
         '<option value="2"' + (t.priority === 2 ? ' selected' : '') + '>🔴 高</option>' +
-        '<option value="1"' + (t.priority == null || t.priority === 1 ? ' selected' : '') + '>🔵 中</option>' +
+        '<option value="1"' + (t.priority == null || t.priority === 1 ? ' selected' : '') + '>🟡 中</option>' +
         '<option value="0"' + (t.priority === 0 ? ' selected' : '') + '>⚪ 低</option>' +
       '</select></div>' +
       dueField +
