@@ -325,6 +325,10 @@ function publicBuyPage() {
         <div id="chartBox" style="display:none;margin-top:16px;">
           <h2 style="font-size:14px;color:#666;">近30天持仓收益</h2>
           <canvas id="profitChart" style="max-height:220px;"></canvas>
+          <table style="margin-top:12px;">
+            <thead><tr><th>日期</th><th>持仓收益</th><th>较前一天</th></tr></thead>
+            <tbody id="profitTbody"></tbody>
+          </table>
         </div>
       </div>
     </div>

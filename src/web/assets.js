@@ -1122,12 +1122,15 @@ var profitChartInst = null;
 
 function drawProfitChart(series) {
   var box = document.getElementById('chartBox');
+  var canvas = document.getElementById('profitChart');
+  var tbody = document.getElementById('profitTbody');
+  if (!box || !canvas || !tbody) return;
   if (!series || !series.length) { box.style.display = 'none'; return; }
   box.style.display = 'block';
   var labels = series.map(function(s){ return s.date.slice(5); });
   var data = series.map(function(s){ return s.profit; });
   if (profitChartInst) profitChartInst.destroy();
-  profitChartInst = new Chart(document.getElementById('profitChart'), {
+  profitChartInst = new Chart(canvas, {
     type:'line',
     data:{ labels: labels, datasets:[{ label:'持仓收益(元)', data: data, borderColor:'#4a6cf7', backgroundColor:'rgba(74,108,247,.12)', fill:true, tension:.3 }] },
     options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'收益(元)' } } } }
@@ -1145,7 +1148,7 @@ function drawProfitChart(series) {
       '<td data-label="持仓收益" style="color:' + pc + '">' + sign(s.profit) + ' 元</td>' +
       '<td data-label="较前一天" style="color:' + dc + '">' + dt + '</td></tr>');
   }
-  document.getElementById('profitTbody').innerHTML = rows.join('');
+  tbody.innerHTML = rows.join('');
 }
 
 async function loadInfo() {
