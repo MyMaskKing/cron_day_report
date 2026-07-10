@@ -1259,7 +1259,10 @@ async function initShare() {
   try {
     var d = await api('/api/admin/weight/all-members');
     var sel = document.getElementById('shareMemberSel');
-    var opts = d.members.map(function(m){
+    // 排除已在我名下的成员（自己拥有的 + 已引用的）
+    var ownedIds = {};
+    members.forEach(function(m){ ownedIds[m.id] = 1; });
+    var opts = d.members.filter(function(m){ return !ownedIds[m.id]; }).map(function(m){
       return '<option value="' + m.id + '">' + esc(m.name) + ' · ' + esc(m.owner_nick || m.owner_name) + '</option>';
     }).join('');
     sel.innerHTML = opts || '<option value="">暂无可引用的成员</option>';
@@ -1272,7 +1275,7 @@ async function runShare() {
   if (isNaN(mid)) { alert('请选择要引用的成员'); return; }
   try {
     var r = await api('/api/admin/weight/share', { method:'POST', body:{ member_id: mid } });
-    alert(r.message); await loadAll();
+    alert(r.message); await loadAll(); await initShare();
   } catch(e){ alert(e.message); }
 }
 async function runCompare() {

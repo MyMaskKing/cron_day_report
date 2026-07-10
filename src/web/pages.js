@@ -393,7 +393,7 @@ function weightPage(user) {
         <div style="flex:1;"><label>选择要引用的成员</label>
           <select id="shareMemberSel"><option value="">加载中…</option></select>
         </div>
-        <div style="align-self:flex-end;"><button class="btn" id="shareRun">引用到我的成员</button></div>
+        <div><label>&nbsp;</label><button class="btn" id="shareRun" style="display:block;">引用到我的成员</button></div>
       </div>
     </div>
 
