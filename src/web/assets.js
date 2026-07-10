@@ -824,13 +824,16 @@ bindModal();
 var chart = null;   // 饼图
 var profitChart = null;
 window._profitSeries = [];    // 每日总收益全量，供过滤用
+// 初始化加载进度：_initTotal>0 时给 loadingText 前缀百分比，复用调用(如加仓后)时 _initTotal=0 仅显示描述
+var _initTotal = 0, _initStep = 0;
+function stepText(t){ return _initTotal ? Math.round((++_initStep) / _initTotal * 100) + '% ' + t : t; }
 
 function sign(n){ return (n>=0?'+':'') + n; }
 function colorOf(n){ return n>=0 ? '#cf1322' : '#389e0d'; }
 
 // ---------- 报表 ----------
 async function loadReport() {
-  var data = await api('/api/fund/report', { loadingText: '正在拉取基金实时净值…' });
+  var data = await api('/api/fund/report', { loadingText: stepText('正在拉取基金实时净值与收益汇总…') });
   var t = data.totals;
   document.getElementById('sumCost').textContent = t.cost;
   document.getElementById('sumValue').textContent = t.value;
@@ -916,7 +919,7 @@ function applyProfitFilter() {
 }
 
 async function loadProfitHistory() {
-  var data = await api('/api/fund/profit-history');
+  var data = await api('/api/fund/profit-history', { loadingText: stepText('正在加载每日收益曲线…') });
   window._profitSeries = data.series || [];
   applyProfitFilter();
 }
@@ -1016,10 +1019,10 @@ document.getElementById('fNew').addEventListener('click', function(){ fundForm({
 // ---------- 日报配置（走通用 push API, module=fund）----------
 var rcChannelPick = null;
 async function loadReportConfig() {
-  var chData = await api('/api/notify/channels');
+  var chData = await api('/api/notify/channels', { loadingText: stepText('正在加载通知渠道…') });
   var items = chData.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + c.type + ']' }; });
 
-  var data = await api('/api/push/fund');
+  var data = await api('/api/push/fund', { loadingText: stepText('正在加载日报推送配置…') });
   var cfg = data.config;
   rcChannelPick = initListPick(document.getElementById('rcChannel'), items, cfg.channel_ids || []);
   document.getElementById('rcFormat').value = cfg.format || 'text';
@@ -1106,8 +1109,10 @@ document.getElementById('scRun').addEventListener('click', async function(){
 });
 
 (async function(){
+  _initTotal = 4; _initStep = 0;   // loadReport(净值汇总+收益曲线) + loadReportConfig(渠道+推送配置)
   try { await loadReport(); await loadReportConfig(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
+  finally { _initTotal = 0; }
   // 绑定筛选（select 在 loadReport 时 DOM 已就绪）
   document.getElementById('profitRange').addEventListener('change', applyProfitFilter);
 })();
@@ -1153,7 +1158,7 @@ function drawProfitChart(series) {
 
 async function loadInfo() {
   try {
-    var d = await api('/api/public/fund/' + token);
+    var d = await api('/api/public/fund/' + token, { loadingText: '正在加载基金信息与近30天收益曲线…' });
     var f = d.fund;
     document.getElementById('fundName').textContent = f.name + ' (' + f.code + ')';
     document.getElementById('curNav').textContent = f.current_nav + ' (' + (f.gszzl>=0?'+':'') + f.gszzl + '%)';
