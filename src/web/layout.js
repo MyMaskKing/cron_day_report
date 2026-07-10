@@ -44,8 +44,20 @@ a { color: #4a6cf7; text-decoration: none; }
 .topbar h1 { font-size: 18px; font-weight: 600; }
 .topbar .nav a { color: #fff; margin-left: 18px; font-size: 14px; opacity: .9; }
 .topbar .nav a:hover, .topbar .nav a.active { opacity: 1; text-decoration: underline; }
-.topbar .user { font-size: 14px; }
-.topbar .user a { margin-left: 12px; }
+.topbar .user { font-size: 14px; display: flex; align-items: center; gap: 10px; }
+/* 设置/登出：半透明胶囊按钮，在紫色 topbar 上清晰可点 */
+.topbar .user a.act-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: 0; padding: 6px 13px; border-radius: 999px;
+  background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.28);
+  color: #fff; font-size: 13px; line-height: 1; white-space: nowrap;
+  transition: background .16s, border-color .16s, transform .12s;
+}
+.topbar .user a.act-btn:hover { background: rgba(255,255,255,.30); border-color: rgba(255,255,255,.55); text-decoration: none; }
+.topbar .user a.act-btn:active { transform: translateY(1px); }
+/* 登出用暖红调，强调"离开"动作，与设置区分 */
+.topbar .user a.act-logout { background: rgba(255,120,120,.22); border-color: rgba(255,150,150,.45); }
+.topbar .user a.act-logout:hover { background: rgba(255,90,90,.42); border-color: rgba(255,170,170,.7); }
 .impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }
 .impersonate-banner a { color: #cf1322; font-weight: 600; margin-left: 8px; }
 .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
@@ -283,8 +295,7 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   .topbar h1 { font-size: 16px; }
   .topbar .nav { display: flex; flex-wrap: wrap; gap: 6px 0; }
   .topbar .nav a { margin-left: 0; margin-right: 16px; }
-  .topbar .user { font-size: 13px; }
-  .topbar .user a { margin-left: 8px; }
+  .topbar .user { font-size: 13px; flex-wrap: wrap; }
   .container { margin: 14px auto; padding: 0 10px; }
   .card { padding: 15px; }
   .row { flex-direction: column; gap: 0; }
@@ -344,8 +355,8 @@ function renderTopbar(user, active = '') {
     <h1>🚀 监控与追踪控制台</h1>
     <div class="nav">${navHtml}</div>
     <div class="user">${user.nickname || user.username} <span class="tag ${user.role}">${user.role === 'admin' ? '超管' : '用户'}</span>
-      ${restricted ? '' : '<a href="/settings">设置</a>'}
-      <a href="#" id="logoutBtn">登出</a>
+      ${restricted ? '' : '<a href="/settings" class="act-btn">⚙️ 设置</a>'}
+      <a href="#" id="logoutBtn" class="act-btn act-logout">⏻ 登出</a>
     </div>
   </div>` + (user.impersonating ? `<div class="impersonate-banner">
     ⚠️ 你（超管 ${user.admin_username || ''}）正在以 <b>${user.username}</b> 的身份浏览
