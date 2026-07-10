@@ -196,16 +196,28 @@ async function setGoal({ request, env }) {
 
 // ==================== 免密录入 ====================
 
-/** GET /api/public/asset/:token  免密查看钱包信息（供录入页） */
+/** GET /api/public/asset/:token  免密查看钱包信息（供录入页）+ 当年该钱包月度余额曲线 */
 async function publicWalletInfo({ env, params }) {
   const storage = getStorage(env);
   const w = await storage.asset.findWalletByShareToken(params.token);
   if (!w) return error('链接无效或已失效', 404);
   const month = currentMonth();
+  const year = currentYear();
+  // 当年该钱包各月余额（同钱包同月多条累加），按月升序，供录入页曲线
+  const all = await storage.asset.listRecords(w.user_id);
+  const sumByMonth = new Map();
+  for (const r of all) {
+    if (r.wallet_id !== w.id) continue;
+    if (!(r.month || '').startsWith(year)) continue;
+    sumByMonth.set(r.month, (sumByMonth.get(r.month) || 0) + (r.balance || 0));
+  }
+  const series = [...sumByMonth.entries()]
+    .sort((a, b) => a[0] < b[0] ? -1 : 1)
+    .map(([m, bal]) => ({ month: m, balance: Math.round((bal + Number.EPSILON) * 100) / 100 }));
   return json({
     success: true,
     wallet: { id: w.id, type: w.type, name: w.name },
-    month
+    month, year, series
   });
 }
 

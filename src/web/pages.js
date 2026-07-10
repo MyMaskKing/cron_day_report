@@ -576,6 +576,10 @@ function publicAssetPage() {
           <div id="fields"></div>
           <button class="btn" style="width:100%;" type="submit">提交本月记录</button>
         </form>
+        <div id="chartBox" style="display:none;margin-top:18px;">
+          <h2 style="font-size:14px;color:#666;">本年余额趋势（<span id="chartYear"></span>）</h2>
+          <canvas id="walletChart" style="max-height:240px;"></canvas>
+        </div>
       </div>
     </div>
   </div>`;
@@ -601,8 +605,12 @@ function assetReportPage() {
   const body = `<div class="container" style="max-width:760px;margin:24px auto;">
     <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
     <div id="content" style="display:none;">
-      <div class="card"><h2>💰 净资产趋势</h2><canvas id="netChart" style="max-height:340px;"></canvas></div>
-      <div class="card"><h2>每月消费</h2><canvas id="consumeChart" style="max-height:340px;"></canvas></div>
+      <div class="card"><h2>💰 当月各类型合计</h2><div id="typeTotalBox"></div></div>
+      <div class="card"><h2>📈 净资产趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="netChart" style="max-height:340px;"></canvas></div>
+      <div class="card"><h2>每月净存 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="consumeChart" style="max-height:340px;"></canvas></div>
+      <div class="card"><h2>📋 月度记录 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2>
+        <table><thead id="mttHead"></thead><tbody id="mttBody"></tbody></table>
+      </div>
     </div>
   </div>`;
   return renderPage({ title: '资产趋势', body, script: ASSET_REPORT_JS });

@@ -1602,20 +1602,28 @@ bindQuickLogin('weight-report');
 const ASSET_REPORT_JS = `
 ${COMMON_JS}
 var token = location.pathname.split('/').filter(Boolean).pop();
+var TYPE_LABEL = { bank:'银行卡', alipay:'支付宝', wechat:'微信', investment:'投资', credit:'信用支付', cash:'现金' };
 (async function(){
   try {
     var d = await api('/api/public/asset-report/' + token);
     var r = d.report;
-    // 默认只显示本年月份（本年无数据则回退全部）
-    var curYear = new Date(Date.now() + 8*3600*1000).toISOString().slice(0,4);
-    var idx = r.months.map(function(m, i){ return { m: m, i: i }; }).filter(function(o){ return (o.m||'').slice(0,4) === curYear; });
-    if (!idx.length) idx = r.months.map(function(m, i){ return { m: m, i: i }; });
-    var months = idx.map(function(o){ return o.m; });
-    var netWorthSeries = idx.map(function(o){ return r.netWorthSeries[o.i]; });
-    var savingSeries = idx.map(function(o){ return r.savingSeries[o.i]; });
+    // 最近 12 个月（months 已升序，取末尾 12 项）
+    var allMonths = r.months || [];
+    var recent = allMonths.slice(-12);
+    var recentSet = {}; recent.forEach(function(m){ recentSet[m] = 1; });
+    var idxMap = {}; allMonths.forEach(function(m, i){ idxMap[m] = i; });
+    var months = recent;
+    var netWorthSeries = recent.map(function(m){ return r.netWorthSeries[idxMap[m]]; });
+    var savingSeries = recent.map(function(m){ return r.savingSeries[idxMap[m]]; });
+    // 当月各类型合计（后端 byTypeTotal 已为最新月）
+    renderTypeTotal(r.byTypeTotal || [], r.latestMonth);
+    // 月度记录表（仅最近 12 个月）
+    renderMonthlyTable(r.monthlyTypeTotals || { types:[], rows:[] }, recentSet);
+    // 净资产趋势
     new Chart(document.getElementById('netChart'), { type:'line',
       data:{ labels: months, datasets:[{ label:'净资产', data: netWorthSeries, borderColor:'#667eea', tension:.3 }] },
       options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'净资产(元)' } } } } });
+    // 每月净存
     new Chart(document.getElementById('consumeChart'), { type:'bar',
       data:{ labels: months, datasets:[{ label:'净存', data: savingSeries,
         backgroundColor: function(c){ return c.raw < 0 ? '#cf1322' : '#389e0d'; } }] },
@@ -1623,6 +1631,30 @@ var token = location.pathname.split('/').filter(Boolean).pop();
     document.getElementById('content').style.display = 'block';
   } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
 })();
+function renderTypeTotal(list, latestMonth) {
+  var box = document.getElementById('typeTotalBox');
+  if (!box) return;
+  if (!list.length) { box.innerHTML = '<p class="muted">暂无记录</p>'; return; }
+  var cells = list.map(function(t){
+    var extra = t.type==='investment' ? '<div class="muted" style="font-size:12px;">本金 '+t.principal+' / 收益 '+t.profit+'</div>' : '';
+    var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag disabled">负债</span>' : '');
+    return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+t.balance+'</div><div class="lbl">'+label+'</div>'+extra+'</div>';
+  }).join('');
+  var tag = latestMonth ? '（' + latestMonth + '）' : '';
+  box.innerHTML = '<div class="muted" style="margin-bottom:6px;">各类型余额合计' + tag + '</div><div class="grid-stats">'+cells+'</div>';
+}
+function renderMonthlyTable(mtt, recentSet) {
+  var head = document.getElementById('mttHead'), body = document.getElementById('mttBody');
+  if (!head || !body) return;
+  var types = mtt.types || [];
+  head.innerHTML = '<tr><th>月份</th>' + types.map(function(t){ return '<th>' + (TYPE_LABEL[t]||t) + '</th>'; }).join('') + '<th>净资产</th></tr>';
+  var rows = (mtt.rows || []).filter(function(row){ return recentSet[row.month]; }).sort(function(a,b){ return b.month < a.month ? -1 : 1; });
+  body.innerHTML = rows.map(function(row){
+    var tds = types.map(function(t){ var v = row.totals[t]; return '<td data-label="' + (TYPE_LABEL[t]||t) + '">' + (v != null ? v : '—') + '</td>'; }).join('');
+    var netColor = row.net < 0 ? ' style="color:#cf1322;font-weight:bold;"' : '';
+    return '<tr><td data-label="月份">' + row.month + '</td>' + tds + '<td data-label="净资产"' + netColor + '>' + row.net + '</td></tr>';
+  }).join('') || '<tr><td colspan="' + (types.length + 2) + '" class="muted">暂无记录</td></tr>';
+}
 bindQuickLogin('asset-report');
 `;
 
@@ -2010,6 +2042,22 @@ var token = location.pathname.split('/').filter(Boolean).pop();
 var msg = document.getElementById('msg');
 var TYPE_LABEL = { bank:'银行卡', alipay:'支付宝', wechat:'微信', investment:'投资', credit:'信用支付', cash:'现金' };
 var wType = '';
+var walletChartInst = null;
+
+function drawWalletChart(series, year) {
+  var box = document.getElementById('chartBox');
+  if (!series || !series.length) { box.style.display = 'none'; return; }
+  document.getElementById('chartYear').textContent = year;
+  box.style.display = 'block';
+  var labels = series.map(function(s){ return s.month.slice(5) + '月'; });
+  var data = series.map(function(s){ return s.balance; });
+  if (walletChartInst) walletChartInst.destroy();
+  walletChartInst = new Chart(document.getElementById('walletChart'), {
+    type:'line',
+    data:{ labels: labels, datasets:[{ label:'余额(元)', data: data, borderColor:'#4a6cf7', backgroundColor:'rgba(74,108,247,.12)', fill:true, tension:.3 }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'余额(元)' } } } }
+  });
+}
 
 async function loadInfo() {
   try {
@@ -2026,6 +2074,7 @@ async function loadInfo() {
       box.innerHTML = '<label>本月余额(元)</label><input id="fBalance" type="number" step="0.01">';
     }
     document.getElementById('content').style.display = 'block';
+    drawWalletChart(d.series, d.year);
   } catch(e) {
     document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>';
   }
@@ -2039,6 +2088,7 @@ document.getElementById('aForm').addEventListener('submit', async function(e){
     await api('/api/public/asset/' + token, { method:'POST', body: payload });
     showMsg(msg, '本月记录已保存！可继续录入下一条', true);
     document.getElementById('aForm').reset();
+    await loadInfo();  // 刷新当年曲线
   }
   catch(err){ showMsg(msg, err.message, false); }
 });
