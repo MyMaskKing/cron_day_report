@@ -245,7 +245,7 @@ async function publicAssetReport({ env, params }) {
   const wallets = await storage.asset.listWallets(row.user_id);
   const records = await storage.asset.listRecords(row.user_id);
   const report = buildAssetReportData(wallets, records);
-  return json({ success: true, report });
+  return json({ success: true, report, wallets, records });
 }
 
 export {

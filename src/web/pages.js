@@ -609,7 +609,10 @@ function assetReportPage() {
       <div class="card"><h2>📈 净资产趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="netChart" style="max-height:340px;"></canvas></div>
       <div class="card"><h2>每月净存 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="consumeChart" style="max-height:340px;"></canvas></div>
       <div class="card"><h2>📋 月度记录 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2>
-        <table><thead id="mttHead"></thead><tbody id="mttBody"></tbody></table>
+        <table>
+          <thead><tr><th>月份</th><th>类型</th><th>钱包</th><th>金额</th><th>更新时间</th></tr></thead>
+          <tbody id="mttBody"></tbody>
+        </table>
       </div>
     </div>
   </div>`;

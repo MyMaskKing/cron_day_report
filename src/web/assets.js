@@ -1617,8 +1617,8 @@ var TYPE_LABEL = { bank:'银行卡', alipay:'支付宝', wechat:'微信', invest
     var savingSeries = recent.map(function(m){ return r.savingSeries[idxMap[m]]; });
     // 当月各类型合计（后端 byTypeTotal 已为最新月）
     renderTypeTotal(r.byTypeTotal || [], r.latestMonth);
-    // 月度记录表（仅最近 12 个月）
-    renderMonthlyTable(r.monthlyTypeTotals || { types:[], rows:[] }, recentSet);
+    // 月度记录明细（仅最近 12 个月，对齐登录页明细：月份/类型/钱包/金额/更新时间）
+    renderMonthDetail(d.wallets || [], d.records || [], recentSet);
     // 净资产趋势
     new Chart(document.getElementById('netChart'), { type:'line',
       data:{ labels: months, datasets:[{ label:'净资产', data: netWorthSeries, borderColor:'#667eea', tension:.3 }] },
@@ -1643,17 +1643,27 @@ function renderTypeTotal(list, latestMonth) {
   var tag = latestMonth ? '（' + latestMonth + '）' : '';
   box.innerHTML = '<div class="muted" style="margin-bottom:6px;">各类型余额合计' + tag + '</div><div class="grid-stats">'+cells+'</div>';
 }
-function renderMonthlyTable(mtt, recentSet) {
-  var head = document.getElementById('mttHead'), body = document.getElementById('mttBody');
-  if (!head || !body) return;
-  var types = mtt.types || [];
-  head.innerHTML = '<tr><th>月份</th>' + types.map(function(t){ return '<th>' + (TYPE_LABEL[t]||t) + '</th>'; }).join('') + '<th>净资产</th></tr>';
-  var rows = (mtt.rows || []).filter(function(row){ return recentSet[row.month]; }).sort(function(a,b){ return b.month < a.month ? -1 : 1; });
-  body.innerHTML = rows.map(function(row){
-    var tds = types.map(function(t){ var v = row.totals[t]; return '<td data-label="' + (TYPE_LABEL[t]||t) + '">' + (v != null ? v : '—') + '</td>'; }).join('');
-    var netColor = row.net < 0 ? ' style="color:#cf1322;font-weight:bold;"' : '';
-    return '<tr><td data-label="月份">' + row.month + '</td>' + tds + '<td data-label="净资产"' + netColor + '>' + row.net + '</td></tr>';
-  }).join('') || '<tr><td colspan="' + (types.length + 2) + '" class="muted">暂无记录</td></tr>';
+function renderMonthDetail(wlist, records, recentSet) {
+  var body = document.getElementById('mttBody');
+  if (!body) return;
+  var nameOf = {}, typeOf = {};
+  wlist.forEach(function(w){ nameOf[w.id] = w.name; typeOf[w.id] = w.type; });
+  // 仅最近 12 个月；排序：月份倒序 → 类型 → 钱包名 → 录入时间倒序（对齐登录页 renderMonthTable）
+  var sorted = records.filter(function(r){ return recentSet[r.month]; }).sort(function(a,b){
+    if (a.month !== b.month) return b.month < a.month ? -1 : 1;
+    var ta = typeOf[a.wallet_id]||'', tb2 = typeOf[b.wallet_id]||'';
+    if (ta !== tb2) return ta.localeCompare(tb2);
+    var na = nameOf[a.wallet_id]||'', nb = nameOf[b.wallet_id]||'';
+    if (na !== nb) return na.localeCompare(nb);
+    return (b.created_at||'').localeCompare(a.created_at||'');
+  });
+  body.innerHTML = sorted.map(function(r){
+    return '<tr><td data-label="月份">' + r.month + '</td>' +
+      '<td data-label="类型">' + (TYPE_LABEL[typeOf[r.wallet_id]] || '') + '</td>' +
+      '<td data-label="钱包">' + esc(nameOf[r.wallet_id]||'') + '</td>' +
+      '<td data-label="金额">' + r.balance + (r.principal||r.profit ? ' <span class="muted">(本金'+r.principal+'/收益'+r.profit+')</span>' : '') + '</td>' +
+      '<td data-label="更新时间" class="muted">' + esc(r.created_at||'') + '</td></tr>';
+  }).join('') || '<tr><td colspan="5" class="muted">暂无记录</td></tr>';
 }
 bindQuickLogin('asset-report');
 `;
