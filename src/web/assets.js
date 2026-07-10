@@ -2859,12 +2859,16 @@ function visibleTrees() {
 function renderStats(trees) {
   var pending = 0, overdue = 0, done = 0;
   function walk(node, rootDue){
+    if (node.children.length > 0) {
+      // 有子任务：父不计入，仅递归统计子任务（叶子口径，与后端 countStats 一致）
+      node.children.forEach(function(c){ walk(c, rootDue); });
+      return;
+    }
     if (node.done) done++;
     else {
       pending++;
       if (rootDue && _today && rootDue < _today) overdue++;
     }
-    node.children.forEach(function(c){ walk(c, rootDue); });
   }
   trees.forEach(function(root){ walk(root, root.due_date); });
   document.getElementById('stPending').textContent = pending;
@@ -2884,9 +2888,12 @@ function drawTree(trees) {
         await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadPublic();
         if (done) {
-          // 庆祝口径与可见列表一致：统计当天/逾期范围内的任务数
+          // 庆祝口径与可见列表一致（叶子口径）：有子任务的父不计，只数末端叶子
           var total = 0, doneCnt = 0;
-          (function count(list){ list.forEach(function(n){ total++; if (n.done) doneCnt++; count(n.children); }); })(visibleTrees());
+          (function count(list){ list.forEach(function(n){
+            if (n.children.length > 0) { count(n.children); return; }
+            total++; if (n.done) doneCnt++;
+          }); })(visibleTrees());
           todoCelebrate(total - doneCnt, total);
         }
       }
@@ -2980,12 +2987,16 @@ function visibleTrees() {
 function renderStats(trees) {
   var pending = 0, overdue = 0, done = 0;
   function walk(node, rootDue){
+    if (node.children.length > 0) {
+      // 有子任务：父不计入，仅递归统计子任务（叶子口径，与后端 countStats 一致）
+      node.children.forEach(function(c){ walk(c, rootDue); });
+      return;
+    }
     if (node.done) done++;
     else {
       pending++;
       if (rootDue && _today && rootDue < _today) overdue++;
     }
-    node.children.forEach(function(c){ walk(c, rootDue); });
   }
   trees.forEach(function(root){ walk(root, root.due_date); });
   document.getElementById('stPending').textContent = pending;

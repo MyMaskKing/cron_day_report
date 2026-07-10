@@ -517,15 +517,22 @@ function buildTodoReport(trees, opts = {}) {
   return buildTodoReportText(sorted, base, token, reportToken, today, stats, remind);
 }
 
-/** 统计筛选后树里的未完成任务数与逾期数（含各层子任务；子任务日期继承顶层） */
+/** 统计筛选后树里的未完成任务数与逾期数
+ * 叶子口径：有子任务的父任务不计入，只统计末端叶子（与列表页 countStats 一致）；
+ * 子任务逾期继承顶层祖先的截止日期 */
 function statsOfReport(trees, today) {
   let pending = 0, overdue = 0;
   const walk = (node, rootDue) => {
+    if (node.children.length > 0) {
+      // 有子任务：父不计入，仅递归统计子任务
+      for (const c of node.children) walk(c, rootDue);
+      return;
+    }
+    // 叶子任务：未完成才计入
     if (!node.done) {
       pending++;
       if (rootDue && today && rootDue < today) overdue++;
     }
-    for (const c of node.children) walk(c, rootDue);
   };
   for (const root of trees) walk(root, root.due_date);
   return { pending, overdue };
