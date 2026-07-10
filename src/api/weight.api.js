@@ -104,7 +104,8 @@ async function getMemberShareLink({ request, env, params, url }) {
   if (!m || !(await storage.weight.canAccessMember(auth.user_id, id))) return error('成员不存在', 404);
 
   let token = m.share_token;
-  if (!token) {
+  // reset=1 时强制重置：重新生成 token 覆盖旧值，旧链接立即失效
+  if (!token || url.searchParams.get('reset')) {
     token = generateToken();
     await storage.weight.setMemberShareToken(id, token);
   }

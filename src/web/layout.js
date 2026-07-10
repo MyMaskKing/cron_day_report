@@ -332,7 +332,11 @@ function renderTopbar(user, active = '') {
   ];
   if (user.role === 'admin') links.push({ key: 'admin', href: '/admin', text: '用户管理' });
 
-  const navHtml = links.map(l =>
+  // 受限免密会话：导航只保留对应模块，隐藏设置/登出以外的其他入口
+  const restricted = !!user.quickloginModule;
+  const shownLinks = restricted ? links.filter(l => l.key === user.quickloginModule) : links;
+
+  const navHtml = shownLinks.map(l =>
     `<a href="${l.href}" class="${active === l.key ? 'active' : ''}">${l.text}</a>`
   ).join('');
 
@@ -340,7 +344,7 @@ function renderTopbar(user, active = '') {
     <h1>🚀 监控与追踪控制台</h1>
     <div class="nav">${navHtml}</div>
     <div class="user">${user.nickname || user.username} <span class="tag ${user.role}">${user.role === 'admin' ? '超管' : '用户'}</span>
-      <a href="/settings">设置</a>
+      ${restricted ? '' : '<a href="/settings">设置</a>'}
       <a href="#" id="logoutBtn">登出</a>
     </div>
   </div>` + (user.impersonating ? `<div class="impersonate-banner">

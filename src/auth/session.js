@@ -13,13 +13,15 @@ const COOKIE_NAME = 'sid';
  * 创建会话并返回 token
  * @param {Object} env
  * @param {Object} user - {id, username, role}
+ * @param {Object} extra - 额外写入 session 的字段（如 { quicklogin_module }）
  * @returns {Promise<string>} token
  */
-async function createSession(env, user) {
+async function createSession(env, user, extra = {}) {
   const token = generateToken();
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL;
   await kvSetSession(env.KV, token, {
-    user_id: user.id, username: user.username, nickname: user.nickname || user.username, role: user.role, exp
+    user_id: user.id, username: user.username, nickname: user.nickname || user.username, role: user.role, exp,
+    ...extra
   }, SESSION_TTL);
   return token;
 }

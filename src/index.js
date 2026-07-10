@@ -15,7 +15,7 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken } from './api/auth.api.js';
+import { register, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
@@ -42,7 +42,7 @@ import {
   publicWalletInfo, publicSaveRecord, publicAssetReport
 } from './api/asset.api.js';
 import { buildAssetReportData } from './services/asset.service.js';
-import { getPushConfig, setPushConfig } from './api/push.api.js';
+import { getPushConfig, setPushConfig, resetMyModuleShare, adminResetModuleShare } from './api/push.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
 import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue } from './services/report.service.js';
 import { buildTree, flattenPending } from './services/todo.service.js';
@@ -72,6 +72,7 @@ router.get('/api/auth/me', me);
 router.get('/api/auth/profile', getProfile);
 router.put('/api/auth/profile', updateProfile);
 router.put('/api/auth/password', changePassword);
+router.put('/api/auth/quicklogin-restrict', updateQuickloginRestrict);
 router.get('/api/auth/setup-status', setupStatus);
 router.post('/api/auth/bootstrap', bootstrap);
 router.post('/api/public/quick-login/:kind/:token', quickLoginByToken);
@@ -189,6 +190,9 @@ router.put('/api/public/todo-all/:token/:id', publicAllUpdate);
 router.get('/api/push/:module', getPushConfig);
 router.put('/api/push/:module', setPushConfig);
 router.post('/api/push/:module/send', runMyModulePush);
+// 免密链接模块级重置
+router.post('/api/share/reset/:module', resetMyModuleShare);
+router.post('/api/admin/share/reset/:module/:userId', adminResetModuleShare);
 
 /**
  * 页面路由处理（需登录的页面统一校验会话）
@@ -258,10 +262,18 @@ async function handlePages(request, env) {
     if (!session) {
       return new Response(null, { status: 302, headers: { Location: '/login' } });
     }
+    // 受限免密会话：只放行对应模块页，其他一律重定向回允许页
+    if (session.quicklogin_module) {
+      const allow = { fund: '/fund', weight: '/weight', asset: '/asset', todo: '/todo' }[session.quicklogin_module];
+      if (allow && path !== allow) {
+        return new Response(null, { status: 302, headers: { Location: allow } });
+      }
+    }
     const user = {
       id: session.user_id, username: session.username,
       nickname: session.nickname || session.username, role: session.role,
-      impersonating: !!session.impersonating, admin_username: session.admin_username || null
+      impersonating: !!session.impersonating, admin_username: session.admin_username || null,
+      quickloginModule: session.quicklogin_module || null
     };
 
     switch (pageMap[path]) {

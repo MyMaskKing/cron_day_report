@@ -91,7 +91,8 @@ async function getWalletShareLink({ request, env, params, url }) {
   const w = await storage.asset.findWallet(id);
   if (!w || w.user_id !== auth.user_id) return error('钱包不存在', 404);
   let token = w.share_token;
-  if (!token) {
+  // reset=1 时强制重置：重新生成 token 覆盖旧值，旧链接立即失效
+  if (!token || url.searchParams.get('reset')) {
     token = generateToken();
     await storage.asset.setWalletShareToken(id, token);
   }

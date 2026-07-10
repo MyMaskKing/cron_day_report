@@ -5,10 +5,21 @@
 
 import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
-import { requireAuth } from '../auth/middleware.js';
+import { requireAuth, requireAdmin } from '../auth/middleware.js';
 import { ALLOWED_FORMATS } from '../config.js';
 
 const MODULES = ['fund', 'weight', 'asset', 'monitor', 'todo'];
+// 可重置免密链接的业务模块（monitor 无免密链接）
+const SHARE_MODULES = ['fund', 'weight', 'asset', 'todo'];
+
+/** 清空某用户某模块的全部免密 token（各 share_token + 报告 report_token），旧链接立即失效 */
+async function resetModuleTokens(storage, userId, module) {
+  if (module === 'fund') await storage.fund.clearShareTokens(userId);
+  else if (module === 'weight') await storage.weight.clearShareTokens(userId);
+  else if (module === 'asset') await storage.asset.clearShareTokens(userId);
+  else if (module === 'todo') await storage.todo.clearShareTokens(userId);
+  await storage.push.clearReportToken(userId, module);
+}
 
 /** GET /api/push/:module  读取当前用户某模块推送配置 */
 async function getPushConfig({ request, env, params }) {
@@ -79,4 +90,27 @@ async function setPushConfig({ request, env, params }) {
   return json({ success: true, message: '推送配置已保存' });
 }
 
-export { getPushConfig, setPushConfig };
+/** POST /api/share/reset/:module  重置自己该模块的全部免密链接 */
+async function resetMyModuleShare({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  if (!SHARE_MODULES.includes(params.module)) return error('模块非法', 400);
+  const storage = getStorage(env);
+  await resetModuleTokens(storage, auth.user_id, params.module);
+  return json({ success: true, message: '该模块免密链接已重置，旧链接已失效' });
+}
+
+/** POST /api/admin/share/reset/:module/:userId  超管重置指定用户该模块的全部免密链接 */
+async function adminResetModuleShare({ request, env, params }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  if (!SHARE_MODULES.includes(params.module)) return error('模块非法', 400);
+  const userId = parseInt(params.userId, 10);
+  const storage = getStorage(env);
+  const u = await storage.users.findById(userId);
+  if (!u) return error('用户不存在', 404);
+  await resetModuleTokens(storage, userId, params.module);
+  return json({ success: true, message: '该用户该模块免密链接已重置' });
+}
+
+export { getPushConfig, setPushConfig, resetMyModuleShare, adminResetModuleShare };

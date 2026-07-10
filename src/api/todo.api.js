@@ -150,7 +150,8 @@ async function getShareLink({ request, env, params, url }) {
   if (t.parent_id != null) return error('仅顶层任务可分享', 400);
 
   let token = t.share_token;
-  if (!token) {
+  // reset=1 时强制重置：重新生成 token 覆盖旧值，旧链接立即失效
+  if (!token || url.searchParams.get('reset')) {
     token = generateToken();
     await storage.todo.setShareToken(id, token);
   }

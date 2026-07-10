@@ -101,7 +101,7 @@ async function getProfile({ request, env }) {
   const storage = getStorage(env);
   const u = await storage.users.findById(session.user_id);
   if (!u) return error('用户不存在', 404);
-  return json({ success: true, profile: { username: u.username, nickname: u.nickname || u.username } });
+  return json({ success: true, profile: { username: u.username, nickname: u.nickname || u.username, restrict_quicklogin: u.restrict_quicklogin != null ? u.restrict_quicklogin : 1 } });
 }
 
 /**
@@ -226,7 +226,16 @@ async function quickLoginByToken({ env, params }) {
     fund: '/fund', weight: '/weight', asset: '/asset', todo: '/todo',
     'weight-report': '/weight', 'asset-report': '/asset', 'fund-report': '/fund', 'todo-report': '/todo'
   };
-  const sessionToken = await createSession(env, user);
+  // kind 归一到模块，用于受限会话仅放行对应模块页
+  const MODULE_OF = {
+    fund: 'fund', 'fund-report': 'fund',
+    weight: 'weight', 'weight-report': 'weight',
+    asset: 'asset', 'asset-report': 'asset',
+    todo: 'todo', 'todo-report': 'todo'
+  };
+  // 该用户开启限制则会话仅能访问对应模块页；关闭则为完整会话
+  const extra = user.restrict_quicklogin ? { quicklogin_module: MODULE_OF[kind] } : {};
+  const sessionToken = await createSession(env, user, extra);
   return json(
     { success: true, redirect: REDIRECT[kind] || '/dashboard' },
     200,
@@ -234,7 +243,20 @@ async function quickLoginByToken({ env, params }) {
   );
 }
 
+/**
+ * PUT /api/auth/quicklogin-restrict  设置免密登录访问限制  body: { enabled }
+ */
+async function updateQuickloginRestrict({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  const storage = getStorage(env);
+  await storage.users.updateQuickloginRestrict(session.user_id, body.enabled ? 1 : 0);
+  return json({ success: true, message: '设置已保存' });
+}
+
 export {
   register, login, logout, me, bootstrap, setupStatus,
-  getProfile, updateProfile, changePassword, quickLoginByToken
+  getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict
 };

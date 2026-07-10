@@ -47,6 +47,9 @@ function createD1Adapter(env) {
       async updateWeightUnit(id, unit) {
         await db.prepare('UPDATE users SET weight_unit = ? WHERE id = ?').bind(unit, id).run();
       },
+      async updateQuickloginRestrict(id, v) {
+        await db.prepare('UPDATE users SET restrict_quicklogin = ? WHERE id = ?').bind(v ? 1 : 0, id).run();
+      },
       async count() {
         const row = await db.prepare('SELECT COUNT(*) AS c FROM users').first();
         return row ? row.c : 0;
@@ -186,6 +189,9 @@ function createD1Adapter(env) {
       },
       async setShareToken(id, token) {
         await db.prepare('UPDATE funds SET share_token=? WHERE id=?').bind(token, id).run();
+      },
+      async clearShareTokens(userId) {
+        await db.prepare('UPDATE funds SET share_token=NULL WHERE user_id=?').bind(userId).run();
       },
       async updateHolding(id, shares, costNav) {
         await db.prepare('UPDATE funds SET shares=?, cost_nav=? WHERE id=?').bind(shares, costNav, id).run();
@@ -348,6 +354,9 @@ function createD1Adapter(env) {
       async setMemberShareToken(id, token) {
         await db.prepare('UPDATE weight_members SET share_token=? WHERE id=?').bind(token, id).run();
       },
+      async clearShareTokens(userId) {
+        await db.prepare('UPDATE weight_members SET share_token=NULL WHERE user_id=?').bind(userId).run();
+      },
       async getMemberFirstDate(memberId) {
         const row = await db.prepare(
           'SELECT MIN(record_date) AS first_date FROM weight_records WHERE member_id=?'
@@ -406,6 +415,9 @@ function createD1Adapter(env) {
       },
       async setWalletShareToken(id, token) {
         await db.prepare('UPDATE wallets SET share_token=? WHERE id=?').bind(token, id).run();
+      },
+      async clearShareTokens(userId) {
+        await db.prepare('UPDATE wallets SET share_token=NULL WHERE user_id=?').bind(userId).run();
       },
       // 用户所有钱包的全部月度记录
       async listRecords(userId) {
@@ -483,6 +495,9 @@ function createD1Adapter(env) {
       },
       async findByReportToken(token) {
         return await db.prepare('SELECT * FROM push_config WHERE report_token=?').bind(token).first();
+      },
+      async clearReportToken(userId, module) {
+        await db.prepare('UPDATE push_config SET report_token=NULL WHERE user_id=? AND module=?').bind(userId, module).run();
       },
       async ensureReportToken(userId, module, token) {
         // 若无 token 则写入；配置行不存在时先建一条最小行
@@ -571,6 +586,9 @@ function createD1Adapter(env) {
       },
       async setShareToken(id, token) {
         await db.prepare('UPDATE todos SET share_token=? WHERE id=?').bind(token, id).run();
+      },
+      async clearShareTokens(userId) {
+        await db.prepare('UPDATE todos SET share_token=NULL WHERE user_id=?').bind(userId).run();
       },
       // 某顶层任务及其全部后代（递归子树），供免密页展示
       async listSubtree(rootId) {

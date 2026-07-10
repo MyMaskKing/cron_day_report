@@ -367,8 +367,27 @@ var msg = document.getElementById('msg');
     var d = await api('/api/auth/profile');
     document.getElementById('pfUsername').value = d.profile.username;
     document.getElementById('pfNick').value = d.profile.nickname;
+    var ql = document.getElementById('qlRestrict');
+    if (ql) ql.checked = d.profile.restrict_quicklogin != 0;
   } catch(e){ location.href = '/login'; }
 })();
+// 免密登录限制开关：切换即保存
+var qlEl = document.getElementById('qlRestrict');
+if (qlEl) qlEl.addEventListener('change', async function(){
+  try {
+    await api('/api/auth/quicklogin-restrict', { method:'PUT', body:{ enabled: qlEl.checked } });
+    showMsg(msg, '免密登录设置已保存', true);
+  } catch(err){ showMsg(msg, err.message, false); qlEl.checked = !qlEl.checked; }
+});
+// 模块级重置免密链接
+window.resetShare = async function(module){
+  var names = { fund:'基金', weight:'体重', asset:'资产', todo:'待办' };
+  if (!confirm('确认重置「' + (names[module]||module) + '」的全部免密链接？旧链接将立即失效。')) return;
+  try {
+    var r = await api('/api/share/reset/' + module, { method:'POST' });
+    showMsg(msg, r.message, true);
+  } catch(err){ showMsg(msg, err.message, false); }
+};
 document.getElementById('nickForm').addEventListener('submit', async function(e){
   e.preventDefault();
   try {
@@ -464,10 +483,26 @@ async function viewUser(id) {
       '<div class="stat"><div class="num">' + d.summary.channelCount + '</div><div class="lbl">通知渠道</div></div>' +
       '<div class="stat"><div class="num">' + d.summary.fundCount + '</div><div class="lbl">基金持仓</div></div>' +
       '<div class="stat"><div class="num">' + d.summary.memberCount + '</div><div class="lbl">体重成员</div></div>' +
+      '</div>' +
+      '<h2 style="font-size:15px;margin-top:16px;">重置免密链接</h2>' +
+      '<p class="muted" style="font-size:12px;">重置后该用户对应模块的全部旧免密链接立即失效。</p>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">' +
+        '<button class="btn sm gray" onclick="adminResetShare(' + d.user.id + ",'fund'" + ')">基金</button>' +
+        '<button class="btn sm gray" onclick="adminResetShare(' + d.user.id + ",'weight'" + ')">体重</button>' +
+        '<button class="btn sm gray" onclick="adminResetShare(' + d.user.id + ",'asset'" + ')">资产</button>' +
+        '<button class="btn sm gray" onclick="adminResetShare(' + d.user.id + ",'todo'" + ')">待办</button>' +
       '</div>';
     detail.scrollIntoView({ behavior: 'smooth' });
   } catch (err) { alert(err.message); }
 }
+window.adminResetShare = async function(userId, module){
+  var names = { fund:'基金', weight:'体重', asset:'资产', todo:'待办' };
+  if (!confirm('确认重置该用户「' + (names[module]||module) + '」的全部免密链接？旧链接将立即失效。')) return;
+  try {
+    var r = await api('/api/admin/share/reset/' + module + '/' + userId, { method:'POST' });
+    alert(r.message);
+  } catch(err){ alert(err.message); }
+};
 async function toggleRole(id, cur) {
   var role = cur === 'admin' ? 'user' : 'admin';
   if (!confirm('确认修改角色为 ' + role + ' ?')) return;
@@ -934,13 +969,16 @@ window.delFund = async function(id){
   try { await api('/api/fund/' + id, { method:'DELETE' }); await loadReport(); }
   catch(e){ alert(e.message); }
 };
-window.shareLink = async function(id){
+window.shareLink = async function(id, reset){
+  if (reset && !confirm('重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？')) return;
   try {
-    var d = await api('/api/fund/' + id + '/share-link');
+    var d = await api('/api/fund/' + id + '/share-link' + (reset ? '?reset=1' : ''));
     openModal('免密加仓链接',
       '<p class="muted">此链接长期有效，任何人打开无需登录即可为该基金补录买入（自动累计份额并重算成本）。请妥善保管。</p>' +
       '<input id="shareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
-      '<button class="btn" onclick="copyShare()">复制链接</button>');
+      '<button class="btn" onclick="copyShare()">复制链接</button> ' +
+      '<button class="btn gray" onclick="shareLink(' + id + ', true)">重置链接</button>' +
+      (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
   } catch(e){ alert(e.message); }
 };
 window.copyShare = function(){
@@ -1239,13 +1277,16 @@ window.mRename = function(id, curName){
     catch(e){ alert(e.message); }
   });
 };
-window.mShare = async function(id){
+window.mShare = async function(id, reset){
+  if (reset && !confirm('重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？')) return;
   try {
-    var d = await api('/api/weight/members/' + id + '/share-link');
+    var d = await api('/api/weight/members/' + id + '/share-link' + (reset ? '?reset=1' : ''));
     openModal('免密填写链接',
       '<p class="muted">此链接长期有效，打开无需登录即可填写该成员当天体重。</p>' +
       '<input id="wShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
-      '<button class="btn" onclick="wCopy()">复制链接</button>');
+      '<button class="btn" onclick="wCopy()">复制链接</button> ' +
+      '<button class="btn gray" onclick="mShare(' + id + ', true)">重置链接</button>' +
+      (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
   } catch(e){ alert(e.message); }
 };
 window.wCopy = function(){ var el=document.getElementById('wShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
@@ -1880,13 +1921,16 @@ window.wDel = async function(id){
   if (!confirm('删除该钱包?')) return;
   try { await api('/api/asset/wallets/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alert(e.message); }
 };
-window.wShare = async function(id){
+window.wShare = async function(id, reset){
+  if (reset && !confirm('重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？')) return;
   try {
-    var d = await api('/api/asset/wallets/' + id + '/share-link');
+    var d = await api('/api/asset/wallets/' + id + '/share-link' + (reset ? '?reset=1' : ''));
     openModal('免密录入链接',
       '<p class="muted">此链接长期有效，打开无需登录即可录入该钱包当月金额。</p>' +
       '<input id="aShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
-      '<button class="btn" onclick="aCopy()">复制链接</button>');
+      '<button class="btn" onclick="aCopy()">复制链接</button> ' +
+      '<button class="btn gray" onclick="wShare(' + id + ', true)">重置链接</button>' +
+      (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
   } catch(e){ alert(e.message); }
 };
 window.aCopy = function(){ var el=document.getElementById('aShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
@@ -2418,21 +2462,25 @@ function drawTree() {
       try { await api('/api/todo/' + node.id, { method:'DELETE' }); await loadTodos(); await loadChart(); }
       catch(e){ alert(e.message); }
     },
-    onShare: async function(node){
-      try {
-        var d = await api('/api/todo/' + node.id + '/share-link');
-        openModal('免密协作链接',
-          '<p class="muted">此链接长期有效，打开无需登录即可查看、添加、勾选该清单下的任务。</p>' +
-          '<input id="tShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
-          '<button class="btn" onclick="todoCopy()">复制链接</button>');
-      } catch(e){ alert(e.message); }
-    },
+    onShare: function(node){ todoShareLink(node.id); },
     onReorder: async function(parentId, ids){
       try { await api('/api/todo/reorder', { method:'PUT', body:{ parent_id: parentId, ids: ids } }); await loadTodos(); }
       catch(e){ alert(e.message); await loadTodos(); }
     }
   });
 }
+window.todoShareLink = async function(id, reset){
+  if (reset && !confirm('重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？')) return;
+  try {
+    var d = await api('/api/todo/' + id + '/share-link' + (reset ? '?reset=1' : ''));
+    openModal('免密协作链接',
+      '<p class="muted">此链接长期有效，打开无需登录即可查看、添加、勾选该清单下的任务。</p>' +
+      '<input id="tShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
+      '<button class="btn" onclick="todoCopy()">复制链接</button> ' +
+      '<button class="btn gray" onclick="todoShareLink(' + id + ', true)">重置链接</button>' +
+      (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
+  } catch(e){ alert(e.message); }
+};
 window.todoCopy = function(){ var el=document.getElementById('tShareUrl'); el.select(); try{document.execCommand('copy');alert('已复制');}catch(e){alert('请手动复制');} };
 function openAddForm(parentId, title, isChild) {
   openModal(title, todoFormHtml({}, true, !!isChild) +

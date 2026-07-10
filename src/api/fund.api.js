@@ -243,7 +243,8 @@ async function getShareLink({ request, env, params, url }) {
   if (!fund || fund.user_id !== auth.user_id) return error('持仓不存在', 404);
 
   let token = fund.share_token;
-  if (!token) {
+  // reset=1 时强制重置：重新生成 token 覆盖旧值，旧链接立即失效
+  if (!token || url.searchParams.get('reset')) {
     token = generateToken();
     await storage.fund.setShareToken(id, token);
   }

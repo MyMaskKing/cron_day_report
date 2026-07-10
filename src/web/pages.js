@@ -454,6 +454,21 @@ function settingsPage(user) {
         <input id="pwNew" type="password" autocomplete="new-password">
         <button class="btn" type="submit">修改密码</button>
       </form>
+      <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+      <h2 style="font-size:15px;">免密登录安全</h2>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
+        <input type="checkbox" id="qlRestrict" style="width:auto;"> 免密链接「用本人账号登录」后仅能访问对应模块页
+      </label>
+      <p class="muted" style="font-size:12px;">开启后，从免密页登录只能看到对应模块，其他页面不可访问；关闭则为完整登录。</p>
+      <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+      <h2 style="font-size:15px;">免密链接管理</h2>
+      <p class="muted" style="font-size:12px;">重置后该模块下全部旧免密链接（含报告链接）立即失效，需重新获取分享。</p>
+      <div id="shareResetBox" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+        <button class="btn sm gray" onclick="resetShare('fund')">重置基金链接</button>
+        <button class="btn sm gray" onclick="resetShare('weight')">重置体重链接</button>
+        <button class="btn sm gray" onclick="resetShare('asset')">重置资产链接</button>
+        <button class="btn sm gray" onclick="resetShare('todo')">重置待办链接</button>
+      </div>
     </div>
   </div>`;
   return renderPage({ title: '个人设置', body, script: SETTINGS_JS });
