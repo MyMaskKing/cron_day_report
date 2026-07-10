@@ -10,7 +10,7 @@
  *   资产 buildAssetReportData / round2 → asset.service.js
  */
 
-import { fmtDateTime } from './time.service.js';
+import { fmtDateTime, localParts } from './time.service.js';
 import { buildChartUrl } from './chart.service.js';
 import { round2 } from './asset.service.js';
 import { analyzePortfolio } from './fund.service.js';
@@ -39,6 +39,13 @@ function fmtSign(n) {
   return (n >= 0 ? '+' : '') + n;
 }
 
+/** 日报标题日期后缀，如 (07/09)，按时区偏移取当天月/日 */
+function titleDate(tzOffset = 8) {
+  const p = localParts(Date.now(), tzOffset);
+  const pad = n => (n < 10 ? '0' : '') + n;
+  return ` (${pad(p.month)}/${pad(p.day)})`;
+}
+
 /**
  * 持仓分析文本（精简）：仅列组合提示与各基金的异常信号（止盈/止损/高集中度），
  * 过滤 info 级“持有观察”，不含止盈止损净值细节
@@ -57,7 +64,7 @@ function buildAnalysisText(analysis) {
 
 function buildFundReportText(items, totals, linkMap, tzOffset, analysis, reportLink = '', profitDelta = null) {
   const line = '━━━━━━━━━━━━━━';
-  let t = `📈 基金持仓日报\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n${line}\n`;
+  let t = `📈 基金持仓日报${titleDate(tzOffset)}\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n${line}\n`;
   t += `💰 总本金：${totals.cost}\n`;
   t += `📈 现　值：${totals.value}\n`;
   t += `📊 总收益：${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）\n`;
@@ -92,7 +99,7 @@ function buildAnalysisMarkdown(analysis) {
 }
 
 function buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis, reportLink = '', profitDelta = null) {
-  let m = `## 📈 基金持仓日报\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n\n`;
+  let m = `## 📈 基金持仓日报${titleDate(tzOffset)}\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n\n`;
   m += `💰 总本金：**${totals.cost}** · 现值：**${totals.value}**\n`;
   m += `📊 总收益：**${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）**\n`;
   if (profitDelta && profitDelta.delta != null) m += `📅 较昨日：**${fmtSign(round2(profitDelta.delta))} 元**\n`;
@@ -397,7 +404,7 @@ function buildWeightReport(members, records, opts) {
     return h;
   }
   const line = '━━━━━━━━━━━━━━';
-  let t = `⚖️ 体重日报\n${line}\n\n` + parts.join('\n');
+  let t = `⚖️ 体重日报${today && today.length >= 10 ? ` (${today.slice(5, 7)}/${today.slice(8, 10)})` : ''}\n${line}\n\n` + parts.join('\n');
   if (base && reportToken) t += `\n📈 查看曲线图：${base}/wr/${reportToken}\n`;
   return t;
 }
@@ -416,7 +423,7 @@ function buildWeightReportMarkdown(members, records, opts) {
   }
   for (const arr of byMember.values()) arr.sort((a, b) => a.record_date < b.record_date ? -1 : 1);
 
-  let m = `## ⚖️ 体重日报\n`;
+  let m = `## ⚖️ 体重日报${today && today.length >= 10 ? ` (${today.slice(5, 7)}/${today.slice(8, 10)})` : ''}\n`;
   for (const mem of members) {
     const arr = byMember.get(mem.id) || [];
     const todayRec = arr.find(r => r.record_date === today);
@@ -473,23 +480,41 @@ function todoTitleDate(today) {
 }
 
 /**
+ * 待办日报提醒语：按"当天第 seq 次 / 共 total 次推送"给温和→强烈三档提示
+ * 首次温和鼓励，中间催促，末次（当天最后一次）强烈提醒抓紧
+ * @param {number} pending - 未完成项数
+ * @param {number} seq - 当天第几次推送（1-based）
+ * @param {number} total - 当天共推送几次
+ * @returns {string} 无有效序号时返回空串
+ */
+function todoRemindText(pending, seq, total) {
+  if (!seq || !total || total < 1) return '';
+  if (seq >= total && total > 1) return `⏰ 今天快结束了，还剩 ${pending} 个待办没完成，抓紧最后时间处理！`;
+  if (seq <= 1) return `☀️ 今天还有 ${pending} 个待办，安排上，加油完成吧 💪`;
+  return `⌛ 还有 ${pending} 个待办未完成，别拖啦，尽快推进～`;
+}
+
+/**
  * 生成待办日报文本/HTML/Markdown
  * 仅呈现"截止今天或已逾期"的未完成顶层任务（含其未完成子任务），顶层按截止日期倒序
  * @param {Array} trees - flattenPending 后的未完成任务树
- * @param {Object} opts - { format, base, token, reportToken, today, stats }
+ * @param {Object} opts - { format, base, token, reportToken, today, stats, seq, total }
  *   token: 顶层无 token 时可为 null；base+token 有值则在末尾附免密协作链接
  *   reportToken: 免密报告查看页 token
+ *   seq/total: 当天第几次/共几次推送，用于分档提醒语（缺省不显示提醒语）
  * @returns {string}
  */
 function buildTodoReport(trees, opts = {}) {
-  const { format = 'text', base = '', token = null, reportToken = null, today = '' } = opts;
+  const { format = 'text', base = '', token = null, reportToken = null, today = '', seq = null, total = null } = opts;
   // 仅留截止今天/逾期的顶层任务，并按截止日期倒序
   const sorted = filterTodayOverdue(trees, today);
   // 日报口径统计：基于筛选后的树，统计未完成任务数与其中逾期数（含子任务）
   const stats = statsOfReport(sorted, today);
-  if (format === 'html') return buildTodoReportHTML(sorted, base, token, reportToken, today, stats);
-  if (format === 'markdown') return buildTodoReportMarkdown(sorted, base, token, reportToken, today, stats);
-  return buildTodoReportText(sorted, base, token, reportToken, today, stats);
+  // 分档提醒语：按当天第几次/共几次推送，温和→强烈
+  const remind = todoRemindText(stats.pending, seq, total);
+  if (format === 'html') return buildTodoReportHTML(sorted, base, token, reportToken, today, stats, remind);
+  if (format === 'markdown') return buildTodoReportMarkdown(sorted, base, token, reportToken, today, stats, remind);
+  return buildTodoReportText(sorted, base, token, reportToken, today, stats, remind);
 }
 
 /** 统计筛选后树里的未完成任务数与逾期数（含各层子任务；子任务日期继承顶层） */
@@ -525,10 +550,12 @@ function todoDateTag(dueDate, today, kind) {
   return over ? ` ⚠️逾期 ${disp}` : ` 📌今日 ${disp}`;
 }
 
-function buildTodoReportText(trees, base, token, reportToken, today, stats) {
+function buildTodoReportText(trees, base, token, reportToken, today, stats, remind = '') {
   const line = '━━━━━━━━━━━━━━';
   let t = `📝 待办日报${todoTitleDate(today)}\n${line}\n`;
-  if (stats) t += `未完成 ${stats.pending} 项${stats.overdue ? `，其中逾期 ${stats.overdue} 项` : ''}\n${line}\n`;
+  if (stats) t += `未完成 ${stats.pending} 项${stats.overdue ? `，其中逾期 ${stats.overdue} 项` : ''}\n`;
+  if (remind) t += `${remind}\n`;
+  t += `${line}\n`;
   // 子任务用树形连接线体现从属；方块 ▪ 与主任务圆点形成形状对比；子任务不标优先级，日期继承主任务
   const walkChild = (node, prefix, isLast) => {
     const cat = node.category ? `〔${node.category}〕` : '';
@@ -549,9 +576,10 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats) {
   return t;
 }
 
-function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats) {
+function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, remind = '') {
   let m = `## 📝 待办日报${todoTitleDate(today)}\n`;
   if (stats) m += `未完成 **${stats.pending}** 项${stats.overdue ? ` · 逾期 **${stats.overdue}** 项` : ''}\n`;
+  if (remind) m += `${remind}\n`;
   // 子任务用嵌套列表；方块 ▪ 与主任务圆点形成形状对比；子任务不标优先级，日期继承主任务
   const walkChild = (node, depth) => {
     const indent = '  '.repeat(depth);
@@ -571,7 +599,7 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats) 
   return m;
 }
 
-function buildTodoReportHTML(trees, base, token, reportToken, today, stats) {
+function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remind = '') {
   let h = `<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;">
     <h2 style="font-size:18px;">📝 待办日报${todoTitleDate(today)}</h2>`;
   if (stats) {
@@ -579,6 +607,7 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats) {
     if (stats.overdue) h += ` · <span style="color:#cf1322;">逾期 ${stats.overdue} 项</span>`;
     h += `</p>`;
   }
+  if (remind) h += `<p style="margin:6px 0;padding:8px 12px;background:#fff7e6;border-left:3px solid #fa8c16;border-radius:4px;color:#874d00;font-size:14px;">${remind}</p>`;
   // 优先级圆点色板（红=高 琥珀=中 灰=低）；与网页端 .todo-dot 一致，仅表达优先级
   const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#b4bccb' };
   // 内联圆点：邮件客户端 emoji 渲染不一，用 background 画点更统一可控

@@ -511,6 +511,8 @@ async function runModulePush(env, storage, module, now, manual, tzOffset) {
     const channelIds = parseChannelIds(cfg);
     if (!channelIds.length) continue;
     const format = cfg.format || 'text';
+    // 待办分档提醒语用：当天第几次/共几次推送（manual 全量触发无确切序号，置 null 不显示）
+    const pushSeq = (module === 'todo' && !manual) ? pushSeqOf(cfg, now) : null;
     // 按渠道有效格式生成消息并缓存（同一有效格式只生成一次）
     const msgCache = {};
     for (const cid of channelIds) {
@@ -518,7 +520,7 @@ async function runModulePush(env, storage, module, now, manual, tzOffset) {
       if (!channel || !channel.enabled) continue;
       const fmt = effectiveFormat(format, channel.type);
       if (!(fmt in msgCache)) {
-        msgCache[fmt] = await buildModuleMessage(env, storage, module, cfg.user_id, fmt, tzOffset);
+        msgCache[fmt] = await buildModuleMessage(env, storage, module, cfg.user_id, fmt, tzOffset, pushSeq);
       }
       const message = msgCache[fmt];
       if (!message) continue;
@@ -541,11 +543,26 @@ function parseChannelIds(cfg) {
 }
 
 /**
+ * 计算当天推送序号：此刻是配置时间点里的第几次 / 共几次（用于待办分档提醒语）
+ * hours 逗号分隔多值，升序去重后，seq = ≤ now.hour 的时间点个数，total = 时间点总数
+ * @param {Object} cfg - push_config 行（含 hours/hour）
+ * @param {Object} now - nowCN() 结果，取 now.hour
+ * @returns {{seq:number, total:number}}
+ */
+function pushSeqOf(cfg, now) {
+  const hoursStr = cfg.hours != null && cfg.hours !== '' ? String(cfg.hours) : String(cfg.hour != null ? cfg.hour : 9);
+  const hours = [...new Set(hoursStr.split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n)))].sort((a, b) => a - b);
+  const total = hours.length;
+  const seq = hours.filter(h => h <= now.hour).length;
+  return { seq, total };
+}
+
+/**
  * 构造某模块某用户的推送消息（text/html，html 附 QuickChart 图）
  * @param {number} tzOffset - 时区偏移（小时）
  * @returns {Promise<string|null>} 无数据返回 null
  */
-async function buildModuleMessage(env, storage, module, userId, format, tzOffset = 8) {
+async function buildModuleMessage(env, storage, module, userId, format, tzOffset = 8, pushSeq = null) {
   if (module === 'fund') {
     const funds = await storage.fund.listByUser(userId);
     if (funds.length === 0) return null;
@@ -626,7 +643,7 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
     // 用户级报告 token：汇总协作页(/tc/)与查看全部(/tr/)共用
     let reportToken = null;
     if (base) reportToken = await storage.push.ensureReportToken(userId, 'todo', generateToken());
-    return buildTodoReport(pendingTrees, { format, base, reportToken, today });
+    return buildTodoReport(pendingTrees, { format, base, reportToken, today, seq: pushSeq && pushSeq.seq, total: pushSeq && pushSeq.total });
   }
   return null;
 }
