@@ -1741,7 +1741,8 @@ var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f
 function sign(n){ return (n>=0?'+':'') + n; }
 (async function(){
   try {
-    var d = await api('/api/public/fund-report/' + token);
+    setLoadingProgress(90);   // 单请求：推进度条爬升，营造实时加载进度感
+    var d = await api('/api/public/fund-report/' + token, { loadingText: '正在加载持仓分布与收益数据…' });
     // 饼图（持仓分布）
     var labels = d.items.map(function(i){ return i.name; });
     var data = d.items.map(function(i){ return i.value; });
