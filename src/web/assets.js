@@ -106,6 +106,26 @@ function bindModal() {
   if (close) close.addEventListener('click', closeModal);
   mask.addEventListener('click', function(e){ if (e.target === mask) closeModal(); });
 }
+// 结果弹窗：独立遮罩，仅「确定」按钮或 ESC 可关闭，点击空白不关闭。ok 控制标题图标/色
+function alertModal(message, opts) {
+  opts = opts || {};
+  var title = opts.title || (opts.ok === false ? '操作失败' : '操作成功');
+  var icon = opts.ok === false ? '❌' : '✅';
+  var mask = document.createElement('div');
+  mask.className = 'modal-mask show';
+  mask.style.zIndex = '10001';
+  mask.innerHTML = '<div class="modal-box">' +
+    '<div class="modal-head"><span>' + icon + ' ' + esc(title) + '</span></div>' +
+    '<div class="modal-body">' +
+      '<p style="line-height:1.6;word-break:break-all;">' + esc(message) + '</p>' +
+      '<div style="text-align:right;margin-top:18px;"><button class="btn amOk">确定</button></div>' +
+    '</div></div>';
+  function shut(){ mask.remove(); document.removeEventListener('keydown', onKey, true); }
+  function onKey(e){ if (e.key === 'Escape') shut(); }
+  mask.querySelector('.amOk').addEventListener('click', shut);
+  document.addEventListener('keydown', onKey, true);
+  document.body.appendChild(mask);
+}
 // 下拉菜单：点击切换，点击外部关闭
 function toggleDropdown(el) {
   var menu = el.nextElementSibling;
@@ -1067,8 +1087,8 @@ document.getElementById('rcSave').addEventListener('click', async function(){
 });
 document.getElementById('rcSend').addEventListener('click', async function(){
   var btn = this; btn.disabled = true; btn.textContent = '发送中...';
-  try { var r = await api('/api/fund/report/send', { method:'POST' }); alert(r.message); }
-  catch(e){ alert(e.message); }
+  try { setLoadingProgress(90); var r = await api('/api/fund/report/send', { method:'POST', loadingText: '正在发送基金日报…' }); alertModal(r.message || '已推送'); }
+  catch(e){ alertModal(e.message, { ok:false }); }
   finally { btn.disabled = false; btn.textContent = '立即发送日报'; }
 });
 
@@ -1506,8 +1526,8 @@ if (pushSave) pushSave.addEventListener('click', async function(){
 var pushSend = document.getElementById('pushSend');
 if (pushSend) pushSend.addEventListener('click', async function(){
   var btn = this; btn.disabled = true; btn.textContent = '推送中...';
-  try { var r = await api('/api/push/weight/send', { method:'POST' }); alert(r.message || '已推送'); }
-  catch(e){ alert(e.message); }
+  try { setLoadingProgress(90); var r = await api('/api/push/weight/send', { method:'POST', loadingText: '正在发送体重日报…' }); alertModal(r.message || '已推送'); }
+  catch(e){ alertModal(e.message, { ok:false }); }
   finally { btn.disabled = false; btn.textContent = '立即推送'; }
 });
 
@@ -2100,8 +2120,8 @@ document.getElementById('pushSave').addEventListener('click', async function(){
 var aPushSend = document.getElementById('pushSend');
 if (aPushSend) aPushSend.addEventListener('click', async function(){
   var btn = this; btn.disabled = true; btn.textContent = '推送中...';
-  try { var r = await api('/api/push/asset/send', { method:'POST' }); alert(r.message || '已推送'); }
-  catch(e){ alert(e.message); }
+  try { setLoadingProgress(90); var r = await api('/api/push/asset/send', { method:'POST', loadingText: '正在发送资产月报…' }); alertModal(r.message || '已推送'); }
+  catch(e){ alertModal(e.message, { ok:false }); }
   finally { btn.disabled = false; btn.textContent = '立即推送'; }
 });
 
@@ -2665,8 +2685,8 @@ document.getElementById('pushSave').addEventListener('click', async function(){
 });
 document.getElementById('pushSend').addEventListener('click', async function(){
   var btn = this; btn.disabled = true; btn.textContent = '推送中...';
-  try { var r = await api('/api/push/todo/send', { method:'POST' }); alert(r.message || '已推送'); }
-  catch(e){ alert(e.message); }
+  try { setLoadingProgress(90); var r = await api('/api/push/todo/send', { method:'POST', loadingText: '正在发送待办日报…' }); alertModal(r.message || '已推送'); }
+  catch(e){ alertModal(e.message, { ok:false }); }
   finally { btn.disabled = false; btn.textContent = '立即推送'; }
 });
 
