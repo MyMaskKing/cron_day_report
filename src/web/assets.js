@@ -462,31 +462,14 @@ function newUser() {
     '<label>昵称（显示用，可选）</label><input id="nuNick" placeholder="留空则同用户名">' +
     '<label>密码（留空=123456）</label><input id="nuPwd" type="text" placeholder="留空=123456">' +
     '<label>角色</label><select id="nuRole"><option value="user">用户</option><option value="admin">超管</option></select>' +
-    '<label>引用体重成员（可选，多选 · 与原账号共用同一份数据）</label>' +
-    '<div id="nuMembers" class="muted" style="max-height:160px;overflow:auto;border:1px solid #eee;border-radius:8px;padding:8px;font-size:13px;">加载中…</div>' +
     '<div style="margin-top:12px;"><button class="btn" id="nuConfirm">创建</button> ' +
     '<button class="btn gray" onclick="closeModal()">取消</button></div>');
-  // 异步载入全部成员供勾选引用
-  (async function(){
-    var box = document.getElementById('nuMembers');
-    try {
-      var d = await api('/api/admin/weight/all-members');
-      if (!d.members.length) { box.textContent = '暂无可引用的成员'; return; }
-      box.innerHTML = d.members.map(function(m){
-        return '<label style="display:block;margin:3px 0;font-weight:normal;"><input type="checkbox" value="' + m.id + '" style="width:auto;"> ' +
-          esc(m.name) + ' <span style="color:#8890b8;">· ' + esc(m.owner_nick || m.owner_name) + '</span></label>';
-      }).join('');
-    } catch(e){ box.textContent = '成员加载失败：' + e.message; }
-  })();
   document.getElementById('nuConfirm').addEventListener('click', async function(){
-    var shareMemberIds = Array.prototype.slice.call(
-      document.querySelectorAll('#nuMembers input:checked')).map(function(x){ return parseInt(x.value, 10); });
     var payload = {
       username: document.getElementById('nuName').value.trim(),
       nickname: document.getElementById('nuNick').value.trim() || undefined,
       password: document.getElementById('nuPwd').value || undefined,
-      role: document.getElementById('nuRole').value,
-      shareMemberIds: shareMemberIds
+      role: document.getElementById('nuRole').value
     };
     try { var r = await api('/api/admin/users', { method: 'POST', body: payload }); closeModal(); alert(r.message); loadUsers(); }
     catch (err) { alert(err.message); }
@@ -1269,6 +1252,29 @@ async function initCompare() {
     wrap.style.display = 'block';
   } catch(e){ /* 非超管忽略 */ }
 }
+// 超管：引用其他账号的成员到自己名下
+async function initShare() {
+  var wrap = document.getElementById('shareCard');
+  if (!wrap) return;
+  try {
+    var d = await api('/api/admin/weight/all-members');
+    var sel = document.getElementById('shareMemberSel');
+    var opts = d.members.map(function(m){
+      return '<option value="' + m.id + '">' + esc(m.name) + ' · ' + esc(m.owner_nick || m.owner_name) + '</option>';
+    }).join('');
+    sel.innerHTML = opts || '<option value="">暂无可引用的成员</option>';
+    wrap.style.display = 'block';
+  } catch(e){ /* 非超管忽略 */ }
+}
+async function runShare() {
+  var sel = document.getElementById('shareMemberSel');
+  var mid = sel && sel.value ? parseInt(sel.value, 10) : NaN;
+  if (isNaN(mid)) { alert('请选择要引用的成员'); return; }
+  try {
+    var r = await api('/api/admin/weight/share', { method:'POST', body:{ member_id: mid } });
+    alert(r.message); await loadAll();
+  } catch(e){ alert(e.message); }
+}
 async function runCompare() {
   var ids = Array.prototype.slice.call(document.querySelectorAll('#cmpUsers input:checked')).map(function(x){ return x.value; });
   if (!ids.length) { alert('请至少选择一个用户'); return; }
@@ -1291,6 +1297,8 @@ async function runCompare() {
 }
 var cmpBtn = document.getElementById('cmpRun');
 if (cmpBtn) cmpBtn.addEventListener('click', runCompare);
+var shareBtn = document.getElementById('shareRun');
+if (shareBtn) shareBtn.addEventListener('click', runShare);
 
 // 时间筛选
 function initFilter() {
@@ -1340,7 +1348,7 @@ if (pushSend) pushSend.addEventListener('click', async function(){
 });
 
 (async function(){
-  try { await loadAll(); initFilter(); await loadPush(); await initCompare(); }
+  try { await loadAll(); initFilter(); await loadPush(); await initCompare(); await initShare(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alert(e.message); }
 })();
 `;

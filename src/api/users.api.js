@@ -120,20 +120,7 @@ async function createUser({ request, env }) {
 
   const password_hash = await hashPassword(password);
   const id = await storage.users.create({ username, password_hash, role, nickname });
-
-  // 可选：引用已有成员到新用户名下（真共用同一份数据）
-  let sharedCount = 0;
-  const shareIds = Array.isArray(body.shareMemberIds)
-    ? body.shareMemberIds.map(v => parseInt(v, 10)).filter(n => !isNaN(n)) : [];
-  for (const mid of shareIds) {
-    const m = await storage.weight.findMember(mid);
-    if (!m) continue;                 // 成员不存在则跳过
-    if (m.user_id === id) continue;    // 属主即自己无需引用
-    await storage.weight.shareMember(mid, id);
-    sharedCount++;
-  }
-  const extra = sharedCount ? `，已引用 ${sharedCount} 个成员` : '';
-  return json({ success: true, message: `用户已创建，初始密码：${password}${extra}`, id });
+  return json({ success: true, message: `用户已创建，初始密码：${password}`, id });
 }
 
 /**

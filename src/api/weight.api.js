@@ -303,7 +303,7 @@ async function adminCompare({ request, env, url }) {
   return json({ success: true, records });
 }
 
-/** GET /api/admin/weight/all-members  超管：列全部成员（含属主名），供新建用户时勾选引用 */
+/** GET /api/admin/weight/all-members  超管：列全部成员（含属主名），供引用勾选 */
 async function adminAllMembers({ request, env }) {
   const auth = await requireAdmin(request, env);
   if (auth instanceof Response) return auth;
@@ -312,9 +312,24 @@ async function adminAllMembers({ request, env }) {
   return json({ success: true, members });
 }
 
+/** POST /api/admin/weight/share  超管：把某成员引用到自己名下  body: { member_id } */
+async function adminShareMember({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const memberId = parseInt(body.member_id, 10);
+  if (isNaN(memberId)) return error('请选择成员');
+  const storage = getStorage(env);
+  const m = await storage.weight.findMember(memberId);
+  if (!m) return error('成员不存在', 404);
+  if (m.user_id === auth.user_id) return error('该成员已属于你', 400);
+  await storage.weight.shareMember(memberId, auth.user_id);
+  return json({ success: true, message: '已引用成员' });
+}
+
 export {
   listMembers, createMember, updateMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
-  publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers,
+  publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers, adminShareMember,
   getUnit, setUnit
 };
