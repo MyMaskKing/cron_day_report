@@ -248,6 +248,51 @@ function bindQuickLogin(kind) {
     } catch (err) { alert(err.message); }
   });
 }
+// 图表横屏全屏查看：给页面每个图表 canvas 加「⛶」按钮，点击把 canvas 移入旋转 90° 的全屏层
+// 依赖 Chart.js v4 的 ResizeObserver：canvas 移入新尺寸容器后自动重绘，无需操作图表实例
+function initChartFullscreen() {
+  var canvases = document.querySelectorAll('canvas');
+  Array.prototype.forEach.call(canvases, function(cv){
+    var host = cv.parentNode;
+    if (!host || host.getAttribute('data-fs-ready')) return;
+    host.setAttribute('data-fs-ready', '1');
+    if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'chart-fs-btn'; btn.title = '横屏查看'; btn.textContent = '⛶';
+    btn.addEventListener('click', function(e){ e.stopPropagation(); openChartFullscreen(cv); });
+    host.appendChild(btn);
+  });
+}
+function openChartFullscreen(cv) {
+  var placeholder = document.createComment('chart-fs');
+  cv.parentNode.insertBefore(placeholder, cv);
+  var mask = document.createElement('div');
+  mask.className = 'chart-fs-mask';
+  var stage = document.createElement('div');
+  stage.className = 'chart-fs-stage';
+  var close = document.createElement('button');
+  close.type = 'button'; close.className = 'chart-fs-close'; close.textContent = '✕ 关闭';
+  function shut(){
+    placeholder.parentNode.insertBefore(cv, placeholder);
+    placeholder.parentNode.removeChild(placeholder);
+    mask.remove();
+    document.removeEventListener('keydown', onKey, true);
+  }
+  function onKey(e){ if (e.key === 'Escape') shut(); }
+  close.addEventListener('click', shut);
+  mask.addEventListener('click', function(e){ if (e.target === mask) shut(); });
+  document.addEventListener('keydown', onKey, true);
+  stage.appendChild(cv);
+  mask.appendChild(stage);
+  mask.appendChild(close);
+  document.body.appendChild(mask);
+}
+// 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initChartFullscreen);
+} else {
+  initChartFullscreen();
+}
 `;
 
 // 登录页 JS

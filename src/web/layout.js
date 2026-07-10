@@ -228,6 +228,30 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action: none; cursor: grabbing; }
 @media (prefers-reduced-motion: reduce) { .todo-node.dragging > .todo-row { transform: none; } }
 
+/* ============ 图表横屏全屏查看 ============ */
+/* 每个图表容器右上角的全屏按钮：淡显，hover 卡片时显现 */
+.chart-fs-btn {
+  position: absolute; top: 6px; right: 6px; z-index: 5;
+  width: 30px; height: 30px; padding: 0; line-height: 1;
+  border: 1px solid #e3e8f0; border-radius: 8px; background: rgba(255,255,255,.9);
+  color: #5a6b9a; font-size: 15px; cursor: pointer; opacity: .35; transition: opacity .18s, background .18s;
+}
+.card:hover .chart-fs-btn { opacity: 1; }
+.chart-fs-btn:hover { background: #eef1ff; color: #4a6cf7; }
+/* 全屏遮罩层 + 旋转舞台：舞台尺寸取视口对调后旋转 90°，竖屏手机上铺满成横向 */
+.chart-fs-mask { position: fixed; inset: 0; z-index: 9998; background: #fff; display: flex; align-items: center; justify-content: center; }
+.chart-fs-stage {
+  width: 100vh; height: 100vw; transform: rotate(90deg);
+  display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box;
+}
+.chart-fs-stage canvas { max-width: 100% !important; max-height: 100% !important; }
+.chart-fs-close {
+  position: fixed; top: 12px; right: 12px; z-index: 9999;
+  border: 1px solid #e3e8f0; border-radius: 8px; background: #fff; color: #5a6b9a;
+  font-size: 14px; padding: 7px 12px; cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) { .chart-fs-btn { transition: none; } }
+
 
 /* ============ 移动端适配 (<=640px) ============ */
 @media (max-width: 640px) {
