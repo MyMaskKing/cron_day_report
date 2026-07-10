@@ -322,6 +322,10 @@ function publicBuyPage() {
           <button class="btn" style="width:100%;" type="submit">确认加仓</button>
         </form>
         <p class="muted" style="font-size:12px;margin-top:10px;">按金额买入：份额=金额/净值，系统自动累计并重算持仓成本净值。</p>
+        <div id="chartBox" style="display:none;margin-top:16px;">
+          <h2 style="font-size:14px;color:#666;">近30天持仓收益</h2>
+          <canvas id="profitChart" style="max-height:220px;"></canvas>
+        </div>
       </div>
     </div>
   </div>`;

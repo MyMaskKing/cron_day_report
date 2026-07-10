@@ -42,6 +42,37 @@ async function fetchFundNav(code) {
 }
 
 /**
+ * 获取基金历史单位净值（近 N 天）
+ * 数据源：天天基金 F10 历史净值接口
+ *   https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize={n}
+ *   需 Referer=fund.eastmoney.com；返回 { Data: { LSJZList: [{ FSRQ:日期, DWJZ:单位净值 }] } }
+ * @param {string} code - 基金代码
+ * @param {number} pageSize - 取最近多少条（默认 30）
+ * @returns {Promise<Array>} 按日期升序的 [{ date, nav }]，失败返回 []
+ */
+async function fetchNavHistory(code, pageSize = 30) {
+  try {
+    const url = `https://api.fund.eastmoney.com/f10/lsjz?fundCode=${code}&pageIndex=1&pageSize=${pageSize}`;
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://fundf10.eastmoney.com/'
+      },
+      cf: { cacheTtl: 0 }
+    });
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    const list = (data && data.Data && data.Data.LSJZList) || [];
+    return list
+      .map(r => ({ date: r.FSRQ, nav: parseFloat(r.DWJZ) || 0 }))
+      .filter(r => r.date && r.nav > 0)
+      .sort((a, b) => a.date < b.date ? -1 : 1);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * 批量获取净值（并发）
  * @param {Array<string>} codes
  * @returns {Promise<Map>} code -> navInfo
@@ -252,7 +283,7 @@ function calcScenarios(amount, nav, opts = {}) {
 }
 
 export {
-  fetchFundNav, fetchNavBatch, calcFundProfit,
+  fetchFundNav, fetchNavBatch, fetchNavHistory, calcFundProfit,
   buildPortfolio, analyzePortfolio,
   applyBuy, calcScenarios, round2
 };

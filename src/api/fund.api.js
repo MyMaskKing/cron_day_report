@@ -8,8 +8,8 @@ import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
 import { generateToken } from '../auth/password.js';
 import {
-  fetchFundNav, fetchNavBatch, buildPortfolio,
-  analyzePortfolio, calcScenarios, applyBuy
+  fetchFundNav, fetchNavBatch, fetchNavHistory, buildPortfolio,
+  analyzePortfolio, calcScenarios, applyBuy, round2
 } from '../services/fund.service.js';
 import { sendNotification } from '../services/notify.service.js';
 import { buildFundReport } from '../services/report.service.js';
@@ -282,13 +282,20 @@ async function fundScenario({ request, env }) {
   return json({ success: true, ...result });
 }
 
-/** GET /api/public/fund/:token  免密查看基金信息（供加仓页展示） */
-async function publicFundInfo({ env, params }) {  const storage = getStorage(env);
+/** GET /api/public/fund/:token  免密查看基金信息（供加仓页展示）+ 近30天持仓收益曲线 */
+async function publicFundInfo({ env, params }) {
+  const storage = getStorage(env);
   const fund = await storage.fund.findByShareToken(params.token);
   if (!fund) return error('链接无效或已失效', 404);
 
   const info = await fetchFundNav(fund.code);
   const currentNav = info ? (info.gsz || info.nav) : 0;
+  // 近30天持仓收益序列：份额 × (当日单位净值 − 成本净值)，实时拉历史净值计算
+  const history = await fetchNavHistory(fund.code, 30);
+  const profitSeries = history.map(h => ({
+    date: h.date,
+    profit: round2((fund.shares || 0) * (h.nav - (fund.cost_nav || 0)))
+  }));
   return json({
     success: true,
     fund: {
@@ -298,7 +305,8 @@ async function publicFundInfo({ env, params }) {  const storage = getStorage(env
       cost_nav: fund.cost_nav,
       current_nav: currentNav,
       gszzl: info ? info.gszzl : 0
-    }
+    },
+    profitSeries
   });
 }
 

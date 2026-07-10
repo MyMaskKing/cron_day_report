@@ -1118,6 +1118,21 @@ const PUBLIC_BUY_JS = `
 ${COMMON_JS}
 var token = location.pathname.split('/').filter(Boolean).pop();
 var msg = document.getElementById('msg');
+var profitChartInst = null;
+
+function drawProfitChart(series) {
+  var box = document.getElementById('chartBox');
+  if (!series || !series.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  var labels = series.map(function(s){ return s.date.slice(5); });
+  var data = series.map(function(s){ return s.profit; });
+  if (profitChartInst) profitChartInst.destroy();
+  profitChartInst = new Chart(document.getElementById('profitChart'), {
+    type:'line',
+    data:{ labels: labels, datasets:[{ label:'持仓收益(元)', data: data, borderColor:'#4a6cf7', backgroundColor:'rgba(74,108,247,.12)', fill:true, tension:.3 }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'收益(元)' } } } }
+  });
+}
 
 async function loadInfo() {
   try {
@@ -1129,6 +1144,7 @@ async function loadInfo() {
     document.getElementById('curCost').textContent = f.cost_nav;
     document.getElementById('buyNav').value = f.current_nav || '';
     document.getElementById('content').style.display = 'block';
+    drawProfitChart(d.profitSeries);
   } catch(e) {
     document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>';
   }
