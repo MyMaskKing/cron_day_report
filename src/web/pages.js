@@ -386,6 +386,17 @@ function weightPage(user) {
       </table>
     </div>
 
+    <div class="card" id="shareCard" style="display:none;">
+      <h2>引用成员（超管）</h2>
+      <p class="muted" style="margin-top:-4px;">把其他账号的成员引用到自己名下，双方共用同一份数据（改名/记录实时同步）。移除引用不影响原账号。</p>
+      <div class="row">
+        <div style="flex:1;"><label>选择要引用的成员</label>
+          <select id="shareMemberSel"><option value="">加载中…</option></select>
+        </div>
+        <div style="align-self:flex-end;"><button class="btn" id="shareRun">引用到我的成员</button></div>
+      </div>
+    </div>
+
     <div class="card" id="compareCard" style="display:none;">
       <h2>多用户对比（超管）</h2>
       <div id="cmpUsers" style="margin-bottom:10px;"></div>
