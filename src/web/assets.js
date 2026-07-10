@@ -750,10 +750,11 @@ document.getElementById('tCancel').addEventListener('click', function(){ documen
 document.getElementById('runNow').addEventListener('click', async function(){
   var btn = this; btn.disabled = true; btn.textContent = '执行中...';
   try {
-    var r = await api('/api/monitor/run', { method:'POST' });
-    alert(r.message + '（任务数: ' + (r.results ? r.results.length : 0) + '）');
+    setLoadingProgress(90);
+    var r = await api('/api/monitor/run', { method:'POST', loadingText: '正在执行全部监控任务…' });
+    alertModal(r.message + '（任务数: ' + (r.results ? r.results.length : 0) + '）');
     await loadTasks();
-  } catch(e){ alert(e.message); }
+  } catch(e){ alertModal(e.message, { ok:false }); }
   finally { btn.disabled = false; btn.textContent = '立即执行全部'; }
 });
 
@@ -778,8 +779,8 @@ if (mpSave) mpSave.addEventListener('click', async function(){
 var mpSend = document.getElementById('mpSend');
 if (mpSend) mpSend.addEventListener('click', async function(){
   var btn = this; btn.disabled = true; btn.textContent = '执行中...';
-  try { var r = await api('/api/monitor/run', { method:'POST' }); alert(r.message || '执行完成'); }
-  catch(e){ alert(e.message); }
+  try { setLoadingProgress(90); var r = await api('/api/monitor/run', { method:'POST', loadingText: '正在执行并推送监控任务…' }); alertModal(r.message || '执行完成'); }
+  catch(e){ alertModal(e.message, { ok:false }); }
   finally { btn.disabled = false; btn.textContent = '立即执行并推送'; }
 });
 
