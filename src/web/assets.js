@@ -253,14 +253,17 @@ function bindQuickLogin(kind) {
 function initChartFullscreen() {
   var canvases = document.querySelectorAll('canvas');
   Array.prototype.forEach.call(canvases, function(cv){
-    var host = cv.parentNode;
-    if (!host || host.getAttribute('data-fs-ready')) return;
-    host.setAttribute('data-fs-ready', '1');
-    if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+    if (cv.getAttribute('data-fs-ready')) return;
+    cv.setAttribute('data-fs-ready', '1');
+    // 用一层紧贴图表的相对定位容器包住 canvas，按钮定位其内右上角（避免落到整张卡片右上撞标题）
+    var wrap = document.createElement('div');
+    wrap.className = 'chart-fs-wrap';
+    cv.parentNode.insertBefore(wrap, cv);
+    wrap.appendChild(cv);
     var btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'chart-fs-btn'; btn.title = '横屏查看'; btn.textContent = '⛶';
+    btn.type = 'button'; btn.className = 'chart-fs-btn'; btn.title = '放大查看'; btn.textContent = '⛶';
     btn.addEventListener('click', function(e){ e.stopPropagation(); openChartFullscreen(cv); });
-    host.appendChild(btn);
+    wrap.appendChild(btn);
   });
 }
 function openChartFullscreen(cv) {
@@ -274,7 +277,7 @@ function openChartFullscreen(cv) {
   var fsCanvas = document.createElement('canvas');
   stage.appendChild(fsCanvas);
   var close = document.createElement('button');
-  close.type = 'button'; close.className = 'chart-fs-close'; close.textContent = '✕ 关闭';
+  close.type = 'button'; close.className = 'chart-fs-close'; close.title = '关闭'; close.textContent = '✕';
   var fsChart = null;
   function shut(){
     if (fsChart) fsChart.destroy();

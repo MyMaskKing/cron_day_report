@@ -229,12 +229,14 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 @media (prefers-reduced-motion: reduce) { .todo-node.dragging > .todo-row { transform: none; } }
 
 /* ============ 图表横屏全屏查看 ============ */
-/* 每个图表容器右上角的全屏按钮：淡显，hover 卡片时显现 */
+/* 紧贴图表的相对定位容器：按钮以此为锚，落在图表区右上角而非整张卡片 */
+.chart-fs-wrap { position: relative; }
+/* 图表右上角的全屏按钮：淡显，hover 卡片时显现 */
 .chart-fs-btn {
-  position: absolute; top: 6px; right: 6px; z-index: 5;
-  width: 30px; height: 30px; padding: 0; line-height: 1;
-  border: 1px solid #e3e8f0; border-radius: 8px; background: rgba(255,255,255,.9);
-  color: #5a6b9a; font-size: 15px; cursor: pointer; opacity: .35; transition: opacity .18s, background .18s;
+  position: absolute; top: 4px; right: 4px; z-index: 5;
+  width: 28px; height: 28px; padding: 0; line-height: 1;
+  border: 1px solid #e3e8f0; border-radius: 8px; background: rgba(255,255,255,.92);
+  color: #5a6b9a; font-size: 14px; cursor: pointer; opacity: .3; transition: opacity .18s, background .18s;
 }
 .card:hover .chart-fs-btn { opacity: 1; }
 .chart-fs-btn:hover { background: #eef1ff; color: #4a6cf7; }
@@ -260,10 +262,17 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 }
 /* 全屏时图表填满舞台：关掉宽高比后由 Chart.js 按容器 100% 铺满 */
 .chart-fs-stage canvas { width: 100% !important; height: 100% !important; max-width: none !important; max-height: none !important; display: block; }
+/* 关闭按钮：圆形图标钮 */
 .chart-fs-close {
   position: fixed; top: 12px; right: 12px; z-index: 9999;
-  border: 1px solid #e3e8f0; border-radius: 8px; background: #fff; color: #5a6b9a;
-  font-size: 14px; padding: 7px 12px; cursor: pointer;
+  width: 40px; height: 40px; padding: 0; line-height: 1;
+  border: 1px solid #e3e8f0; border-radius: 50%; background: #fff; color: #5a6b9a;
+  font-size: 17px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.18);
+}
+.chart-fs-close:hover { background: #eef1ff; color: #4a6cf7; }
+/* 竖屏(手机)：旋转后图的 Y 轴刻度落在物理右上，故关闭钮挪到物理右下角避开 */
+@media (orientation: portrait) {
+  .chart-fs-close { top: auto; bottom: 14px; right: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { .chart-fs-btn { transition: none; } }
 
