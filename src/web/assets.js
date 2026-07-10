@@ -264,38 +264,33 @@ function initChartFullscreen() {
   });
 }
 function openChartFullscreen(cv) {
-  // 取该 canvas 的 Chart 实例，全屏时临时关掉宽高比以铺满舞台，关闭时还原
-  var inst = (typeof Chart !== 'undefined' && Chart.getChart) ? Chart.getChart(cv) : null;
-  var prevMaintain = inst ? inst.options.maintainAspectRatio : null;
-  var placeholder = document.createComment('chart-fs');
-  cv.parentNode.insertBefore(placeholder, cv);
+  // 关键：不碰原图表实例，避免污染其尺寸/比例。全屏时用原图配置新建一个临时实例，关闭时销毁
+  var src = (typeof Chart !== 'undefined' && Chart.getChart) ? Chart.getChart(cv) : null;
+  if (!src) return;
   var mask = document.createElement('div');
   mask.className = 'chart-fs-mask';
   var stage = document.createElement('div');
   stage.className = 'chart-fs-stage';
+  var fsCanvas = document.createElement('canvas');
+  stage.appendChild(fsCanvas);
   var close = document.createElement('button');
   close.type = 'button'; close.className = 'chart-fs-close'; close.textContent = '✕ 关闭';
+  var fsChart = null;
   function shut(){
-    placeholder.parentNode.insertBefore(cv, placeholder);
-    placeholder.parentNode.removeChild(placeholder);
+    if (fsChart) fsChart.destroy();
     mask.remove();
     document.removeEventListener('keydown', onKey, true);
-    // 还原宽高比并重绘回原容器尺寸
-    if (inst) { inst.options.maintainAspectRatio = prevMaintain; inst.resize(); }
   }
   function onKey(e){ if (e.key === 'Escape') shut(); }
   close.addEventListener('click', shut);
   mask.addEventListener('click', function(e){ if (e.target === mask) shut(); });
   document.addEventListener('keydown', onKey, true);
-  stage.appendChild(cv);
   mask.appendChild(stage);
   mask.appendChild(close);
   document.body.appendChild(mask);
-  // 铺满舞台：关掉宽高比后按容器 100% resize（下一帧待布局生效）
-  if (inst) {
-    inst.options.maintainAspectRatio = false;
-    requestAnimationFrame(function(){ inst.resize(); });
-  }
+  // 用原图的 type/data + 覆盖 maintainAspectRatio 的 options 副本新建（浅拷贝 options，不改原对象）
+  var opts = Object.assign({}, src.config.options, { responsive: true, maintainAspectRatio: false });
+  fsChart = new Chart(fsCanvas, { type: src.config.type, data: src.config.data, options: opts });
 }
 // 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
 if (document.readyState === 'loading') {
