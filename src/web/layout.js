@@ -356,7 +356,7 @@ function renderTopbar(user, active = '') {
     <div class="nav">${navHtml}</div>
     <div class="user">${user.nickname || user.username} <span class="tag ${user.role}">${user.role === 'admin' ? '超管' : '用户'}</span>
       ${restricted ? '' : '<a href="/settings" class="act-btn">⚙️ 设置</a>'}
-      <a href="#" id="logoutBtn" class="act-btn act-logout">⏻ 登出</a>
+      <a href="#" id="logoutBtn" class="act-btn act-logout">🚪 登出</a>
     </div>
   </div>` + (user.impersonating ? `<div class="impersonate-banner">
     ⚠️ 你（超管 ${user.admin_username || ''}）正在以 <b>${user.username}</b> 的身份浏览

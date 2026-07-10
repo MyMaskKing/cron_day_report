@@ -639,7 +639,7 @@ function todoPage(user) {
         <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
         <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
         <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
-        <div class="todo-stat"><div class="n" id="stTotal">0</div><div class="l">总计</div></div>
+        <div class="todo-stat"><div class="n" id="stMemo">0</div><div class="l">备忘录</div></div>
       </div>
     </div>
 

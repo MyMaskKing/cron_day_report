@@ -2412,12 +2412,12 @@ function todayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOS
 async function loadTodos() {
   var data = await api('/api/todo/list');
   _rows = data.todos || [];
-  var s = data.stats || { pending:0, overdue:0, done:0, total:0 };
+  var s = data.stats || { pending:0, overdue:0, done:0, total:0, memo:0 };
   _stats = s;
   document.getElementById('stPending').textContent = s.pending;
   document.getElementById('stOverdue').textContent = s.overdue;
   document.getElementById('stDone').textContent = s.done;
-  document.getElementById('stTotal').textContent = s.total;
+  document.getElementById('stMemo').textContent = s.memo || 0;
   drawTree();
 }
 var _filter = 'all'; // all | today | overdue | future | memo | done

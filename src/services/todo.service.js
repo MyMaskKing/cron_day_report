@@ -53,9 +53,10 @@ function flattenPending(trees) {
 /**
  * 统计概览（叶子口径）
  * 有子任务的父任务不计入，只统计最末端叶子任务；子任务逾期继承顶层祖先的截止日期
+ * 备忘录（无截止日期的未完成叶子）单独计入 memo，不算进 pending
  * @param {Array} rows - todos 扁平行
  * @param {string} today - 北京时区当天 YYYY-MM-DD，用于逾期判断
- * @returns {Object} { total, done, pending, overdue }
+ * @returns {Object} { total, done, pending, overdue, memo }
  */
 function countStats(rows, today) {
   const byId = new Map();
@@ -69,17 +70,17 @@ function countStats(rows, today) {
     while (cur.parent_id != null && byId.has(cur.parent_id)) cur = byId.get(cur.parent_id);
     return cur.due_date;
   };
-  let total = 0, done = 0, overdue = 0;
+  let total = 0, done = 0, overdue = 0, memo = 0, pending = 0;
   for (const r of rows) {
     if (hasChild.has(r.id)) continue; // 非叶子（父任务）跳过
     total++;
-    if (r.done) done++;
-    else {
-      const due = effDue(r);
-      if (due && today && due < today) overdue++;
-    }
+    if (r.done) { done++; continue; }
+    const due = effDue(r);
+    if (!due) { memo++; continue; }        // 无日期未完成 = 备忘录，不计入 pending
+    pending++;
+    if (today && due < today) overdue++;
   }
-  return { total, done, pending: total - done, overdue };
+  return { total, done, pending, overdue, memo };
 }
 
 /** range → { unit: 'day'|'month', span } 天数或月数 */
