@@ -1132,6 +1132,20 @@ function drawProfitChart(series) {
     data:{ labels: labels, datasets:[{ label:'持仓收益(元)', data: data, borderColor:'#4a6cf7', backgroundColor:'rgba(74,108,247,.12)', fill:true, tension:.3 }] },
     options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'收益(元)' } } } }
   });
+  // 明细表：日期倒序，含较前一天差额
+  var sign = function(n){ return (n>=0?'+':'') + n; };
+  var rows = [];
+  for (var i = series.length - 1; i >= 0; i--) {
+    var s = series[i];
+    var delta = i > 0 ? Math.round((s.profit - series[i-1].profit) * 100) / 100 : null;
+    var pc = s.profit >= 0 ? '#cf1322' : '#389e0d';
+    var dc = delta != null ? (delta >= 0 ? '#cf1322' : '#389e0d') : '#999';
+    var dt = delta != null ? sign(delta) + ' 元' : '—';
+    rows.push('<tr><td data-label="日期">' + s.date + '</td>' +
+      '<td data-label="持仓收益" style="color:' + pc + '">' + sign(s.profit) + ' 元</td>' +
+      '<td data-label="较前一天" style="color:' + dc + '">' + dt + '</td></tr>');
+  }
+  document.getElementById('profitTbody').innerHTML = rows.join('');
 }
 
 async function loadInfo() {
