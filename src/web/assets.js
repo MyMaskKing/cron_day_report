@@ -106,6 +106,17 @@ function bindModal() {
   if (close) close.addEventListener('click', closeModal);
   mask.addEventListener('click', function(e){ if (e.target === mask) closeModal(); });
 }
+function confirmModal(title, message, onConfirm) {
+  openModal(title || '确认操作',
+    '<p style="line-height:1.6;word-break:break-all;">' + esc(message) + '</p>' +
+    '<div style="text-align:right;margin-top:18px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn danger" id="cmConfirm">确认</button></div>');
+  document.getElementById('cmConfirm').addEventListener('click', async function(){
+    var btn = this;
+    btn.disabled = true;
+    try { closeModal(); await onConfirm(); }
+    catch(e){ alertModal(e.message || e, {ok:false}); }
+  });
+}
 // 结果弹窗：独立遮罩，仅「确定」按钮或 ESC 可关闭，点击空白不关闭。ok 控制标题图标/色
 function alertModal(message, opts) {
   opts = opts || {};
@@ -403,6 +414,7 @@ bindLogout();
 const SETTINGS_JS = `
 ${COMMON_JS}
 bindLogout();
+bindModal();
 var msg = document.getElementById('msg');
 (async function(){
   try {
@@ -424,11 +436,12 @@ if (qlEl) qlEl.addEventListener('change', async function(){
 // 模块级重置免密链接
 window.resetShare = async function(module){
   var names = { fund:'基金', weight:'体重', asset:'资产', todo:'待办' };
-  if (!confirm('确认重置「' + (names[module]||module) + '」的全部免密链接？旧链接将立即失效。')) return;
-  try {
-    var r = await api('/api/share/reset/' + module, { method:'POST' });
-    showMsg(msg, r.message, true);
-  } catch(err){ showMsg(msg, err.message, false); }
+  confirmModal('重置免密链接', '确认重置「' + (names[module]||module) + '」的全部免密链接？旧链接将立即失效。', async function(){
+    try {
+      var r = await api('/api/share/reset/' + module, { method:'POST' });
+      showMsg(msg, r.message, true);
+    } catch(err){ showMsg(msg, err.message, false); }
+  });
 };
 document.getElementById('nickForm').addEventListener('submit', async function(e){
   e.preventDefault();
@@ -539,28 +552,32 @@ async function viewUser(id) {
 }
 window.adminResetShare = async function(userId, module){
   var names = { fund:'基金', weight:'体重', asset:'资产', todo:'待办' };
-  if (!confirm('确认重置该用户「' + (names[module]||module) + '」的全部免密链接？旧链接将立即失效。')) return;
-  try {
-    var r = await api('/api/admin/share/reset/' + module + '/' + userId, { method:'POST' });
-    alertModal(r.message);
-  } catch(err){ alertModal(err.message, {ok:false}); }
+  confirmModal('重置免密链接', '确认重置该用户「' + (names[module]||module) + '」的全部免密链接？旧链接将立即失效。', async function(){
+    try {
+      var r = await api('/api/admin/share/reset/' + module + '/' + userId, { method:'POST' });
+      alertModal(r.message);
+    } catch(err){ alertModal(err.message, {ok:false}); }
+  });
 };
 async function toggleRole(id, cur) {
   var role = cur === 'admin' ? 'user' : 'admin';
-  if (!confirm('确认修改角色为 ' + role + ' ?')) return;
-  try { await api('/api/admin/users/' + id + '/role', { method: 'PUT', body: { role: role } }); loadUsers(); }
-  catch (err) { alertModal(err.message, {ok:false}); }
+  confirmModal('修改角色', '确认修改角色为 ' + role + ' ?', async function(){
+    try { await api('/api/admin/users/' + id + '/role', { method: 'PUT', body: { role: role } }); loadUsers(); }
+    catch (err) { alertModal(err.message, {ok:false}); }
+  });
 }
 async function toggleStatus(id, cur) {
   var status = cur === 'active' ? 'disabled' : 'active';
-  if (!confirm('确认修改状态为 ' + status + ' ?')) return;
-  try { await api('/api/admin/users/' + id + '/status', { method: 'PUT', body: { status: status } }); loadUsers(); }
-  catch (err) { alertModal(err.message, {ok:false}); }
+  confirmModal('修改状态', '确认修改状态为 ' + status + ' ?', async function(){
+    try { await api('/api/admin/users/' + id + '/status', { method: 'PUT', body: { status: status } }); loadUsers(); }
+    catch (err) { alertModal(err.message, {ok:false}); }
+  });
 }
 async function impersonate(id, name) {
-  if (!confirm('确认切换到 ' + name + ' 的身份浏览?')) return;
-  try { await api('/api/admin/users/' + id + '/impersonate', { method: 'POST' }); location.href = '/dashboard'; }
-  catch (err) { alertModal(err.message, {ok:false}); }
+  confirmModal('切换身份', '确认切换到 ' + name + ' 的身份浏览?', async function(){
+    try { await api('/api/admin/users/' + id + '/impersonate', { method: 'POST' }); location.href = '/dashboard'; }
+    catch (err) { alertModal(err.message, {ok:false}); }
+  });
 }
 function resetPwd(id, name) {
   openModal('重置密码 · ' + name,
@@ -708,9 +725,10 @@ function taskForm(t) {
 }
 window.editTask = function(id){ taskForm((window._tasks||[]).filter(function(x){return x.id===id;})[0]); };
 window.delTask = async function(id){
-  if (!confirm('确认删除该任务?')) return;
-  try { await api('/api/monitor/tasks/' + id, { method:'DELETE' }); await loadTasks(); }
-  catch(e){ alertModal(e.message, {ok:false}); }
+  confirmModal('删除任务', '确认删除该任务?', async function(){
+    try { await api('/api/monitor/tasks/' + id, { method:'DELETE' }); await loadTasks(); }
+    catch(e){ alertModal(e.message, {ok:false}); }
+  });
 };
 window.viewLogs = async function(id, name){
   try {
@@ -849,8 +867,9 @@ function chModal(c) {
 }
 window.editCh = function(id){ chModal((window._channels||[]).filter(function(x){return x.id===id;})[0]); };
 window.delCh = async function(id){
-  if (!confirm('确认删除该渠道?')) return;
-  try { await api('/api/notify/channels/' + id, { method:'DELETE' }); await loadChannels(); } catch(e){ alertModal(e.message, {ok:false}); }
+  confirmModal('删除渠道', '确认删除该渠道?', async function(){
+    try { await api('/api/notify/channels/' + id, { method:'DELETE' }); await loadChannels(); } catch(e){ alertModal(e.message, {ok:false}); }
+  });
 };
 document.getElementById('chNew').addEventListener('click', function(){ chModal({}); });
 (async function(){
@@ -1014,21 +1033,23 @@ function fundForm(f) {
 }
 window.editFund = function(id){ fundForm((window._items||[]).filter(function(x){return x.id===id;})[0]); };
 window.delFund = async function(id){
-  if (!confirm('确认删除该持仓?')) return;
-  try { await api('/api/fund/' + id, { method:'DELETE' }); await loadReport(); }
-  catch(e){ alertModal(e.message, {ok:false}); }
+  confirmModal('删除持仓', '确认删除该持仓?', async function(){
+    try { await api('/api/fund/' + id, { method:'DELETE' }); await loadReport(); }
+    catch(e){ alertModal(e.message, {ok:false}); }
+  });
 };
 window.shareLink = async function(id, reset){
-  if (reset && !confirm('重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？')) return;
-  try {
-    var d = await api('/api/fund/' + id + '/share-link' + (reset ? '?reset=1' : ''));
+  async function openShare(doReset) {
+    var d = await api('/api/fund/' + id + '/share-link' + (doReset ? '?reset=1' : ''));
     openModal('免密加仓链接',
       '<p class="muted">此链接长期有效，任何人打开无需登录即可为该基金补录买入（自动累计份额并重算成本）。请妥善保管。</p>' +
       '<input id="shareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
       '<button class="btn" onclick="copyShare()">复制链接</button> ' +
       '<button class="btn gray" onclick="shareLink(' + id + ', true)">重置链接</button>' +
-      (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
-  } catch(e){ alertModal(e.message, {ok:false}); }
+      (doReset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
+  }
+  if (reset) return confirmModal('重置链接', '重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？', function(){ return openShare(true); });
+  try { await openShare(false); } catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.copyShare = function(){
   var el = document.getElementById('shareUrl');
@@ -1350,8 +1371,9 @@ function deltaCell(deltaKg) {
 }
 
 window.mDel = async function(id){
-  if (!confirm('删除该成员及其记录?')) return;
-  try { await api('/api/weight/members/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
+  confirmModal('删除成员', '删除该成员及其记录?', async function(){
+    try { await api('/api/weight/members/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
+  });
 };
 window.mRename = function(id, curName){
   openModal('修改成员名',
@@ -1364,16 +1386,17 @@ window.mRename = function(id, curName){
   });
 };
 window.mShare = async function(id, reset){
-  if (reset && !confirm('重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？')) return;
-  try {
-    var d = await api('/api/weight/members/' + id + '/share-link' + (reset ? '?reset=1' : ''));
+  async function openShare(doReset) {
+    var d = await api('/api/weight/members/' + id + '/share-link' + (doReset ? '?reset=1' : ''));
     openModal('免密填写链接',
       '<p class="muted">此链接长期有效，打开无需登录即可填写该成员当天体重。</p>' +
       '<input id="wShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
       '<button class="btn" onclick="wCopy()">复制链接</button> ' +
       '<button class="btn gray" onclick="mShare(' + id + ', true)">重置链接</button>' +
-      (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
-  } catch(e){ alertModal(e.message, {ok:false}); }
+      (doReset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
+  }
+  if (reset) return confirmModal('重置链接', '重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？', function(){ return openShare(true); });
+  try { await openShare(false); } catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.wCopy = function(){ var el=document.getElementById('wShareUrl'); el.select(); try{document.execCommand('copy');alertModal('已复制');}catch(e){alertModal('请手动复制', {ok:false});} };
 window.recEdit = function(id, curKg, curDate){
@@ -1392,8 +1415,9 @@ window.recEdit = function(id, curKg, curDate){
   });
 };
 window.recDel = async function(id){
-  if (!confirm('删除该记录?')) return;
-  try { await api('/api/weight/records/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
+  confirmModal('删除记录', '删除该记录?', async function(){
+    try { await api('/api/weight/records/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
+  });
 };
 
 document.getElementById('mAdd').addEventListener('click', function(){
@@ -2158,8 +2182,9 @@ window.recEditRow = function(recId){
 };
 // 删除某条月度记录
 window.recDelRow = async function(id){
-  if (!confirm('删除该月度记录?')) return;
-  try { await api('/api/asset/records/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
+  confirmModal('删除月度记录', '删除该月度记录?', async function(){
+    try { await api('/api/asset/records/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
+  });
 };
 window.wEdit = function(id){
   var w = wallets.filter(function(x){return x.id===id;})[0];
@@ -2174,20 +2199,22 @@ window.wEdit = function(id){
   });
 };
 window.wDel = async function(id){
-  if (!confirm('删除该钱包?')) return;
-  try { await api('/api/asset/wallets/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
+  confirmModal('删除钱包', '删除该钱包?', async function(){
+    try { await api('/api/asset/wallets/' + id, { method:'DELETE' }); await loadAll(); } catch(e){ alertModal(e.message, {ok:false}); }
+  });
 };
 window.wShare = async function(id, reset){
-  if (reset && !confirm('重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？')) return;
-  try {
-    var d = await api('/api/asset/wallets/' + id + '/share-link' + (reset ? '?reset=1' : ''));
+  async function openShare(doReset) {
+    var d = await api('/api/asset/wallets/' + id + '/share-link' + (doReset ? '?reset=1' : ''));
     openModal('免密录入链接',
       '<p class="muted">此链接长期有效，打开无需登录即可录入该钱包当月金额。</p>' +
       '<input id="aShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
       '<button class="btn" onclick="aCopy()">复制链接</button> ' +
       '<button class="btn gray" onclick="wShare(' + id + ', true)">重置链接</button>' +
-      (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
-  } catch(e){ alertModal(e.message, {ok:false}); }
+      (doReset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
+  }
+  if (reset) return confirmModal('重置链接', '重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？', function(){ return openShare(true); });
+  try { await openShare(false); } catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.aCopy = function(){ var el=document.getElementById('aShareUrl'); el.select(); try{document.execCommand('copy');alertModal('已复制');}catch(e){alertModal('请手动复制', {ok:false});} };
 
@@ -2731,11 +2758,7 @@ function drawTree() {
       });
     },
     onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务', true); },
-    onDel: async function(node){
-      if (!confirm('删除「' + node.title + '」及其全部子任务？')) return;
-      try { await api('/api/todo/' + node.id, { method:'DELETE' }); await loadTodos(); await loadChart(); }
-      catch(e){ alertModal(e.message, {ok:false}); }
-    },
+    onDel: function(node){ confirmDeleteTodo(node); },
     onShare: function(node){ todoShareLink(node.id); },
     onReorder: async function(parentId, ids){
       try { await api('/api/todo/reorder', { method:'PUT', body:{ parent_id: parentId, ids: ids } }); await loadTodos(); }
@@ -2743,17 +2766,29 @@ function drawTree() {
     }
   });
 }
+function confirmDeleteTodo(node) {
+  openModal('删除任务',
+    '<p style="line-height:1.6;">删除「' + esc(node.title) + '」及其全部子任务？</p>' +
+    '<div style="text-align:right;margin-top:18px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn danger" id="tdDelConfirm">删除</button></div>');
+  document.getElementById('tdDelConfirm').addEventListener('click', async function(){
+    var btn = this;
+    btn.disabled = true;
+    try { await api('/api/todo/' + node.id, { method:'DELETE' }); closeModal(); await loadTodos(); await loadChart(); }
+    catch(e){ btn.disabled = false; alertModal(e.message, {ok:false}); }
+  });
+}
 window.todoShareLink = async function(id, reset){
-  if (reset && !confirm('重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？')) return;
-  try {
-    var d = await api('/api/todo/' + id + '/share-link' + (reset ? '?reset=1' : ''));
+  async function openShare(doReset) {
+    var d = await api('/api/todo/' + id + '/share-link' + (doReset ? '?reset=1' : ''));
     openModal('免密协作链接',
       '<p class="muted">此链接长期有效，打开无需登录即可查看、添加、勾选该清单下的任务。</p>' +
       '<input id="tShareUrl" value="' + esc(d.link) + '" readonly style="margin-bottom:8px;">' +
       '<button class="btn" onclick="todoCopy()">复制链接</button> ' +
       '<button class="btn gray" onclick="todoShareLink(' + id + ', true)">重置链接</button>' +
-      (reset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
-  } catch(e){ alertModal(e.message, {ok:false}); }
+      (doReset ? '<p class="msg ok" style="margin-top:8px;">链接已重置，旧链接已失效</p>' : ''));
+  }
+  if (reset) return confirmModal('重置链接', '重置后，旧链接将立即失效，已分享出去的旧链接将无法再使用。确认重置？', function(){ return openShare(true); });
+  try { await openShare(false); } catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.todoCopy = function(){ var el=document.getElementById('tShareUrl'); el.select(); try{document.execCommand('copy');alertModal('已复制');}catch(e){alertModal('请手动复制', {ok:false});} };
 function openAddForm(parentId, title, isChild) {
