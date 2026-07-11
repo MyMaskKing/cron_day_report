@@ -9,15 +9,18 @@ function showLoading(text) {
   _loadingCount++;
   var el = document.getElementById('globalLoading');
   if (el) el.style.display = 'flex';
-  var t = document.getElementById('loadingText');
-  if (t) t.textContent = text || '加载中…';
+  setLoadingText(text || '加载中…');
+  setLoadingProgress(10);
 }
 function hideLoading() {
   _loadingCount = Math.max(0, _loadingCount - 1);
   if (_loadingCount === 0) {
-    var el = document.getElementById('globalLoading');
-    if (el) el.style.display = 'none';
-    resetLoadingProgress();
+    setTimeout(function(){
+      if (_loadingCount !== 0) return;
+      var el = document.getElementById('globalLoading');
+      if (el) el.style.display = 'none';
+      resetLoadingProgress();
+    }, 180);
   }
 }
 // setLoadingText: 不改变计数, 仅更新提示文字(用于同一请求内多阶段说明)
@@ -46,10 +49,20 @@ function resetLoadingProgress() {
   var el = document.getElementById('loadingPct');
   if (el) { el.style.display = 'none'; el.textContent = ''; }
 }
+function loadingTextOf(path, opts) {
+  if (opts.loadingText) return opts.loadingText;
+  var method = (opts.method || 'GET').toUpperCase();
+  if (method === 'GET') return '正在加载数据…';
+  if (method === 'POST') return '正在提交数据…';
+  if (method === 'PUT') return '正在保存数据…';
+  if (method === 'DELETE') return '正在删除数据…';
+  return '正在处理请求…';
+}
 async function api(path, opts) {
   opts = opts || {};
-  showLoading(opts.loadingText);
+  showLoading(loadingTextOf(path, opts));
   try {
+    setLoadingProgress(35);
     const res = await fetch(path, {
       method: opts.method || 'GET',
       headers: opts.body ? { 'Content-Type': 'application/json' } : {},
@@ -59,6 +72,7 @@ async function api(path, opts) {
     let data = {};
     try { data = await res.json(); } catch (e) {}
     if (!res.ok) throw new Error(data.message || ('请求失败: ' + res.status));
+    setLoadingProgress(100);
     return data;
   } finally {
     hideLoading();
