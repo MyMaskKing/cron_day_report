@@ -2566,6 +2566,32 @@ function applyTodoView(getRowsFn, onDrawTree) {
   // 抽屉切换按钮: 仅在全屏态下显示
   if (dBtn) dBtn.style.display = (_todoView === 'default') ? 'none' : '';
 
+  // 手机端全屏顶栏滚动方向隐藏/显示: 幂等绑定一次, 仅监听 .todo-fs-main 的 scroll
+  // PC 端(> 640px)不生效, 靠 CSS media query 保证 sticky 只在窄屏定义
+  var fsMain = fs ? fs.querySelector('.todo-fs-main') : null;
+  var fsTop = fs ? fs.querySelector('.todo-fs-top') : null;
+  if (fsMain && fsTop && !fsMain.__scrollHideBound) {
+    fsMain.__scrollHideBound = 1;
+    var lastY = 0, ticking = 0, resumeTimer = null;
+    fsMain.addEventListener('scroll', function(){
+      if (window.innerWidth > 640) return; // PC 不做
+      if (ticking) return;
+      ticking = 1;
+      requestAnimationFrame(function(){
+        var y = fsMain.scrollTop, dy = y - lastY;
+        if (y > 40 && dy > 4) fsTop.classList.add('todo-fs-top--hidden');
+        else if (dy < -4 || y <= 40) fsTop.classList.remove('todo-fs-top--hidden');
+        lastY = y;
+        ticking = 0;
+      });
+      // 停止滚动 200ms 后恢复显示
+      if (resumeTimer) clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(function(){ fsTop.classList.remove('todo-fs-top--hidden'); }, 200);
+    }, { passive: true });
+  }
+  // 每次切回默认页或视图变化, 强制显示顶栏(避免上次隐藏状态残留)
+  if (fsTop) fsTop.classList.remove('todo-fs-top--hidden');
+
   // 触发一次树/卡片重绘 + 抽屉内容刷新
   if (typeof onDrawTree === 'function') onDrawTree();
   if (_todoView !== 'default' && typeof getRowsFn === 'function') {
@@ -3423,8 +3449,9 @@ async function loadPublic() {
     renderStats(trees);
     drawTree(trees);
     loadChart();
-    // 应用视图状态(抽屉/全屏/按钮文案); onDrawTree 用一个空 fn 避免二次 loadPublic 死循环
-    applyTodoView(_todoGetRows, function(){});
+    // 应用视图状态(抽屉/全屏/按钮文案); onDrawTree 仅重绘可见树, 不重新 loadPublic(避免死循环)
+    // 这个 fn 也会被 viewToggleFs/exitFullscreen 等按钮的幂等绑定捕获, 必须能触发实际重绘
+    applyTodoView(_todoGetRows, function(){ drawTree(visibleTrees()); });
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
 }
 // 可见树：仅截止今天或已逾期的顶层任务（与日报 filterTodayOverdue 口径一致），子任务随顶层
@@ -3637,8 +3664,9 @@ async function loadCollab() {
     renderStats(trees);
     drawTree(trees);
     loadChart();
-    // 应用视图状态; onDrawTree 空 fn 避免二次 loadCollab
-    applyTodoView(_todoGetRows, function(){});
+    // 应用视图状态; onDrawTree 仅重绘可见树, 不重新 loadCollab(避免死循环)
+    // 这个 fn 也会被 viewToggleFs/exitFullscreen 等按钮的幂等绑定捕获, 必须能触发实际重绘
+    applyTodoView(_todoGetRows, function(){ drawTree(visibleTrees()); });
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
 }
 // 可见树：仅截止今天或已逾期的顶层任务（与日报口径一致），子任务随顶层

@@ -322,9 +322,12 @@ body.todo-fs-on .todo-fullscreen { display: flex; }
   overflow-y: auto;
 }
 /* 主区域顶部一行：抽屉按钮 + 标题 + 视图切换按钮 */
+/* transition + 背景色: 为手机端 sticky 时的过渡隐藏做铺垫; PC 无影响 */
 .todo-fs-top {
   display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
   padding-bottom: 10px; border-bottom: 1px solid #e9ecf3;
+  background: #f0f2f5;
+  transition: transform .22s ease, opacity .22s ease;
 }
 .todo-fs-title { flex: 1; font-size: 16px; font-weight: 700; color: #1f2329; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -468,6 +471,9 @@ body.todo-fs-on .todo-fullscreen { display: flex; }
   }
   body.todo-fs-on .todo-drawer-mask.show { display: block; }
   .todo-fs-main { padding: 10px 12px 14px; }
+  /* 手机端全屏顶栏 sticky + 滚动方向隐藏/显示; PC 端不生效 */
+  .todo-fs-top { position: sticky; top: 0; z-index: 5; padding-top: 4px; }
+  .todo-fs-top--hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
 }
 `;
 
