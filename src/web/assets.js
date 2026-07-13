@@ -2527,7 +2527,12 @@ function renderTodoDrawer(rows, onSelect) {
       var l = document.createElement('span'); l.className = 'todo-drawer__label'; l.textContent = btn.textContent.trim();
       var c = document.createElement('span'); c.className = 'todo-drawer__count'; c.textContent = '(' + (timeCounts[key] || 0) + ')';
       it.appendChild(l); it.appendChild(c);
-      it.addEventListener('click', function(){ btn.click(); });
+      it.addEventListener('click', function(){
+        // 触发原按钮 click, 由主页面 handler 更新 #todoFilter active + drawTree
+        btn.click();
+        // 抽屉里的选中态跟随重绘: 点完之后重画自己, 让 .active 落在新选的时间项
+        renderTodoDrawer(rows, onSelect);
+      });
       section1.appendChild(it);
     });
     box.appendChild(section1);
@@ -2574,13 +2579,14 @@ function renderTodoDrawer(rows, onSelect) {
 }
 // 时间维度顶层任务计数(顶层口径, 与 todoFilterTrees 同): 全部/今日/逾期/未来/备忘录/已完成
 // 只统计顶层任务, 子任务日期继承主任务, 不重复计数
+// 桶互斥: 已完成任务归入 done, 不再计入 overdue/today/future/memo
 function todoTimeCounts(rows) {
   var today = new Date(Date.now() + 8*3600*1000).toISOString().slice(0,10);
   var m = { all: 0, today: 0, overdue: 0, future: 0, memo: 0, done: 0 };
   rows.forEach(function(r){
     if (r.parent_id != null) return;
     m.all++;
-    if (r.done) m.done++;
+    if (r.done) { m.done++; return; }
     if (!r.due_date) { m.memo++; return; }
     if (r.due_date === today) m.today++;
     else if (r.due_date < today) m.overdue++;

@@ -558,95 +558,130 @@ function todoDateTag(dueDate, today, kind) {
 }
 
 function buildTodoReportText(trees, base, token, reportToken, today, stats, remind = '') {
-  const line = '━━━━━━━━━━━━━━';
-  let t = `📝 待办日报${todoTitleDate(today)}\n${line}\n`;
-  if (stats) t += `未完成 ${stats.pending} 项${stats.overdue ? `，其中逾期 ${stats.overdue} 项` : ''}\n`;
-  if (remind) t += `${remind}\n`;
-  t += `${line}\n`;
-  // 子任务用树形连接线体现从属；方块 ▪ 与主任务圆点形成形状对比；子任务不标优先级，日期继承主任务
-  const walkChild = (node, prefix, isLast) => {
-    const cat = node.category ? `〔${node.category}〕` : '';
-    t += `${prefix}${isLast ? '└─ ' : '├─ '}▪ ${node.title}${cat}\n`;
-    const childPrefix = prefix + (isLast ? '   ' : '│  ');
-    node.children.forEach((c, i) => walkChild(c, childPrefix, i === node.children.length - 1));
+  // 参考微信 TODO 格式: 标题带日期后缀 + 计数句 + 🔸 分隔线包每条任务 + 子任务以 ➖ 起首
+  // 顶层任务前缀 ❇️待办N: <pri><title>(MM/DD or ⚠️逾期MM/DD)
+  const bar = '🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸';
+  const dateBadge = (dueDate) => {
+    if (!dueDate) return '';
+    const disp = dueDate.length >= 10 ? `${dueDate.slice(5, 7)}/${dueDate.slice(8, 10)}` : dueDate;
+    const over = today && dueDate < today;
+    return over ? `(⚠️逾期${disp})` : `(${disp})`;
   };
-  trees.forEach((root, ri) => {
-    if (ri > 0) t += '\n';
-    const cat = root.category ? `〔${root.category}〕` : '';
-    // 主任务：竖条 ▍ 作层级标识 + 彩色圆点表优先级
-    t += `▍${TODO_PRI_ICON[root.priority] || '⚪'} ${root.title}${cat}${todoDateTag(root.due_date, today, 'text')}\n`;
-    root.children.forEach((c, i) => walkChild(c, '', i === root.children.length - 1));
-  });
-  if (trees.length === 0) t += '🎉 今日无到期或逾期待办\n';
+  const titleDate = today && today.length >= 10 ? `[今天:${Number(today.slice(5,7))}月${Number(today.slice(8,10))}]` : '';
+  let t = `📌 待办日报${titleDate}\n\n`;
+  if (stats) {
+    if (stats.pending > 0) t += `🥳您今天有 ${stats.pending} 件待办${stats.overdue ? `，其中 ${stats.overdue} 件逾期` : ''}。↙️\n`;
+    else t += `🎉您今天暂无到期待办。\n`;
+  }
+  if (remind) t += `${remind}\n`;
+  t += `\n`;
+
+  // 子任务：➖ 起首, 深层子任务用一到两个额外 ➖ 表示层级(避免树线在微信客户端换行错乱)
+  const walkChild = (node, depth) => {
+    const cat = node.category ? `〔${node.category}〕` : '';
+    t += `${'➖'.repeat(Math.max(1, depth))}${node.title}${cat}\n`;
+    node.children.forEach((c) => walkChild(c, depth + 1));
+  };
+
+  if (trees.length === 0) {
+    t += `${bar}\n🎉 今日无到期或逾期待办\n${bar}\n`;
+  } else {
+    t += `${bar}\n`;
+    trees.forEach((root, ri) => {
+      const cat = root.category ? `〔${root.category}〕` : '';
+      const pri = TODO_PRI_ICON[root.priority] || '⚪';
+      t += `❇️待办${ri + 1}：${pri}${root.title}${cat}${dateBadge(root.due_date)}\n`;
+      root.children.forEach((c) => walkChild(c, 1));
+      t += `${bar}\n`;
+    });
+  }
   if (base && reportToken) t += `\n➕ 协作添加/勾选：${base}/tc/${reportToken}\n`;
   if (base && reportToken) t += `📋 查看全部待办：${base}/tr/${reportToken}\n`;
   return t;
 }
 
 function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, remind = '') {
-  let m = `## 📝 待办日报${todoTitleDate(today)}\n`;
-  if (stats) m += `未完成 **${stats.pending}** 项${stats.overdue ? ` · 逾期 **${stats.overdue}** 项` : ''}\n`;
-  if (remind) m += `${remind}\n`;
-  // 子任务用嵌套列表；方块 ▪ 与主任务圆点形成形状对比；子任务不标优先级，日期继承主任务
+  // markdown 版沿用参考格式的分组结构, 但换用 markdown 语法(粗体/嵌套列表), 兼容飞书/钉钉/邮件
+  const bar = '🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸';
+  const dateBadge = (dueDate) => {
+    if (!dueDate) return '';
+    const disp = dueDate.length >= 10 ? `${dueDate.slice(5, 7)}/${dueDate.slice(8, 10)}` : dueDate;
+    const over = today && dueDate < today;
+    return over ? `（**⚠️逾期${disp}**）` : `（${disp}）`;
+  };
+  const titleDate = today && today.length >= 10 ? `[今天:${Number(today.slice(5,7))}月${Number(today.slice(8,10))}]` : '';
+  let m = `## 📌 待办日报${titleDate}\n\n`;
+  if (stats) {
+    if (stats.pending > 0) m += `🥳您今天有 **${stats.pending}** 件待办${stats.overdue ? `，其中 **${stats.overdue}** 件逾期` : ''}。↙️\n\n`;
+    else m += `🎉 您今天暂无到期待办。\n\n`;
+  }
+  if (remind) m += `${remind}\n\n`;
+
   const walkChild = (node, depth) => {
     const indent = '  '.repeat(depth);
     const cat = node.category ? ` \`${node.category}\`` : '';
-    m += `${indent}- ▪ ${node.title}${cat}\n`;
+    m += `${indent}- ➖ ${node.title}${cat}\n`;
     for (const c of node.children) walkChild(c, depth + 1);
   };
-  for (const root of trees) {
-    const cat = root.category ? ` \`${root.category}\`` : '';
-    // 主任务：竖条 ▍ 作层级标识 + 彩色圆点表优先级
-    m += `\n**▍${TODO_PRI_ICON[root.priority] || '⚪'} ${root.title}**${cat}${todoDateTag(root.due_date, today, 'markdown')}\n`;
-    for (const c of root.children) walkChild(c, 0);
+  if (trees.length === 0) {
+    m += `${bar}\n🎉 今日无到期或逾期待办\n${bar}\n`;
+  } else {
+    m += `${bar}\n`;
+    trees.forEach((root, ri) => {
+      const cat = root.category ? ` \`${root.category}\`` : '';
+      const pri = TODO_PRI_ICON[root.priority] || '⚪';
+      m += `**❇️待办${ri + 1}：${pri}${root.title}**${cat}${dateBadge(root.due_date)}\n`;
+      for (const c of root.children) walkChild(c, 0);
+      m += `${bar}\n`;
+    });
   }
-  if (trees.length === 0) m += `\n🎉 今日无到期或逾期待办\n`;
   if (base && reportToken) m += `\n[➕ 协作添加/勾选](${base}/tc/${reportToken})\n`;
   if (base && reportToken) m += `[📋 查看全部待办](${base}/tr/${reportToken})\n`;
   return m;
 }
 
 function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remind = '') {
-  let h = `<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;">
-    <h2 style="font-size:18px;">📝 待办日报${todoTitleDate(today)}</h2>`;
+  // 整体字号相对之前放大: 正文 15→16, 主任务 15→18, 子任务 13→15, 更适合手机阅读
+  let h = `<div style="font-family:-apple-system,sans-serif;max-width:640px;margin:0 auto;font-size:16px;line-height:1.6;color:#1f2430;">
+    <h2 style="font-size:22px;margin:8px 0 12px;">📝 待办日报${todoTitleDate(today)}</h2>`;
   if (stats) {
-    h += `<p style="margin:4px 0;color:#4a6cf7;font-weight:600;">未完成 ${stats.pending} 项`;
+    h += `<p style="margin:6px 0;color:#4a6cf7;font-weight:600;font-size:16px;">未完成 ${stats.pending} 项`;
     if (stats.overdue) h += ` · <span style="color:#cf1322;">逾期 ${stats.overdue} 项</span>`;
     h += `</p>`;
   }
-  if (remind) h += `<p style="margin:6px 0;padding:8px 12px;background:#fff7e6;border-left:3px solid #fa8c16;border-radius:4px;color:#874d00;font-size:14px;">${remind}</p>`;
+  if (remind) h += `<p style="margin:8px 0;padding:10px 14px;background:#fff7e6;border-left:3px solid #fa8c16;border-radius:4px;color:#874d00;font-size:15px;">${remind}</p>`;
   // 优先级圆点色板（红=高 琥珀=中 灰=低）；与网页端 .todo-dot 一致，仅表达优先级
   const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#b4bccb' };
   // 内联圆点：邮件客户端 emoji 渲染不一，用 background 画点更统一可控
-  const dot = (p) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:6px;vertical-align:middle;"></span>`;
+  const dot = (p) => `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:8px;vertical-align:middle;"></span>`;
   const catTag = (c) => c
-    ? ` <span style="background:#eef1ff;color:#4a6cf7;border-radius:4px;padding:1px 7px;font-size:12px;">${c}</span>` : '';
+    ? ` <span style="background:#eef1ff;color:#4a6cf7;border-radius:4px;padding:1px 8px;font-size:13px;">${c}</span>` : '';
   // 子任务：卡片内缩进 + 左侧连接线，明确从属于上方主任务；优先级用圆点
   const walkChild = (node) => {
-    h += `<div style="margin:4px 0 4px 14px;padding:5px 10px;border-left:2px solid #e3e8f0;">
-      ${dot(node.priority)}<span style="font-size:13px;color:#333;vertical-align:middle;">${node.title}</span>${catTag(node.category)}
+    h += `<div style="margin:6px 0 6px 16px;padding:7px 12px;border-left:2px solid #e3e8f0;">
+      ${dot(node.priority)}<span style="font-size:15px;color:#333;vertical-align:middle;">${node.title}</span>${catTag(node.category)}
     </div>`;
     for (const c of node.children) walkChild(c);
   };
   for (const root of trees) {
     // 主任务卡片：品牌蓝分组条头（层级通道）+ 优先级圆点 + 加粗标题 + 日期只此一处
-    h += `<div style="margin:14px 0;border:1px solid #eceff5;border-radius:8px;overflow:hidden;">
-      <div style="padding:9px 12px;background:#f7f8fa;border-left:4px solid #4a6cf7;">
-        ${dot(root.priority)}<span style="font-size:15px;font-weight:700;color:#1f2430;vertical-align:middle;">${root.title}</span>${catTag(root.category)}${todoDateTag(root.due_date, today, 'html')}
+    h += `<div style="margin:16px 0;border:1px solid #eceff5;border-radius:8px;overflow:hidden;">
+      <div style="padding:11px 14px;background:#f7f8fa;border-left:4px solid #4a6cf7;">
+        ${dot(root.priority)}<span style="font-size:18px;font-weight:700;color:#1f2430;vertical-align:middle;">${root.title}</span>${catTag(root.category)}${todoDateTag(root.due_date, today, 'html')}
       </div>`;
     if (root.children.length) {
-      h += `<div style="padding:6px 10px 8px;">`;
+      h += `<div style="padding:8px 12px 10px;">`;
       for (const c of root.children) walkChild(c);
       h += `</div>`;
     }
     h += `</div>`;
   }
-  if (trees.length === 0) h += `<p style="color:#389e0d;">🎉 今日无到期或逾期待办</p>`;
+  if (trees.length === 0) h += `<p style="color:#389e0d;font-size:16px;">🎉 今日无到期或逾期待办</p>`;
   if (base && reportToken) {
-    h += `<div style="margin:12px 0;"><a href="${base}/tc/${reportToken}" target="_blank" rel="noopener" style="display:inline-block;padding:8px 14px;background:#4a6cf7;color:#fff;border-radius:6px;text-decoration:none;font-size:14px;">➕ 协作添加 / 勾选</a></div>`;
+    h += `<div style="margin:14px 0;"><a href="${base}/tc/${reportToken}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 18px;background:#4a6cf7;color:#fff;border-radius:6px;text-decoration:none;font-size:15px;">➕ 协作添加 / 勾选</a></div>`;
   }
   if (base && reportToken) {
-    h += `<p style="margin:8px 0;"><a href="${base}/tr/${reportToken}" style="color:#4a6cf7;">📋 查看全部待办</a></p>`;
+    h += `<p style="margin:8px 0;font-size:15px;"><a href="${base}/tr/${reportToken}" style="color:#4a6cf7;">📋 查看全部待办</a></p>`;
   }
   h += `</div>`;
   return h;
