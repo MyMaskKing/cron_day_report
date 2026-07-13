@@ -3315,6 +3315,7 @@ function openAddForm(parentId, title, isChild) {
   });
 }
 bindClickBusy(document.getElementById('tAdd'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
+bindClickBusy(document.getElementById('tAddFs'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
 // 视图三态循环: default → card → tree → default
 bindClickBusy(document.getElementById('viewToggle'), function(){
   enterTodoFullscreen(_todoGetRows, drawTree);
@@ -3520,6 +3521,7 @@ function openAddForm(parentId, title) {
   });
 }
 bindClickBusy(document.getElementById('tAddRoot'), function(){ openAddForm(_rootId, '添加任务'); return Promise.resolve(); });
+bindClickBusy(document.getElementById('tAddFs'), function(){ openAddForm(_rootId, '添加任务'); return Promise.resolve(); });
 // 视图三态循环
 bindClickBusy(document.getElementById('viewToggle'), function(){
   enterTodoFullscreen(_todoGetRows, function(){ loadPublic(); });
@@ -3733,6 +3735,7 @@ function openAddForm(parentId, title, isChild) {
   });
 }
 bindClickBusy(document.getElementById('tAddRoot'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
+bindClickBusy(document.getElementById('tAddFs'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
 // 视图三态循环
 bindClickBusy(document.getElementById('viewToggle'), function(){
   enterTodoFullscreen(_todoGetRows, function(){ loadCollab(); });
