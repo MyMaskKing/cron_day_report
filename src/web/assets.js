@@ -2509,6 +2509,51 @@ function renderTodoDrawer(rows, onSelect) {
   var cats = todoCatDistinct(rows);
   var cur = _todoCategory == null ? '__all__' : _todoCategory;
   box.innerHTML = '';
+
+  // 时间筛选段: 页面存在 #todoFilter (主页) 时镜像其按钮进抽屉, 点击代理触发原按钮 click
+  // 抽屉是全屏态下的目录, 需要把顶栏筛选也提上来, 移动端可整体在抽屉里操作
+  var fbar = document.getElementById('todoFilter');
+  if (fbar) {
+    var section1 = document.createElement('div');
+    section1.className = 'todo-drawer__section';
+    var title1 = document.createElement('div'); title1.className = 'todo-drawer__section-title'; title1.textContent = '📅 时间筛选';
+    section1.appendChild(title1);
+    var timeCounts = todoTimeCounts(rows);
+    Array.prototype.forEach.call(fbar.querySelectorAll('button[data-filter]'), function(btn){
+      var key = btn.getAttribute('data-filter');
+      var it = document.createElement('div');
+      var isActive = btn.classList.contains('active');
+      it.className = 'todo-drawer__item todo-drawer__item--time' + (isActive ? ' active' : '');
+      var l = document.createElement('span'); l.className = 'todo-drawer__label'; l.textContent = btn.textContent.trim();
+      var c = document.createElement('span'); c.className = 'todo-drawer__count'; c.textContent = '(' + (timeCounts[key] || 0) + ')';
+      it.appendChild(l); it.appendChild(c);
+      it.addEventListener('click', function(){ btn.click(); });
+      section1.appendChild(it);
+    });
+    box.appendChild(section1);
+  }
+
+  // 隐藏已完成段: 页面存在 #hideDone 时镜像一份, 点击代理触发原复选框 change
+  var origHide = document.getElementById('hideDone');
+  if (origHide) {
+    var section2 = document.createElement('div');
+    section2.className = 'todo-drawer__section';
+    var it2 = document.createElement('label');
+    it2.className = 'todo-drawer__item todo-drawer__item--hide';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = !!origHide.checked; cb.style.marginRight = '8px'; cb.style.width = 'auto';
+    var lb = document.createElement('span'); lb.className = 'todo-drawer__label'; lb.textContent = '隐藏已完成';
+    it2.appendChild(cb); it2.appendChild(lb);
+    cb.addEventListener('change', function(){ origHide.checked = cb.checked; origHide.dispatchEvent(new Event('change')); });
+    section2.appendChild(it2);
+    box.appendChild(section2);
+  }
+
+  // 分类段: 原有内容, 增加分段标题
+  var section3 = document.createElement('div');
+  section3.className = 'todo-drawer__section';
+  var title3 = document.createElement('div'); title3.className = 'todo-drawer__section-title'; title3.textContent = '📂 分类';
+  section3.appendChild(title3);
   function addItem(key, label, icon) {
     var it = document.createElement('div');
     it.className = 'todo-drawer__item' + (cur === key ? ' active' : '');
@@ -2517,13 +2562,31 @@ function renderTodoDrawer(rows, onSelect) {
     var c = document.createElement('span'); c.className = 'todo-drawer__count'; c.textContent = '(' + (counts[key] || 0) + ')';
     it.appendChild(l); it.appendChild(c);
     it.addEventListener('click', function(){ if (onSelect) onSelect(key); });
-    box.appendChild(it);
+    section3.appendChild(it);
   }
   addItem('__all__', '全部', '📋');
   addItem('__none__', '未分类', '📌');
   cats.forEach(function(c){ addItem(c, c); });
+  box.appendChild(section3);
+
   var foot = document.getElementById('drawerFoot');
   if (foot) foot.textContent = '共 ' + cats.length + ' 个分类';
+}
+// 时间维度顶层任务计数(顶层口径, 与 todoFilterTrees 同): 全部/今日/逾期/未来/备忘录/已完成
+// 只统计顶层任务, 子任务日期继承主任务, 不重复计数
+function todoTimeCounts(rows) {
+  var today = new Date(Date.now() + 8*3600*1000).toISOString().slice(0,10);
+  var m = { all: 0, today: 0, overdue: 0, future: 0, memo: 0, done: 0 };
+  rows.forEach(function(r){
+    if (r.parent_id != null) return;
+    m.all++;
+    if (r.done) m.done++;
+    if (!r.due_date) { m.memo++; return; }
+    if (r.due_date === today) m.today++;
+    else if (r.due_date < today) m.overdue++;
+    else m.future++;
+  });
+  return m;
 }
 // 抽屉当前是否展开(内部推导)
 function todoDrawerIsOpen() {
@@ -2629,6 +2692,20 @@ function applyTodoView(getRowsFn, onDrawTree) {
   }
   // 每次切回默认页或视图变化, 强制显示顶栏(避免上次隐藏状态残留)
   if (fsTop) fsTop.classList.remove('todo-fs-top--hidden');
+
+  // 全屏顶栏 #hideDoneFs 与页面 #hideDone 双向同步: 状态镜像 + 幂等绑定
+  var hideFs = document.getElementById('hideDoneFs');
+  var hideOrig = document.getElementById('hideDone');
+  if (hideFs && hideOrig) {
+    hideFs.checked = !!hideOrig.checked;
+    if (!hideFs.__syncBound) {
+      hideFs.__syncBound = 1;
+      hideFs.addEventListener('change', function(){
+        hideOrig.checked = hideFs.checked;
+        hideOrig.dispatchEvent(new Event('change'));
+      });
+    }
+  }
 
   // 触发一次树/卡片重绘 + 抽屉内容刷新
   if (typeof onDrawTree === 'function') onDrawTree();
@@ -2906,6 +2983,8 @@ function renderTodoCards(container, trees, opts) {
   var today = opts.today || '';
   container.innerHTML = '';
   container.className = 'todo-cards';
+  // 隐藏已完成: 整枝无未完成叶子的顶层任务从卡片列表中剔除
+  if (opts.hideDone) trees = trees.filter(function(root){ return todoSubtreePending(root); });
   if (trees.length === 0) {
     container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
     return;

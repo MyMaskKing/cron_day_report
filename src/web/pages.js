@@ -736,6 +736,7 @@ function todoPage(user) {
       <div class="todo-fs-top">
         <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
         <span class="todo-fs-title">待办清单</span>
+        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="btn sm" id="tAddFs">+ 新建任务</button>
         <button class="btn sm gray" id="viewToggleFs">🌳 完整树</button>
         <button class="btn sm danger" id="exitFullscreen">↩️ 退出全屏</button>

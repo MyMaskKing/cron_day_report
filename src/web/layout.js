@@ -331,6 +331,8 @@ body.todo-fs-on .todo-fullscreen { display: flex; }
   transition: transform .22s ease, opacity .22s ease;
 }
 .todo-fs-title { flex: 1; font-size: 16px; font-weight: 700; color: #1f2329; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-fs-hide { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: #666; font-weight: normal; cursor: pointer; white-space: nowrap; }
+.todo-fs-hide input[type="checkbox"] { width: auto; margin: 0; }
 
 /* ============ 侧边抽屉（分类目录） ============ */
 .todo-drawer {
@@ -361,6 +363,10 @@ body.todo-fs-on .todo-fullscreen { display: flex; }
 .todo-drawer__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .todo-drawer__count { color: #8890b8; font-size: 12px; }
 .todo-drawer__item.active .todo-drawer__count { color: #4a6cf7; }
+.todo-drawer__section { padding: 6px 0; border-bottom: 1px solid #f0f2f8; }
+.todo-drawer__section:last-child { border-bottom: none; }
+.todo-drawer__section-title { padding: 8px 14px 4px; font-size: 12px; color: #8890b8; font-weight: 600; letter-spacing: .5px; }
+.todo-drawer__item--hide { cursor: pointer; }
 .todo-drawer__foot { padding: 8px 14px; font-size: 12px; color: #8890b8; border-top: 1px solid #f0f2f8; text-align: center; }
 /* 抽屉收起：主区域独占 */
 .todo-drawer.closed { display: none; }
