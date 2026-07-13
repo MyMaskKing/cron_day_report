@@ -3010,13 +3010,13 @@ function renderTodoCards(container, trees, opts) {
     var body = document.createElement('div'); body.className = 'todo-card__body';
     var head = document.createElement('div'); head.className = 'todo-card__head';
 
-    // 勾选框（叶子顶层任务才有意义, 有子任务的顶层用整卡进入详情, 勾选靠详情页内叶子）
+    // 勾选框: 主任务无论有无子任务都显示, 勾选会级联标记整棵子树完成(后端已实现)
     // readOnly 时始终不显示
-    if (!opts.readOnly && !hasChildren && opts.onToggle) {
+    if (!opts.readOnly && opts.onToggle) {
       var check = document.createElement('button');
       check.type = 'button';
       check.className = 'todo-card__check' + (root.done ? ' done' : '');
-      check.title = root.done ? '取消完成' : '标记完成';
+      check.title = root.done ? '取消完成(级联)' : (hasChildren ? '标记完成(级联子任务)' : '标记完成');
       check.addEventListener('click', async function(e){
         e.stopPropagation();
         if (check.disabled) return;
