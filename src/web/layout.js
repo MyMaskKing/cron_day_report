@@ -299,6 +299,74 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 button[data-busy] { opacity: .55; cursor: wait; }
 button[data-busy]::after { content: ' …'; }
 
+/* ============ 待办全屏模式（三态循环：default → 卡片全屏 → 完整树全屏） ============ */
+/* 全屏容器：默认 display:none, 由 JS 根据 _todoView 决定显隐 */
+.todo-fullscreen {
+  display: none;
+  position: fixed; inset: 0; z-index: 1000;
+  background: #f0f2f5;
+  flex-direction: row;
+}
+/* body 加 todo-fs-on 时：隐藏 topbar 与页面所有 .card, 显示全屏容器 */
+body.todo-fs-on { overflow: hidden; }
+body.todo-fs-on .topbar,
+body.todo-fs-on .impersonate-banner { display: none !important; }
+body.todo-fs-on .container > .card { display: none !important; }
+body.todo-fs-on .todo-fullscreen { display: flex; }
+
+/* 主区域：右侧填满 */
+.todo-fs-main {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+  padding: 12px 16px 16px;
+  overflow-y: auto;
+}
+/* 主区域顶部一行：抽屉按钮 + 标题 + 视图切换按钮 */
+.todo-fs-top {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  padding-bottom: 10px; border-bottom: 1px solid #e9ecf3;
+}
+.todo-fs-title { flex: 1; font-size: 16px; font-weight: 700; color: #1f2329; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ============ 侧边抽屉（分类目录） ============ */
+.todo-drawer {
+  width: 240px; flex-shrink: 0;
+  background: #fff; border-right: 1px solid #e9ecf3;
+  display: flex; flex-direction: column;
+  transition: transform .22s ease;
+}
+.todo-drawer__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 14px 10px; font-size: 14px; font-weight: 700; color: #1f2329;
+  border-bottom: 1px solid #f0f2f8;
+}
+.todo-drawer__close {
+  border: none; background: none; cursor: pointer; font-size: 18px; color: #8890b8;
+  padding: 2px 6px; border-radius: 6px;
+}
+.todo-drawer__close:hover { background: #f0f2f8; color: #1f2329; }
+.todo-drawer__list { flex: 1; overflow-y: auto; padding: 6px 0; }
+.todo-drawer__item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  cursor: pointer; font-size: 14px; color: #1f2329;
+  border-left: 3px solid transparent;
+  transition: background .12s, border-color .12s;
+}
+.todo-drawer__item:hover { background: #f7f8fa; }
+.todo-drawer__item.active { background: #eef1ff; border-left-color: #4a6cf7; color: #4a6cf7; font-weight: 600; }
+.todo-drawer__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-drawer__count { color: #8890b8; font-size: 12px; }
+.todo-drawer__item.active .todo-drawer__count { color: #4a6cf7; }
+.todo-drawer__foot { padding: 8px 14px; font-size: 12px; color: #8890b8; border-top: 1px solid #f0f2f8; text-align: center; }
+/* 抽屉收起：主区域独占 */
+.todo-drawer.closed { display: none; }
+/* 抽屉遮罩（仅手机使用） */
+.todo-drawer-mask { display: none; }
+
+/* ============ 分类下拉：新建输入框 ============ */
+/* 弹窗内 #tfCatNew 的 margin-top，与 select 拉开距离；样式复用现有 input */
+#tfCatNew { margin-top: 6px; }
+
 /* ============ 图表横屏全屏查看 ============ */
 /* 紧贴图表的相对定位容器：按钮以此为锚，落在图表区右上角而非整张卡片 */
 .chart-fs-wrap { position: relative; }
@@ -385,6 +453,21 @@ button[data-busy]::after { content: ' …'; }
   .todo-card__body { padding: 12px 14px 8px; }
   .todo-card__title { font-size: 16px; }
   .todo-card__foot { padding: 6px 10px; }
+  /* 全屏模式下, 抽屉浮层覆盖: 从左侧滑入, 半透明遮罩 */
+  .todo-fullscreen { flex-direction: row; }
+  .todo-drawer {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 1001;
+    transform: translateX(-100%);
+    box-shadow: 2px 0 20px rgba(0,0,0,.15);
+  }
+  .todo-drawer.closed { display: flex; transform: translateX(-100%); }
+  .todo-drawer.open { transform: translateX(0); }
+  .todo-drawer-mask {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,.35);
+  }
+  body.todo-fs-on .todo-drawer-mask.show { display: block; }
+  .todo-fs-main { padding: 10px 12px 14px; }
 }
 `;
 

@@ -2393,11 +2393,17 @@ bindQuickLogin('asset');
 // opts 回调决定各页能力：{ today, hideDone, onToggle, onEdit, onDel, onAddChild, onShare, readOnly }
 // 用 createElement + addEventListener，规避模板串内引号转义。
 const TODO_TREE_CORE = `
-// 视图状态：默认卡片视图；localStorage 记忆
-var _todoView = 'card';
-try { var _v = localStorage.getItem('todoView'); if (_v === 'card' || _v === 'tree') _todoView = _v; } catch(e){}
+// 视图三态循环: default(带页面 chrome 的默认页) → card(全屏卡片) → tree(全屏完整树) → default
+// localStorage 记忆; 老用户历史值 'card'/'tree' 直接沿用为对应全屏态
+var _todoView = 'default';
+try { var _v = localStorage.getItem('todoView'); if (_v === 'default' || _v === 'card' || _v === 'tree') _todoView = _v; } catch(e){}
 // 卡片模式下打开的顶层任务 id；null 表示卡片列表
 var _todoDetailRootId = null;
+// 侧边抽屉开合: null=按视口默认(PC 开/手机收), true/false=用户显式选择
+var _todoDrawerOpen = null;
+try { var _d = localStorage.getItem('todoDrawer'); if (_d === '1') _todoDrawerOpen = true; else if (_d === '0') _todoDrawerOpen = false; } catch(e){}
+// 分类过滤: null 或 '__all__' 均视作不过滤; '__none__' 表示未分类; 其他值为分类名
+var _todoCategory = null;
 // 叶子口径计数：只数末端叶子（无子任务的节点），与后端 countStats/statsOfReport 一致
 // 顶层任务若无子任务, 自身不算入进度（返回 {0,0}）
 function todoLeafCount(node) {
@@ -2409,6 +2415,194 @@ function todoLeafCount(node) {
     });
   })(node);
   return { total: total, done: done };
+}
+// 分类计数(顶层任务口径): 目录展示与卡片列表可见性一致 —— 只数顶层任务
+// 返回 { __all__: N, __none__: N, '工作': N, ... }
+function todoCatCounts(rows) {
+  var m = { __all__: 0, __none__: 0 };
+  rows.forEach(function(r){
+    if (r.parent_id != null) return;
+    m.__all__++;
+    if (!r.category) m.__none__++;
+    else { m[r.category] = (m[r.category] || 0) + 1; }
+  });
+  return m;
+}
+// 从 rows 提取去重排序的分类列表
+function todoCatDistinct(rows) {
+  var set = {};
+  rows.forEach(function(r){ if (r.category) set[r.category] = 1; });
+  return Object.keys(set).sort(function(a, b){ return a.localeCompare(b); });
+}
+// 弹窗内分类下拉填充: 先清空 sel 里除固定项外的所有 option, 再插入现有分类
+// currentValue 为当前任务的分类(编辑时非空); 若不在下拉列表则动态插入并选中
+function todoFillCategoryOptions(rows, currentValue) {
+  var sel = document.getElementById('tfCatSel');
+  if (!sel) return;
+  // 固定两项: '' (无分类) / '__new__' (新建)
+  var frag = document.createDocumentFragment();
+  var optNone = document.createElement('option'); optNone.value = ''; optNone.textContent = '（无分类）'; frag.appendChild(optNone);
+  var cats = todoCatDistinct(rows);
+  if (currentValue && cats.indexOf(currentValue) < 0) cats.push(currentValue);
+  cats.forEach(function(c){
+    var o = document.createElement('option'); o.value = c; o.textContent = c; frag.appendChild(o);
+  });
+  var optNew = document.createElement('option'); optNew.value = '__new__'; optNew.textContent = '➕ 新建分类…'; frag.appendChild(optNew);
+  sel.innerHTML = '';
+  sel.appendChild(frag);
+  sel.value = currentValue || '';
+  // 绑定切换事件, 避免重复绑定
+  if (!sel.__catBound) {
+    sel.__catBound = 1;
+    sel.addEventListener('change', function(){
+      var input = document.getElementById('tfCatNew');
+      if (!input) return;
+      if (sel.value === '__new__') { input.style.display = 'block'; input.focus(); }
+      else input.style.display = 'none';
+    });
+  }
+}
+// 渲染侧边分类目录 —— rows 为当前用户全部扁平待办, onSelect(key) 点击回调
+// key 取值: '__all__' | '__none__' | '<分类名>'
+function renderTodoDrawer(rows, onSelect) {
+  var box = document.getElementById('drawerList');
+  if (!box) return;
+  var counts = todoCatCounts(rows);
+  var cats = todoCatDistinct(rows);
+  var cur = _todoCategory == null ? '__all__' : _todoCategory;
+  box.innerHTML = '';
+  function addItem(key, label, icon) {
+    var it = document.createElement('div');
+    it.className = 'todo-drawer__item' + (cur === key ? ' active' : '');
+    it.setAttribute('data-key', key);
+    var l = document.createElement('span'); l.className = 'todo-drawer__label'; l.textContent = (icon ? icon + ' ' : '') + label;
+    var c = document.createElement('span'); c.className = 'todo-drawer__count'; c.textContent = '(' + (counts[key] || 0) + ')';
+    it.appendChild(l); it.appendChild(c);
+    it.addEventListener('click', function(){ if (onSelect) onSelect(key); });
+    box.appendChild(it);
+  }
+  addItem('__all__', '全部', '📋');
+  addItem('__none__', '未分类', '📌');
+  cats.forEach(function(c){ addItem(c, c); });
+  var foot = document.getElementById('drawerFoot');
+  if (foot) foot.textContent = '共 ' + cats.length + ' 个分类';
+}
+// 抽屉当前是否展开(内部推导)
+function todoDrawerIsOpen() {
+  if (_todoDrawerOpen == null) return (typeof window !== 'undefined' && window.innerWidth > 640);
+  return !!_todoDrawerOpen;
+}
+// 应用视图状态到 DOM: body class / 全屏容器显隐 / #todoTree 与 #todoCrumb DOM 迁移 / 视图按钮文案 / 抽屉显隐
+// 传入 rows 获取函数(避免闭包捕获旧引用)与"重绘树"回调(applyTodoView 内部会最终触发 onDrawTree)
+function applyTodoView(getRowsFn, onDrawTree) {
+  var body = document.body;
+  var fs = document.getElementById('todoFullscreen');
+  var tree = document.getElementById('todoTree');
+  var crumb = document.getElementById('todoCrumb');
+  var fsHost = fs ? fs.querySelector('.todo-fs-main') : null;
+  var drawer = document.getElementById('todoDrawer');
+  var mask = document.getElementById('todoDrawerMask');
+  var vBtn = document.getElementById('viewToggle');
+  var dBtn = document.getElementById('drawerToggle');
+
+  // 视图按钮文案: 三态循环, 提示下一步动作
+  if (vBtn) {
+    if (_todoView === 'default') vBtn.textContent = '🗂️ 卡片视图';
+    else if (_todoView === 'card') vBtn.textContent = '🌳 完整树';
+    else vBtn.textContent = '↩️ 退出全屏';
+  }
+
+  // DOM 迁移: default 时 tree/crumb 回归"清单卡片"内的初始容器; 非 default 时挪到全屏容器主区域
+  // 通过在页面初始位置留一个 anchor 元素 (id="todoTreeHome") 来记录初始父节点
+  var home = document.getElementById('todoTreeHome');
+  if (_todoView === 'default') {
+    body.classList.remove('todo-fs-on');
+    if (home && tree && tree.parentNode !== home) {
+      if (crumb) home.appendChild(crumb);
+      home.appendChild(tree);
+    }
+  } else {
+    body.classList.add('todo-fs-on');
+    if (fsHost && tree && tree.parentNode !== fsHost) {
+      if (crumb) fsHost.appendChild(crumb);
+      fsHost.appendChild(tree);
+    }
+  }
+
+  // 抽屉: 仅在全屏态下有意义
+  if (drawer) {
+    if (_todoView === 'default') {
+      drawer.classList.remove('open');
+      drawer.classList.add('closed');
+      if (mask) mask.classList.remove('show');
+    } else {
+      var open = todoDrawerIsOpen();
+      drawer.classList.toggle('closed', !open);
+      drawer.classList.toggle('open', open);
+      if (mask) mask.classList.toggle('show', open && window.innerWidth <= 640);
+    }
+  }
+
+  // 抽屉切换按钮: 仅在全屏态下显示
+  if (dBtn) dBtn.style.display = (_todoView === 'default') ? 'none' : '';
+
+  // 触发一次树/卡片重绘 + 抽屉内容刷新
+  if (typeof onDrawTree === 'function') onDrawTree();
+  if (_todoView !== 'default' && typeof getRowsFn === 'function') {
+    var rows = getRowsFn() || [];
+    renderTodoDrawer(rows, function(key){
+      _todoCategory = key === '__all__' ? null : key;
+      // 分类切换后, 移动端可选择自动收起抽屉(留意: 桌面端不收, 避免视线跳)
+      if (window.innerWidth <= 640) {
+        _todoDrawerOpen = false;
+        try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+      }
+      applyTodoView(getRowsFn, onDrawTree);
+    });
+  }
+}
+// 视图三态循环: default → card → tree → default
+function cycleTodoView(getRowsFn, onDrawTree) {
+  var next = { 'default': 'card', 'card': 'tree', 'tree': 'default' };
+  _todoView = next[_todoView] || 'default';
+  _todoDetailRootId = null;
+  try { localStorage.setItem('todoView', _todoView); } catch(e){}
+  applyTodoView(getRowsFn, onDrawTree);
+}
+// 抽屉手动开合(全屏态下点 ☰ 或 ✕)
+function toggleTodoDrawer(getRowsFn, onDrawTree) {
+  _todoDrawerOpen = !todoDrawerIsOpen();
+  try { localStorage.setItem('todoDrawer', _todoDrawerOpen ? '1' : '0'); } catch(e){}
+  applyTodoView(getRowsFn, onDrawTree);
+}
+// 按分类过滤顶层任务行: 输入 rows(扁平), 输出仅保留 (顶层匹配 _todoCategory 的顶层 + 其子孙)
+// _todoCategory==null 或 '__all__' 时原样返回
+function todoRowsByCategory(rows) {
+  if (_todoCategory == null || _todoCategory === '__all__') return rows;
+  var pass = {}, out = [];
+  // 第一遍: 挑符合的顶层
+  rows.forEach(function(r){
+    if (r.parent_id != null) return;
+    var hit = _todoCategory === '__none__' ? !r.category : (r.category === _todoCategory);
+    if (hit) pass[r.id] = 1;
+  });
+  // 第二遍: 收集其所有后代
+  function isDesc(r, byId, visited) {
+    var cur = r; while (cur.parent_id != null) {
+      if (visited[cur.parent_id]) return true;
+      if (pass[cur.parent_id]) return true;
+      cur = byId[cur.parent_id]; if (!cur) return false;
+      visited[cur.id] = 1;
+    }
+    return false;
+  }
+  var byId = {};
+  rows.forEach(function(r){ byId[r.id] = r; });
+  rows.forEach(function(r){
+    if (r.parent_id == null) { if (pass[r.id]) out.push(r); }
+    else if (isDesc(r, byId, {})) out.push(r);
+  });
+  return out;
 }
 var PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
 var PRI_TEXT = { 2: '高', 1: '中', 0: '低' };
@@ -2829,17 +3023,26 @@ function todoFormHtml(t, isNew, isChild) {
     '</div>' +
     (isChild ? '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📅 子任务的截止日期跟随主任务</p>'
              : '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📌 留空截止日期即作备忘录，不计入日报</p>') +
-    '<label>分类（可选）</label><input id="tfCat" value="' + esc(t.category || '') + '" placeholder="如 工作 / 家庭">' +
+    '<label>分类（可选）</label>' +
+    '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
+    '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;">' +
     '<label>备注（可选）</label>' +
     '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
 }
 function todoFormRead() {
   var dueEl = document.getElementById('tfDue');
+  // 分类: 下拉 tfCatSel 选中 '__new__' 时读 tfCatNew 输入; 空字符串归一为 null
+  var catSel = document.getElementById('tfCatSel');
+  var catVal = catSel ? catSel.value : '';
+  if (catVal === '__new__') {
+    var catNewEl = document.getElementById('tfCatNew');
+    catVal = catNewEl ? catNewEl.value.trim() : '';
+  }
   return {
     title: document.getElementById('tfTitle').value.trim(),
     priority: parseInt(document.getElementById('tfPri').value, 10),
     due_date: dueEl ? (dueEl.value || null) : null,
-    category: document.getElementById('tfCat').value.trim() || null,
+    category: catVal || null,
     note: document.getElementById('tfNote').value.trim() || null
   };
 }
@@ -2964,16 +3167,18 @@ function todoFilterTrees(trees) {
   if (_filter === 'done')    return trees.filter(function(n){ return n.done; });
   return trees;
 }
+// 视图 3 态循环需要的一对回调: 取当前 rows / 触发树重绘
+function _todoGetRows() { return _rows; }
 function drawTree() {
   // 已完成 tab 下强制显示完成项，否则遵从复选框
   var hideDone = _filter === 'done' ? false : document.getElementById('hideDone').checked;
-  var trees = todoFilterTrees(todoBuildTree(_rows));
+  // 先按抽屉选中的分类过滤扁平 rows, 再按 filter tab 过滤顶层
+  var trees = todoFilterTrees(todoBuildTree(todoRowsByCategory(_rows)));
   var container = document.getElementById('todoTree');
   var crumb = document.getElementById('todoCrumb');
-  var viewBtn = document.getElementById('viewToggle');
-  if (viewBtn) viewBtn.textContent = _todoView === 'card' ? '🌳 完整树' : '🗂️ 卡片视图';
   todoRenderView(container, trees, {
-    view: _todoView, detailRootId: _todoDetailRootId,
+    view: _todoView === 'default' ? 'card' : _todoView,
+    detailRootId: _todoDetailRootId,
     crumbEl: crumb,
     today: todayStr(), hideDone: hideDone,
     onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
@@ -2990,6 +3195,7 @@ function drawTree() {
       var isChild = node.parent_id != null;
       openModal('编辑任务', todoFormHtml(node, false, isChild) +
         '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+      todoFillCategoryOptions(_rows, node.category || '');
       bindClickBusy(document.getElementById('tfSave'), async function(){
         var body = todoFormRead();
         if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
@@ -3034,6 +3240,9 @@ window.todoCopy = function(){ var el=document.getElementById('tShareUrl'); el.se
 function openAddForm(parentId, title, isChild) {
   openModal(title, todoFormHtml({}, true, !!isChild) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  // 新建时若抽屉选中了具体分类, 预填该分类, 便于连续录入
+  var pref = (_todoCategory && _todoCategory !== '__none__') ? _todoCategory : '';
+  todoFillCategoryOptions(_rows, pref);
   bindClickBusy(document.getElementById('tfCreate'), async function(){
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
@@ -3043,14 +3252,31 @@ function openAddForm(parentId, title, isChild) {
   });
 }
 bindClickBusy(document.getElementById('tAdd'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
-// 视图切换：卡片 ↔ 完整树，重置详情页状态，写入 localStorage
+// 视图三态循环: default → card → tree → default
 bindClickBusy(document.getElementById('viewToggle'), function(){
-  _todoView = _todoView === 'card' ? 'tree' : 'card';
-  _todoDetailRootId = null;
-  try { localStorage.setItem('todoView', _todoView); } catch(e){}
-  drawTree();
+  cycleTodoView(_todoGetRows, drawTree);
   return Promise.resolve();
 });
+// 抽屉切换按钮 ☰
+bindClickBusy(document.getElementById('drawerToggle'), function(){
+  toggleTodoDrawer(_todoGetRows, drawTree);
+  return Promise.resolve();
+});
+// 抽屉右上角 ✕
+bindClickBusy(document.getElementById('drawerClose'), function(){
+  _todoDrawerOpen = false;
+  try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+  applyTodoView(_todoGetRows, drawTree);
+  return Promise.resolve();
+});
+// 抽屉遮罩点击关闭(仅手机, CSS 控制显隐)
+document.getElementById('todoDrawerMask').addEventListener('click', function(){
+  _todoDrawerOpen = false;
+  try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+  applyTodoView(_todoGetRows, drawTree);
+});
+// 视口尺寸变化时刷新抽屉状态(用户拖窗跨越 640px 边界)
+window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, drawTree); });
 document.getElementById('hideDone').addEventListener('change', drawTree);
 // 筛选 tab：点击切换 active 并重绘
 document.getElementById('todoFilter').addEventListener('click', function(e){
@@ -3099,7 +3325,13 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
 });
 
 (async function(){
-  try { await loadTodos(); await loadChart(); await loadPush(); }
+  try {
+    await loadTodos();
+    await loadChart();
+    await loadPush();
+    // 应用视图状态: localStorage 里可能已有 'card'/'tree', 首次进入直接全屏
+    applyTodoView(_todoGetRows, drawTree);
+  }
   catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
 })();
 `;
@@ -3127,6 +3359,8 @@ async function loadPublic() {
     renderStats(trees);
     drawTree(trees);
     loadChart();
+    // 应用视图状态(抽屉/全屏/按钮文案); onDrawTree 用一个空 fn 避免二次 loadPublic 死循环
+    applyTodoView(_todoGetRows, function(){});
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
 }
 // 可见树：仅截止今天或已逾期的顶层任务（与日报 filterTodayOverdue 口径一致），子任务随顶层
@@ -3159,14 +3393,21 @@ async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=7d'); drawTodoChart('todoChart', c.series); }
   catch(e){ /* 图表失败不阻断 */ }
 }
+// 为 applyTodoView 提供 rows(用可见的扁平原始数据构造抽屉计数)
+function _todoGetRows() { return _rows; }
 function drawTree(trees) {
   var container = document.getElementById('todoTree');
   var crumb = document.getElementById('todoCrumb');
-  var viewBtn = document.getElementById('viewToggle');
-  if (viewBtn) viewBtn.textContent = _todoView === 'card' ? '🌳 完整树' : '🗂️ 卡片视图';
-  // 列表仅显示截止今天或已逾期的顶层任务（与日报口径一致），子任务随顶层展示；曲线图不受此过滤影响
-  todoRenderView(container, trees, {
-    view: _todoView, detailRootId: _todoDetailRootId,
+  // 若已切到 tree/card 全屏, 用扁平 rows 按分类过滤后重新可见树; 默认页面沿用传入的 visibleTrees
+  var effectiveTrees = trees;
+  if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
+    effectiveTrees = todoBuildTree(todoRowsByCategory(_rows)).filter(function(t){
+      return t.due_date && _today && t.due_date <= _today;
+    });
+  }
+  todoRenderView(container, effectiveTrees, {
+    view: _todoView === 'default' ? 'card' : _todoView,
+    detailRootId: _todoDetailRootId,
     crumbEl: crumb,
     today: _today,
     onExitDetail: function(){ _todoDetailRootId = null; loadPublic(); },
@@ -3191,6 +3432,7 @@ function drawTree(trees) {
       var isChild = node.id !== _rootId;
       openModal('编辑任务', todoFormHtml(node, false, isChild) +
         '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+      todoFillCategoryOptions(_rows, node.category || '');
       bindClickBusy(document.getElementById('tfSave'), async function(){
         var body = todoFormRead();
         if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
@@ -3204,6 +3446,8 @@ function drawTree(trees) {
 function openAddForm(parentId, title) {
   openModal(title, todoFormHtml({}, true, true) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  var pref = (_todoCategory && _todoCategory !== '__none__' && _todoCategory !== '__all__') ? _todoCategory : '';
+  todoFillCategoryOptions(_rows, pref);
   bindClickBusy(document.getElementById('tfCreate'), async function(){
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
@@ -3213,13 +3457,28 @@ function openAddForm(parentId, title) {
   });
 }
 bindClickBusy(document.getElementById('tAddRoot'), function(){ openAddForm(_rootId, '添加任务'); return Promise.resolve(); });
+// 视图三态循环
 bindClickBusy(document.getElementById('viewToggle'), function(){
-  _todoView = _todoView === 'card' ? 'tree' : 'card';
-  _todoDetailRootId = null;
-  try { localStorage.setItem('todoView', _todoView); } catch(e){}
-  loadPublic();
+  cycleTodoView(_todoGetRows, function(){ loadPublic(); });
   return Promise.resolve();
 });
+// 抽屉切换
+bindClickBusy(document.getElementById('drawerToggle'), function(){
+  toggleTodoDrawer(_todoGetRows, function(){ loadPublic(); });
+  return Promise.resolve();
+});
+bindClickBusy(document.getElementById('drawerClose'), function(){
+  _todoDrawerOpen = false;
+  try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+  applyTodoView(_todoGetRows, function(){ loadPublic(); });
+  return Promise.resolve();
+});
+document.getElementById('todoDrawerMask').addEventListener('click', function(){
+  _todoDrawerOpen = false;
+  try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+  applyTodoView(_todoGetRows, function(){ loadPublic(); });
+});
+window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, function(){ loadPublic(); }); });
 loadPublic();
 `;
 
@@ -3230,16 +3489,21 @@ ${TODO_TREE_CORE}
 bindQuickLogin('todo-report');
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _curRange = '7d';
-var _trees = [], _today = '';
+var _rows = [], _trees = [], _today = '';
+function _todoGetRows() { return _rows; }
 async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=' + _curRange); drawTodoChart('todoChart', c.series); }
   catch(e){ /* 图表失败不阻断 */ }
 }
 function drawTree() {
-  var viewBtn = document.getElementById('viewToggle');
-  if (viewBtn) viewBtn.textContent = _todoView === 'card' ? '🌳 完整树' : '🗂️ 卡片视图';
-  todoRenderView(document.getElementById('todoTree'), _trees, {
-    view: _todoView, detailRootId: _todoDetailRootId,
+  // 全屏态下按抽屉选中的分类过滤扁平 rows 重新建树
+  var trees = _trees;
+  if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
+    trees = todoBuildTree(todoRowsByCategory(_rows));
+  }
+  todoRenderView(document.getElementById('todoTree'), trees, {
+    view: _todoView === 'default' ? 'card' : _todoView,
+    detailRootId: _todoDetailRootId,
     crumbEl: document.getElementById('todoCrumb'),
     today: _today, readOnly: true,
     onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
@@ -3254,16 +3518,33 @@ function drawTree() {
     document.getElementById('stOverdue').textContent = s.overdue;
     document.getElementById('stDone').textContent = s.done;
     document.getElementById('content').style.display = 'block';
-    _trees = todoBuildTree(d.todos || []);
+    _rows = d.todos || [];
+    _trees = todoBuildTree(_rows);
     _today = d.today || '';
+    // 视图三态循环
     bindClickBusy(document.getElementById('viewToggle'), function(){
-      _todoView = _todoView === 'card' ? 'tree' : 'card';
-      _todoDetailRootId = null;
-      try { localStorage.setItem('todoView', _todoView); } catch(e){}
-      drawTree();
+      cycleTodoView(_todoGetRows, drawTree);
       return Promise.resolve();
     });
-    drawTree();
+    // 抽屉切换
+    bindClickBusy(document.getElementById('drawerToggle'), function(){
+      toggleTodoDrawer(_todoGetRows, drawTree);
+      return Promise.resolve();
+    });
+    bindClickBusy(document.getElementById('drawerClose'), function(){
+      _todoDrawerOpen = false;
+      try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+      applyTodoView(_todoGetRows, drawTree);
+      return Promise.resolve();
+    });
+    document.getElementById('todoDrawerMask').addEventListener('click', function(){
+      _todoDrawerOpen = false;
+      try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+      applyTodoView(_todoGetRows, drawTree);
+    });
+    window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, drawTree); });
+    // 首次应用视图状态(会触发 drawTree)
+    applyTodoView(_todoGetRows, drawTree);
     bindTodoRange(function(r){ _curRange = r; loadChart(); });
     await loadChart();
   } catch(e) { document.body.innerHTML = '<div class="todo-empty" style="margin-top:60px;">' + esc(e.message || '链接无效') + '</div>'; }
@@ -3291,6 +3572,8 @@ async function loadCollab() {
     renderStats(trees);
     drawTree(trees);
     loadChart();
+    // 应用视图状态; onDrawTree 空 fn 避免二次 loadCollab
+    applyTodoView(_todoGetRows, function(){});
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
 }
 // 可见树：仅截止今天或已逾期的顶层任务（与日报口径一致），子任务随顶层
@@ -3323,11 +3606,18 @@ async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=7d'); drawTodoChart('todoChart', c.series); }
   catch(e){ /* 图表失败不阻断 */ }
 }
+function _todoGetRows() { return _rows; }
 function drawTree(trees) {
-  var viewBtn = document.getElementById('viewToggle');
-  if (viewBtn) viewBtn.textContent = _todoView === 'card' ? '🌳 完整树' : '🗂️ 卡片视图';
-  todoRenderView(document.getElementById('todoTree'), trees, {
-    view: _todoView, detailRootId: _todoDetailRootId,
+  // 全屏态下按抽屉选中的分类过滤扁平 rows 重新建可见树(今日+逾期)
+  var effectiveTrees = trees;
+  if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
+    effectiveTrees = todoBuildTree(todoRowsByCategory(_rows)).filter(function(t){
+      return t.due_date && _today && t.due_date <= _today;
+    });
+  }
+  todoRenderView(document.getElementById('todoTree'), effectiveTrees, {
+    view: _todoView === 'default' ? 'card' : _todoView,
+    detailRootId: _todoDetailRootId,
     crumbEl: document.getElementById('todoCrumb'),
     today: _today,
     onExitDetail: function(){ _todoDetailRootId = null; loadCollab(); },
@@ -3351,6 +3641,7 @@ function drawTree(trees) {
       var isChild = node.parent_id != null;
       openModal('编辑任务', todoFormHtml(node, false, isChild) +
         '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+      todoFillCategoryOptions(_rows, node.category || '');
       bindClickBusy(document.getElementById('tfSave'), async function(){
         var body = todoFormRead();
         if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
@@ -3368,6 +3659,8 @@ function drawTree(trees) {
 function openAddForm(parentId, title, isChild) {
   openModal(title, todoFormHtml({}, true, !!isChild) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  var pref = (_todoCategory && _todoCategory !== '__none__' && _todoCategory !== '__all__') ? _todoCategory : '';
+  todoFillCategoryOptions(_rows, pref);
   bindClickBusy(document.getElementById('tfCreate'), async function(){
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
@@ -3377,13 +3670,28 @@ function openAddForm(parentId, title, isChild) {
   });
 }
 bindClickBusy(document.getElementById('tAddRoot'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
+// 视图三态循环
 bindClickBusy(document.getElementById('viewToggle'), function(){
-  _todoView = _todoView === 'card' ? 'tree' : 'card';
-  _todoDetailRootId = null;
-  try { localStorage.setItem('todoView', _todoView); } catch(e){}
-  loadCollab();
+  cycleTodoView(_todoGetRows, function(){ loadCollab(); });
   return Promise.resolve();
 });
+// 抽屉切换
+bindClickBusy(document.getElementById('drawerToggle'), function(){
+  toggleTodoDrawer(_todoGetRows, function(){ loadCollab(); });
+  return Promise.resolve();
+});
+bindClickBusy(document.getElementById('drawerClose'), function(){
+  _todoDrawerOpen = false;
+  try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+  applyTodoView(_todoGetRows, function(){ loadCollab(); });
+  return Promise.resolve();
+});
+document.getElementById('todoDrawerMask').addEventListener('click', function(){
+  _todoDrawerOpen = false;
+  try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+  applyTodoView(_todoGetRows, function(){ loadCollab(); });
+});
+window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, function(){ loadCollab(); }); });
 loadCollab();
 `;
 

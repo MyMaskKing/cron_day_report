@@ -690,8 +690,10 @@ function todoPage(user) {
         <button data-filter="memo">备忘录</button>
         <button data-filter="done">已完成</button>
       </div>
-      <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
-      <div id="todoTree" class="todo-tree"></div>
+      <div id="todoTreeHome">
+        <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
+        <div id="todoTree" class="todo-tree"></div>
+      </div>
       <p class="muted" style="margin-top:8px;">勾选父任务将连带其全部子任务；每个顶层任务可生成免密协作链接，家人无需登录即可添加或勾选。</p>
     </div>
 
@@ -722,6 +724,20 @@ function todoPage(user) {
       <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送（仅推送未完成待办，逾期优先）</label>
       <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button> <button class="btn gray" id="pushSend">立即推送</button></div>
     </div>
+  </div>
+  <div id="todoFullscreen" class="todo-fullscreen">
+    <div id="todoDrawerMask" class="todo-drawer-mask"></div>
+    <div id="todoDrawer" class="todo-drawer closed">
+      <div class="todo-drawer__head">📂 分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">✕</button></div>
+      <div id="drawerList" class="todo-drawer__list"></div>
+      <div id="drawerFoot" class="todo-drawer__foot">共 0 个分类</div>
+    </div>
+    <div class="todo-fs-main">
+      <div class="todo-fs-top">
+        <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
+        <span class="todo-fs-title">待办清单</span>
+      </div>
+    </div>
   </div>`;
   return renderPage({ title: '待办清单', body, script: TODO_JS });
 }
@@ -743,12 +759,28 @@ function publicTodoPage() {
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
           <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">🗂️ 卡片视图</button>
         </div>
-        <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
-        <div id="todoTree" class="todo-tree"></div>
+        <div id="todoTreeHome">
+          <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
+          <div id="todoTree" class="todo-tree"></div>
+        </div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
           <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（按截止日期：每日到期 / 完成）</span></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
+      </div>
+    </div>
+  </div>
+  <div id="todoFullscreen" class="todo-fullscreen">
+    <div id="todoDrawerMask" class="todo-drawer-mask"></div>
+    <div id="todoDrawer" class="todo-drawer closed">
+      <div class="todo-drawer__head">📂 分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">✕</button></div>
+      <div id="drawerList" class="todo-drawer__list"></div>
+      <div id="drawerFoot" class="todo-drawer__foot">共 0 个分类</div>
+    </div>
+    <div class="todo-fs-main">
+      <div class="todo-fs-top">
+        <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
+        <span class="todo-fs-title">待办协作</span>
       </div>
     </div>
   </div>`;
@@ -767,8 +799,10 @@ function todoReportPage() {
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div id="todoCrumb" class="todo-crumb" style="display:none;margin-top:14px;"></div>
-        <div id="todoTree" class="todo-tree" style="margin-top:14px;"></div>
+        <div id="todoTreeHome">
+          <div id="todoCrumb" class="todo-crumb" style="display:none;margin-top:14px;"></div>
+          <div id="todoTree" class="todo-tree" style="margin-top:14px;"></div>
+        </div>
       </div>
       <div class="card">
         <div class="todo-chart-head">
@@ -783,6 +817,20 @@ function todoReportPage() {
           </div>
         </div>
         <canvas id="todoChart" style="max-height:280px;"></canvas>
+      </div>
+    </div>
+  </div>
+  <div id="todoFullscreen" class="todo-fullscreen">
+    <div id="todoDrawerMask" class="todo-drawer-mask"></div>
+    <div id="todoDrawer" class="todo-drawer closed">
+      <div class="todo-drawer__head">📂 分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">✕</button></div>
+      <div id="drawerList" class="todo-drawer__list"></div>
+      <div id="drawerFoot" class="todo-drawer__foot">共 0 个分类</div>
+    </div>
+    <div class="todo-fs-main">
+      <div class="todo-fs-top">
+        <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
+        <span class="todo-fs-title">全部待办</span>
       </div>
     </div>
   </div>`;
@@ -806,12 +854,28 @@ function todoCollabPage() {
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
           <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">🗂️ 卡片视图</button>
         </div>
-        <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
-        <div id="todoTree" class="todo-tree"></div>
+        <div id="todoTreeHome">
+          <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
+          <div id="todoTree" class="todo-tree"></div>
+        </div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
           <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（按截止日期：每日到期 / 完成）</span></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
+      </div>
+    </div>
+  </div>
+  <div id="todoFullscreen" class="todo-fullscreen">
+    <div id="todoDrawerMask" class="todo-drawer-mask"></div>
+    <div id="todoDrawer" class="todo-drawer closed">
+      <div class="todo-drawer__head">📂 分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">✕</button></div>
+      <div id="drawerList" class="todo-drawer__list"></div>
+      <div id="drawerFoot" class="todo-drawer__foot">共 0 个分类</div>
+    </div>
+    <div class="todo-fs-main">
+      <div class="todo-fs-top">
+        <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
+        <span class="todo-fs-title">待办协作</span>
       </div>
     </div>
   </div>`;
