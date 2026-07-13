@@ -3682,11 +3682,14 @@ function drawTree(trees) {
       return t.due_date && _today && t.due_date <= _today;
     });
   }
+  // 免密单链接页只覆盖一个顶层子树, 时间筛选无意义; 仅支持"隐藏已完成"
+  var hideBox = document.getElementById('hideDone');
+  var hideDone = hideBox ? hideBox.checked : false;
   todoRenderView(container, effectiveTrees, {
     view: _todoView === 'default' ? 'card' : _todoView,
     detailRootId: _todoDetailRootId,
     crumbEl: crumb,
-    today: _today,
+    today: _today, hideDone: hideDone,
     onExitDetail: function(){ _todoDetailRootId = null; loadPublic(); },
     onEnter: function(node){ _todoDetailRootId = node.id; loadPublic(); },
     onToggle: async function(node, done){
@@ -3757,6 +3760,9 @@ document.getElementById('todoDrawerMask').addEventListener('click', function(){
   applyTodoView(_todoGetRows, function(){ loadPublic(); });
 });
 window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, function(){ loadPublic(); }); });
+// hideDone 复选框: 变化时仅重绘可见树, 不重拉数据
+var _hb = document.getElementById('hideDone');
+if (_hb) _hb.addEventListener('change', function(){ drawTree(visibleTrees()); });
 loadPublic();
 `;
 
@@ -3768,22 +3774,43 @@ bindQuickLogin('todo-report');
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _curRange = '7d';
 var _rows = [], _trees = [], _today = '';
+var _filter = 'all'; // all | today | overdue | future | memo | done
 function _todoGetRows() { return _rows; }
 async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=' + _curRange); drawTodoChart('todoChart', c.series); }
   catch(e){ /* 图表失败不阻断 */ }
 }
 function drawTree() {
+  var t = _today;
+  // 时间筛选 tab: 与登录态 TODO_JS 逻辑一致(顶层口径)
+  var filtered = _trees;
+  if (_filter === 'today')   filtered = _trees.filter(function(n){ return n.due_date && n.due_date === t; });
+  else if (_filter === 'overdue') filtered = _trees.filter(function(n){ return n.due_date && n.due_date < t; });
+  else if (_filter === 'future')  filtered = _trees.filter(function(n){ return n.due_date && n.due_date > t; });
+  else if (_filter === 'memo')    filtered = _trees.filter(function(n){ return !n.due_date; });
+  else if (_filter === 'done')    filtered = _trees.filter(function(n){ return n.done; });
   // 全屏态下按抽屉选中的分类过滤扁平 rows 重新建树
-  var trees = _trees;
+  var trees = filtered;
   if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
-    trees = todoBuildTree(todoRowsByCategory(_rows));
+    var byCat = todoBuildTree(todoRowsByCategory(_rows));
+    // 分类过滤后再按当前 filter 过滤一次(保持两者协同)
+    trees = byCat.filter(function(n){
+      if (_filter === 'today')   return n.due_date && n.due_date === t;
+      if (_filter === 'overdue') return n.due_date && n.due_date < t;
+      if (_filter === 'future')  return n.due_date && n.due_date > t;
+      if (_filter === 'memo')    return !n.due_date;
+      if (_filter === 'done')    return n.done;
+      return true;
+    });
   }
+  // 已完成 tab 下强制显示完成项, 否则遵从复选框
+  var hideBox = document.getElementById('hideDone');
+  var hideDone = (_filter === 'done') ? false : (hideBox ? hideBox.checked : false);
   todoRenderView(document.getElementById('todoTree'), trees, {
     view: _todoView === 'default' ? 'card' : _todoView,
     detailRootId: _todoDetailRootId,
     crumbEl: document.getElementById('todoCrumb'),
-    today: _today, readOnly: true,
+    today: _today, readOnly: true, hideDone: hideDone,
     onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); }
   });
@@ -3823,6 +3850,18 @@ function drawTree() {
     window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, drawTree); });
     // 首次应用视图状态(会触发 drawTree)
     applyTodoView(_todoGetRows, drawTree);
+    // hideDone / 时间筛选 tab: 与登录态同结构
+    var _hb = document.getElementById('hideDone');
+    if (_hb) _hb.addEventListener('change', drawTree);
+    var _tf = document.getElementById('todoFilter');
+    if (_tf) _tf.addEventListener('click', function(e){
+      var btn = e.target.closest('button[data-filter]');
+      if (!btn) return;
+      _filter = btn.getAttribute('data-filter');
+      Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      drawTree();
+    });
     bindTodoRange(function(r){ _curRange = r; loadChart(); });
     await loadChart();
   } catch(e) { document.body.innerHTML = '<div class="todo-empty" style="margin-top:60px;">' + esc(e.message || '链接无效') + '</div>'; }
@@ -3837,6 +3876,8 @@ bindModal();
 bindQuickLogin('todo-report');
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _rows = [], _today = '';
+// 汇总协作页时间筛选: 默认 'cur' (今日+逾期, 与日报口径一致); 其它取值与登录态一致
+var _filter = 'cur';
 
 async function loadCollab() {
   var msg = document.getElementById('msg');
@@ -3855,11 +3896,20 @@ async function loadCollab() {
     applyTodoView(_todoGetRows, function(){ drawTree(visibleTrees()); });
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
 }
-// 可见树：仅截止今天或已逾期的顶层任务（与日报口径一致），子任务随顶层
+// 可见树: 按 _filter 过滤顶层任务(子任务随顶层)
+//   cur     = 今日到期 + 已逾期(默认, 与日报口径一致)
+//   all     = 全部顶层
+//   today/overdue/future/memo/done = 与登录态 TODO_JS 一致
 function visibleTrees() {
-  return todoBuildTree(_rows).filter(function(t){
-    return t.due_date && _today && t.due_date <= _today;
-  });
+  var t = _today;
+  var trees = todoBuildTree(_rows);
+  if (_filter === 'cur')     return trees.filter(function(n){ return n.due_date && t && n.due_date <= t; });
+  if (_filter === 'today')   return trees.filter(function(n){ return n.due_date && n.due_date === t; });
+  if (_filter === 'overdue') return trees.filter(function(n){ return n.due_date && n.due_date < t; });
+  if (_filter === 'future')  return trees.filter(function(n){ return n.due_date && n.due_date > t; });
+  if (_filter === 'memo')    return trees.filter(function(n){ return !n.due_date; });
+  if (_filter === 'done')    return trees.filter(function(n){ return n.done; });
+  return trees;
 }
 // 统计（口径同日报 statsOfReport）：基于可见树，子任务继承顶层截止日期判逾期
 function renderStats(trees) {
@@ -3887,18 +3937,29 @@ async function loadChart() {
 }
 function _todoGetRows() { return _rows; }
 function drawTree(trees) {
-  // 全屏态下按抽屉选中的分类过滤扁平 rows 重新建可见树(今日+逾期)
+  // 全屏态下按抽屉选中的分类过滤扁平 rows 重新建可见树(遵从 _filter)
   var effectiveTrees = trees;
   if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
-    effectiveTrees = todoBuildTree(todoRowsByCategory(_rows)).filter(function(t){
-      return t.due_date && _today && t.due_date <= _today;
+    var t = _today;
+    var byCat = todoBuildTree(todoRowsByCategory(_rows));
+    effectiveTrees = byCat.filter(function(n){
+      if (_filter === 'cur')     return n.due_date && t && n.due_date <= t;
+      if (_filter === 'today')   return n.due_date && n.due_date === t;
+      if (_filter === 'overdue') return n.due_date && n.due_date < t;
+      if (_filter === 'future')  return n.due_date && n.due_date > t;
+      if (_filter === 'memo')    return !n.due_date;
+      if (_filter === 'done')    return n.done;
+      return true;
     });
   }
+  // 已完成 tab 强制显示, 其它遵从复选框
+  var hideBox = document.getElementById('hideDone');
+  var hideDone = (_filter === 'done') ? false : (hideBox ? hideBox.checked : false);
   todoRenderView(document.getElementById('todoTree'), effectiveTrees, {
     view: _todoView === 'default' ? 'card' : _todoView,
     detailRootId: _todoDetailRootId,
     crumbEl: document.getElementById('todoCrumb'),
-    today: _today,
+    today: _today, hideDone: hideDone,
     onExitDetail: function(){ _todoDetailRootId = null; loadCollab(); },
     onEnter: function(node){ _todoDetailRootId = node.id; loadCollab(); },
     onToggleRecur: function(node){
@@ -3996,6 +4057,18 @@ document.getElementById('todoDrawerMask').addEventListener('click', function(){
   applyTodoView(_todoGetRows, function(){ loadCollab(); });
 });
 window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, function(){ loadCollab(); }); });
+// hideDone / 时间筛选 tab: 与登录态 TODO_JS 一致, 变化时仅重绘可见树, 不重拉数据
+var _hb = document.getElementById('hideDone');
+if (_hb) _hb.addEventListener('change', function(){ drawTree(visibleTrees()); });
+var _tf = document.getElementById('todoFilter');
+if (_tf) _tf.addEventListener('click', function(e){
+  var btn = e.target.closest('button[data-filter]');
+  if (!btn) return;
+  _filter = btn.getAttribute('data-filter');
+  Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  drawTree(visibleTrees());
+});
 loadCollab();
 `;
 

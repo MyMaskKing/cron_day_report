@@ -593,8 +593,8 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats, remi
     t += `${bar}\n`;
     trees.forEach((root, ri) => {
       const cat = root.category ? `〔${root.category}〕` : '';
-      const pri = TODO_PRI_ICON[root.priority] || '⚪';
-      t += `❇️待办${ri + 1}：${pri}${root.title}${cat}${dateBadge(root.due_date)}\n`;
+      // text 版不加优先级圆圈: 微信/短信客户端里各家 emoji 尺寸不一, 反而挤占标题空间
+      t += `❇️待办${ri + 1}：${root.title}${cat}${dateBadge(root.due_date)}\n`;
       root.children.forEach((c) => walkChild(c, 1));
       t += `${bar}\n`;
     });

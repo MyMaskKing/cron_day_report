@@ -762,6 +762,7 @@ function publicTodoPage() {
         <div style="margin-bottom:12px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
           <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">🗂️ 卡片视图</button>
+          <label style="float:right;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
@@ -787,6 +788,7 @@ function publicTodoPage() {
         <span class="todo-fs-title">待办协作</span>
         <button class="btn sm" id="tAddFs">+ 添加任务</button>
         <button class="btn sm gray" id="viewToggleFs">🌳 完整树</button>
+        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="btn sm danger" id="exitFullscreen">↩️ 退出全屏</button>
       </div>
     </div>
@@ -800,11 +802,22 @@ function todoReportPage() {
     <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
     <div id="content" style="display:none;">
       <div class="card">
-        <h2>📝 全部待办 <button class="btn sm gray" id="viewToggle" style="float:right;">🗂️ 卡片视图</button></h2>
+        <h2>📝 全部待办
+          <button class="btn sm gray" id="viewToggle" style="float:right;">🗂️ 卡片视图</button>
+          <label style="float:right;margin-right:14px;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
+        </h2>
         <div class="todo-stats">
           <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
+        </div>
+        <div class="todo-range todo-filter" id="todoFilter">
+          <button data-filter="all" class="active">全部</button>
+          <button data-filter="today">今日</button>
+          <button data-filter="overdue">逾期</button>
+          <button data-filter="future">未来</button>
+          <button data-filter="memo">备忘录</button>
+          <button data-filter="done">已完成</button>
         </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;margin-top:14px;"></div>
@@ -839,6 +852,7 @@ function todoReportPage() {
         <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
         <span class="todo-fs-title">全部待办</span>
         <button class="btn sm gray" id="viewToggleFs">🌳 完整树</button>
+        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="btn sm danger" id="exitFullscreen">↩️ 退出全屏</button>
       </div>
     </div>
@@ -862,6 +876,16 @@ function todoCollabPage() {
         <div style="margin-bottom:12px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
           <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">🗂️ 卡片视图</button>
+          <label style="float:right;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
+        </div>
+        <div class="todo-range todo-filter" id="todoFilter">
+          <button data-filter="cur" class="active">今日+逾期</button>
+          <button data-filter="all">全部</button>
+          <button data-filter="today">今日</button>
+          <button data-filter="overdue">逾期</button>
+          <button data-filter="future">未来</button>
+          <button data-filter="memo">备忘录</button>
+          <button data-filter="done">已完成</button>
         </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
@@ -887,6 +911,7 @@ function todoCollabPage() {
         <span class="todo-fs-title">待办协作</span>
         <button class="btn sm" id="tAddFs">+ 添加任务</button>
         <button class="btn sm gray" id="viewToggleFs">🌳 完整树</button>
+        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="btn sm danger" id="exitFullscreen">↩️ 退出全屏</button>
       </div>
     </div>
