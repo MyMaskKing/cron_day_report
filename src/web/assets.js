@@ -2503,13 +2503,27 @@ function applyTodoView(getRowsFn, onDrawTree) {
   var drawer = document.getElementById('todoDrawer');
   var mask = document.getElementById('todoDrawerMask');
   var vBtn = document.getElementById('viewToggle');
+  var vBtnFs = document.getElementById('viewToggleFs');
   var dBtn = document.getElementById('drawerToggle');
 
   // 视图按钮文案: 三态循环, 提示下一步动作
-  if (vBtn) {
-    if (_todoView === 'default') vBtn.textContent = '🗂️ 卡片视图';
-    else if (_todoView === 'card') vBtn.textContent = '🌳 完整树';
-    else vBtn.textContent = '↩️ 退出全屏';
+  // 默认页外壳里的按钮 vBtn + 全屏 top 里的按钮 vBtnFs 文案同步; 全屏态下 vBtn 随卡片一起被 CSS 隐藏
+  function _viewBtnText() {
+    if (_todoView === 'default') return '🗂️ 卡片视图';
+    if (_todoView === 'card') return '🌳 完整树';
+    return '↩️ 退出全屏';
+  }
+  if (vBtn) vBtn.textContent = _viewBtnText();
+  if (vBtnFs) {
+    vBtnFs.textContent = _viewBtnText();
+    // 幂等绑定 cycleTodoView: 全屏 top 的按钮必须能触发同一循环, 否则用户无法退出全屏
+    if (!vBtnFs.__cycleBound) {
+      vBtnFs.__cycleBound = 1;
+      bindClickBusy(vBtnFs, function(){
+        cycleTodoView(getRowsFn, onDrawTree);
+        return Promise.resolve();
+      });
+    }
   }
 
   // DOM 迁移: default 时 tree/crumb 回归"清单卡片"内的初始容器; 非 default 时挪到全屏容器主区域
@@ -2642,6 +2656,8 @@ function renderTodoTree(container, trees, opts) {
   opts = opts || {};
   var today = opts.today || '';
   container.innerHTML = '';
+  // opts.startDepth: 首层节点渲染时的 depth (默认 0); 用于详情页跳过 root 时把 root 的 children 视作首层
+  // opts.forcedRootDue: 显式指定的顶层截止日期(供 startDepth>0 用, 因为首层不再是根节点)
   function walk(node, depth, rootDue) {
     if (opts.hideDone && !todoSubtreePending(node)) return null;
     // 有效截止日期：顶层用自身 due_date，子任务继承顶层（rootDue）
@@ -2774,7 +2790,9 @@ function renderTodoTree(container, trees, opts) {
     return b;
   }
   var any = false;
-  trees.forEach(function(t){ var el = walk(t, 0, t.due_date); if (el) { container.appendChild(el); any = true; } });
+  var startDepth = opts.startDepth || 0;
+  // 顶层任务的 rootDue: 优先 opts.forcedRootDue(详情页明确传入); 否则用节点自身 due_date
+  trees.forEach(function(t){ var el = walk(t, startDepth, opts.forcedRootDue != null ? opts.forcedRootDue : t.due_date); if (el) { container.appendChild(el); any = true; } });
   if (!any) container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
 }
 // 卡片视图：只渲染顶层任务, 一个顶层任务=一张卡片, 不展开子任务
@@ -2938,7 +2956,18 @@ function todoRenderView(container, trees, opts) {
       crumb.appendChild(back);
       crumb.appendChild(t);
     }
-    renderTodoTree(container, [root], opts);
+    // 详情页只渲染 root 的子任务，避免与面包屑标题重复; 首层子任务视作 depth 0 但截止日期继承 root
+    // 如果 root 自身就没子任务, 显示空态提示
+    if (root.children.length === 0) {
+      container.className = 'todo-tree';
+      container.innerHTML = '<div class="todo-empty">此任务暂无子任务</div>';
+      return;
+    }
+    var childOpts = {};
+    for (var k in opts) if (Object.prototype.hasOwnProperty.call(opts, k)) childOpts[k] = opts[k];
+    childOpts.startDepth = 0;
+    childOpts.forcedRootDue = root.due_date;
+    renderTodoTree(container, root.children, childOpts);
     return;
   }
   // 卡片列表
