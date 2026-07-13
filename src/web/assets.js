@@ -2912,8 +2912,10 @@ function renderTodoCards(container, trees, opts) {
   }
   trees.forEach(function(root){
     var hasChildren = root.children.length > 0;
+    // 卡片一律可点击进入详情(只要提供了 onEnter); 详情里能加子任务/查看子任务
+    var canEnter = !!opts.onEnter;
     var card = document.createElement('div');
-    card.className = 'todo-card pri-' + (root.priority != null ? root.priority : 1) + (root.done ? ' is-done' : '') + (hasChildren && opts.onEnter ? ' clickable' : '');
+    card.className = 'todo-card pri-' + (root.priority != null ? root.priority : 1) + (root.done ? ' is-done' : '') + (canEnter ? ' clickable' : '');
     card.setAttribute('data-id', root.id);
 
     // 顶部色带
@@ -2996,26 +2998,28 @@ function renderTodoCards(container, trees, opts) {
     card.appendChild(body);
 
     // 底部操作 + 进入指示
-    if (!opts.readOnly || hasChildren) {
+    if (!opts.readOnly || canEnter) {
       var foot = document.createElement('div'); foot.className = 'todo-card__foot';
       var ops = document.createElement('div'); ops.className = 'todo-card__ops';
       if (!opts.readOnly) {
+        // 顶层卡片"添加子任务"入口：直接调用 onAddChild, 不必先进详情
+        if (opts.onAddChild) ops.appendChild(mkCardOp('➕', '添加子任务', function(){ opts.onAddChild(root); }));
         if (opts.onEdit)  ops.appendChild(mkCardOp('✏️', '编辑', function(){ opts.onEdit(root); }));
         if (opts.onShare) ops.appendChild(mkCardOp('🔗', '协作链接', function(){ opts.onShare(root); }));
         if (opts.onDel)   ops.appendChild(mkCardOp('🗑️', '删除', function(){ opts.onDel(root); }));
       }
       foot.appendChild(ops);
-      if (hasChildren && opts.onEnter) {
+      if (canEnter) {
         var enter = document.createElement('div');
         enter.className = 'todo-card__enter';
-        enter.textContent = '查看子任务 ▶';
+        enter.textContent = hasChildren ? '查看子任务 ▶' : '进入详情 ▶';
         foot.appendChild(enter);
       }
       card.appendChild(foot);
     }
 
     // 整卡点击进入详情：忽略勾选/操作按钮区
-    if (hasChildren && opts.onEnter) {
+    if (canEnter) {
       card.addEventListener('click', function(e){
         if (e.target.closest('.todo-card__check, .todo-card__ops')) return;
         opts.onEnter(root);
