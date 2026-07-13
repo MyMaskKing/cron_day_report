@@ -576,11 +576,14 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats, remi
   if (remind) t += `${remind}\n`;
   t += `\n`;
 
-  // 子任务:▸ 箭头 + 两空格逐层缩进(depth 从 1 起, 一级子无前置空格, 二级起递增缩进)
+  // 子任务层级图标: L2 ▸ / L3 · / L4 ○ / L5 › / L6 — / L7+ 复用 —
+  // walkChild 的 depth 从 1 起(即 L2 顶层子任务), 图标按 depth 分档, 便于文本客户端里一眼看清层级
+  const CHILD_ICONS = ['▸', '·', '○', '›', '—'];
+  const CHILD_ICON = (d) => CHILD_ICONS[Math.min(d - 1, CHILD_ICONS.length - 1)] || '—';
   const walkChild = (node, depth) => {
     const cat = node.category ? `〔${node.category}〕` : '';
     const indent = '  '.repeat(Math.max(0, depth - 1));
-    t += `${indent}▸ ${node.title}${cat}\n`;
+    t += `${indent}${CHILD_ICON(depth)} ${node.title}${cat}\n`;
     node.children.forEach((c) => walkChild(c, depth + 1));
   };
 
@@ -618,11 +621,14 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, 
   }
   if (remind) m += `${remind}\n\n`;
 
-  // 子任务: 层级用嵌套列表 + ▸ 箭头替代 ➖, 视觉上更像"下钻"而非平铺短横
+  // 子任务层级图标: 与 text 一致, L2 ▸ / L3 · / L4 ○ / L5 › / L6+ —
+  // 注意: markdown walkChild 的 depth 从 0 起(root.children 首次调用传 0), 因此 depth=0 对应 L2
+  const CHILD_ICONS = ['▸', '·', '○', '›', '—'];
+  const CHILD_ICON = (d) => CHILD_ICONS[Math.min(d, CHILD_ICONS.length - 1)] || '—';
   const walkChild = (node, depth) => {
     const indent = '  '.repeat(depth);
     const cat = node.category ? ` \`${node.category}\`` : '';
-    m += `${indent}- ▸ ${node.title}${cat}\n`;
+    m += `${indent}- ${CHILD_ICON(depth)} ${node.title}${cat}\n`;
     for (const c of node.children) walkChild(c, depth + 1);
   };
   if (trees.length === 0) {
