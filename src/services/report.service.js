@@ -576,10 +576,11 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats, remi
   if (remind) t += `${remind}\n`;
   t += `\n`;
 
-  // 子任务：➖ 起首, 深层子任务用一到两个额外 ➖ 表示层级(避免树线在微信客户端换行错乱)
+  // 子任务:▸ 箭头 + 两空格逐层缩进(depth 从 1 起, 一级子无前置空格, 二级起递增缩进)
   const walkChild = (node, depth) => {
     const cat = node.category ? `〔${node.category}〕` : '';
-    t += `${'➖'.repeat(Math.max(1, depth))}${node.title}${cat}\n`;
+    const indent = '  '.repeat(Math.max(0, depth - 1));
+    t += `${indent}▸ ${node.title}${cat}\n`;
     node.children.forEach((c) => walkChild(c, depth + 1));
   };
 
@@ -617,10 +618,11 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, 
   }
   if (remind) m += `${remind}\n\n`;
 
+  // 子任务: 层级用嵌套列表 + ▸ 箭头替代 ➖, 视觉上更像"下钻"而非平铺短横
   const walkChild = (node, depth) => {
     const indent = '  '.repeat(depth);
     const cat = node.category ? ` \`${node.category}\`` : '';
-    m += `${indent}- ➖ ${node.title}${cat}\n`;
+    m += `${indent}- ▸ ${node.title}${cat}\n`;
     for (const c of node.children) walkChild(c, depth + 1);
   };
   if (trees.length === 0) {
@@ -642,6 +644,7 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, 
 
 function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remind = '') {
   // 整体字号相对之前放大: 正文 15→16, 主任务 15→18, 子任务 13→15, 更适合手机阅读
+  // 层级视觉: 主任务卡片头(左 4px 品牌蓝竖条) + 子任务卡片体内以 ▸ 箭头 + 左细竖线 + 深度缩进逐级下钻
   let h = `<div style="font-family:-apple-system,sans-serif;max-width:640px;margin:0 auto;font-size:16px;line-height:1.6;color:#1f2430;">
     <h2 style="font-size:22px;margin:8px 0 12px;">📝 待办日报${todoTitleDate(today)}</h2>`;
   if (stats) {
@@ -650,28 +653,41 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remi
     h += `</p>`;
   }
   if (remind) h += `<p style="margin:8px 0;padding:10px 14px;background:#fff7e6;border-left:3px solid #fa8c16;border-radius:4px;color:#874d00;font-size:15px;">${remind}</p>`;
-  // 优先级圆点色板（红=高 琥珀=中 灰=低）；与网页端 .todo-dot 一致，仅表达优先级
+  // 优先级圆点色板(红=高 琥珀=中 灰=低)与网页端 .todo-dot 一致
   const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#b4bccb' };
-  // 内联圆点：邮件客户端 emoji 渲染不一，用 background 画点更统一可控
+  // 内联圆点: 邮件客户端 emoji 渲染不一, 用 background 画点更统一可控
   const dot = (p) => `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:8px;vertical-align:middle;"></span>`;
   const catTag = (c) => c
     ? ` <span style="background:#eef1ff;color:#4a6cf7;border-radius:4px;padding:1px 8px;font-size:13px;">${c}</span>` : '';
-  // 子任务：卡片内缩进 + 左侧连接线，明确从属于上方主任务；优先级用圆点
-  const walkChild = (node) => {
-    h += `<div style="margin:6px 0 6px 16px;padding:7px 12px;border-left:2px solid #e3e8f0;">
-      ${dot(node.priority)}<span style="font-size:15px;color:#333;vertical-align:middle;">${node.title}</span>${catTag(node.category)}
+  // 子任务子树叶子数(不含自身), 用于卡片头右侧"N 项"提示
+  const countLeaves = (node) => {
+    if (!node.children.length) return 0;
+    let n = 0;
+    for (const c of node.children) { n += c.children.length ? countLeaves(c) : 1; }
+    return n;
+  };
+  // 子任务: 左细竖线 + ▸ 箭头 + 按 depth 左内边距实现下钻感, 深层视觉不断层
+  //   depth=1 (直接子任务) 起, 每加一级左内边距 +18px
+  const walkChild = (node, depth) => {
+    const pad = 12 + (depth - 1) * 18;
+    h += `<div style="margin:4px 0;padding:6px 10px 6px ${pad}px;border-left:2px solid #e3e8f0;background:#fbfcfe;">
+      <span style="color:#8a94b0;margin-right:6px;">▸</span>${dot(node.priority)}<span style="font-size:15px;color:#333;vertical-align:middle;">${node.title}</span>${catTag(node.category)}
     </div>`;
-    for (const c of node.children) walkChild(c);
+    for (const c of node.children) walkChild(c, depth + 1);
   };
   for (const root of trees) {
-    // 主任务卡片：品牌蓝分组条头（层级通道）+ 优先级圆点 + 加粗标题 + 日期只此一处
+    const leafN = countLeaves(root);
+    const subBadge = leafN > 0
+      ? ` <span style="display:inline-block;margin-left:6px;padding:1px 8px;background:#eef1ff;color:#4a6cf7;border-radius:10px;font-size:12px;font-weight:500;">${leafN} 项子任务</span>`
+      : '';
+    // 主任务卡片: 品牌蓝分组条头(层级通道) + 优先级圆点 + 加粗标题 + 日期只此一处 + 子任务数提示
     h += `<div style="margin:16px 0;border:1px solid #eceff5;border-radius:8px;overflow:hidden;">
       <div style="padding:11px 14px;background:#f7f8fa;border-left:4px solid #4a6cf7;">
-        ${dot(root.priority)}<span style="font-size:18px;font-weight:700;color:#1f2430;vertical-align:middle;">${root.title}</span>${catTag(root.category)}${todoDateTag(root.due_date, today, 'html')}
+        ${dot(root.priority)}<span style="font-size:18px;font-weight:700;color:#1f2430;vertical-align:middle;">${root.title}</span>${catTag(root.category)}${todoDateTag(root.due_date, today, 'html')}${subBadge}
       </div>`;
     if (root.children.length) {
       h += `<div style="padding:8px 12px 10px;">`;
-      for (const c of root.children) walkChild(c);
+      for (const c of root.children) walkChild(c, 1);
       h += `</div>`;
     }
     h += `</div>`;
