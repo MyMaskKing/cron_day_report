@@ -2463,7 +2463,12 @@ function todoRangeWindow(range, today) {
   function fmt(yr, mo, day){ return yr + '-' + pad(mo) + '-' + pad(day); }
   function endMs(){ return Date.UTC(y, m-1, d); }
   var days = ({ '7d':7, '30d':30, '60d':60 })[range];
-  if (range === 'month') return { fromDay: fmt(y, m, 1), toDay: today };
+  // 当月: 整月区间 (月首 → 月末), 而非"月初至今"
+  //   —— stats 计数按截止日期, 本月内未来到期的已完成也应算入
+  if (range === 'month') {
+    var lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate(); // m 月最后一天
+    return { fromDay: fmt(y, m, 1), toDay: fmt(y, m, lastDay) };
+  }
   if (days) {
     var f = new Date(endMs() - (days - 1) * 86400000);
     return { fromDay: f.toISOString().slice(0, 10), toDay: today };
@@ -2473,17 +2478,20 @@ function todoRangeWindow(range, today) {
     var start = new Date(Date.UTC(y, m - months, 1));
     return { fromDay: start.toISOString().slice(0, 10), toDay: today };
   }
-  return { fromDay: fmt(y, m, 1), toDay: today }; // 兜底当月
+  return { fromDay: fmt(y, m, 1), toDay: today }; // 兜底当月起(不应到达)
 }
 // 按 filter (空间) 与 range (时间) 双维度统计已完成叶子任务数
+//   时间维度以"顶层截止日期(rootDueOf)"衡量, 不是完成日期(done_at)
+//   —— 用户预期是"当月/近30天等区间到期的已完成", 完成时间可能跨月
 //   filter 决定空间口径:
-//     today          = done_at === today (range 参数无影响, filter 本身就是当日)
+//     today          = 顶层 due_date === today
 //     overdue        = 顶层 due_date < today
 //     future         = 顶层 due_date > today
-//     memo           = 顶层无 due_date
+//     memo           = 顶层无 due_date (备忘录; 时间窗对它不适用, 直接豁免)
 //     cur            = 顶层 due_date <= today (今日+逾期)
-//     all / done     = 全部空间(不额外筛选)
-//   range 决定 done_at 时间窗: done_at 必须落在 todoRangeWindow(range, today) 闭区间内
+//     all / done     = 全部有 due_date 的空间
+//   range 决定 due_date 时间窗: due_date 必须落在 todoRangeWindow(range, today) 闭区间内
+//   memo 分支豁免时间窗(无截止日期不受"当月"约束)
 // rows 为扁平数据; 只算叶子(hasChild 排除父任务)
 function todoDoneByFilter(rows, filter, today, range) {
   var byId = {}; rows.forEach(function(r){ byId[r.id] = r; });
@@ -2494,33 +2502,34 @@ function todoDoneByFilter(rows, filter, today, range) {
     while (cur.parent_id != null && byId[cur.parent_id]) cur = byId[cur.parent_id];
     return cur.due_date;
   }
-  // 时间窗: range 未提供时兜底当月(与登录/免密页 _curRange 默认值一致)
   var win = todoRangeWindow(range || 'month', today);
   var count = 0;
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
     if (hasChild[r.id]) continue; // 只算叶子
     if (!r.done) continue;
-    // 时间窗过滤: done_at 必须落在 [fromDay, toDay] 闭区间; done_at 为空则丢弃
-    if (!r.done_at) continue;
-    if (win.fromDay && r.done_at < win.fromDay) continue;
-    if (win.toDay && r.done_at > win.toDay) continue;
+    var rdue = rootDueOf(r);
+    // memo 语义: 只统计无截止日期的备忘录, 时间窗对它无意义
+    if (filter === 'memo') {
+      if (rdue) continue;
+      count++;
+      continue;
+    }
+    // 其它 filter: 时间窗按顶层 due_date 卡, 无 due_date 的排除
+    if (!rdue) continue;
+    if (win.fromDay && rdue < win.fromDay) continue;
+    if (win.toDay && rdue > win.toDay) continue;
     // 空间过滤: 按 filter 判断叶子归属
     if (filter === 'today') {
-      if (r.done_at !== today) continue;
+      if (rdue !== today) continue;
     } else if (filter === 'overdue') {
-      var du = rootDueOf(r);
-      if (!(du && today && du < today)) continue;
+      if (!(today && rdue < today)) continue;
     } else if (filter === 'future') {
-      var du2 = rootDueOf(r);
-      if (!(du2 && today && du2 > today)) continue;
-    } else if (filter === 'memo') {
-      if (rootDueOf(r)) continue;
+      if (!(today && rdue > today)) continue;
     } else if (filter === 'cur') {
-      var duC = rootDueOf(r);
-      if (!(duC && today && duC <= today)) continue;
+      if (!(today && rdue <= today)) continue;
     }
-    // all / done / 其它: 只受时间窗约束, 不做空间过滤
+    // all / done / 其它: 只受时间窗约束
     count++;
   }
   return count;

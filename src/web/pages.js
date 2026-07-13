@@ -808,22 +808,22 @@ function todoReportPage() {
           <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button>
           <button class="btn sm gray" id="viewToggle" style="float:right;margin-right:8px;">🗂️ 卡片视图</button>
         </h2>
-        <div style="clear:both;margin:0 0 8px;text-align:right;">
-          <label style="font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
-        </div>
-        <div id="statsHint" class="muted" style="font-size:12px;margin:0 0 8px;"></div>
+        <div id="statsHint" class="muted" style="font-size:12px;margin:8px 0;clear:both;"></div>
         <div class="todo-stats" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">
           <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div class="todo-range todo-filter" id="todoFilter">
-          <button data-filter="all" class="active">全部</button>
-          <button data-filter="today">今日</button>
-          <button data-filter="overdue">逾期</button>
-          <button data-filter="future">未来</button>
-          <button data-filter="memo">备忘录</button>
-          <button data-filter="done">已完成</button>
+        <div class="todo-filter-row" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 12px;">
+          <div class="todo-range" id="todoFilter" style="margin:0;flex:1;min-width:0;">
+            <button data-filter="all" class="active">全部</button>
+            <button data-filter="today">今日</button>
+            <button data-filter="overdue">逾期</button>
+            <button data-filter="future">未来</button>
+            <button data-filter="memo">备忘录</button>
+            <button data-filter="done">已完成</button>
+          </div>
+          <label style="font-weight:normal;color:#666;font-size:13px;white-space:nowrap;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;margin-top:14px;"></div>
