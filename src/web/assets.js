@@ -83,17 +83,15 @@ function showMsg(el, text, ok) {
   el.textContent = text;
 }
 function bindLogout() {
-  var btn = document.getElementById('logoutBtn');
-  if (btn) btn.addEventListener('click', async function(e) {
-    e.preventDefault();
+  bindClickBusy(document.getElementById('logoutBtn'), async function(e){
+    if (e && e.preventDefault) e.preventDefault();
     try { await api('/api/auth/logout', { method: 'POST' }); } catch (err) {}
     location.href = '/login';
   });
-  var stopBtn = document.getElementById('stopImpersonateBtn');
-  if (stopBtn) stopBtn.addEventListener('click', async function(e) {
-    e.preventDefault();
-    try { await api('/api/admin/stop-impersonate', { method: 'POST' }); location.href = '/admin'; }
-    catch (err) { alertModal(err.message, {ok:false}); }
+  bindClickBusy(document.getElementById('stopImpersonateBtn'), async function(e){
+    if (e && e.preventDefault) e.preventDefault();
+    await api('/api/admin/stop-impersonate', { method: 'POST' });
+    location.href = '/admin';
   });
 }
 function esc(s) {
@@ -108,6 +106,10 @@ function openModal(title, bodyHtml) {
   document.getElementById('modalTitle').textContent = title || '';
   document.getElementById('modalBody').innerHTML = bodyHtml || '';
   mask.classList.add('show');
+  // 弹窗内 textarea 支持 data-autogrow：随内容高度自动撑开
+  var box = document.getElementById('modalBody');
+  var tas = box ? box.querySelectorAll('textarea[data-autogrow]') : [];
+  Array.prototype.forEach.call(tas, function(ta){ autoGrowTextarea(ta); });
 }
 function closeModal() {
   var mask = document.getElementById('modalMask');
@@ -304,15 +306,11 @@ function bindFormatByChannel(chSel, fmtSel) {
 // 免密页快速登录：点击按钮，按当前页 token 签发正式会话并跳转对应模块
 // kind ∈ fund | weight | asset | weight-report | asset-report；token 取路径末段
 function bindQuickLogin(kind) {
-  var btn = document.getElementById('quickLoginBtn');
-  if (!btn) return;
   var tk = location.pathname.split('/').filter(Boolean).pop();
-  btn.addEventListener('click', async function(e) {
-    e.preventDefault();
-    try {
-      var r = await api('/api/public/quick-login/' + kind + '/' + tk, { method: 'POST' });
-      location.href = r.redirect || '/dashboard';
-    } catch (err) { alertModal(err.message, {ok:false}); }
+  bindClickBusy(document.getElementById('quickLoginBtn'), async function(e){
+    if (e && e.preventDefault) e.preventDefault();
+    var r = await api('/api/public/quick-login/' + kind + '/' + tk, { method: 'POST' });
+    location.href = r.redirect || '/dashboard';
   });
 }
 // 图表横屏全屏查看：给页面每个图表 canvas 加「⛶」按钮，点击把 canvas 移入旋转 90° 的全屏层
@@ -363,6 +361,35 @@ function openChartFullscreen(cv) {
   var dataCopy;
   try { dataCopy = JSON.parse(JSON.stringify(src.config.data)); } catch(e) { dataCopy = src.config.data; }
   fsChart = new Chart(fsCanvas, { type: src.config.type, data: dataCopy, options: opts });
+}
+// textarea 自动增高：输入内容超过最小高度时按 scrollHeight 撑开
+// 用于长标题/备注编辑，避免固定 2 行导致内容被隐藏
+function autoGrowTextarea(el) {
+  if (!el || el.__agBound) return;
+  el.__agBound = 1;
+  var min = 44;
+  function fit() {
+    el.style.height = min + 'px';
+    el.style.height = Math.max(min, el.scrollHeight) + 'px';
+  }
+  el.style.overflowY = 'hidden';
+  el.style.minHeight = min + 'px';
+  el.addEventListener('input', fit);
+  // 初次调用：编辑已有内容时也能一开始就撑开
+  setTimeout(fit, 0);
+}
+// 按钮点击立即禁用防重：handler 是 async 函数, 完成/失败均恢复; 失败时用 alertModal 提示
+// btn 允许传 null（可选按钮不存在时静默跳过）
+function bindClickBusy(btn, handler) {
+  if (!btn) return;
+  btn.addEventListener('click', async function(e) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.setAttribute('data-busy', '1');
+    try { await handler.call(btn, e); }
+    catch (err) { alertModal((err && err.message) || String(err), { ok: false }); }
+    finally { btn.disabled = false; btn.removeAttribute('data-busy'); }
+  });
 }
 // 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
 if (document.readyState === 'loading') {
@@ -2366,6 +2393,23 @@ bindQuickLogin('asset');
 // opts 回调决定各页能力：{ today, hideDone, onToggle, onEdit, onDel, onAddChild, onShare, readOnly }
 // 用 createElement + addEventListener，规避模板串内引号转义。
 const TODO_TREE_CORE = `
+// 视图状态：默认卡片视图；localStorage 记忆
+var _todoView = 'card';
+try { var _v = localStorage.getItem('todoView'); if (_v === 'card' || _v === 'tree') _todoView = _v; } catch(e){}
+// 卡片模式下打开的顶层任务 id；null 表示卡片列表
+var _todoDetailRootId = null;
+// 叶子口径计数：只数末端叶子（无子任务的节点），与后端 countStats/statsOfReport 一致
+// 顶层任务若无子任务, 自身不算入进度（返回 {0,0}）
+function todoLeafCount(node) {
+  var total = 0, done = 0;
+  (function walk(n){
+    n.children.forEach(function(c){
+      if (c.children.length === 0) { total++; if (c.done) done++; }
+      else walk(c);
+    });
+  })(node);
+  return { total: total, done: done };
+}
 var PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
 var PRI_TEXT = { 2: '高', 1: '中', 0: '低' };
 function todoBuildTree(rows) {
@@ -2425,12 +2469,19 @@ function renderTodoTree(container, trees, opts) {
     caret.textContent = '▼';
     row.appendChild(caret);
 
-    // 圆形勾选框
+    // 圆形勾选框（点击立即禁用防重，onToggle 完成后由重绘替换掉本按钮）
     var check = document.createElement('button');
     check.type = 'button';
     check.className = 'todo-check' + (node.done ? ' done' : '');
     check.title = node.done ? '取消完成' : '标记完成';
-    if (opts.onToggle) check.addEventListener('click', function(e){ e.stopPropagation(); opts.onToggle(node, !node.done); });
+    if (opts.onToggle) check.addEventListener('click', async function(e){
+      e.stopPropagation();
+      if (check.disabled) return;
+      check.disabled = true;
+      check.setAttribute('data-busy', '1');
+      try { await opts.onToggle(node, !node.done); }
+      finally { check.disabled = false; check.removeAttribute('data-busy'); }
+    });
     row.appendChild(check);
 
     // 优先级圆点：标题前克制点缀（红=高 琥珀=中 灰=低），不占左色带
@@ -2448,9 +2499,8 @@ function renderTodoTree(container, trees, opts) {
     if (hasChildren) {
       var cnt = document.createElement('span');
       cnt.className = 'todo-count';
-      var total = 0, done = 0;
-      (function count(n){ n.children.forEach(function(c){ total++; if (c.done) done++; count(c); }); })(node);
-      cnt.textContent = '(' + done + '/' + total + ')';
+      var lc = todoLeafCount(node);
+      cnt.textContent = '(' + lc.done + '/' + lc.total + ')';
       title.appendChild(cnt);
     }
     main.appendChild(title);
@@ -2533,6 +2583,174 @@ function renderTodoTree(container, trees, opts) {
   trees.forEach(function(t){ var el = walk(t, 0, t.due_date); if (el) { container.appendChild(el); any = true; } });
   if (!any) container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
 }
+// 卡片视图：只渲染顶层任务, 一个顶层任务=一张卡片, 不展开子任务
+// opts: today / onToggle / onEdit / onDel / onShare / onEnter / readOnly
+function renderTodoCards(container, trees, opts) {
+  opts = opts || {};
+  var today = opts.today || '';
+  container.innerHTML = '';
+  container.className = 'todo-cards';
+  if (trees.length === 0) {
+    container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
+    return;
+  }
+  trees.forEach(function(root){
+    var hasChildren = root.children.length > 0;
+    var card = document.createElement('div');
+    card.className = 'todo-card pri-' + (root.priority != null ? root.priority : 1) + (root.done ? ' is-done' : '') + (hasChildren && opts.onEnter ? ' clickable' : '');
+    card.setAttribute('data-id', root.id);
+
+    // 顶部色带
+    var band = document.createElement('div'); band.className = 'todo-card__band'; card.appendChild(band);
+
+    // 内容区
+    var body = document.createElement('div'); body.className = 'todo-card__body';
+    var head = document.createElement('div'); head.className = 'todo-card__head';
+
+    // 勾选框（叶子顶层任务才有意义, 有子任务的顶层用整卡进入详情, 勾选靠详情页内叶子）
+    // readOnly 时始终不显示
+    if (!opts.readOnly && !hasChildren && opts.onToggle) {
+      var check = document.createElement('button');
+      check.type = 'button';
+      check.className = 'todo-card__check' + (root.done ? ' done' : '');
+      check.title = root.done ? '取消完成' : '标记完成';
+      check.addEventListener('click', async function(e){
+        e.stopPropagation();
+        if (check.disabled) return;
+        check.disabled = true;
+        check.setAttribute('data-busy', '1');
+        try { await opts.onToggle(root, !root.done); }
+        finally { check.disabled = false; check.removeAttribute('data-busy'); }
+      });
+      head.appendChild(check);
+    }
+
+    // 标题
+    var title = document.createElement('div');
+    title.className = 'todo-card__title';
+    title.textContent = root.title;
+    head.appendChild(title);
+    body.appendChild(head);
+
+    // meta 行：分类 + 日期 + 叶子进度 chip
+    var meta = document.createElement('div'); meta.className = 'todo-card__meta';
+    if (root.category) {
+      var cc = document.createElement('span'); cc.className = 'todo-chip cat'; cc.textContent = root.category; meta.appendChild(cc);
+    }
+    if (root.due_date) {
+      var over = !root.done && today && root.due_date < today;
+      var dc = document.createElement('span');
+      dc.className = 'todo-chip due' + (over ? ' overdue' : '');
+      dc.textContent = (over ? '⚠️ 逾期 ' : '📅 ') + root.due_date;
+      meta.appendChild(dc);
+    }
+    if (root.done && root.done_at) {
+      var doneC = document.createElement('span');
+      doneC.className = 'todo-chip done-at';
+      doneC.textContent = '✅ 完成于 ' + root.done_at;
+      meta.appendChild(doneC);
+    }
+    if (hasChildren) {
+      var lc = todoLeafCount(root);
+      var pc = document.createElement('span');
+      pc.className = 'todo-chip todo-card__count' + (lc.total > 0 && lc.done === lc.total ? ' done' : '');
+      pc.textContent = '📋 ' + lc.done + '/' + lc.total;
+      meta.appendChild(pc);
+    }
+    if (meta.childNodes.length) body.appendChild(meta);
+
+    // 备注单行截断（有则显示）
+    if (root.note) {
+      var noteEl = document.createElement('div');
+      noteEl.className = 'todo-card__note';
+      noteEl.textContent = root.note;
+      body.appendChild(noteEl);
+    }
+    card.appendChild(body);
+
+    // 底部操作 + 进入指示
+    if (!opts.readOnly || hasChildren) {
+      var foot = document.createElement('div'); foot.className = 'todo-card__foot';
+      var ops = document.createElement('div'); ops.className = 'todo-card__ops';
+      if (!opts.readOnly) {
+        if (opts.onEdit)  ops.appendChild(mkCardOp('✏️', '编辑', function(){ opts.onEdit(root); }));
+        if (opts.onShare) ops.appendChild(mkCardOp('🔗', '协作链接', function(){ opts.onShare(root); }));
+        if (opts.onDel)   ops.appendChild(mkCardOp('🗑️', '删除', function(){ opts.onDel(root); }));
+      }
+      foot.appendChild(ops);
+      if (hasChildren && opts.onEnter) {
+        var enter = document.createElement('div');
+        enter.className = 'todo-card__enter';
+        enter.textContent = '查看子任务 ▶';
+        foot.appendChild(enter);
+      }
+      card.appendChild(foot);
+    }
+
+    // 整卡点击进入详情：忽略勾选/操作按钮区
+    if (hasChildren && opts.onEnter) {
+      card.addEventListener('click', function(e){
+        if (e.target.closest('.todo-card__check, .todo-card__ops')) return;
+        opts.onEnter(root);
+      });
+    }
+    container.appendChild(card);
+  });
+}
+// 卡片视图行内操作按钮工厂：与 renderTodoTree 内 mkOp 独立作用域, 避免重名污染
+function mkCardOp(icon, title, fn) {
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'todo-op'; b.title = title;
+  b.textContent = icon;
+  b.addEventListener('click', function(e){ e.stopPropagation(); fn(); });
+  return b;
+}
+// 三态视图调度器：opts.view + opts.detailRootId 决定渲染哪种
+//   view='tree'                       → 完整树（多棵）
+//   view='card' && detailRootId==null → 顶层卡片列表
+//   view='card' && detailRootId!=null → 单个顶层任务的完整子树 + 面包屑
+// opts 其余键与 renderTodoTree/renderTodoCards 一致, 额外:
+//   crumbEl: 面包屑 DOM; onExitDetail(): 返回按钮回调
+function todoRenderView(container, trees, opts) {
+  opts = opts || {};
+  var view = opts.view || 'card';
+  var crumb = opts.crumbEl || null;
+  container.className = view === 'card' && opts.detailRootId == null ? 'todo-cards' : 'todo-tree';
+
+  if (view === 'tree') {
+    if (crumb) crumb.style.display = 'none';
+    renderTodoTree(container, trees, opts);
+    return;
+  }
+  // view === 'card'
+  if (opts.detailRootId != null) {
+    var root = null;
+    trees.forEach(function(t){ if (t.id === opts.detailRootId) root = t; });
+    if (!root) {
+      // 目标顶层已消失（可能被删除或改日期被筛掉）——退回卡片列表
+      if (opts.onExitDetail) opts.onExitDetail();
+      return;
+    }
+    if (crumb) {
+      crumb.style.display = 'flex';
+      crumb.innerHTML = '';
+      var back = document.createElement('button');
+      back.type = 'button'; back.className = 'todo-crumb__back';
+      back.textContent = '← 返回';
+      back.addEventListener('click', function(){ if (opts.onExitDetail) opts.onExitDetail(); });
+      var t = document.createElement('div');
+      t.className = 'todo-crumb__title';
+      t.textContent = root.title;
+      crumb.appendChild(back);
+      crumb.appendChild(t);
+    }
+    renderTodoTree(container, [root], opts);
+    return;
+  }
+  // 卡片列表
+  if (crumb) crumb.style.display = 'none';
+  renderTodoCards(container, trees, opts);
+}
 // 子任务拖拽排序（仅同级重排）：按住行尾手柄即可拖动，同父兄弟间按位置插入，松手回调 onReorder
 // handle: 拖拽手柄按钮；wrap: 该节点 .todo-node 容器；node: 数据节点；opts.onReorder(parentId, ids)
 function todoBindDrag(handle, wrap, node, opts) {
@@ -2600,7 +2818,7 @@ function todoFormHtml(t, isNew, isChild) {
   var dueField = isChild ? '' :
     '<div><label>截止日期</label><input id="tfDue" type="date" value="' + defDue + '"></div>';
   return '<label>标题</label>' +
-    '<textarea id="tfTitle" rows="2" placeholder="要做什么？（支持换行）" style="resize:vertical;">' + esc(t.title || '') + '</textarea>' +
+    '<textarea id="tfTitle" rows="2" data-autogrow="1" placeholder="要做什么？（支持换行）" style="resize:vertical;">' + esc(t.title || '') + '</textarea>' +
     '<div class="row">' +
       '<div><label>优先级</label><select id="tfPri">' +
         '<option value="2"' + (t.priority === 2 ? ' selected' : '') + '>🔴 高</option>' +
@@ -2613,7 +2831,7 @@ function todoFormHtml(t, isNew, isChild) {
              : '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📌 留空截止日期即作备忘录，不计入日报</p>') +
     '<label>分类（可选）</label><input id="tfCat" value="' + esc(t.category || '') + '" placeholder="如 工作 / 家庭">' +
     '<label>备注（可选）</label>' +
-    '<textarea id="tfNote" rows="2" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
+    '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
 }
 function todoFormRead() {
   var dueEl = document.getElementById('tfDue');
@@ -2750,8 +2968,16 @@ function drawTree() {
   // 已完成 tab 下强制显示完成项，否则遵从复选框
   var hideDone = _filter === 'done' ? false : document.getElementById('hideDone').checked;
   var trees = todoFilterTrees(todoBuildTree(_rows));
-  renderTodoTree(document.getElementById('todoTree'), trees, {
+  var container = document.getElementById('todoTree');
+  var crumb = document.getElementById('todoCrumb');
+  var viewBtn = document.getElementById('viewToggle');
+  if (viewBtn) viewBtn.textContent = _todoView === 'card' ? '🌳 完整树' : '🗂️ 卡片视图';
+  todoRenderView(container, trees, {
+    view: _todoView, detailRootId: _todoDetailRootId,
+    crumbEl: crumb,
     today: todayStr(), hideDone: hideDone,
+    onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
+    onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
     onToggle: async function(node, done){
       try {
         await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
@@ -2764,11 +2990,11 @@ function drawTree() {
       var isChild = node.parent_id != null;
       openModal('编辑任务', todoFormHtml(node, false, isChild) +
         '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
-      document.getElementById('tfSave').addEventListener('click', async function(){
+      bindClickBusy(document.getElementById('tfSave'), async function(){
         var body = todoFormRead();
         if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
-        try { await api('/api/todo/' + node.id, { method:'PUT', body: body }); closeModal(); await loadTodos(); }
-        catch(e){ alertModal(e.message, {ok:false}); }
+        await api('/api/todo/' + node.id, { method:'PUT', body: body });
+        closeModal(); await loadTodos();
       });
     },
     onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务', true); },
@@ -2784,11 +3010,11 @@ function confirmDeleteTodo(node) {
   openModal('删除任务',
     '<p style="line-height:1.6;">删除「' + esc(node.title) + '」及其全部子任务？</p>' +
     '<div style="text-align:right;margin-top:18px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn danger" id="tdDelConfirm">删除</button></div>');
-  document.getElementById('tdDelConfirm').addEventListener('click', async function(){
-    var btn = this;
-    btn.disabled = true;
-    try { await api('/api/todo/' + node.id, { method:'DELETE' }); closeModal(); await loadTodos(); await loadChart(); }
-    catch(e){ btn.disabled = false; alertModal(e.message, {ok:false}); }
+  bindClickBusy(document.getElementById('tdDelConfirm'), async function(){
+    await api('/api/todo/' + node.id, { method:'DELETE' });
+    closeModal(); await loadTodos(); await loadChart();
+    // 若删除的是当前详情页的根节点, 退回卡片列表
+    if (_todoDetailRootId === node.id) _todoDetailRootId = null;
   });
 }
 window.todoShareLink = async function(id, reset){
@@ -2808,15 +3034,23 @@ window.todoCopy = function(){ var el=document.getElementById('tShareUrl'); el.se
 function openAddForm(parentId, title, isChild) {
   openModal(title, todoFormHtml({}, true, !!isChild) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
-  document.getElementById('tfCreate').addEventListener('click', async function(){
+  bindClickBusy(document.getElementById('tfCreate'), async function(){
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     if (parentId != null) body.parent_id = parentId;
-    try { await api('/api/todo', { method:'POST', body: body }); closeModal(); await loadTodos(); await loadChart(); }
-    catch(e){ alertModal(e.message, {ok:false}); }
+    await api('/api/todo', { method:'POST', body: body });
+    closeModal(); await loadTodos(); await loadChart();
   });
 }
-document.getElementById('tAdd').addEventListener('click', function(){ openAddForm(null, '新建任务', false); });
+bindClickBusy(document.getElementById('tAdd'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
+// 视图切换：卡片 ↔ 完整树，重置详情页状态，写入 localStorage
+bindClickBusy(document.getElementById('viewToggle'), function(){
+  _todoView = _todoView === 'card' ? 'tree' : 'card';
+  _todoDetailRootId = null;
+  try { localStorage.setItem('todoView', _todoView); } catch(e){}
+  drawTree();
+  return Promise.resolve();
+});
 document.getElementById('hideDone').addEventListener('change', drawTree);
 // 筛选 tab：点击切换 active 并重绘
 document.getElementById('todoFilter').addEventListener('click', function(e){
@@ -2849,22 +3083,19 @@ async function loadPush() {
   tPushHourPick = initMultiPick(document.getElementById('pushHour'), 0, 23, d.config.hours || [9], function(n){ return n + '点'; });
   document.getElementById('pushEn').checked = !!d.config.enabled;
 }
-document.getElementById('pushSave').addEventListener('click', async function(){
-  try {
-    await api('/api/push/todo', { method:'PUT', body:{
-      channel_ids: tPushChannelPick ? tPushChannelPick.getValues() : [],
-      format: document.getElementById('pushFmt').value,
-      hours: tPushHourPick ? tPushHourPick.getString() : '9',
-      enabled: document.getElementById('pushEn').checked
-    }});
-    alertModal('推送配置已保存');
-  } catch(e){ alertModal(e.message, {ok:false}); }
+bindClickBusy(document.getElementById('pushSave'), async function(){
+  await api('/api/push/todo', { method:'PUT', body:{
+    channel_ids: tPushChannelPick ? tPushChannelPick.getValues() : [],
+    format: document.getElementById('pushFmt').value,
+    hours: tPushHourPick ? tPushHourPick.getString() : '9',
+    enabled: document.getElementById('pushEn').checked
+  }});
+  alertModal('推送配置已保存');
 });
-document.getElementById('pushSend').addEventListener('click', async function(){
-  var btn = this; btn.disabled = true; btn.textContent = '推送中...';
-  try { setLoadingProgress(90); var r = await api('/api/push/todo/send', { method:'POST', loadingText: '正在发送待办日报…' }); alertModal(r.message || '已推送'); }
-  catch(e){ alertModal(e.message, { ok:false }); }
-  finally { btn.disabled = false; btn.textContent = '立即推送'; }
+bindClickBusy(document.getElementById('pushSend'), async function(){
+  setLoadingProgress(90);
+  var r = await api('/api/push/todo/send', { method:'POST', loadingText: '正在发送待办日报…' });
+  alertModal(r.message || '已推送');
 });
 
 (async function(){
@@ -2929,9 +3160,17 @@ async function loadChart() {
   catch(e){ /* 图表失败不阻断 */ }
 }
 function drawTree(trees) {
+  var container = document.getElementById('todoTree');
+  var crumb = document.getElementById('todoCrumb');
+  var viewBtn = document.getElementById('viewToggle');
+  if (viewBtn) viewBtn.textContent = _todoView === 'card' ? '🌳 完整树' : '🗂️ 卡片视图';
   // 列表仅显示截止今天或已逾期的顶层任务（与日报口径一致），子任务随顶层展示；曲线图不受此过滤影响
-  renderTodoTree(document.getElementById('todoTree'), trees, {
+  todoRenderView(container, trees, {
+    view: _todoView, detailRootId: _todoDetailRootId,
+    crumbEl: crumb,
     today: _today,
+    onExitDetail: function(){ _todoDetailRootId = null; loadPublic(); },
+    onEnter: function(node){ _todoDetailRootId = node.id; loadPublic(); },
     onToggle: async function(node, done){
       try {
         await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
@@ -2952,11 +3191,11 @@ function drawTree(trees) {
       var isChild = node.id !== _rootId;
       openModal('编辑任务', todoFormHtml(node, false, isChild) +
         '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
-      document.getElementById('tfSave').addEventListener('click', async function(){
+      bindClickBusy(document.getElementById('tfSave'), async function(){
         var body = todoFormRead();
         if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
-        try { await api('/api/public/todo/' + _token + '/' + node.id, { method:'PUT', body: body }); closeModal(); await loadPublic(); }
-        catch(e){ alertModal(e.message, {ok:false}); }
+        await api('/api/public/todo/' + _token + '/' + node.id, { method:'PUT', body: body });
+        closeModal(); await loadPublic();
       });
     },
     onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务'); }
@@ -2965,15 +3204,22 @@ function drawTree(trees) {
 function openAddForm(parentId, title) {
   openModal(title, todoFormHtml({}, true, true) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
-  document.getElementById('tfCreate').addEventListener('click', async function(){
+  bindClickBusy(document.getElementById('tfCreate'), async function(){
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     if (parentId != null) body.parent_id = parentId;
-    try { await api('/api/public/todo/' + _token, { method:'POST', body: body }); closeModal(); await loadPublic(); }
-    catch(e){ alertModal(e.message, {ok:false}); }
+    await api('/api/public/todo/' + _token, { method:'POST', body: body });
+    closeModal(); await loadPublic();
   });
 }
-document.getElementById('tAddRoot').addEventListener('click', function(){ openAddForm(_rootId, '添加任务'); });
+bindClickBusy(document.getElementById('tAddRoot'), function(){ openAddForm(_rootId, '添加任务'); return Promise.resolve(); });
+bindClickBusy(document.getElementById('viewToggle'), function(){
+  _todoView = _todoView === 'card' ? 'tree' : 'card';
+  _todoDetailRootId = null;
+  try { localStorage.setItem('todoView', _todoView); } catch(e){}
+  loadPublic();
+  return Promise.resolve();
+});
 loadPublic();
 `;
 
@@ -2984,9 +3230,21 @@ ${TODO_TREE_CORE}
 bindQuickLogin('todo-report');
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _curRange = '7d';
+var _trees = [], _today = '';
 async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=' + _curRange); drawTodoChart('todoChart', c.series); }
   catch(e){ /* 图表失败不阻断 */ }
+}
+function drawTree() {
+  var viewBtn = document.getElementById('viewToggle');
+  if (viewBtn) viewBtn.textContent = _todoView === 'card' ? '🌳 完整树' : '🗂️ 卡片视图';
+  todoRenderView(document.getElementById('todoTree'), _trees, {
+    view: _todoView, detailRootId: _todoDetailRootId,
+    crumbEl: document.getElementById('todoCrumb'),
+    today: _today, readOnly: true,
+    onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
+    onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); }
+  });
 }
 (async function(){
   try {
@@ -2996,7 +3254,16 @@ async function loadChart() {
     document.getElementById('stOverdue').textContent = s.overdue;
     document.getElementById('stDone').textContent = s.done;
     document.getElementById('content').style.display = 'block';
-    renderTodoTree(document.getElementById('todoTree'), todoBuildTree(d.todos || []), { today: d.today || '', readOnly: true });
+    _trees = todoBuildTree(d.todos || []);
+    _today = d.today || '';
+    bindClickBusy(document.getElementById('viewToggle'), function(){
+      _todoView = _todoView === 'card' ? 'tree' : 'card';
+      _todoDetailRootId = null;
+      try { localStorage.setItem('todoView', _todoView); } catch(e){}
+      drawTree();
+      return Promise.resolve();
+    });
+    drawTree();
     bindTodoRange(function(r){ _curRange = r; loadChart(); });
     await loadChart();
   } catch(e) { document.body.innerHTML = '<div class="todo-empty" style="margin-top:60px;">' + esc(e.message || '链接无效') + '</div>'; }
@@ -3057,15 +3324,24 @@ async function loadChart() {
   catch(e){ /* 图表失败不阻断 */ }
 }
 function drawTree(trees) {
-  renderTodoTree(document.getElementById('todoTree'), trees, {
+  var viewBtn = document.getElementById('viewToggle');
+  if (viewBtn) viewBtn.textContent = _todoView === 'card' ? '🌳 完整树' : '🗂️ 卡片视图';
+  todoRenderView(document.getElementById('todoTree'), trees, {
+    view: _todoView, detailRootId: _todoDetailRootId,
+    crumbEl: document.getElementById('todoCrumb'),
     today: _today,
+    onExitDetail: function(){ _todoDetailRootId = null; loadCollab(); },
+    onEnter: function(node){ _todoDetailRootId = node.id; loadCollab(); },
     onToggle: async function(node, done){
       try {
         await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadCollab();
         if (done) {
           var total = 0, doneCnt = 0;
-          (function count(list){ list.forEach(function(n){ total++; if (n.done) doneCnt++; count(n.children); }); })(visibleTrees());
+          (function count(list){ list.forEach(function(n){
+            if (n.children.length > 0) { count(n.children); return; }
+            total++; if (n.done) doneCnt++;
+          }); })(visibleTrees());
           todoCelebrate(total - doneCnt, total);
         }
       }
@@ -3075,11 +3351,11 @@ function drawTree(trees) {
       var isChild = node.parent_id != null;
       openModal('编辑任务', todoFormHtml(node, false, isChild) +
         '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
-      document.getElementById('tfSave').addEventListener('click', async function(){
+      bindClickBusy(document.getElementById('tfSave'), async function(){
         var body = todoFormRead();
         if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
-        try { await api('/api/public/todo-all/' + _token + '/' + node.id, { method:'PUT', body: body }); closeModal(); await loadCollab(); }
-        catch(e){ alertModal(e.message, {ok:false}); }
+        await api('/api/public/todo-all/' + _token + '/' + node.id, { method:'PUT', body: body });
+        closeModal(); await loadCollab();
       });
     },
     onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务', true); },
@@ -3092,15 +3368,22 @@ function drawTree(trees) {
 function openAddForm(parentId, title, isChild) {
   openModal(title, todoFormHtml({}, true, !!isChild) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
-  document.getElementById('tfCreate').addEventListener('click', async function(){
+  bindClickBusy(document.getElementById('tfCreate'), async function(){
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     if (parentId != null) body.parent_id = parentId;
-    try { await api('/api/public/todo-all/' + _token, { method:'POST', body: body }); closeModal(); await loadCollab(); }
-    catch(e){ alertModal(e.message, {ok:false}); }
+    await api('/api/public/todo-all/' + _token, { method:'POST', body: body });
+    closeModal(); await loadCollab();
   });
 }
-document.getElementById('tAddRoot').addEventListener('click', function(){ openAddForm(null, '新建任务', false); });
+bindClickBusy(document.getElementById('tAddRoot'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
+bindClickBusy(document.getElementById('viewToggle'), function(){
+  _todoView = _todoView === 'card' ? 'tree' : 'card';
+  _todoDetailRootId = null;
+  try { localStorage.setItem('todoView', _todoView); } catch(e){}
+  loadCollab();
+  return Promise.resolve();
+});
 loadCollab();
 `;
 

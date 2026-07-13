@@ -238,6 +238,67 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action: none; cursor: grabbing; }
 @media (prefers-reduced-motion: reduce) { .todo-node.dragging > .todo-row { transform: none; } }
 
+/* ============ 待办卡片视图 ============ */
+/* 卡片网格容器：一列排列，宽屏保持单列（避免顶层任务被切碎） */
+.todo-cards { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+/* 单张顶层卡片：顶部色带 + 内容区 + 底部操作 */
+.todo-card {
+  position: relative; background: #fff; border: 1px solid #e9ecf3; border-radius: 12px;
+  overflow: hidden; transition: box-shadow .18s, transform .12s, border-color .18s;
+  cursor: default;
+}
+.todo-card.clickable { cursor: pointer; }
+.todo-card.clickable:hover { box-shadow: 0 6px 24px rgba(74,108,247,.14); border-color: #dfe4fb; transform: translateY(-1px); }
+.todo-card__band { height: 4px; background: #b4bccb; }
+.todo-card.pri-2 .todo-card__band { background: #e5484d; }
+.todo-card.pri-1 .todo-card__band { background: #e8a317; }
+.todo-card.pri-0 .todo-card__band { background: #b4bccb; }
+.todo-card.is-done { opacity: .78; background: #fafbff; }
+.todo-card__body { padding: 14px 16px 10px; }
+.todo-card__head { display: flex; align-items: flex-start; gap: 10px; }
+.todo-card__title {
+  flex: 1; min-width: 0; font-size: 17px; font-weight: 700; color: #1f2329;
+  line-height: 1.45; word-break: break-word;
+}
+.todo-card.is-done .todo-card__title { color: #b0b6c8; text-decoration: line-through; }
+.todo-card__check {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid #d9d9d9; background: #fff; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .18s, background .18s;
+}
+.todo-card__check:hover { border-color: #4a6cf7; }
+.todo-card__check.done { background: linear-gradient(135deg, #52c41a, #34b34a); border-color: #34b34a; }
+.todo-card__check::after { content: '✓'; color: #fff; font-size: 14px; font-weight: 700; opacity: 0; transform: scale(.4); transition: .18s; }
+.todo-card__check.done::after { opacity: 1; transform: scale(1); }
+.todo-card__meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.todo-card__note { margin-top: 6px; font-size: 13px; color: #8890b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-card__foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: #fafbff; border-top: 1px solid #f0f2f8;
+}
+.todo-card__ops { display: flex; gap: 2px; }
+.todo-card__ops .todo-op { font-size: 16px; padding: 4px 8px; }
+.todo-card__enter { color: #4a6cf7; font-size: 13px; font-weight: 600; user-select: none; }
+.todo-card__count { background: #eef1ff; color: #4a6cf7; font-weight: 600; }
+.todo-card__count.done { background: #f6ffed; color: #389e0d; }
+
+/* ============ 面包屑（子任务详情页顶栏） ============ */
+.todo-crumb {
+  display: flex; align-items: center; gap: 10px; margin: 4px 0 12px;
+  padding: 8px 12px; background: #f7f8fa; border-radius: 8px; border-left: 4px solid #4a6cf7;
+}
+.todo-crumb__back {
+  border: 1px solid #dfe3ee; background: #fff; color: #4a6cf7; cursor: pointer;
+  padding: 5px 12px; border-radius: 999px; font-size: 13px;
+}
+.todo-crumb__back:hover { background: #eef1ff; }
+.todo-crumb__title { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: #1f2329; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ============ 按钮 busy 状态（点击后立即禁用防重） ============ */
+button[data-busy] { opacity: .55; cursor: wait; }
+button[data-busy]::after { content: ' …'; }
+
 /* ============ 图表横屏全屏查看 ============ */
 /* 紧贴图表的相对定位容器：按钮以此为锚，落在图表区右上角而非整张卡片 */
 .chart-fs-wrap { position: relative; }
@@ -320,6 +381,10 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
   .todo-ops { opacity: 1; }
   .todo-stat { min-width: 70px; padding: 10px; }
+  /* 卡片视图窄屏收小内边距 */
+  .todo-card__body { padding: 12px 14px 8px; }
+  .todo-card__title { font-size: 16px; }
+  .todo-card__foot { padding: 6px 10px; }
 }
 `;
 

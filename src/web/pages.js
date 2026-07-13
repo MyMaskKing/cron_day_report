@@ -679,6 +679,7 @@ function todoPage(user) {
     <div class="card">
       <h2>待办清单
         <button class="btn sm" id="tAdd" style="float:right;">+ 新建任务</button>
+        <button class="btn sm gray" id="viewToggle" style="float:right;margin-right:8px;">🗂️ 卡片视图</button>
         <label style="float:right;margin-right:14px;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
       </h2>
       <div class="todo-range todo-filter" id="todoFilter">
@@ -689,6 +690,7 @@ function todoPage(user) {
         <button data-filter="memo">备忘录</button>
         <button data-filter="done">已完成</button>
       </div>
+      <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
       <div id="todoTree" class="todo-tree"></div>
       <p class="muted" style="margin-top:8px;">勾选父任务将连带其全部子任务；每个顶层任务可生成免密协作链接，家人无需登录即可添加或勾选。</p>
     </div>
@@ -737,7 +739,11 @@ function publicTodoPage() {
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div style="margin-bottom:12px;"><button class="btn sm" id="tAddRoot">+ 添加任务</button></div>
+        <div style="margin-bottom:12px;">
+          <button class="btn sm" id="tAddRoot">+ 添加任务</button>
+          <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">🗂️ 卡片视图</button>
+        </div>
+        <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
         <div id="todoTree" class="todo-tree"></div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
           <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（按截止日期：每日到期 / 完成）</span></h2>
@@ -755,12 +761,13 @@ function todoReportPage() {
     <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
     <div id="content" style="display:none;">
       <div class="card">
-        <h2>📝 全部待办</h2>
+        <h2>📝 全部待办 <button class="btn sm gray" id="viewToggle" style="float:right;">🗂️ 卡片视图</button></h2>
         <div class="todo-stats">
           <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
+        <div id="todoCrumb" class="todo-crumb" style="display:none;margin-top:14px;"></div>
         <div id="todoTree" class="todo-tree" style="margin-top:14px;"></div>
       </div>
       <div class="card">
@@ -795,7 +802,11 @@ function todoCollabPage() {
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div style="margin-bottom:12px;"><button class="btn sm" id="tAddRoot">+ 添加任务</button></div>
+        <div style="margin-bottom:12px;">
+          <button class="btn sm" id="tAddRoot">+ 添加任务</button>
+          <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">🗂️ 卡片视图</button>
+        </div>
+        <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
         <div id="todoTree" class="todo-tree"></div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
           <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（按截止日期：每日到期 / 完成）</span></h2>
