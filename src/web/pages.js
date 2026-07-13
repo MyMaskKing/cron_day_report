@@ -807,9 +807,11 @@ function todoReportPage() {
         <h2 style="overflow:hidden;">📝 全部待办
           <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button>
           <button class="btn sm gray" id="viewToggle" style="float:right;margin-right:8px;">🗂️ 卡片视图</button>
-          <label style="float:right;margin-right:14px;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </h2>
-        <div id="statsHint" class="muted" style="font-size:12px;margin:0 0 8px;clear:both;"></div>
+        <div style="clear:both;margin:0 0 8px;text-align:right;">
+          <label style="font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
+        </div>
+        <div id="statsHint" class="muted" style="font-size:12px;margin:0 0 8px;"></div>
         <div class="todo-stats" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">
           <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>

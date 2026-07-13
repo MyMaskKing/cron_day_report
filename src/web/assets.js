@@ -2397,6 +2397,9 @@ const TODO_TREE_CORE = `
 // localStorage 记忆; 老用户历史值 'card'/'tree' 直接沿用为对应全屏态
 var _todoView = 'default';
 try { var _v = localStorage.getItem('todoView'); if (_v === 'default' || _v === 'card' || _v === 'tree') _todoView = _v; } catch(e){}
+// ESC 键退全屏用: 保存 applyTodoView 每次传入的最新 getRowsFn / onDrawTree
+// 全局 keydown 只绑一次(_todoEscBound), 从这里读最新引用, 避免闭包旧值
+var _todoEscCtx = { getRows: null, onDraw: null };
 // 卡片模式下打开的顶层任务 id；null 表示卡片列表
 var _todoDetailRootId = null;
 // 侧边抽屉开合: null=按视口默认(PC 开/手机收), true/false=用户显式选择
@@ -2436,39 +2439,53 @@ function syncChartRangeToFilter(filter) {
 function todoRangeLabel(range) {
   return ({ 'month':'当月', '7d':'近7天', '30d':'近30天', '60d':'近60天', '6m':'近半年', '1y':'近1年', '3y':'近3年' })[range] || range;
 }
-// filter → 已完成计数口径的中文说明(与 todoDoneByFilter 一一对应)
-function todoDoneScopeLabel(filter) {
-  return ({
-    all:      '当月已完成',
-    today:    '今日已完成',
-    overdue:  '已逾期已完成',
-    future:   '未来已完成',
-    memo:     '备忘录已完成',
-    done:     '当月已完成',
-    cur:      '今日+逾期已完成'
-  })[filter] || '当月已完成';
-}
 // filter → 顶层筛选口径中文
 function todoFilterLabel(filter) {
   return ({ all:'全部', today:'今日', overdue:'逾期', future:'未来', memo:'备忘录', done:'已完成', cur:'今日+逾期' })[filter] || filter;
 }
 // 更新 stats 上方的"当前视图"灰字提示:
-//   显示当前顶层筛选的口径, 以及已完成计数对应的时间段(与 todoDoneByFilter 保持一致)
-// 无 #statsHint 时静默返回, 不影响没接入该提示行的页面
-function updateStatsHint(filter) {
+//   filter = 顶层筛选口径; range = 已完成计数所依赖的时间窗(与 chartRange 下拉框联动)
+//   显示格式: "当前筛选：xxx  ·  已完成计数：range 窗口内"
+// 无 #statsHint 时静默返回, 不影响未接入的页面
+function updateStatsHint(filter, range) {
   var el = document.getElementById('statsHint');
   if (!el) return;
-  el.textContent = '当前筛选：' + todoFilterLabel(filter) + '　·　已完成计数：' + todoDoneScopeLabel(filter);
+  el.textContent = '当前筛选：' + todoFilterLabel(filter) + '　·　已完成计数：' + todoRangeLabel(range) + '内完成';
 }
-// 按 filter 维度统计已完成叶子任务数(rows 为扁平数据)
-//   all     = 当月完成数(done_at 落在 today 所在月)
-//   today   = 今日完成数(done_at === today)
-//   overdue = 已完成 且 顶层 due_date < today 的叶子
-//   future  = 已完成 且 顶层 due_date > today 的叶子
-//   memo    = 已完成 且 顶层无 due_date 的叶子
-//   done    = 与 all 同(当月完成), 保持视觉稳定
-// 参数 today 形如 YYYY-MM-DD
-function todoDoneByFilter(rows, filter, today) {
+// range → { fromDay, toDay } (YYYY-MM-DD, 闭区间)
+//   month  = today 所在月 1 号 → today
+//   7d/30d/60d = 最近 N 天(含今日)
+//   6m/1y/3y  = 最近 N 月的 1 号 → today
+function todoRangeWindow(range, today) {
+  if (!today || today.length < 10) return { fromDay: '', toDay: '' };
+  var y = +today.slice(0, 4), m = +today.slice(5, 7), d = +today.slice(8, 10);
+  function pad(n){ return (n<10?'0':'') + n; }
+  function fmt(yr, mo, day){ return yr + '-' + pad(mo) + '-' + pad(day); }
+  function endMs(){ return Date.UTC(y, m-1, d); }
+  var days = ({ '7d':7, '30d':30, '60d':60 })[range];
+  if (range === 'month') return { fromDay: fmt(y, m, 1), toDay: today };
+  if (days) {
+    var f = new Date(endMs() - (days - 1) * 86400000);
+    return { fromDay: f.toISOString().slice(0, 10), toDay: today };
+  }
+  var months = ({ '6m':6, '1y':12, '3y':36 })[range];
+  if (months) {
+    var start = new Date(Date.UTC(y, m - months, 1));
+    return { fromDay: start.toISOString().slice(0, 10), toDay: today };
+  }
+  return { fromDay: fmt(y, m, 1), toDay: today }; // 兜底当月
+}
+// 按 filter (空间) 与 range (时间) 双维度统计已完成叶子任务数
+//   filter 决定空间口径:
+//     today          = done_at === today (range 参数无影响, filter 本身就是当日)
+//     overdue        = 顶层 due_date < today
+//     future         = 顶层 due_date > today
+//     memo           = 顶层无 due_date
+//     cur            = 顶层 due_date <= today (今日+逾期)
+//     all / done     = 全部空间(不额外筛选)
+//   range 决定 done_at 时间窗: done_at 必须落在 todoRangeWindow(range, today) 闭区间内
+// rows 为扁平数据; 只算叶子(hasChild 排除父任务)
+function todoDoneByFilter(rows, filter, today, range) {
   var byId = {}; rows.forEach(function(r){ byId[r.id] = r; });
   var hasChild = {};
   rows.forEach(function(r){ if (r.parent_id != null) hasChild[r.parent_id] = 1; });
@@ -2477,30 +2494,34 @@ function todoDoneByFilter(rows, filter, today) {
     while (cur.parent_id != null && byId[cur.parent_id]) cur = byId[cur.parent_id];
     return cur.due_date;
   }
-  var month = today && today.length >= 7 ? today.slice(0, 7) : '';
+  // 时间窗: range 未提供时兜底当月(与登录/免密页 _curRange 默认值一致)
+  var win = todoRangeWindow(range || 'month', today);
   var count = 0;
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
     if (hasChild[r.id]) continue; // 只算叶子
     if (!r.done) continue;
+    // 时间窗过滤: done_at 必须落在 [fromDay, toDay] 闭区间; done_at 为空则丢弃
+    if (!r.done_at) continue;
+    if (win.fromDay && r.done_at < win.fromDay) continue;
+    if (win.toDay && r.done_at > win.toDay) continue;
+    // 空间过滤: 按 filter 判断叶子归属
     if (filter === 'today') {
-      if (r.done_at === today) count++;
+      if (r.done_at !== today) continue;
     } else if (filter === 'overdue') {
       var du = rootDueOf(r);
-      if (du && today && du < today) count++;
+      if (!(du && today && du < today)) continue;
     } else if (filter === 'future') {
       var du2 = rootDueOf(r);
-      if (du2 && today && du2 > today) count++;
+      if (!(du2 && today && du2 > today)) continue;
     } else if (filter === 'memo') {
-      if (!rootDueOf(r)) count++;
+      if (rootDueOf(r)) continue;
     } else if (filter === 'cur') {
-      // 今日到期 + 已逾期 的已完成叶子(与协作汇总页 visibleTrees 'cur' 分支同口径)
       var duC = rootDueOf(r);
-      if (duC && today && duC <= today) count++;
-    } else {
-      // all / done: 默认当月完成(不选择就显示当月)
-      if (month && r.done_at && r.done_at.slice(0, 7) === month) count++;
+      if (!(duC && today && duC <= today)) continue;
     }
+    // all / done / 其它: 只受时间窗约束, 不做空间过滤
+    count++;
   }
   return count;
 }
@@ -2725,6 +2746,28 @@ function applyTodoView(getRowsFn, onDrawTree) {
         return Promise.resolve();
       });
     }
+  }
+
+  // ESC 键退出全屏(PC 端体验): 保存最新回调, 幂等绑定 document keydown 一次
+  _todoEscCtx.getRows = getRowsFn;
+  _todoEscCtx.onDraw = onDrawTree;
+  if (!document.__todoEscBound) {
+    document.__todoEscBound = 1;
+    document.addEventListener('keydown', function(e){
+      if (e.key !== 'Escape' && e.keyCode !== 27) return;
+      if (_todoView === 'default') return; // 非全屏态不处理
+      // 让打开的 modal / 抽屉优先关闭, 若都不在则退全屏
+      var modal = document.getElementById('modal');
+      if (modal && modal.style.display && modal.style.display !== 'none') return;
+      if (todoDrawerIsOpen() && window.innerWidth <= 640) {
+        // 窄屏下抽屉浮层态优先关抽屉
+        _todoDrawerOpen = false;
+        try { localStorage.setItem('todoDrawer', '0'); } catch(er){}
+        applyTodoView(_todoEscCtx.getRows, _todoEscCtx.onDraw);
+        return;
+      }
+      exitTodoFullscreen(_todoEscCtx.getRows, _todoEscCtx.onDraw);
+    });
   }
 
   // DOM 迁移: default 时 tree/crumb 回归"清单卡片"内的初始容器; 非 default 时挪到全屏容器主区域
@@ -3491,9 +3534,9 @@ async function loadTodos() {
   _stats = s;
   document.getElementById('stPending').textContent = s.pending;
   document.getElementById('stOverdue').textContent = s.overdue;
-  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, todayStr());
+  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, todayStr(), _curRange);
   document.getElementById('stMemo').textContent = s.memo || 0;
-  updateStatsHint(_filter);
+  updateStatsHint(_filter, _curRange);
   drawTree();
 }
 var _filter = 'all'; // all | today | overdue | future | memo | done
@@ -3650,9 +3693,9 @@ document.getElementById('todoFilter').addEventListener('click', function(e){
   _filter = btn.getAttribute('data-filter');
   Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
   btn.classList.add('active');
-  // 已完成数量按 filter 联动: today→今日完成, overdue/future/memo→各类别已完成, 其它→当月完成
-  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, todayStr());
-  updateStatsHint(_filter);
+  // 已完成计数按 filter × range 双维度联动
+  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, todayStr(), _curRange);
+  updateStatsHint(_filter, _curRange);
   // 图表下拉框联动: today→7d, 其它→month
   syncChartRangeToFilter(_filter);
   drawTree();
@@ -3666,7 +3709,13 @@ async function loadChart() {
     drawTodoChart('todoChart', d.series);
   } catch(e){ /* 图表失败不阻断页面 */ }
 }
-bindTodoRange(function(r){ _curRange = r; loadChart(); });
+bindTodoRange(function(r){
+  _curRange = r;
+  // range 变化: stDone 时间窗跟着变
+  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, todayStr(), _curRange);
+  updateStatsHint(_filter, _curRange);
+  loadChart();
+});
 
 // 推送配置（待办日报）
 var tPushHourPick = null, tPushChannelPick = null;
@@ -3759,9 +3808,9 @@ function renderStats(trees) {
   trees.forEach(function(root){ walk(root, root.due_date); });
   document.getElementById('stPending').textContent = pending;
   document.getElementById('stOverdue').textContent = overdue;
-  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, 'all', _today);
-  // 单链接页无 filter tab, 固定 all 语义(未完成/已逾期为可见子树, 已完成为当月)
-  updateStatsHint('all');
+  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, 'all', _today, _curRange);
+  // 单链接页无 filter tab, 固定 all 语义(未完成/已逾期为可见子树, 已完成按 _curRange 时间窗)
+  updateStatsHint('all', _curRange);
 }
 async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=' + _curRange); drawTodoChart('todoChart', c.series); }
@@ -3922,9 +3971,9 @@ function drawTree() {
     _rows = d.todos || [];
     _trees = todoBuildTree(_rows);
     _today = d.today || '';
-    // 已完成一栏: 按 _filter 联动, 默认 all→当月完成
-    document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today);
-    updateStatsHint(_filter);
+    // 已完成一栏: 按 _filter × _curRange 双维度联动
+    document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
+    updateStatsHint(_filter, _curRange);
     // 视图三态循环
     bindClickBusy(document.getElementById('viewToggle'), function(){
       enterTodoFullscreen(_todoGetRows, drawTree);
@@ -3959,14 +4008,19 @@ function drawTree() {
       _filter = btn.getAttribute('data-filter');
       Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
       btn.classList.add('active');
-      // 已完成计数随筛选联动
-      document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today);
-      updateStatsHint(_filter);
+      // 已完成计数按 filter × range 双维度联动
+      document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
+      updateStatsHint(_filter, _curRange);
       // 图表下拉框联动: today→7d, 其它→month
       syncChartRangeToFilter(_filter);
       drawTree();
     });
-    bindTodoRange(function(r){ _curRange = r; loadChart(); });
+    bindTodoRange(function(r){
+      _curRange = r;
+      document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
+      updateStatsHint(_filter, _curRange);
+      loadChart();
+    });
     await loadChart();
   } catch(e) { document.body.innerHTML = '<div class="todo-empty" style="margin-top:60px;">' + esc(e.message || '链接无效') + '</div>'; }
 })();
@@ -4034,8 +4088,8 @@ function renderStats(trees) {
   trees.forEach(function(root){ walk(root, root.due_date); });
   document.getElementById('stPending').textContent = pending;
   document.getElementById('stOverdue').textContent = overdue;
-  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today);
-  updateStatsHint(_filter);
+  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
+  updateStatsHint(_filter, _curRange);
 }
 async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=' + _curRange); drawTodoChart('todoChart', c.series); }
@@ -4173,7 +4227,9 @@ if (_tf) _tf.addEventListener('click', function(e){
   _filter = btn.getAttribute('data-filter');
   Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
   btn.classList.add('active');
-  updateStatsHint(_filter);
+  // 已完成计数按 filter × range 双维度联动
+  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
+  updateStatsHint(_filter, _curRange);
   syncChartRangeToFilter(_filter);
   drawTree(visibleTrees());
 });
