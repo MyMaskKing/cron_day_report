@@ -3656,16 +3656,12 @@ function drawTree() {
       var dueDate = node.due_date || todayStr();
       var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, todayStr(), node.recur_interval);
       var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, todayStr(), node.recur_interval);
-      // 若旧任务已拖延多个周期, defaultNext 累加后仍 <= today, 语义不再是"下一周期"
-      // 直接以 jumpNext 作为唯一选项(与"跳到当前周期"一致), 只显示一行
-      if (defaultNext <= todayStr()) defaultNext = jumpNext;
       var sameDate = defaultNext === jumpNext;
       var html =
         '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval) + '）</p>' +
         '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
-        // sameDate=true 时(含"defaultNext 已赋成 jumpNext"), 默认选项直接走 jumpToCurrent, 与后端算出的 nextDue 保持一致
-        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="' + (sameDate ? '1' : '0') + '" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
@@ -4005,6 +4001,7 @@ loadPublic();
 const TODO_REPORT_JS = `
 ${COMMON_JS}
 ${TODO_TREE_CORE}
+bindModal();
 bindQuickLogin('todo-report');
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _curRange = 'month';
@@ -4045,10 +4042,62 @@ function drawTree() {
     view: _todoView === 'default' ? 'card' : _todoView,
     detailRootId: _todoDetailRootId,
     crumbEl: document.getElementById('todoCrumb'),
-    today: _today, readOnly: true, hideDone: hideDone,
+    today: _today, hideDone: hideDone,
     onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
-    onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); }
+    onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
+    // 顶层重复任务勾选前弹窗选下一日期(与 TODO_COLLAB_JS 同口径)
+    onToggleRecur: function(node){
+      var dueDate = node.due_date || _today;
+      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today, node.recur_interval);
+      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today, node.recur_interval);
+      var sameDate = defaultNext === jumpNext;
+      var html =
+        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval) + '）</p>' +
+        '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
+        '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
+        (sameDate ? '' :
+          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
+        '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
+      openModal('✅ 完成重复任务', html);
+      bindClickBusy(document.getElementById('rrConfirm'), async function(){
+        var jr = document.querySelector('input[name="rjump"]:checked');
+        var jumpToCurrent = !!(jr && jr.value === '1');
+        await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent } });
+        closeModal();
+        await reloadReport();
+      });
+    },
+    onToggle: async function(node, done){
+      try {
+        await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+        await reloadReport();
+        if (done) {
+          // 庆祝口径与可见列表一致(叶子口径): 有子任务的父不计, 只数末端叶子
+          var total = 0, doneCnt = 0;
+          (function count(list){ list.forEach(function(n){
+            if (n.children.length > 0) { count(n.children); return; }
+            total++; if (n.done) doneCnt++;
+          }); })(_trees);
+          todoCelebrate(total - doneCnt, total);
+        }
+      }
+      catch(e){ alertModal(e.message, {ok:false}); }
+    }
   });
+}
+// 刷新数据并重绘: 勾选后调用, 重新拉 report + 重算 stats + 重画树
+async function reloadReport() {
+  var d = await api('/api/public/todo-report/' + _token);
+  var s = d.stats || { pending:0, overdue:0, done:0 };
+  document.getElementById('stPending').textContent = s.pending;
+  document.getElementById('stOverdue').textContent = s.overdue;
+  _rows = d.todos || [];
+  _trees = todoBuildTree(_rows);
+  _today = d.today || '';
+  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
+  updateStatsHint(_filter, _curRange);
+  drawTree();
 }
 (async function(){
   try {
@@ -4215,15 +4264,12 @@ function drawTree(trees) {
       var dueDate = node.due_date || _today;
       var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today, node.recur_interval);
       var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today, node.recur_interval);
-      // 拖延多周期时 defaultNext 仍在过去, 视为无差异, 只显示 jumpNext
-      if (defaultNext <= _today) defaultNext = jumpNext;
       var sameDate = defaultNext === jumpNext;
       var html =
         '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval) + '）</p>' +
         '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
-        // sameDate=true 时(含"defaultNext 已赋成 jumpNext"), 默认选项直接走 jumpToCurrent, 与后端算出的 nextDue 保持一致
-        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="' + (sameDate ? '1' : '0') + '" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
