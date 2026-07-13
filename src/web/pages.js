@@ -668,6 +668,7 @@ function todoPage(user) {
   const body = renderTopbar(user, 'todo') + `<div class="container">
     <div class="card">
       <h2>概览</h2>
+      <div id="statsHint" class="muted" style="font-size:12px;margin:0 0 8px;"></div>
       <div class="todo-stats">
         <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
         <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
@@ -701,8 +702,9 @@ function todoPage(user) {
       <div class="todo-chart-head">
         <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（按截止日期：每日到期 / 完成，含子任务）</span></h2>
         <div class="todo-range" id="chartRange">
+          <button data-range="month" class="active">当月</button>
           <button data-range="7d">近7天</button>
-          <button data-range="30d" class="active">近30天</button>
+          <button data-range="30d">近30天</button>
           <button data-range="60d">近60天</button>
           <button data-range="6m">近半年</button>
           <button data-range="1y">近1年</button>
@@ -754,6 +756,7 @@ function publicTodoPage() {
       <p id="ownerLine" class="muted" style="margin-bottom:12px;"></p>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
+        <div id="statsHint" class="muted" style="font-size:12px;margin:0 0 8px;"></div>
         <div class="todo-stats" style="margin-bottom:14px;">
           <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
@@ -799,14 +802,15 @@ function publicTodoPage() {
 /** 待办免密报告查看页 */
 function todoReportPage() {
   const body = `<div class="container" style="max-width:640px;margin:24px auto;">
-    <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
     <div id="content" style="display:none;">
       <div class="card">
         <h2 style="overflow:hidden;">📝 全部待办
-          <button class="btn sm gray" id="viewToggle" style="float:right;">🗂️ 卡片视图</button>
+          <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button>
+          <button class="btn sm gray" id="viewToggle" style="float:right;margin-right:8px;">🗂️ 卡片视图</button>
           <label style="float:right;margin-right:14px;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </h2>
-        <div class="todo-stats" style="clear:both;display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">
+        <div id="statsHint" class="muted" style="font-size:12px;margin:0 0 8px;clear:both;"></div>
+        <div class="todo-stats" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">
           <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
@@ -828,8 +832,9 @@ function todoReportPage() {
         <div class="todo-chart-head">
           <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（按截止日期：每日到期 / 完成）</span></h2>
           <div class="todo-range" id="chartRange">
+            <button data-range="month" class="active">当月</button>
             <button data-range="7d">近7天</button>
-            <button data-range="30d" class="active">近30天</button>
+            <button data-range="30d">近30天</button>
             <button data-range="60d">近60天</button>
             <button data-range="6m">近半年</button>
             <button data-range="1y">近1年</button>
@@ -868,6 +873,7 @@ function todoCollabPage() {
       <p class="muted" style="margin-bottom:12px;">今日到期与逾期任务，可直接勾选、编辑或添加。</p>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
+        <div id="statsHint" class="muted" style="font-size:12px;margin:0 0 8px;"></div>
         <div class="todo-stats" style="margin-bottom:14px;">
           <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>

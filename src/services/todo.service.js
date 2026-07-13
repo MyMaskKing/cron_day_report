@@ -83,8 +83,11 @@ function countStats(rows, today) {
   return { total, done, pending, overdue, memo };
 }
 
-/** range → { unit: 'day'|'month', span } 天数或月数 */
+/** range → { unit: 'day'|'month'|'month-current', span } 天数或月数
+ *  month-current: 特殊分支, 从 today 所在月 1 号起到 today 每天一格(span 运行时按 today 推)
+ */
 const CHART_RANGES = {
+  'month': { unit: 'month-current' },
   '7d': { unit: 'day', span: 7 },
   '30d': { unit: 'day', span: 30 },
   '60d': { unit: 'day', span: 60 },
@@ -117,7 +120,17 @@ function buildChartSeries(raw, range, today) {
   (raw.done || []).forEach(r => { if (r.d) doneMap[r.d] = r.c; });
 
   const labels = [], created = [], done = [];
-  if (cfg.unit === 'day') {
+  if (cfg.unit === 'month-current') {
+    // 当月: 从 today 所在月 1 号起, 到 today 为止, 每天一格
+    const d = +today.slice(8, 10);
+    const endMs = dayMs(today);
+    for (let i = d - 1; i >= 0; i--) {
+      const day = msDay(endMs - i * 86400000);
+      labels.push(day.slice(5)); // MM-DD
+      created.push(createdMap[day] || 0);
+      done.push(doneMap[day] || 0);
+    }
+  } else if (cfg.unit === 'day') {
     const endMs = dayMs(today);
     for (let i = cfg.span - 1; i >= 0; i--) {
       const day = msDay(endMs - i * 86400000);
