@@ -2504,23 +2504,29 @@ function applyTodoView(getRowsFn, onDrawTree) {
   var mask = document.getElementById('todoDrawerMask');
   var vBtn = document.getElementById('viewToggle');
   var vBtnFs = document.getElementById('viewToggleFs');
+  var exitBtn = document.getElementById('exitFullscreen');
   var dBtn = document.getElementById('drawerToggle');
 
-  // 视图按钮文案: 三态循环, 提示下一步动作
-  // 默认页外壳里的按钮 vBtn + 全屏 top 里的按钮 vBtnFs 文案同步; 全屏态下 vBtn 随卡片一起被 CSS 隐藏
-  function _viewBtnText() {
-    if (_todoView === 'default') return '🗂️ 卡片视图';
-    if (_todoView === 'card') return '🌳 完整树';
-    return '↩️ 退出全屏';
-  }
-  if (vBtn) vBtn.textContent = _viewBtnText();
+  // 视图按钮分工:
+  //   vBtn (默认页外壳): 永远只做"进入卡片全屏", 文案固定 "🗂️ 卡片视图"
+  //   vBtnFs (全屏顶栏): 在卡片全屏 ↔ 完整树全屏之间切换; 卡片态下显示 "🌳 完整树", 树态下显示 "🗂️ 卡片视图"
+  //   exitBtn (全屏顶栏): 任意全屏态下点一下直接回默认页
+  if (vBtn) vBtn.textContent = '🗂️ 卡片视图';
   if (vBtnFs) {
-    vBtnFs.textContent = _viewBtnText();
-    // 幂等绑定 cycleTodoView: 全屏 top 的按钮必须能触发同一循环, 否则用户无法退出全屏
-    if (!vBtnFs.__cycleBound) {
-      vBtnFs.__cycleBound = 1;
+    vBtnFs.textContent = (_todoView === 'tree') ? '🗂️ 卡片视图' : '🌳 完整树';
+    if (!vBtnFs.__fsBound) {
+      vBtnFs.__fsBound = 1;
       bindClickBusy(vBtnFs, function(){
-        cycleTodoView(getRowsFn, onDrawTree);
+        swapTodoFullscreenMode(getRowsFn, onDrawTree);
+        return Promise.resolve();
+      });
+    }
+  }
+  if (exitBtn) {
+    if (!exitBtn.__exitBound) {
+      exitBtn.__exitBound = 1;
+      bindClickBusy(exitBtn, function(){
+        exitTodoFullscreen(getRowsFn, onDrawTree);
         return Promise.resolve();
       });
     }
@@ -2575,12 +2581,33 @@ function applyTodoView(getRowsFn, onDrawTree) {
     });
   }
 }
-// 视图三态循环: default → card → tree → default
+// 视图三态循环(旧, 已弃用): 保留以避免破坏未迁移调用点; 新按钮分工见下面三个函数
 function cycleTodoView(getRowsFn, onDrawTree) {
   var next = { 'default': 'card', 'card': 'tree', 'tree': 'default' };
   _todoView = next[_todoView] || 'default';
   _todoDetailRootId = null;
   try { localStorage.setItem('todoView', _todoView); } catch(e){}
+  applyTodoView(getRowsFn, onDrawTree);
+}
+// 默认页 → 卡片全屏(单向进入): 用于默认页外壳的 viewToggle 按钮
+function enterTodoFullscreen(getRowsFn, onDrawTree) {
+  _todoView = 'card';
+  _todoDetailRootId = null;
+  try { localStorage.setItem('todoView', 'card'); } catch(e){}
+  applyTodoView(getRowsFn, onDrawTree);
+}
+// 全屏内切换卡片 ↔ 完整树(不出全屏): 用于全屏顶栏的 viewToggleFs 按钮
+function swapTodoFullscreenMode(getRowsFn, onDrawTree) {
+  _todoView = (_todoView === 'tree') ? 'card' : 'tree';
+  _todoDetailRootId = null;
+  try { localStorage.setItem('todoView', _todoView); } catch(e){}
+  applyTodoView(getRowsFn, onDrawTree);
+}
+// 全屏 → 默认页(单向退出): 用于全屏顶栏的 exitFullscreen 按钮
+function exitTodoFullscreen(getRowsFn, onDrawTree) {
+  _todoView = 'default';
+  _todoDetailRootId = null;
+  try { localStorage.setItem('todoView', 'default'); } catch(e){}
   applyTodoView(getRowsFn, onDrawTree);
 }
 // 抽屉手动开合(全屏态下点 ☰ 或 ✕)
@@ -2955,12 +2982,19 @@ function todoRenderView(container, trees, opts) {
       t.textContent = root.title;
       crumb.appendChild(back);
       crumb.appendChild(t);
+      // 详情页添加子任务入口: 只读页(无 onAddChild)不显示
+      if (opts.onAddChild) {
+        var addBtn = document.createElement('button');
+        addBtn.type = 'button'; addBtn.className = 'btn sm'; addBtn.textContent = '➕ 添加子任务';
+        addBtn.addEventListener('click', function(e){ e.stopPropagation(); opts.onAddChild(root); });
+        crumb.appendChild(addBtn);
+      }
     }
     // 详情页只渲染 root 的子任务，避免与面包屑标题重复; 首层子任务视作 depth 0 但截止日期继承 root
-    // 如果 root 自身就没子任务, 显示空态提示
+    // 如果 root 自身就没子任务, 显示空态提示(添加入口在面包屑上)
     if (root.children.length === 0) {
       container.className = 'todo-tree';
-      container.innerHTML = '<div class="todo-empty">此任务暂无子任务</div>';
+      container.innerHTML = '<div class="todo-empty">此任务暂无子任务' + (opts.onAddChild ? '，点击右上角 ➕ 添加' : '') + '</div>';
       return;
     }
     var childOpts = {};
@@ -3283,7 +3317,7 @@ function openAddForm(parentId, title, isChild) {
 bindClickBusy(document.getElementById('tAdd'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
 // 视图三态循环: default → card → tree → default
 bindClickBusy(document.getElementById('viewToggle'), function(){
-  cycleTodoView(_todoGetRows, drawTree);
+  enterTodoFullscreen(_todoGetRows, drawTree);
   return Promise.resolve();
 });
 // 抽屉切换按钮 ☰
@@ -3488,7 +3522,7 @@ function openAddForm(parentId, title) {
 bindClickBusy(document.getElementById('tAddRoot'), function(){ openAddForm(_rootId, '添加任务'); return Promise.resolve(); });
 // 视图三态循环
 bindClickBusy(document.getElementById('viewToggle'), function(){
-  cycleTodoView(_todoGetRows, function(){ loadPublic(); });
+  enterTodoFullscreen(_todoGetRows, function(){ loadPublic(); });
   return Promise.resolve();
 });
 // 抽屉切换
@@ -3552,7 +3586,7 @@ function drawTree() {
     _today = d.today || '';
     // 视图三态循环
     bindClickBusy(document.getElementById('viewToggle'), function(){
-      cycleTodoView(_todoGetRows, drawTree);
+      enterTodoFullscreen(_todoGetRows, drawTree);
       return Promise.resolve();
     });
     // 抽屉切换
@@ -3701,7 +3735,7 @@ function openAddForm(parentId, title, isChild) {
 bindClickBusy(document.getElementById('tAddRoot'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
 // 视图三态循环
 bindClickBusy(document.getElementById('viewToggle'), function(){
-  cycleTodoView(_todoGetRows, function(){ loadCollab(); });
+  enterTodoFullscreen(_todoGetRows, function(){ loadCollab(); });
   return Promise.resolve();
 });
 // 抽屉切换
