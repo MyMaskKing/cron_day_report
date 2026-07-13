@@ -3656,12 +3656,16 @@ function drawTree() {
       var dueDate = node.due_date || todayStr();
       var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, todayStr(), node.recur_interval);
       var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, todayStr(), node.recur_interval);
+      // 若旧任务已拖延多个周期, defaultNext 累加后仍 <= today, 语义不再是"下一周期"
+      // 直接以 jumpNext 作为唯一选项(与"跳到当前周期"一致), 只显示一行
+      if (defaultNext <= todayStr()) defaultNext = jumpNext;
       var sameDate = defaultNext === jumpNext;
       var html =
         '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval) + '）</p>' +
         '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
-        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
+        // sameDate=true 时(含"defaultNext 已赋成 jumpNext"), 默认选项直接走 jumpToCurrent, 与后端算出的 nextDue 保持一致
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="' + (sameDate ? '1' : '0') + '" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
@@ -4211,13 +4215,15 @@ function drawTree(trees) {
       var dueDate = node.due_date || _today;
       var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today, node.recur_interval);
       var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today, node.recur_interval);
+      // 拖延多周期时 defaultNext 仍在过去, 视为无差异, 只显示 jumpNext
+      if (defaultNext <= _today) defaultNext = jumpNext;
       var sameDate = defaultNext === jumpNext;
       var html =
         '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval) + '）</p>' +
         '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
-        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
-        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
+        // sameDate=true 时(含"defaultNext 已赋成 jumpNext"), 默认选项直接走 jumpToCurrent, 与后端算出的 nextDue 保持一致
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="' + (sameDate ? '1' : '0') + '" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
