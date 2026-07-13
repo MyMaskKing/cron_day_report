@@ -162,9 +162,11 @@ function buildChartSeries(raw, range, today) {
  * @param {string} recurrence - 'daily' | 'weekly' | 'monthly' | 'yearly'
  * @param {boolean} jumpToCurrent - true 时以 todayStr 为基准找该周期下一个未来日
  * @param {string} todayStr - 今天 YYYY-MM-DD（北京日历）；仅 jumpToCurrent=true 时用
+ * @param {number} interval - 每隔 N 个周期; 缺省或 <1 归一为 1
  * @returns {string} 新 YYYY-MM-DD
  */
-function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr) {
+function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr, interval) {
+  const step = (interval != null && interval >= 1) ? Math.floor(interval) : 1;
   const [y, m, d] = dueDate.split('-').map(Number);
   const clamp = (year, month, day) => {
     // 该月最后一天(month 从 1 起)
@@ -172,56 +174,92 @@ function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr) {
     return Math.min(day, last);
   };
   const fmt = (year, month, day) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  // 从 (year, month) 向后跨 k 个月, 返回 [newYear, newMonth]; month 从 1 起
+  const addMonths = (year, month, k) => {
+    const idx = (year * 12 + (month - 1)) + k;
+    return [Math.floor(idx / 12), (idx % 12) + 1];
+  };
 
   if (!jumpToCurrent) {
     if (recurrence === 'daily') {
-      const t = Date.UTC(y, m - 1, d) + 86400000;
+      const t = Date.UTC(y, m - 1, d) + step * 86400000;
       return new Date(t).toISOString().slice(0, 10);
     }
     if (recurrence === 'weekly') {
-      const t = Date.UTC(y, m - 1, d) + 7 * 86400000;
+      const t = Date.UTC(y, m - 1, d) + step * 7 * 86400000;
       return new Date(t).toISOString().slice(0, 10);
     }
     if (recurrence === 'monthly') {
-      const nm = m === 12 ? 1 : m + 1;
-      const ny = m === 12 ? y + 1 : y;
+      const [ny, nm] = addMonths(y, m, step);
       return fmt(ny, nm, clamp(ny, nm, d));
     }
     if (recurrence === 'yearly') {
-      const ny = y + 1;
+      const ny = y + step;
       return fmt(ny, m, clamp(ny, m, d));
     }
     return dueDate;
   }
 
   // jumpToCurrent: 以 todayStr 为基准, 找不早于今天的下一次
+  //   interval > 1 时: 从旧 dueDate 起按 step 累加, 直到 >= today; 保持"从原始锚点等间隔"
   const today = todayStr || new Date().toISOString().slice(0, 10);
   const [ty, tm, td] = today.split('-').map(Number);
   if (recurrence === 'daily') {
-    // 今天 + 1
-    const t = Date.UTC(ty, tm - 1, td) + 86400000;
-    return new Date(t).toISOString().slice(0, 10);
+    if (step === 1) {
+      // 今天 + 1
+      const t = Date.UTC(ty, tm - 1, td) + 86400000;
+      return new Date(t).toISOString().slice(0, 10);
+    }
+    // 从旧 due 起累加 step 直到 > today
+    let ms = Date.UTC(y, m - 1, d);
+    const targetMs = Date.UTC(ty, tm - 1, td);
+    while (ms <= targetMs) ms += step * 86400000;
+    return new Date(ms).toISOString().slice(0, 10);
   }
   if (recurrence === 'weekly') {
-    // 今天所在自然周同 dueDate 的星期几; 若已过则下周
-    const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-    const todayMs = Date.UTC(ty, tm - 1, td);
-    const tdow = new Date(todayMs).getUTCDay();
-    let deltaDays = (dow - tdow + 7) % 7;
-    if (deltaDays === 0) deltaDays = 7;
-    return new Date(todayMs + deltaDays * 86400000).toISOString().slice(0, 10);
+    if (step === 1) {
+      // 今天所在自然周同 dueDate 的星期几; 若已过则下周
+      const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+      const todayMs = Date.UTC(ty, tm - 1, td);
+      const tdow = new Date(todayMs).getUTCDay();
+      let deltaDays = (dow - tdow + 7) % 7;
+      if (deltaDays === 0) deltaDays = 7;
+      return new Date(todayMs + deltaDays * 86400000).toISOString().slice(0, 10);
+    }
+    // step > 1: 保持"从原始锚点每 step 周", 找 > today 的第一个
+    let ms = Date.UTC(y, m - 1, d);
+    const targetMs = Date.UTC(ty, tm - 1, td);
+    while (ms <= targetMs) ms += step * 7 * 86400000;
+    return new Date(ms).toISOString().slice(0, 10);
   }
   if (recurrence === 'monthly') {
-    // 今月同 d, 若已过则下月; 溢出取月末
-    if (td < d) return fmt(ty, tm, clamp(ty, tm, d));
-    const nm = tm === 12 ? 1 : tm + 1;
-    const ny = tm === 12 ? ty + 1 : ty;
-    return fmt(ny, nm, clamp(ny, nm, d));
+    if (step === 1) {
+      // 今月同 d, 若已过则下月; 溢出取月末
+      if (td < d) return fmt(ty, tm, clamp(ty, tm, d));
+      const nm = tm === 12 ? 1 : tm + 1;
+      const ny = tm === 12 ? ty + 1 : ty;
+      return fmt(ny, nm, clamp(ny, nm, d));
+    }
+    // step > 1: 从旧 (y, m) 起每次 +step 个月, 直到 > today
+    let cy = y, cm = m;
+    while (cy < ty || (cy === ty && (cm < tm || (cm === tm && clamp(cy, cm, d) <= td)))) {
+      const [ny, nm] = addMonths(cy, cm, step);
+      cy = ny; cm = nm;
+    }
+    return fmt(cy, cm, clamp(cy, cm, d));
   }
   if (recurrence === 'yearly') {
-    // 今年同 m/d, 若已过则明年; 2/29 遇平年取当月末
-    if (tm < m || (tm === m && td < d)) return fmt(ty, m, clamp(ty, m, d));
-    return fmt(ty + 1, m, clamp(ty + 1, m, d));
+    if (step === 1) {
+      // 今年同 m/d, 若已过则明年; 2/29 遇平年取当月末
+      if (tm < m || (tm === m && td < d)) return fmt(ty, m, clamp(ty, m, d));
+      return fmt(ty + 1, m, clamp(ty + 1, m, d));
+    }
+    // step > 1: 从旧 y 起每次 +step 年, 直到 > today
+    let cy = y;
+    while (cy < ty || (cy === ty && (m < tm || (m === tm && clamp(cy, m, d) <= td)))) {
+      cy += step;
+    }
+    return fmt(cy, m, clamp(cy, m, d));
   }
   return dueDate;
 }

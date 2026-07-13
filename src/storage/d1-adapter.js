@@ -528,13 +528,16 @@ function createD1Adapter(env) {
       async create(userId, t) {
         // 仅顶层任务(parent_id 空)允许 recurrence 非空; 子任务强制置 null
         const rec = (t.parent_id == null && t.recurrence) ? t.recurrence : null;
+        // recur_interval: [1..99], 无 recurrence 时强制置 null
+        const rawIv = t.recur_interval != null ? parseInt(t.recur_interval, 10) : null;
+        const iv = (rec && rawIv >= 1) ? Math.min(rawIv, 99) : null;
         const res = await db.prepare(
-          'INSERT INTO todos (user_id, parent_id, title, priority, due_date, category, note, sort_order, recurrence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO todos (user_id, parent_id, title, priority, due_date, category, note, sort_order, recurrence, recur_interval) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
           userId, t.parent_id != null ? t.parent_id : null, t.title,
           t.priority != null ? t.priority : 1,
           t.due_date || null, t.category || null, t.note || null, t.sort_order != null ? t.sort_order : 0,
-          rec
+          rec, iv
         ).run();
         return res.meta.last_row_id;
       },
@@ -545,9 +548,12 @@ function createD1Adapter(env) {
           // 仅顶层允许 recurrence; 子任务强制 null (API 已过滤, 此处再保险)
           const cur = await db.prepare('SELECT parent_id FROM todos WHERE id=? AND user_id=?').bind(id, userId).first();
           const rec = (cur && cur.parent_id == null) ? (t.recurrence || null) : null;
+          // recur_interval: 与 rec 同步更新; 无 rec 时强制 null
+          const rawIv = t.recur_interval != null ? parseInt(t.recur_interval, 10) : null;
+          const iv = (rec && rawIv >= 1) ? Math.min(rawIv, 99) : null;
           await db.prepare(
-            'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=?, recurrence=? WHERE id=? AND user_id=?'
-          ).bind(t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, t.note || null, rec, id, userId).run();
+            'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=?, recurrence=?, recur_interval=? WHERE id=? AND user_id=?'
+          ).bind(t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, t.note || null, rec, iv, id, userId).run();
         } else {
           await db.prepare(
             'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=? WHERE id=? AND user_id=?'
@@ -592,7 +598,7 @@ function createD1Adapter(env) {
         if (self.parent_id != null) return { cloned: false };
         if (!self.recurrence) return { cloned: false };
         if (!self.due_date) return { cloned: false };
-        const nextDue = shiftDate(self.due_date, self.recurrence, !!jumpToCurrent, todayStr);
+        const nextDue = shiftDate(self.due_date, self.recurrence, !!jumpToCurrent, todayStr, self.recur_interval);
         const newRootId = await this._cloneSubtreeForRecur(self, nextDue, userId, todayStr);
         return { cloned: true, next_id: newRootId, next_due: nextDue };
       },
@@ -602,7 +608,7 @@ function createD1Adapter(env) {
       async _cloneSubtreeForRecur(rootOld, nextDue, userId, todayStr) {
         // 1. 插入新 root
         const rootRes = await db.prepare(
-          'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_from_id) VALUES (?, NULL, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?)'
+          'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_from_id) VALUES (?, NULL, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?)'
         ).bind(
           userId, rootOld.title,
           rootOld.priority != null ? rootOld.priority : 1,
@@ -611,6 +617,7 @@ function createD1Adapter(env) {
           rootOld.sort_order != null ? rootOld.sort_order : 0,
           rootOld.note || null,
           rootOld.recurrence,
+          rootOld.recur_interval != null ? rootOld.recur_interval : null,
           rootOld.id
         ).run();
         const newRootId = rootRes.meta.last_row_id;
@@ -629,7 +636,7 @@ function createD1Adapter(env) {
             const newParent = idMap.get(r.parent_id);
             if (newParent == null) { next.push(r); continue; }
             const res = await db.prepare(
-              'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_from_id) VALUES (?, ?, ?, 0, ?, NULL, ?, ?, NULL, ?, NULL, NULL, ?)'
+              'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_from_id) VALUES (?, ?, ?, 0, ?, NULL, ?, ?, NULL, ?, NULL, NULL, NULL, ?)'
             ).bind(
               userId, newParent, r.title,
               r.priority != null ? r.priority : 1,

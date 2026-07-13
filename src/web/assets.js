@@ -110,6 +110,8 @@ function openModal(title, bodyHtml) {
   var box = document.getElementById('modalBody');
   var tas = box ? box.querySelectorAll('textarea[data-autogrow]') : [];
   Array.prototype.forEach.call(tas, function(ta){ autoGrowTextarea(ta); });
+  // 待办表单: 重复下拉 → 联动"每 N 单位"数字框显隐与单位文案
+  if (box && box.querySelector && box.querySelector('#tfRecur')) todoBindRecurUI();
 }
 function closeModal() {
   var mask = document.getElementById('modalMask');
@@ -2537,38 +2539,71 @@ function todoDoneByFilter(rows, filter, today, range) {
 // 前端版 shiftDate: 与后端 services/todo.service.js 的 shiftDate 逻辑一致
 // dueDate: YYYY-MM-DD; recurrence: 'daily'|'weekly'|'monthly'|'yearly'
 // jumpToCurrent=true 时以 todayStr 为基准找该周期最近未来日
-function shiftDateLocal(dueDate, recurrence, jumpToCurrent, todayStr) {
+// interval: 每隔 N 个周期; 缺省或 <1 归一为 1
+function shiftDateLocal(dueDate, recurrence, jumpToCurrent, todayStr, interval) {
+  var step = (interval != null && interval >= 1) ? Math.floor(interval) : 1;
   var parts = dueDate.split('-');
   var y = +parts[0], m = +parts[1], d = +parts[2];
   function clamp(yr, mo, day){ var last = new Date(Date.UTC(yr, mo, 0)).getUTCDate(); return Math.min(day, last); }
   function fmt(yr, mo, day){ return yr + '-' + (mo<10?'0':'') + mo + '-' + (day<10?'0':'') + day; }
+  // 从 (year, month) 向后跨 k 个月, 返回 [newYear, newMonth]; month 从 1 起
+  function addMonths(year, month, k) {
+    var idx = (year * 12 + (month - 1)) + k;
+    return [Math.floor(idx / 12), (idx % 12) + 1];
+  }
   if (!jumpToCurrent) {
-    if (recurrence === 'daily') { var t = Date.UTC(y, m-1, d) + 86400000; return new Date(t).toISOString().slice(0,10); }
-    if (recurrence === 'weekly') { var t2 = Date.UTC(y, m-1, d) + 7*86400000; return new Date(t2).toISOString().slice(0,10); }
-    if (recurrence === 'monthly') { var nm = m===12?1:m+1; var ny = m===12?y+1:y; return fmt(ny, nm, clamp(ny, nm, d)); }
-    if (recurrence === 'yearly') { var ny2 = y+1; return fmt(ny2, m, clamp(ny2, m, d)); }
+    if (recurrence === 'daily') { var t = Date.UTC(y, m-1, d) + step * 86400000; return new Date(t).toISOString().slice(0,10); }
+    if (recurrence === 'weekly') { var t2 = Date.UTC(y, m-1, d) + step * 7 * 86400000; return new Date(t2).toISOString().slice(0,10); }
+    if (recurrence === 'monthly') { var mm = addMonths(y, m, step); return fmt(mm[0], mm[1], clamp(mm[0], mm[1], d)); }
+    if (recurrence === 'yearly') { var ny2 = y + step; return fmt(ny2, m, clamp(ny2, m, d)); }
     return dueDate;
   }
   var today = todayStr || new Date(Date.now() + 8*3600*1000).toISOString().slice(0,10);
   var tp = today.split('-');
   var ty = +tp[0], tm = +tp[1], td = +tp[2];
-  if (recurrence === 'daily') { var tt = Date.UTC(ty, tm-1, td) + 86400000; return new Date(tt).toISOString().slice(0,10); }
+  if (recurrence === 'daily') {
+    if (step === 1) { var tt = Date.UTC(ty, tm-1, td) + 86400000; return new Date(tt).toISOString().slice(0,10); }
+    var ms = Date.UTC(y, m-1, d);
+    var target = Date.UTC(ty, tm-1, td);
+    while (ms <= target) ms += step * 86400000;
+    return new Date(ms).toISOString().slice(0,10);
+  }
   if (recurrence === 'weekly') {
-    var dow = new Date(Date.UTC(y, m-1, d)).getUTCDay();
-    var todayMs = Date.UTC(ty, tm-1, td);
-    var tdow = new Date(todayMs).getUTCDay();
-    var deltaDays = (dow - tdow + 7) % 7;
-    if (deltaDays === 0) deltaDays = 7;
-    return new Date(todayMs + deltaDays * 86400000).toISOString().slice(0,10);
+    if (step === 1) {
+      var dow = new Date(Date.UTC(y, m-1, d)).getUTCDay();
+      var todayMs = Date.UTC(ty, tm-1, td);
+      var tdow = new Date(todayMs).getUTCDay();
+      var deltaDays = (dow - tdow + 7) % 7;
+      if (deltaDays === 0) deltaDays = 7;
+      return new Date(todayMs + deltaDays * 86400000).toISOString().slice(0,10);
+    }
+    var ms2 = Date.UTC(y, m-1, d);
+    var target2 = Date.UTC(ty, tm-1, td);
+    while (ms2 <= target2) ms2 += step * 7 * 86400000;
+    return new Date(ms2).toISOString().slice(0,10);
   }
   if (recurrence === 'monthly') {
-    if (td < d) return fmt(ty, tm, clamp(ty, tm, d));
-    var nm2 = tm===12?1:tm+1; var ny3 = tm===12?ty+1:ty;
-    return fmt(ny3, nm2, clamp(ny3, nm2, d));
+    if (step === 1) {
+      if (td < d) return fmt(ty, tm, clamp(ty, tm, d));
+      var nm2 = tm===12?1:tm+1; var ny3 = tm===12?ty+1:ty;
+      return fmt(ny3, nm2, clamp(ny3, nm2, d));
+    }
+    var cy = y, cm = m;
+    while (cy < ty || (cy === ty && (cm < tm || (cm === tm && clamp(cy, cm, d) <= td)))) {
+      var mm2 = addMonths(cy, cm, step); cy = mm2[0]; cm = mm2[1];
+    }
+    return fmt(cy, cm, clamp(cy, cm, d));
   }
   if (recurrence === 'yearly') {
-    if (tm < m || (tm === m && td < d)) return fmt(ty, m, clamp(ty, m, d));
-    return fmt(ty + 1, m, clamp(ty + 1, m, d));
+    if (step === 1) {
+      if (tm < m || (tm === m && td < d)) return fmt(ty, m, clamp(ty, m, d));
+      return fmt(ty + 1, m, clamp(ty + 1, m, d));
+    }
+    var cy2 = y;
+    while (cy2 < ty || (cy2 === ty && (m < tm || (m === tm && clamp(cy2, m, d) <= td)))) {
+      cy2 += step;
+    }
+    return fmt(cy2, m, clamp(cy2, m, d));
   }
   return dueDate;
 }
@@ -2589,6 +2624,35 @@ function todoCatDistinct(rows) {
   var set = {};
   rows.forEach(function(r){ if (r.category) set[r.category] = 1; });
   return Object.keys(set).sort(function(a, b){ return a.localeCompare(b); });
+}
+// 重复徽章文案: recurrence + interval → "每日" / "每2周" / "每3月" / ...
+//   interval 缺省或 ≤1 时省略数字: "每日" / "每周" / "每月" / "每年"
+//   interval ≥2: daily→"每2天"(注意 daily 无 interval 时展示"每日", 与旧数据一致), 其它按 每N周/月/年
+function todoRecurLabel(recurrence, interval) {
+  var n = (interval != null && interval >= 1) ? Math.floor(interval) : 1;
+  if (recurrence === 'daily')   return n > 1 ? ('每' + n + '天') : '每日';
+  if (recurrence === 'weekly')  return n > 1 ? ('每' + n + '周') : '每周';
+  if (recurrence === 'monthly') return n > 1 ? ('每' + n + '月') : '每月';
+  if (recurrence === 'yearly')  return n > 1 ? ('每' + n + '年') : '每年';
+  return recurrence || '';
+}
+// 待办弹窗: 绑定"重复"下拉与"每 N 单位"数字框的联动
+//   选中"不重复" → 隐藏数字框
+//   选中 daily/weekly/monthly/yearly → 显示数字框, 单位文案切换为 天/周/月/年
+// 幂等: __recBound 标记避免重复绑定
+function todoBindRecurUI() {
+  var sel = document.getElementById('tfRecur');
+  if (!sel || sel.__recBound) return;
+  sel.__recBound = 1;
+  var box = document.getElementById('tfRecurNBox');
+  var unit = document.getElementById('tfRecurUnit');
+  var UNITS = { daily:'天', weekly:'周', monthly:'月', yearly:'年' };
+  sel.addEventListener('change', function(){
+    var v = sel.value;
+    if (!box || !unit) return;
+    if (v) { box.style.display = 'inline-flex'; unit.textContent = UNITS[v] || '天'; }
+    else box.style.display = 'none';
+  });
 }
 // 弹窗内分类下拉填充: 先清空 sel 里除固定项外的所有 option, 再插入现有分类
 // currentValue 为当前任务的分类(编辑时非空); 若不在下拉列表则动态插入并选中
@@ -3055,10 +3119,9 @@ function renderTodoTree(container, trees, opts) {
     }
     // 重复徽章: 仅顶层任务显示
     if (depth === 0 && node.recurrence) {
-      var recMap = { daily: '每日', weekly: '每周', monthly: '每月', yearly: '每年' };
       var rc = document.createElement('span');
       rc.className = 'todo-chip repeat';
-      rc.textContent = '🔁 ' + (recMap[node.recurrence] || node.recurrence);
+      rc.textContent = '🔁 ' + todoRecurLabel(node.recurrence, node.recur_interval);
       meta.appendChild(rc);
     }
     if (meta.childNodes.length) main.appendChild(meta);
@@ -3198,10 +3261,9 @@ function renderTodoCards(container, trees, opts) {
       meta.appendChild(doneC);
     }
     if (root.recurrence) {
-      var recMap = { daily: '每日', weekly: '每周', monthly: '每月', yearly: '每年' };
       var rc = document.createElement('span');
       rc.className = 'todo-chip repeat';
-      rc.textContent = '🔁 ' + (recMap[root.recurrence] || root.recurrence);
+      rc.textContent = '🔁 ' + todoRecurLabel(root.recurrence, root.recur_interval);
       meta.appendChild(rc);
     }
     if (hasChildren) {
@@ -3405,14 +3467,21 @@ function todoFormHtml(t, isNew, isChild) {
              : '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📌 留空截止日期即作备忘录，不计入日报</p>') +
     (isChild ? '' :
       '<label>重复</label>' +
-      '<select id="tfRecur">' +
-        '<option value="">不重复</option>' +
-        '<option value="daily"' + (t.recurrence === 'daily' ? ' selected' : '') + '>🔁 每日</option>' +
-        '<option value="weekly"' + (t.recurrence === 'weekly' ? ' selected' : '') + '>🔁 每周</option>' +
-        '<option value="monthly"' + (t.recurrence === 'monthly' ? ' selected' : '') + '>🔁 每月</option>' +
-        '<option value="yearly"' + (t.recurrence === 'yearly' ? ' selected' : '') + '>🔁 每年</option>' +
-      '</select>' +
-      '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">🔁 完成后自动生成下一条任务</p>') +
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
+        '<select id="tfRecur" style="flex:1;min-width:120px;">' +
+          '<option value="">不重复</option>' +
+          '<option value="daily"' + (t.recurrence === 'daily' ? ' selected' : '') + '>🔁 每日</option>' +
+          '<option value="weekly"' + (t.recurrence === 'weekly' ? ' selected' : '') + '>🔁 每周</option>' +
+          '<option value="monthly"' + (t.recurrence === 'monthly' ? ' selected' : '') + '>🔁 每月</option>' +
+          '<option value="yearly"' + (t.recurrence === 'yearly' ? ' selected' : '') + '>🔁 每年</option>' +
+        '</select>' +
+        '<span id="tfRecurNBox" style="display:' + (t.recurrence ? 'inline-flex' : 'none') + ';align-items:center;gap:4px;color:#5a6b9a;font-size:13px;">' +
+          '每' +
+          '<input id="tfRecurN" type="number" min="1" max="99" value="' + (t.recur_interval && t.recur_interval >= 1 ? t.recur_interval : 1) + '" style="width:58px;padding:4px 6px;text-align:center;">' +
+          '<span id="tfRecurUnit">' + (({ daily:'天', weekly:'周', monthly:'月', yearly:'年' })[t.recurrence] || '天') + '</span>' +
+        '</span>' +
+      '</div>' +
+      '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">🔁 完成后自动生成下一条任务；如"每 2 周"、"每 3 月"</p>') +
     '<label>分类（可选）</label>' +
     '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
     '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;">' +
@@ -3434,7 +3503,15 @@ function todoFormRead() {
     due_date: dueEl ? (dueEl.value || null) : null,
     category: catVal || null,
     note: document.getElementById('tfNote').value.trim() || null,
-    recurrence: (function(){ var e = document.getElementById('tfRecur'); return e ? (e.value || null) : null; })()
+    recurrence: (function(){ var e = document.getElementById('tfRecur'); return e ? (e.value || null) : null; })(),
+    recur_interval: (function(){
+      var e = document.getElementById('tfRecur');
+      var n = document.getElementById('tfRecurN');
+      if (!e || !e.value || !n) return null; // 无 recurrence 时不传, 后端自动 clamp 为 null
+      var v = parseInt(n.value, 10);
+      if (!isFinite(v) || v < 1) return 1;
+      return Math.min(v, 99);
+    })()
   };
 }
 function todoTodayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
@@ -3577,12 +3654,11 @@ function drawTree() {
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
     onToggleRecur: function(node){
       var dueDate = node.due_date || todayStr();
-      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, todayStr());
-      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, todayStr());
+      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, todayStr(), node.recur_interval);
+      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, todayStr(), node.recur_interval);
       var sameDate = defaultNext === jumpNext;
-      var recMap = { daily: '每日', weekly: '每周', monthly: '每月', yearly: '每年' };
       var html =
-        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + (recMap[node.recurrence] || '') + '）</p>' +
+        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval) + '）</p>' +
         '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
         '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
@@ -4133,14 +4209,14 @@ function drawTree(trees) {
     onEnter: function(node){ _todoDetailRootId = node.id; loadCollab(); },
     onToggleRecur: function(node){
       var dueDate = node.due_date || _today;
-      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today);
-      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today);
+      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today, node.recur_interval);
+      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today, node.recur_interval);
       var sameDate = defaultNext === jumpNext;
-      var recMap = { daily: '每日', weekly: '每周', monthly: '每月', yearly: '每年' };
       var html =
-        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + (recMap[node.recurrence] || '') + '）</p>' +
+        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval) + '）</p>' +
         '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
         '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
