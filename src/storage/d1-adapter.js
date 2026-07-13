@@ -3,6 +3,8 @@
  * 实现 adapter.js 中定义的接口契约
  */
 
+import { shiftDate } from '../services/todo.service.js';
+
 /**
  * @param {Object} env - Worker 环境，需含 env.DB (D1 binding)
  * @returns {Object} 适配器实例
@@ -524,19 +526,33 @@ function createD1Adapter(env) {
         return await db.prepare('SELECT * FROM todos WHERE id=?').bind(id).first();
       },
       async create(userId, t) {
+        // 仅顶层任务(parent_id 空)允许 recurrence 非空; 子任务强制置 null
+        const rec = (t.parent_id == null && t.recurrence) ? t.recurrence : null;
         const res = await db.prepare(
-          'INSERT INTO todos (user_id, parent_id, title, priority, due_date, category, note, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO todos (user_id, parent_id, title, priority, due_date, category, note, sort_order, recurrence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
           userId, t.parent_id != null ? t.parent_id : null, t.title,
           t.priority != null ? t.priority : 1,
-          t.due_date || null, t.category || null, t.note || null, t.sort_order != null ? t.sort_order : 0
+          t.due_date || null, t.category || null, t.note || null, t.sort_order != null ? t.sort_order : 0,
+          rec
         ).run();
         return res.meta.last_row_id;
       },
       async update(id, userId, t) {
-        await db.prepare(
-          'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=? WHERE id=? AND user_id=?'
-        ).bind(t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, t.note || null, id, userId).run();
+        // 若 t.recurrence 显式传入(含 null), 则更新; 未传时保持原值不变
+        const hasRec = Object.prototype.hasOwnProperty.call(t, 'recurrence');
+        if (hasRec) {
+          // 仅顶层允许 recurrence; 子任务强制 null (API 已过滤, 此处再保险)
+          const cur = await db.prepare('SELECT parent_id FROM todos WHERE id=? AND user_id=?').bind(id, userId).first();
+          const rec = (cur && cur.parent_id == null) ? (t.recurrence || null) : null;
+          await db.prepare(
+            'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=?, recurrence=? WHERE id=? AND user_id=?'
+          ).bind(t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, t.note || null, rec, id, userId).run();
+        } else {
+          await db.prepare(
+            'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=? WHERE id=? AND user_id=?'
+          ).bind(t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, t.note || null, id, userId).run();
+        }
       },
       // 同级重排：按 orderedIds 顺序批量写 sort_order=0..n
       // 双校验 user_id + parent_id，越权或跨级的 id 不会被更新；parentId 为 null 表顶层
@@ -560,6 +576,74 @@ function createD1Adapter(env) {
         await db.prepare(
           `UPDATE todos SET done=?, done_at=? WHERE id IN (${placeholders})`
         ).bind(done ? 1 : 0, done ? (doneAt || null) : null, ...idList).run();
+      },
+      // 完成/取消完成, 若命中"顶层重复任务且 done=1", 自动 clone 一条新任务(含子树)
+      // 返回 { cloned: boolean, next_id?, next_due? }
+      // done=0 或非顶层重复走原有级联逻辑, cloned=false
+      // userId 双校验用: 目标不属该用户视为无效, cloned=false 且不写任何数据
+      async markDoneWithRecur(id, userId, done, jumpToCurrent, todayStr) {
+        const self = await db.prepare('SELECT * FROM todos WHERE id=? AND user_id=?').bind(id, userId).first();
+        if (!self) return { cloned: false };
+        // 先处理原有的级联完成
+        const desc = await this.collectDescendantIds(id);
+        await this.setDone([id, ...desc], !!done, todayStr);
+        // 判断是否需要 clone: 必须 done=1, 顶层, 有 recurrence, 有 due_date
+        if (!done) return { cloned: false };
+        if (self.parent_id != null) return { cloned: false };
+        if (!self.recurrence) return { cloned: false };
+        if (!self.due_date) return { cloned: false };
+        const nextDue = shiftDate(self.due_date, self.recurrence, !!jumpToCurrent, todayStr);
+        const newRootId = await this._cloneSubtreeForRecur(self, nextDue, userId, todayStr);
+        return { cloned: true, next_id: newRootId, next_due: nextDue };
+      },
+      // 内部: 递归克隆 rootOld 及其全部后代, 返回新 root id
+      // 新任务全部 done=0, done_at=null, share_token=null, recur_from_id 指向原 id
+      // rootOld 是完整行对象(含 recurrence 等), 需 SELECT * 后再传入
+      async _cloneSubtreeForRecur(rootOld, nextDue, userId, todayStr) {
+        // 1. 插入新 root
+        const rootRes = await db.prepare(
+          'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_from_id) VALUES (?, NULL, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?)'
+        ).bind(
+          userId, rootOld.title,
+          rootOld.priority != null ? rootOld.priority : 1,
+          nextDue,
+          rootOld.category || null,
+          rootOld.sort_order != null ? rootOld.sort_order : 0,
+          rootOld.note || null,
+          rootOld.recurrence,
+          rootOld.id
+        ).run();
+        const newRootId = rootRes.meta.last_row_id;
+        // 2. 递归子孙: 读原子树(不含 root 本身), 按 sort_order+id 顺序 clone
+        const subtree = await this.listSubtree(rootOld.id);
+        const others = subtree.filter(r => r.id !== rootOld.id);
+        // idMap: 旧 id -> 新 id
+        const idMap = new Map();
+        idMap.set(rootOld.id, newRootId);
+        // 保证父在前(listSubtree 返回按 sort_order+id, 但可能同级子在祖先前, 需要拓扑保证)
+        // 简单做法: 用 while 循环, 只有父已映射的行才处理; 循环直到全部完成
+        let remaining = others.slice();
+        while (remaining.length) {
+          const next = [];
+          for (const r of remaining) {
+            const newParent = idMap.get(r.parent_id);
+            if (newParent == null) { next.push(r); continue; }
+            const res = await db.prepare(
+              'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_from_id) VALUES (?, ?, ?, 0, ?, NULL, ?, ?, NULL, ?, NULL, NULL, ?)'
+            ).bind(
+              userId, newParent, r.title,
+              r.priority != null ? r.priority : 1,
+              r.category || null,
+              r.sort_order != null ? r.sort_order : 0,
+              r.note || null,
+              r.id
+            ).run();
+            idMap.set(r.id, res.meta.last_row_id);
+          }
+          if (next.length === remaining.length) break; // 防死循环: 存在孤儿则终止(理论上不会发生)
+          remaining = next;
+        }
+        return newRootId;
       },
       // 递归收集某任务的全部后代 id（不含自身），供级联完成/删除
       async collectDescendantIds(id) {

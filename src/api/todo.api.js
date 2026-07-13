@@ -51,12 +51,16 @@ async function createTodo({ request, env }) {
   }
   // 子任务日期继承主任务，不单独存日期；仅顶层任务可设 due_date
   const dueDate = parentId != null ? null : ((body.due_date || '').trim() || null);
+  // 重复周期: 仅顶层任务允许, 值须在白名单内
+  const REC = ['daily', 'weekly', 'monthly', 'yearly'];
+  const rec = (parentId == null && body.recurrence && REC.includes(body.recurrence)) ? body.recurrence : null;
   const id = await storage.todo.create(auth.user_id, {
     parent_id: parentId, title,
     priority: normPriority(body.priority),
     due_date: dueDate,
     category: (body.category || '').trim() || null,
-    note: (body.note || '').trim() || null
+    note: (body.note || '').trim() || null,
+    recurrence: rec
   });
   return json({ success: true, message: '任务已添加', id });
 }
@@ -75,13 +79,19 @@ async function updateTodo({ request, env, params }) {
   if (!t || t.user_id !== auth.user_id) return error('任务不存在', 404);
   // 子任务日期继承主任务，不单独存日期；仅顶层任务可设 due_date
   const dueDate = t.parent_id != null ? null : ((body.due_date || '').trim() || null);
-  await storage.todo.update(id, auth.user_id, {
+  // 重复周期: 仅顶层任务允许; body.recurrence 显式为空字符串或 null 时清空; 未传则不改动
+  const REC = ['daily', 'weekly', 'monthly', 'yearly'];
+  const payload = {
     title,
     priority: normPriority(body.priority),
     due_date: dueDate,
     category: (body.category || '').trim() || null,
     note: (body.note || '').trim() || null
-  });
+  };
+  if (Object.prototype.hasOwnProperty.call(body, 'recurrence')) {
+    payload.recurrence = (t.parent_id == null && body.recurrence && REC.includes(body.recurrence)) ? body.recurrence : null;
+  }
+  await storage.todo.update(id, auth.user_id, payload);
   return json({ success: true, message: '任务已更新' });
 }
 
@@ -93,14 +103,14 @@ async function toggleTodo({ request, env, params }) {
   if (auth instanceof Response) return auth;
   const body = await request.json().catch(() => ({}));
   const done = !!body.done;
+  const jumpToCurrent = !!body.jumpToCurrent;
 
   const storage = getStorage(env);
   const id = parseInt(params.id, 10);
   const t = await storage.todo.findById(id);
   if (!t || t.user_id !== auth.user_id) return error('任务不存在', 404);
-  const descendants = await storage.todo.collectDescendantIds(id);
-  await storage.todo.setDone([id, ...descendants], done, todayCN());
-  return json({ success: true, message: done ? '已完成' : '已取消完成' });
+  const r = await storage.todo.markDoneWithRecur(id, auth.user_id, done, jumpToCurrent, todayCN());
+  return json({ success: true, message: done ? '已完成' : '已取消完成', cloned: !!r.cloned, next_id: r.next_id || null, next_due: r.next_due || null });
 }
 
 /** PUT /api/todo/reorder  子任务同级重排  body: { parent_id, ids:[...] }
@@ -235,9 +245,9 @@ async function publicToggleTodo({ request, env, params }) {
   const subtree = await storage.todo.listSubtree(root.id);
   const allowIds = new Set(subtree.map(r => r.id));
   if (!allowIds.has(id)) return error('任务不属于此清单', 400);
-  const descendants = await storage.todo.collectDescendantIds(id);
-  await storage.todo.setDone([id, ...descendants], done, todayCN());
-  return json({ success: true, message: done ? '已完成' : '已取消完成' });
+  // 免密页永远用默认(旧+周期); 不接受 jumpToCurrent 参数
+  const r = await storage.todo.markDoneWithRecur(id, root.user_id, done, false, todayCN());
+  return json({ success: true, message: done ? '已完成' : '已取消完成', cloned: !!r.cloned, next_id: r.next_id || null, next_due: r.next_due || null });
 }
 
 /** PUT /api/public/todo/:token/:id  免密编辑任务，校验目标属该子树
@@ -258,13 +268,18 @@ async function publicUpdateTodo({ request, env, params }) {
   if (!allowIds.has(id)) return error('任务不属于此清单', 400);
   // 仅清单根任务是顶层，可设截止日期；其余子任务日期继承主任务
   const dueDate = id === root.id ? ((body.due_date || '').trim() || null) : null;
-  await storage.todo.update(id, root.user_id, {
+  const REC = ['daily', 'weekly', 'monthly', 'yearly'];
+  const payload = {
     title,
     priority: normPriority(body.priority),
     due_date: dueDate,
     category: (body.category || '').trim() || null,
     note: (body.note || '').trim() || null
-  });
+  };
+  if (id === root.id && Object.prototype.hasOwnProperty.call(body, 'recurrence')) {
+    payload.recurrence = (body.recurrence && REC.includes(body.recurrence)) ? body.recurrence : null;
+  }
+  await storage.todo.update(id, root.user_id, payload);
   return json({ success: true, message: '任务已更新' });
 }
 
@@ -367,9 +382,9 @@ async function publicAllToggle({ request, env, params }) {
   const id = parseInt(params.id, 10);
   const t = await storage.todo.findById(id);
   if (!t || t.user_id !== userId) return error('任务不存在', 404);
-  const descendants = await storage.todo.collectDescendantIds(id);
-  await storage.todo.setDone([id, ...descendants], done, todayCN());
-  return json({ success: true, message: done ? '已完成' : '已取消完成' });
+  // 免密汇总页永远用默认(旧+周期)
+  const r = await storage.todo.markDoneWithRecur(id, userId, done, false, todayCN());
+  return json({ success: true, message: done ? '已完成' : '已取消完成', cloned: !!r.cloned, next_id: r.next_id || null, next_due: r.next_due || null });
 }
 
 /** PUT /api/public/todo-all/:token/:id  免密汇总页编辑，校验任务属该用户
@@ -388,13 +403,18 @@ async function publicAllUpdate({ request, env, params }) {
   const t = await storage.todo.findById(id);
   if (!t || t.user_id !== userId) return error('任务不存在', 404);
   const dueDate = t.parent_id != null ? null : ((body.due_date || '').trim() || null);
-  await storage.todo.update(id, userId, {
+  const REC = ['daily', 'weekly', 'monthly', 'yearly'];
+  const payload = {
     title,
     priority: normPriority(body.priority),
     due_date: dueDate,
     category: (body.category || '').trim() || null,
     note: (body.note || '').trim() || null
-  });
+  };
+  if (t.parent_id == null && Object.prototype.hasOwnProperty.call(body, 'recurrence')) {
+    payload.recurrence = (body.recurrence && REC.includes(body.recurrence)) ? body.recurrence : null;
+  }
+  await storage.todo.update(id, userId, payload);
   return json({ success: true, message: '任务已更新' });
 }
 

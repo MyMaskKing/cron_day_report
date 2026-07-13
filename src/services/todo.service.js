@@ -142,4 +142,75 @@ function buildChartSeries(raw, range, today) {
   return { range, unit: cfg.unit, labels, created, done };
 }
 
-export { buildTree, flattenPending, countStats, buildChartSeries, CHART_RANGES };
+/**
+ * 计算重复任务的下次截止日期
+ * 顶层任务勾选完成时用: 从旧 dueDate 推出新一条实例的 dueDate
+ * @param {string} dueDate - 旧任务的 YYYY-MM-DD
+ * @param {string} recurrence - 'daily' | 'weekly' | 'monthly' | 'yearly'
+ * @param {boolean} jumpToCurrent - true 时以 todayStr 为基准找该周期下一个未来日
+ * @param {string} todayStr - 今天 YYYY-MM-DD（北京日历）；仅 jumpToCurrent=true 时用
+ * @returns {string} 新 YYYY-MM-DD
+ */
+function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr) {
+  const [y, m, d] = dueDate.split('-').map(Number);
+  const clamp = (year, month, day) => {
+    // 该月最后一天(month 从 1 起)
+    const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return Math.min(day, last);
+  };
+  const fmt = (year, month, day) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+  if (!jumpToCurrent) {
+    if (recurrence === 'daily') {
+      const t = Date.UTC(y, m - 1, d) + 86400000;
+      return new Date(t).toISOString().slice(0, 10);
+    }
+    if (recurrence === 'weekly') {
+      const t = Date.UTC(y, m - 1, d) + 7 * 86400000;
+      return new Date(t).toISOString().slice(0, 10);
+    }
+    if (recurrence === 'monthly') {
+      const nm = m === 12 ? 1 : m + 1;
+      const ny = m === 12 ? y + 1 : y;
+      return fmt(ny, nm, clamp(ny, nm, d));
+    }
+    if (recurrence === 'yearly') {
+      const ny = y + 1;
+      return fmt(ny, m, clamp(ny, m, d));
+    }
+    return dueDate;
+  }
+
+  // jumpToCurrent: 以 todayStr 为基准, 找不早于今天的下一次
+  const today = todayStr || new Date().toISOString().slice(0, 10);
+  const [ty, tm, td] = today.split('-').map(Number);
+  if (recurrence === 'daily') {
+    // 今天 + 1
+    const t = Date.UTC(ty, tm - 1, td) + 86400000;
+    return new Date(t).toISOString().slice(0, 10);
+  }
+  if (recurrence === 'weekly') {
+    // 今天所在自然周同 dueDate 的星期几; 若已过则下周
+    const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    const todayMs = Date.UTC(ty, tm - 1, td);
+    const tdow = new Date(todayMs).getUTCDay();
+    let deltaDays = (dow - tdow + 7) % 7;
+    if (deltaDays === 0) deltaDays = 7;
+    return new Date(todayMs + deltaDays * 86400000).toISOString().slice(0, 10);
+  }
+  if (recurrence === 'monthly') {
+    // 今月同 d, 若已过则下月; 溢出取月末
+    if (td < d) return fmt(ty, tm, clamp(ty, tm, d));
+    const nm = tm === 12 ? 1 : tm + 1;
+    const ny = tm === 12 ? ty + 1 : ty;
+    return fmt(ny, nm, clamp(ny, nm, d));
+  }
+  if (recurrence === 'yearly') {
+    // 今年同 m/d, 若已过则明年; 2/29 遇平年取当月末
+    if (tm < m || (tm === m && td < d)) return fmt(ty, m, clamp(ty, m, d));
+    return fmt(ty + 1, m, clamp(ty + 1, m, d));
+  }
+  return dueDate;
+}
+
+export { buildTree, flattenPending, countStats, buildChartSeries, CHART_RANGES, shiftDate };

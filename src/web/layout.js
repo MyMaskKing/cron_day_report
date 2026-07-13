@@ -200,6 +200,7 @@ th { color: #666; font-weight: 600; background: #fafafa; }
 .todo-chip.due { background: #f0f5ff; color: #5a6b9a; }
 .todo-chip.due.overdue { background: #fff1f0; color: #cf1322; font-weight: 600; }
 .todo-chip.done-at { background: #f6ffed; color: #389e0d; }
+.todo-chip.repeat { background: #f9f0ff; color: #722ed1; font-weight: 600; }
 /* 行内操作按钮：默认淡，hover 行时显现 */
 .todo-ops { display: flex; gap: 2px; opacity: .35; transition: opacity .18s; flex-shrink: 0; }
 .todo-row:hover .todo-ops { opacity: 1; }
@@ -470,9 +471,14 @@ body.todo-fs-on .todo-fullscreen { display: flex; }
     background: rgba(0,0,0,.35);
   }
   body.todo-fs-on .todo-drawer-mask.show { display: block; }
-  .todo-fs-main { padding: 10px 12px 14px; }
   /* 手机端全屏顶栏 sticky + 滚动方向隐藏/显示; PC 端不生效 */
-  .todo-fs-top { position: sticky; top: 0; z-index: 5; padding-top: 4px; }
+  /* 把 fs-main 的 padding-top 移到 fs-top 自身, 让 sticky 到 top:0 时无空隙 */
+  .todo-fs-main { padding: 0 12px 14px; }
+  .todo-fs-top {
+    position: sticky; top: 0; z-index: 5;
+    padding-top: 12px; margin-left: -12px; margin-right: -12px;
+    padding-left: 12px; padding-right: 12px;
+  }
   .todo-fs-top--hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
 }
 `;

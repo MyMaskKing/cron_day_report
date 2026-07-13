@@ -2416,6 +2416,44 @@ function todoLeafCount(node) {
   })(node);
   return { total: total, done: done };
 }
+// 前端版 shiftDate: 与后端 services/todo.service.js 的 shiftDate 逻辑一致
+// dueDate: YYYY-MM-DD; recurrence: 'daily'|'weekly'|'monthly'|'yearly'
+// jumpToCurrent=true 时以 todayStr 为基准找该周期最近未来日
+function shiftDateLocal(dueDate, recurrence, jumpToCurrent, todayStr) {
+  var parts = dueDate.split('-');
+  var y = +parts[0], m = +parts[1], d = +parts[2];
+  function clamp(yr, mo, day){ var last = new Date(Date.UTC(yr, mo, 0)).getUTCDate(); return Math.min(day, last); }
+  function fmt(yr, mo, day){ return yr + '-' + (mo<10?'0':'') + mo + '-' + (day<10?'0':'') + day; }
+  if (!jumpToCurrent) {
+    if (recurrence === 'daily') { var t = Date.UTC(y, m-1, d) + 86400000; return new Date(t).toISOString().slice(0,10); }
+    if (recurrence === 'weekly') { var t2 = Date.UTC(y, m-1, d) + 7*86400000; return new Date(t2).toISOString().slice(0,10); }
+    if (recurrence === 'monthly') { var nm = m===12?1:m+1; var ny = m===12?y+1:y; return fmt(ny, nm, clamp(ny, nm, d)); }
+    if (recurrence === 'yearly') { var ny2 = y+1; return fmt(ny2, m, clamp(ny2, m, d)); }
+    return dueDate;
+  }
+  var today = todayStr || new Date(Date.now() + 8*3600*1000).toISOString().slice(0,10);
+  var tp = today.split('-');
+  var ty = +tp[0], tm = +tp[1], td = +tp[2];
+  if (recurrence === 'daily') { var tt = Date.UTC(ty, tm-1, td) + 86400000; return new Date(tt).toISOString().slice(0,10); }
+  if (recurrence === 'weekly') {
+    var dow = new Date(Date.UTC(y, m-1, d)).getUTCDay();
+    var todayMs = Date.UTC(ty, tm-1, td);
+    var tdow = new Date(todayMs).getUTCDay();
+    var deltaDays = (dow - tdow + 7) % 7;
+    if (deltaDays === 0) deltaDays = 7;
+    return new Date(todayMs + deltaDays * 86400000).toISOString().slice(0,10);
+  }
+  if (recurrence === 'monthly') {
+    if (td < d) return fmt(ty, tm, clamp(ty, tm, d));
+    var nm2 = tm===12?1:tm+1; var ny3 = tm===12?ty+1:ty;
+    return fmt(ny3, nm2, clamp(ny3, nm2, d));
+  }
+  if (recurrence === 'yearly') {
+    if (tm < m || (tm === m && td < d)) return fmt(ty, m, clamp(ty, m, d));
+    return fmt(ty + 1, m, clamp(ty + 1, m, d));
+  }
+  return dueDate;
+}
 // 分类计数(顶层任务口径): 目录展示与卡片列表可见性一致 —— 只数顶层任务
 // 返回 { __all__: N, __none__: N, '工作': N, ... }
 function todoCatCounts(rows) {
@@ -2740,6 +2778,11 @@ function renderTodoTree(container, trees, opts) {
     if (opts.onToggle) check.addEventListener('click', async function(e){
       e.stopPropagation();
       if (check.disabled) return;
+      // 顶层重复任务从未完成→完成: 由页面侧弹选择器决定 jumpToCurrent
+      if (node.recurrence && node.parent_id == null && !node.done && opts.onToggleRecur) {
+        opts.onToggleRecur(node);
+        return;
+      }
       check.disabled = true;
       check.setAttribute('data-busy', '1');
       try { await opts.onToggle(node, !node.done); }
@@ -2786,6 +2829,14 @@ function renderTodoTree(container, trees, opts) {
       doneC.className = 'todo-chip done-at';
       doneC.textContent = '✅ 完成于 ' + node.done_at;
       meta.appendChild(doneC);
+    }
+    // 重复徽章: 仅顶层任务显示
+    if (depth === 0 && node.recurrence) {
+      var recMap = { daily: '每日', weekly: '每周', monthly: '每月', yearly: '每年' };
+      var rc = document.createElement('span');
+      rc.className = 'todo-chip repeat';
+      rc.textContent = '🔁 ' + (recMap[node.recurrence] || node.recurrence);
+      meta.appendChild(rc);
     }
     if (meta.childNodes.length) main.appendChild(meta);
     if (node.note) {
@@ -2882,6 +2933,10 @@ function renderTodoCards(container, trees, opts) {
       check.addEventListener('click', async function(e){
         e.stopPropagation();
         if (check.disabled) return;
+        if (root.recurrence && root.parent_id == null && !root.done && opts.onToggleRecur) {
+          opts.onToggleRecur(root);
+          return;
+        }
         check.disabled = true;
         check.setAttribute('data-busy', '1');
         try { await opts.onToggle(root, !root.done); }
@@ -2914,6 +2969,13 @@ function renderTodoCards(container, trees, opts) {
       doneC.className = 'todo-chip done-at';
       doneC.textContent = '✅ 完成于 ' + root.done_at;
       meta.appendChild(doneC);
+    }
+    if (root.recurrence) {
+      var recMap = { daily: '每日', weekly: '每周', monthly: '每月', yearly: '每年' };
+      var rc = document.createElement('span');
+      rc.className = 'todo-chip repeat';
+      rc.textContent = '🔁 ' + (recMap[root.recurrence] || root.recurrence);
+      meta.appendChild(rc);
     }
     if (hasChildren) {
       var lc = todoLeafCount(root);
@@ -3112,6 +3174,16 @@ function todoFormHtml(t, isNew, isChild) {
     '</div>' +
     (isChild ? '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📅 子任务的截止日期跟随主任务</p>'
              : '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📌 留空截止日期即作备忘录，不计入日报</p>') +
+    (isChild ? '' :
+      '<label>重复</label>' +
+      '<select id="tfRecur">' +
+        '<option value="">不重复</option>' +
+        '<option value="daily"' + (t.recurrence === 'daily' ? ' selected' : '') + '>🔁 每日</option>' +
+        '<option value="weekly"' + (t.recurrence === 'weekly' ? ' selected' : '') + '>🔁 每周</option>' +
+        '<option value="monthly"' + (t.recurrence === 'monthly' ? ' selected' : '') + '>🔁 每月</option>' +
+        '<option value="yearly"' + (t.recurrence === 'yearly' ? ' selected' : '') + '>🔁 每年</option>' +
+      '</select>' +
+      '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">🔁 完成后自动生成下一条任务</p>') +
     '<label>分类（可选）</label>' +
     '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
     '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;">' +
@@ -3132,7 +3204,8 @@ function todoFormRead() {
     priority: parseInt(document.getElementById('tfPri').value, 10),
     due_date: dueEl ? (dueEl.value || null) : null,
     category: catVal || null,
-    note: document.getElementById('tfNote').value.trim() || null
+    note: document.getElementById('tfNote').value.trim() || null,
+    recurrence: (function(){ var e = document.getElementById('tfRecur'); return e ? (e.value || null) : null; })()
   };
 }
 function todoTodayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
@@ -3272,6 +3345,30 @@ function drawTree() {
     today: todayStr(), hideDone: hideDone,
     onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
+    onToggleRecur: function(node){
+      var dueDate = node.due_date || todayStr();
+      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, todayStr());
+      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, todayStr());
+      var sameDate = defaultNext === jumpNext;
+      var recMap = { daily: '每日', weekly: '每周', monthly: '每月', yearly: '每年' };
+      var html =
+        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + (recMap[node.recurrence] || '') + '）</p>' +
+        '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
+        '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
+        (sameDate ? '' :
+          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
+        '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
+      openModal('✅ 完成重复任务', html);
+      bindClickBusy(document.getElementById('rrConfirm'), async function(){
+        var jr = document.querySelector('input[name="rjump"]:checked');
+        var jumpToCurrent = !!(jr && jr.value === '1');
+        await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent } });
+        closeModal();
+        await loadTodos(); await loadChart();
+        todoCelebrate(_stats.total - _stats.done, _stats.total);
+      });
+    },
     onToggle: async function(node, done){
       try {
         await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
@@ -3715,6 +3812,30 @@ function drawTree(trees) {
     today: _today,
     onExitDetail: function(){ _todoDetailRootId = null; loadCollab(); },
     onEnter: function(node){ _todoDetailRootId = node.id; loadCollab(); },
+    onToggleRecur: function(node){
+      var dueDate = node.due_date || _today;
+      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today);
+      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today);
+      var sameDate = defaultNext === jumpNext;
+      var recMap = { daily: '每日', weekly: '每周', monthly: '每月', yearly: '每年' };
+      var html =
+        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + (recMap[node.recurrence] || '') + '）</p>' +
+        '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
+        '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
+        (sameDate ? '' :
+          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
+        '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
+      openModal('✅ 完成重复任务', html);
+      bindClickBusy(document.getElementById('rrConfirm'), async function(){
+        var jr = document.querySelector('input[name="rjump"]:checked');
+        var jumpToCurrent = !!(jr && jr.value === '1');
+        // 汇总协作页仍走 public API, 但可传 jumpToCurrent(后端会忽略并强制 false)
+        await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent } });
+        closeModal();
+        await loadCollab();
+      });
+    },
     onToggle: async function(node, done){
       try {
         await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
