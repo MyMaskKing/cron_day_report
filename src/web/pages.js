@@ -825,6 +825,7 @@ function todoReportPage() {
           </div>
           <label style="font-weight:normal;color:#666;font-size:13px;white-space:nowrap;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </div>
+        <div style="margin:0 0 12px;"><button class="btn sm" id="tAddRoot">+ 添加任务</button></div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;margin-top:14px;"></div>
           <div id="todoTree" class="todo-tree" style="margin-top:14px;"></div>
@@ -858,6 +859,7 @@ function todoReportPage() {
       <div class="todo-fs-top">
         <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
         <span class="todo-fs-title">全部待办</span>
+        <button class="btn sm" id="tAddFs">+ 添加任务</button>
         <button class="btn sm gray" id="viewToggleFs">🌳 完整树</button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="btn sm danger" id="exitFullscreen">↩️ 退出全屏</button>

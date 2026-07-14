@@ -4107,7 +4107,23 @@ function drawTree() {
         }
       }
       catch(e){ alertModal(e.message, {ok:false}); }
-    }
+    },
+    onAddChild: function(node){ openAddForm(node.id, '为「' + node.title + '」添加子任务', true); }
+  });
+}
+// 新建任务/子任务弹窗: parentId=null → 顶层主任务(可设日期/重复); 传 id → 子任务(继承主任务日期)
+// 与 TODO_COLLAB_JS 同口径, 走 report_token 的 /api/public/todo-all/:token API
+function openAddForm(parentId, title, isChild) {
+  openModal(title, todoFormHtml({}, true, !!isChild) +
+    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  var pref = (_todoCategory && _todoCategory !== '__none__' && _todoCategory !== '__all__') ? _todoCategory : '';
+  todoFillCategoryOptions(_rows, pref);
+  bindClickBusy(document.getElementById('tfCreate'), async function(){
+    var body = todoFormRead();
+    if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
+    if (parentId != null) body.parent_id = parentId;
+    await api('/api/public/todo-all/' + _token, { method:'POST', body: body });
+    closeModal(); await reloadReport();
   });
 }
 // 刷新数据并重绘: 勾选后调用, 重新拉 report + 重算 stats + 重画树
@@ -4141,6 +4157,9 @@ async function reloadReport() {
       enterTodoFullscreen(_todoGetRows, drawTree);
       return Promise.resolve();
     });
+    // 新建主任务: 常规态 / 全屏态两处入口共用 openAddForm(null,...)
+    bindClickBusy(document.getElementById('tAddRoot'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
+    bindClickBusy(document.getElementById('tAddFs'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
     // 抽屉切换
     bindClickBusy(document.getElementById('drawerToggle'), function(){
       toggleTodoDrawer(_todoGetRows, drawTree);
