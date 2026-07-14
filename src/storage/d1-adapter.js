@@ -30,9 +30,15 @@ function createD1Adapter(env) {
       },
       async list() {
         const { results } = await db.prepare(
-          'SELECT id, username, nickname, role, status, created_at FROM users ORDER BY id'
+          'SELECT id, username, nickname, role, status, created_at, last_login_at, last_public_at FROM users ORDER BY id'
         ).all();
         return results || [];
+      },
+      async updateLastLogin(id) {
+        await db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").bind(id).run();
+      },
+      async updateLastPublic(id) {
+        await db.prepare("UPDATE users SET last_public_at = datetime('now') WHERE id = ?").bind(id).run();
       },
       async updateNickname(id, nickname) {
         await db.prepare('UPDATE users SET nickname = ? WHERE id = ?').bind(nickname, id).run();

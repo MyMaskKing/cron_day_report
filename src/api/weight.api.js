@@ -223,6 +223,7 @@ async function publicMemberInfo({ env, params }) {
   const m = await storage.weight.findMemberByShareToken(params.token);
   if (!m) return error('链接无效或已失效', 404);
 
+  await storage.users.updateLastPublic(m.user_id);
   const records = await storage.weight.listRecords(m.user_id, m.id);
   const today = todayCN();
   const days = yearCheckins(records, today);
@@ -278,6 +279,7 @@ async function publicWeightReport({ env, params }) {
   }
   if (userId == null) return error('链接无效或已失效', 404);
 
+  await storage.users.updateLastPublic(userId);
   const members = await storage.weight.listMembers(userId);
   const records = await storage.weight.listRecords(userId);
   const owner = await storage.users.findById(userId);

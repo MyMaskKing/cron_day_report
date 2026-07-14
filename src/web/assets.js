@@ -546,6 +546,18 @@ bindModal();
 var tbody = document.getElementById('userTbody');
 var detail = document.getElementById('detail');
 
+// D1 存储的 datetime('now') 是 UTC 'YYYY-MM-DD HH:mm:ss'
+// 沿用项目其他前端处理惯例 +8 小时展示北京时间; 空值显示破折号
+function fmtUTC2CN(s) {
+  if (!s) return '<span class="muted">—</span>';
+  var t = Date.parse(String(s).replace(' ', 'T') + 'Z');
+  if (isNaN(t)) return esc(s);
+  var d = new Date(t + 8*3600*1000);
+  var pad = function(n){ return n < 10 ? '0'+n : ''+n; };
+  return d.getUTCFullYear() + '-' + pad(d.getUTCMonth()+1) + '-' + pad(d.getUTCDate()) +
+    ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+}
+
 async function loadUsers() {
   try {
     var data = await api('/api/admin/users');
@@ -556,7 +568,9 @@ async function loadUsers() {
         '<td data-label="昵称">' + esc(u.nickname || u.username) + '</td>' +
         '<td data-label="角色"><span class="tag ' + u.role + '">' + (u.role === 'admin' ? '超管' : '用户') + '</span></td>' +
         '<td data-label="状态"><span class="tag ' + u.status + '">' + (u.status === 'active' ? '正常' : '禁用') + '</span></td>' +
-        '<td data-label="创建时间">' + esc(u.created_at) + '</td>' +
+        '<td data-label="创建时间">' + fmtUTC2CN(u.created_at) + '</td>' +
+        '<td data-label="最后登录">' + fmtUTC2CN(u.last_login_at) + '</td>' +
+        '<td data-label="最后免密">' + fmtUTC2CN(u.last_public_at) + '</td>' +
         '<td data-label="操作"><div class="dropdown">' +
           '<button class="btn sm" onclick="toggleDropdown(this)">⋯ 操作</button>' +
           '<div class="dropdown-menu">' +

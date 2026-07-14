@@ -288,6 +288,8 @@ async function publicFundInfo({ env, params }) {
   const fund = await storage.fund.findByShareToken(params.token);
   if (!fund) return error('链接无效或已失效', 404);
 
+  // 记录一次免密访问; 用于超管用户管理页展示
+  await storage.users.updateLastPublic(fund.user_id);
   const info = await fetchFundNav(fund.code);
   const currentNav = info ? (info.gsz || info.nav) : 0;
   // 近30天持仓收益序列：份额 × (当日单位净值 − 成本净值)，实时拉历史净值计算
@@ -378,6 +380,7 @@ async function publicFundReport({ env, params }) {
   const storage = getStorage(env);
   const row = await storage.push.findByReportToken(params.token);
   if (!row || row.module !== 'fund') return error('链接无效或已失效', 404);
+  await storage.users.updateLastPublic(row.user_id);
   const funds = await storage.fund.listByUser(row.user_id);
   const navMap = await fetchNavBatch(funds.map(f => f.code));
   const portfolio = buildPortfolio(funds, navMap);

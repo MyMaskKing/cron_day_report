@@ -203,6 +203,7 @@ async function publicTodoInfo({ env, params }) {
   const storage = getStorage(env);
   const root = await storage.todo.findByShareToken(params.token);
   if (!root) return error('链接无效或已失效', 404);
+  await storage.users.updateLastPublic(root.user_id);
   const rows = await storage.todo.listSubtree(root.id);
   const owner = await storage.users.findById(root.user_id);
   return json({
@@ -313,6 +314,7 @@ async function publicTodoReport({ env, params }) {
   }
   if (userId == null) return error('链接无效或已失效', 404);
 
+  await storage.users.updateLastPublic(userId);
   const rows = await storage.todo.listByUser(userId);
   const owner = await storage.users.findById(userId);
   return json({

@@ -59,6 +59,8 @@ async function login({ request, env }) {
   if (!ok) return error('用户名或密码错误', 401);
 
   const token = await createSession(env, user);
+  // 记录最后登录时间 (UTC now); 用于超管用户管理页展示
+  await storage.users.updateLastLogin(user.id);
   return json(
     { success: true, message: '登录成功', user: { id: user.id, username: user.username, role: user.role } },
     200,
@@ -236,6 +238,8 @@ async function quickLoginByToken({ env, params }) {
   // 该用户开启限制则会话仅能访问对应模块页；关闭则为完整会话
   const extra = user.restrict_quicklogin ? { quicklogin_module: MODULE_OF[kind] } : {};
   const sessionToken = await createSession(env, user, extra);
+  // 免密链接换正式会话也算一次登录; 用户管理页可据此定位活跃度
+  await storage.users.updateLastLogin(user.id);
   return json(
     { success: true, redirect: REDIRECT[kind] || '/dashboard' },
     200,

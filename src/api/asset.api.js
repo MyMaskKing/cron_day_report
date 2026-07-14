@@ -201,6 +201,7 @@ async function publicWalletInfo({ env, params }) {
   const storage = getStorage(env);
   const w = await storage.asset.findWalletByShareToken(params.token);
   if (!w) return error('链接无效或已失效', 404);
+  await storage.users.updateLastPublic(w.user_id);
   const month = currentMonth();
   const year = currentYear();
   // 当年该钱包各月余额（同钱包同月多条累加），按月升序，供录入页曲线
@@ -242,6 +243,7 @@ async function publicAssetReport({ env, params }) {
   const storage = getStorage(env);
   const row = await storage.push.findByReportToken(params.token);
   if (!row || row.module !== 'asset') return error('链接无效或已失效', 404);
+  await storage.users.updateLastPublic(row.user_id);
   const wallets = await storage.asset.listWallets(row.user_id);
   const records = await storage.asset.listRecords(row.user_id);
   const report = buildAssetReportData(wallets, records);
