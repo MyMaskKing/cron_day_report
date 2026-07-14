@@ -52,16 +52,19 @@ body {
   min-height: 100vh;
 }
 a { color: #A855F7; text-decoration: none; }
-/* topbar: 珊瑚→紫→蓝 三色 200% 渐变, 22s 极慢流光 */
+/* topbar: 珊瑚→紫→蓝 三色 200% 渐变, 首次加载流光一次 (3.2s ease-out) 后定格 */
 .topbar {
   color: #fff; padding: 14px 24px;
   display: flex; align-items: center; justify-content: space-between;
   box-shadow: 0 4px 20px rgba(168, 85, 247, .18);
   background: linear-gradient(120deg, #FF7A59 0%, #A855F7 50%, #3B82F6 100%);
   background-size: 200% 100%;
-  animation: topbarFlow 22s linear infinite;
+  animation: topbarIntro 3.2s cubic-bezier(.4, 0, .2, 1) both;
 }
-@keyframes topbarFlow { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+@keyframes topbarIntro {
+  from { background-position: 0% 50%; }
+  to   { background-position: 100% 50%; }
+}
 .topbar h1 { font-size: 18px; font-weight: 600; letter-spacing: .2px; }
 .topbar .nav a {
   color: #fff; margin-left: 18px; font-size: 14px; opacity: .82;
