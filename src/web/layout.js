@@ -175,6 +175,16 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 .lg-panel { position: relative; z-index: 3; width: 384px; max-width: 92vw; background: rgba(255, 255, 255, .94); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); border: 1px solid rgba(255, 255, 255, .55); border-radius: 20px; padding: 32px 30px; box-shadow: 0 30px 90px rgba(4, 7, 30, .55); }
 .lg-panel h2 { font-size: 20px; font-weight: 700; color: #1f2329; margin-bottom: 4px; }
 .lg-panel .lg-hint { font-size: 13px; color: #8890b8; margin-bottom: 18px; }
+/* 登录面板内的主按钮: 去掉珊瑚粉那一段, 用靛蓝→紫收敛渐变, 与深墨蓝底衬 */
+.lg-panel .btn:not(.gray):not(.danger) {
+  background: linear-gradient(120deg, #4F63E8 0%, #7C5CFF 55%, #A855F7 100%);
+  background-size: 160% 100%; background-position: 0% 50%;
+  box-shadow: 0 2px 8px rgba(79, 99, 232, .35), inset 0 1px 0 rgba(255,255,255,.24);
+}
+.lg-panel .btn:not(.gray):not(.danger):hover {
+  background-position: 100% 50%;
+  box-shadow: 0 8px 22px rgba(124, 92, 255, .42), inset 0 1px 0 rgba(255,255,255,.28);
+}
 .lg-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
 .lg-tabs .btn { flex: 1; }
 @media (max-width: 860px) { .lg-fs { justify-content: center; padding: 0 16px; } .lg-brand { display: none; } .lg-field { opacity: .4; } }
