@@ -3361,6 +3361,30 @@ function todoRenderView(container, trees, opts) {
       t.textContent = root.title;
       crumb.appendChild(back);
       crumb.appendChild(t);
+      // 详情页"完成主任务/取消完成"入口: 复用 onToggle/onToggleRecur, 与卡片视图勾选框行为一致
+      // 只读页(无 onToggle)不显示; 未完成的顶层重复任务优先走 onToggleRecur 弹窗
+      if (opts.onToggle && !opts.readOnly) {
+        var hasKids = root.children.length > 0;
+        var doneBtn = document.createElement('button');
+        doneBtn.type = 'button';
+        doneBtn.className = 'btn sm' + (root.done ? ' gray' : '');
+        doneBtn.textContent = root.done
+          ? '↩️ 取消完成'
+          : (hasKids ? '✅ 完成主任务（级联）' : '✅ 完成主任务');
+        doneBtn.addEventListener('click', async function(e){
+          e.stopPropagation();
+          if (doneBtn.disabled) return;
+          if (root.recurrence && root.parent_id == null && !root.done && opts.onToggleRecur) {
+            opts.onToggleRecur(root);
+            return;
+          }
+          doneBtn.disabled = true;
+          doneBtn.setAttribute('data-busy', '1');
+          try { await opts.onToggle(root, !root.done); }
+          finally { doneBtn.disabled = false; doneBtn.removeAttribute('data-busy'); }
+        });
+        crumb.appendChild(doneBtn);
+      }
       // 详情页添加子任务入口: 只读页(无 onAddChild)不显示
       if (opts.onAddChild) {
         var addBtn = document.createElement('button');

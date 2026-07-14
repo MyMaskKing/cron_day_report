@@ -463,6 +463,10 @@ body.todo-fs-on .todo-fullscreen { display: flex; }
   .todo-card__body { padding: 12px 14px 8px; }
   .todo-card__title { font-size: 16px; }
   .todo-card__foot { padding: 6px 10px; }
+  /* 详情面包屑: 窄屏允许换行, 标题独占一行避免按钮把它挤没; 按钮成对紧凑排列 */
+  .todo-crumb { flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
+  .todo-crumb__title { flex: 1 0 100%; order: -1; font-size: 15px; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
+  .todo-crumb .btn.sm { padding: 5px 10px; font-size: 12px; }
   /* 全屏模式下, 抽屉浮层覆盖: 从左侧滑入, 半透明遮罩 */
   .todo-fullscreen { flex-direction: row; }
   .todo-drawer {
