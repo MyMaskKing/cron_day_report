@@ -644,9 +644,11 @@ function assetReportPage() {
 /** 基金持仓分布免密报告页 */
 function fundReportPage() {
   const body = `<div class="container" style="max-width:640px;margin:24px auto;">
-    <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
     <div class="card">
-      <h2>📊 持仓分布</h2>
+      <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <span>📊 持仓分布</span>
+        <button class="btn sm gray" id="quickLoginBtn" style="font-weight:normal;">🔑 用本人账号登录</button>
+      </h2>
       <div id="content" style="display:none;">
         <canvas id="pieChart" style="max-height:420px;"></canvas>
       </div>
