@@ -399,6 +399,40 @@ if (document.readyState === 'loading') {
 } else {
   initChartFullscreen();
 }
+
+// ========= 数字/金额格式化 =========
+// fmtMoney(v)         => 千分位, 保留原有小数位, 如 100000.12 => "100,000.12"; 100000 => "100,000"
+// fmtMoney(v, {frac:2})=> 强制 2 位小数, 100000 => "100,000.00"
+// 非数字 / null / '' / NaN => 原样返回或空串
+// 全局挂在 window, 供各页 script (COMMON_JS 内的独立函数) 直接用
+function fmtMoney(v, opts) {
+  opts = opts || {};
+  if (v === null || v === undefined || v === '') return '';
+  var n = typeof v === 'number' ? v : parseFloat(v);
+  if (!isFinite(n)) return v;
+  var frac;
+  if (opts.frac !== undefined) frac = opts.frac;
+  else {
+    // 根据源值判断小数位: 整数 0 位, 有小数最多 4 位
+    var s = String(v);
+    var dot = s.indexOf('.');
+    frac = dot >= 0 ? Math.min(4, s.length - dot - 1) : 0;
+  }
+  var fixed = n.toFixed(frac);
+  var parts = fixed.split('.');
+  parts[0] = parts[0].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');
+  return parts.join('.');
+}
+// 兼容 sign(): 保留 + 号但用千分位;
+// 用法: sign(t.profit) => 千分位; sign(t.profit, true) => 带千分位但不强制显示 +（用于百分比场景）
+function fmtSign(n, hidePlus) {
+  var num = typeof n === 'number' ? n : parseFloat(n);
+  if (!isFinite(num)) return String(n);
+  var s = fmtMoney(num);
+  return (num >= 0 && !hidePlus) ? '+' + s : s;
+}
+window.fmtMoney = fmtMoney;
+window.fmtSign = fmtSign;
 `;
 
 // 登录页 JS
@@ -950,15 +984,15 @@ function stepText(t){
   return t;
 }
 
-function sign(n){ return (n>=0?'+':'') + n; }
+function sign(n){ return fmtSign(n); }
 function colorOf(n){ return n>=0 ? '#cf1322' : '#389e0d'; }
 
 // ---------- 报表 ----------
 async function loadReport() {
   var data = await api('/api/fund/report', { loadingText: stepText('正在拉取基金实时净值与收益汇总…') });
   var t = data.totals;
-  document.getElementById('sumCost').textContent = t.cost;
-  document.getElementById('sumValue').textContent = t.value;
+  document.getElementById('sumCost').textContent = fmtMoney(t.cost, {frac:2});
+  document.getElementById('sumValue').textContent = fmtMoney(t.value, {frac:2});
   var pe = document.getElementById('sumProfit');
   pe.textContent = sign(t.profit); pe.style.color = colorOf(t.profit);
   var re = document.getElementById('sumRate');
@@ -971,11 +1005,11 @@ async function loadReport() {
   });
   tb.innerHTML = items.map(function(it){
     return '<tr><td data-label="基金">' + esc(it.name) + '<br><span class="muted">' + it.code + '</span></td>' +
-      '<td data-label="份额">' + it.shares + '</td>' +
+      '<td data-label="份额">' + fmtMoney(it.shares) + '</td>' +
       '<td data-label="成本净值">' + it.cost_nav + '</td>' +
       '<td data-label="现价(估)">' + it.current_nav + ' <span style="color:' + colorOf(it.gszzl) + '">(' + sign(it.gszzl) + '%)</span></td>' +
-      '<td data-label="本金">' + it.cost + '</td>' +
-      '<td data-label="现值">' + it.value + '</td>' +
+      '<td data-label="本金">' + fmtMoney(it.cost, {frac:2}) + '</td>' +
+      '<td data-label="现值">' + fmtMoney(it.value, {frac:2}) + '</td>' +
       '<td data-label="收益" style="color:' + colorOf(it.profit) + '">' + sign(it.profit) + '<br>(' + sign(it.rate) + '%)</td>' +
       '<td data-label="操作"><div class="dropdown">' +
         '<button class="btn sm" onclick="toggleDropdown(this)">⋯ 操作</button>' +
@@ -1118,7 +1152,7 @@ window.buyFundUI = function(id){
   var f = (window._items||[]).filter(function(x){return x.id===id;})[0];
   if (!f) return;
   var html =
-    '<p class="muted">当前持有 <b>' + f.shares + '</b> 份 · 成本净值 <b>' + f.cost_nav + '</b>。按金额买入，系统自动累计份额并重算成本。</p>' +
+    '<p class="muted">当前持有 <b>' + fmtMoney(f.shares) + '</b> 份 · 成本净值 <b>' + f.cost_nav + '</b>。按金额买入，系统自动累计份额并重算成本。</p>' +
     '<input type="hidden" id="buyId" value="' + id + '">' +
     '<label>买入金额(元)</label><input id="buyAmount" type="number" step="0.01" placeholder="如 1000">' +
     '<label>买入净值（默认当前估值，可改）</label><input id="buyNavInput" type="number" step="0.0001" value="' + (f.current_nav||'') + '">' +
@@ -1218,7 +1252,7 @@ document.getElementById('scRun').addEventListener('click', async function(){
     var rows = d.scenarios.map(function(s){
       return '<tr><td>' + sign(s.changePct) + '%</td>' +
         '<td>' + s.targetNav + '</td>' +
-        '<td>' + s.value + '</td>' +
+        '<td>' + fmtMoney(s.value, {frac:2}) + '</td>' +
         '<td style="color:' + colorOf(s.profit) + '">' + sign(s.profit) + '</td></tr>';
     }).join('');
     box.innerHTML =
@@ -1288,7 +1322,7 @@ async function loadInfo() {
     var f = d.fund;
     document.getElementById('fundName').textContent = f.name + ' (' + f.code + ')';
     document.getElementById('curNav').textContent = f.current_nav + ' (' + (f.gszzl>=0?'+':'') + f.gszzl + '%)';
-    document.getElementById('curShares').textContent = f.shares;
+    document.getElementById('curShares').textContent = fmtMoney(f.shares);
     document.getElementById('curCost').textContent = f.cost_nav;
     document.getElementById('buyNav').value = f.current_nav || '';
     document.getElementById('content').style.display = 'block';
@@ -1932,7 +1966,7 @@ function renderTypeTotal(list, latestMonth) {
   var cells = list.map(function(t){
     var extra = t.type==='investment' ? '<div class="muted" style="font-size:12px;">本金 '+t.principal+' / 收益 '+t.profit+'</div>' : '';
     var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag disabled">负债</span>' : '');
-    return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+t.balance+'</div><div class="lbl">'+label+'</div>'+extra+'</div>';
+    return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+ fmtMoney(t.balance, {frac:2}) +'</div><div class="lbl">'+label+'</div>'+extra+'</div>';
   }).join('');
   var tag = latestMonth ? '（' + latestMonth + '）' : '';
   box.innerHTML = '<div class="muted" style="margin-bottom:6px;">各类型余额合计' + tag + '</div><div class="grid-stats">'+cells+'</div>';
@@ -1955,7 +1989,7 @@ function renderMonthDetail(wlist, records, recentSet) {
     return '<tr><td data-label="月份">' + r.month + '</td>' +
       '<td data-label="类型">' + (TYPE_LABEL[typeOf[r.wallet_id]] || '') + '</td>' +
       '<td data-label="钱包">' + esc(nameOf[r.wallet_id]||'') + '</td>' +
-      '<td data-label="金额">' + r.balance + (r.principal||r.profit ? ' <span class="muted">(本金'+r.principal+'/收益'+r.profit+')</span>' : '') + '</td>' +
+      '<td data-label="金额">' + fmtMoney(r.balance, {frac:2}) + (r.principal||r.profit ? ' <span class="muted">(本金'+ fmtMoney(r.principal, {frac:2}) +'/收益'+ fmtMoney(r.profit, {frac:2}) +')</span>' : '') + '</td>' +
       '<td data-label="更新时间" class="muted">' + esc(r.created_at||'') + '</td></tr>';
   }).join('') || '<tr><td colspan="5" class="muted">暂无记录</td></tr>';
 }
@@ -1967,7 +2001,7 @@ const FUND_REPORT_JS = `
 ${COMMON_JS}
 var token = location.pathname.split('/').filter(Boolean).pop();
 var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f96','#fa8c16','#a0d911','#2f54eb'];
-function sign(n){ return (n>=0?'+':'') + n; }
+function sign(n){ return fmtSign(n); }
 (async function(){
   try {
     setLoadingProgress(90);   // 单请求：推进度条爬升，营造实时加载进度感
@@ -2073,9 +2107,9 @@ function renderWallets(list) {
   }).join('') || '<tr><td colspan="4" class="muted">暂无钱包</td></tr>';
 }
 function renderSummary(report, goal, year) {
-  document.getElementById('sAssets').textContent = report.latest.assets;
-  document.getElementById('sDebt').textContent = report.latest.debt;
-  document.getElementById('sNet').textContent = report.latest.netWorth;
+  document.getElementById('sAssets').textContent = fmtMoney(report.latest.assets, {frac:2});
+  document.getElementById('sDebt').textContent = fmtMoney(report.latest.debt, {frac:2});
+  document.getElementById('sNet').textContent = fmtMoney(report.latest.netWorth, {frac:2});
   document.getElementById('sMonth').textContent = report.latestMonth || '—';
   var gInput = document.getElementById('goalInput');
   if (gInput) gInput.value = (goal && goal.target) ? goal.target : '';
@@ -2097,7 +2131,7 @@ function renderTypeTotal(list) {
   var cells = list.map(function(t){
     var extra = t.type==='investment' ? '<div class="muted" style="font-size:12px;">本金 '+t.principal+' / 收益 '+t.profit+'</div>' : '';
     var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag disabled">负债</span>' : '');
-    return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+t.balance+'</div>'+
+    return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+ fmtMoney(t.balance, {frac:2}) +'</div>'+
       '<div class="lbl">'+label+'</div>'+extra+'</div>';
   }).join('');
   var monthTag = (fullReport && fullReport.latestMonth) ? '（最新月 ' + fullReport.latestMonth + '）' : '（最新月）';
@@ -2149,7 +2183,7 @@ function renderMonthTable(wlist, records) {
     return '<tr><td data-label="月份">' + r.month + '</td>' +
       '<td data-label="类型">' + (TYPE_LABEL[typeOf[r.wallet_id]] || '') + '</td>' +
       '<td data-label="钱包">' + esc(nameOf[r.wallet_id]||'') + '</td>' +
-      '<td data-label="金额">' + r.balance + (r.principal||r.profit ? ' <span class="muted">(本金'+r.principal+'/收益'+r.profit+')</span>' : '') + '</td>' +
+      '<td data-label="金额">' + fmtMoney(r.balance, {frac:2}) + (r.principal||r.profit ? ' <span class="muted">(本金'+ fmtMoney(r.principal, {frac:2}) +'/收益'+ fmtMoney(r.profit, {frac:2}) +')</span>' : '') + '</td>' +
       '<td data-label="更新时间" class="muted">' + esc(r.created_at||'') + '</td>' +
       '<td data-label="操作"><button class="btn sm gray" onclick="recEditRow(' + r.id + ')">修改</button> ' +
         '<button class="btn sm danger" onclick="recDelRow(' + r.id + ')">删除</button></td></tr>';
@@ -2207,7 +2241,7 @@ window.wLogs = function(id){
     .slice().sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||''); });
   var rows = recs.map(function(r){
     return '<tr><td data-label="月份">' + r.month + '</td>' +
-      '<td data-label="金额">' + r.balance + (r.principal||r.profit ? ' <span class="muted">(本金'+r.principal+'/收益'+r.profit+')</span>' : '') + '</td>' +
+      '<td data-label="金额">' + fmtMoney(r.balance, {frac:2}) + (r.principal||r.profit ? ' <span class="muted">(本金'+ fmtMoney(r.principal, {frac:2}) +'/收益'+ fmtMoney(r.profit, {frac:2}) +')</span>' : '') + '</td>' +
       '<td data-label="更新时间" class="muted">' + esc(r.created_at||'') + '</td></tr>';
   }).join('') || '<tr><td colspan="3" class="muted">该月暂无记录</td></tr>';
   openModal('记录 · ' + w.name + (month ? '（' + month + '）' : ''),

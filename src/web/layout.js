@@ -196,7 +196,7 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 .row > * { flex: 1; min-width: 140px; }
 .muted { color: #999; font-size: 13px; }
 .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; }
-/* stat: 玻璃底 + hairline, 数字用三色渐变文字, hover 微浮起 */
+/* stat: 玻璃底 + hairline, 数字深墨黑 + Mono 表格数字, hover 微浮起 */
 .stat {
   background: rgba(255, 255, 255, .55);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
@@ -206,19 +206,20 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
   transition: transform .16s ease, box-shadow .18s ease;
 }
 .stat:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(168, 85, 247, .10); }
+/* 数字统一: 深墨黑, tabular-nums 让千分位数字等宽对齐 */
 .stat .num {
-  font-size: 28px; font-weight: 700;
-  background: linear-gradient(120deg, #FF7A59 0%, #A855F7 50%, #3B82F6 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  font-size: 28px; font-weight: 700; color: #14141E;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
 }
-/* 图标态: 不做渐变文字裁剪, 让 emoji 保留自身彩色 */
+/* 图标态: 让 emoji 保留自身彩色, 落在圆角玻璃方块里 */
 .stat .num.num--icon {
-  background: none; -webkit-background-clip: initial; background-clip: initial;
   color: initial; font-size: 32px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
   width: 56px; height: 56px; margin: 0 auto 4px; border-radius: 16px;
   background-color: rgba(255,255,255,.45);
   border: 1px solid rgba(255,255,255,.7);
+  font-variant-numeric: normal;
   transition: background-color .2s ease, box-shadow .2s ease, transform .2s ease;
 }
 /* 6 个功能入口各自 accent, hover 时卡片渗出对应色相 + 图标环发光 */
@@ -276,7 +277,13 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 .dropdown-menu button:hover { background: #f5f7ff; }
 .dropdown-menu button.danger { color: #dc3545; }
 .multi-pick { position: relative; display: inline-block; width: 100%; }
-.mp-btn { width: 100%; text-align: left; padding: 8px 12px; border: 1px solid #d9dbe3; border-radius: 8px; background: #fff; font-size: 14px; cursor: pointer; color: #1f2329; min-height: 38px; }
+/* 已选值显示按钮: 允许多行, 长文本自动换行 */
+.mp-btn {
+  width: 100%; text-align: left; padding: 8px 12px;
+  border: 1px solid #d9dbe3; border-radius: 8px; background: #fff;
+  font-size: 14px; cursor: pointer; color: #1f2329; min-height: 38px;
+  white-space: normal; word-break: break-all; line-height: 1.5;
+}
 .mp-menu { display: none; position: absolute; left: 0; top: 100%; margin-top: 4px; background: #fff; border: 1px solid #e6e8f0; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 60; padding: 6px; max-height: 240px; overflow-y: auto; display: none; }
 .mp-menu.show { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; min-width: 220px; }
 .mp-item { display: flex; align-items: center; gap: 4px; padding: 5px 8px; font-size: 13px; cursor: pointer; border-radius: 6px; white-space: nowrap; }
@@ -602,6 +609,8 @@ body.todo-fs-on .todo-fullscreen { display: flex; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */
   .dropdown-menu { right: auto; left: 0; }
   .modal-mask { padding: 20px 10px; }
+  /* 多选面板窄屏: 4 列 grid 收成 3 列, 弹出面板对齐窗口边缘不溢出 */
+  .mp-menu.show { grid-template-columns: repeat(3, 1fr); min-width: 0; width: 100%; }
   /* 待办树：缩进收窄, 操作按钮常显 */
   .todo-row { margin-left: calc(var(--depth, 0) * 16px); gap: 8px; padding: 8px 10px; }
   .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
