@@ -1363,7 +1363,7 @@ function updateUnitLabels() {
 function renderMembers(list) {
   var box = document.getElementById('memberList');
   box.innerHTML = list.map(function(m){
-    var sharedTag = m.shared ? ' <span class="tag" style="background:#eef1ff;color:#4a6cf7;padding:0 6px;border-radius:8px;font-size:11px;">共享</span>' : '';
+    var sharedTag = m.shared ? ' <span class="tag" style="background:#F5EBFE;color:#A855F7;padding:0 6px;border-radius:8px;font-size:11px;">共享</span>' : '';
     var delTitle = m.shared ? '移除共享' : '删除';
     return '<span class="tag user" style="margin:2px 4px;padding:4px 10px;">' +
       '<a href="#" onclick="selMember(' + m.id + ');return false;" style="color:inherit;text-decoration:none;">' + esc(m.name) + '</a>' + sharedTag +

@@ -304,7 +304,7 @@ function fundPage(user) {
 function publicBuyPage() {
   const body = `<div class="login-wrap" style="max-width:420px;">
     <div class="card">
-      <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:16px;">➕ 快速加仓</h1>
+      <h1 style="text-align:center;color:#A855F7;font-size:20px;margin-bottom:16px;">➕ 快速加仓</h1>
       <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
@@ -425,12 +425,12 @@ function publicWeightPage() {
     .wk-cal-head{font-size:11px;color:#aaa;text-align:center;padding:2px 0;}
     .wk-cal-cell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:6px;color:#bbb;background:#f5f5f7;}
     .wk-cal-done{background:#d9f7be;color:#389e0d;font-weight:700;}
-    .wk-cal-today{outline:2px solid #4a6cf7;color:#4a6cf7;}
+    .wk-cal-today{outline:2px solid #A855F7;color:#A855F7;}
     .wk-cal-pop{animation:wkPop .5s ease;}
   </style>
   <div class="login-wrap" style="max-width:420px;">
     <div class="card">
-      <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:6px;">⚖️ <span id="memberName"></span></h1>
+      <h1 style="text-align:center;color:#A855F7;font-size:20px;margin-bottom:6px;">⚖️ <span id="memberName"></span></h1>
       <div id="streakLine" style="text-align:center;font-size:22px;font-weight:700;margin-bottom:4px;display:none;"></div>
       <p id="streakTitle" style="text-align:center;color:#389e0d;font-weight:600;margin-bottom:2px;"></p>
       <p id="monthDays" style="text-align:center;color:#888;font-size:13px;margin-bottom:16px;"></p>
@@ -589,7 +589,7 @@ function assetPage(user) {
 function publicAssetPage() {
   const body = `<div class="login-wrap" style="max-width:420px;">
     <div class="card">
-      <h1 style="text-align:center;color:#4a6cf7;font-size:20px;margin-bottom:6px;">💰 <span id="walletName"></span></h1>
+      <h1 style="text-align:center;color:#A855F7;font-size:20px;margin-bottom:6px;">💰 <span id="walletName"></span></h1>
       <p style="text-align:center;color:#888;font-size:13px;margin-bottom:16px;">录入 <span id="monthLabel"></span>金额</p>
       <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
       <div id="msg" class="msg"></div>
