@@ -101,13 +101,13 @@ function dashboardPage(user) {
     </div>
     <div class="card">
       <h2>功能入口</h2>
-      <div class="grid-stats">
-        <a class="stat" href="/monitor"><div class="num">⏰</div><div class="lbl">定时任务</div></a>
-        <a class="stat" href="/fund"><div class="num">📈</div><div class="lbl">基金追踪</div></a>
-        <a class="stat" href="/asset"><div class="num">💰</div><div class="lbl">资产报表</div></a>
-        <a class="stat" href="/weight"><div class="num">⚖️</div><div class="lbl">体重曲线</div></a>
-        <a class="stat" href="/todo"><div class="num">📝</div><div class="lbl">待办清单</div></a>
-        ${user.role === 'admin' ? '<a class="stat" href="/admin"><div class="num">👥</div><div class="lbl">用户管理</div></a>' : ''}
+      <div class="grid-stats stat-nav">
+        <a class="stat" data-nav="monitor" href="/monitor"><div class="num num--icon">⏰</div><div class="lbl">定时任务</div></a>
+        <a class="stat" data-nav="fund" href="/fund"><div class="num num--icon">📈</div><div class="lbl">基金追踪</div></a>
+        <a class="stat" data-nav="asset" href="/asset"><div class="num num--icon">💰</div><div class="lbl">资产报表</div></a>
+        <a class="stat" data-nav="weight" href="/weight"><div class="num num--icon">⚖️</div><div class="lbl">体重曲线</div></a>
+        <a class="stat" data-nav="todo" href="/todo"><div class="num num--icon">📝</div><div class="lbl">待办清单</div></a>
+        ${user.role === 'admin' ? '<a class="stat" data-nav="admin" href="/admin"><div class="num num--icon">👥</div><div class="lbl">用户管理</div></a>' : ''}
       </div>
     </div>
   </div>`;
