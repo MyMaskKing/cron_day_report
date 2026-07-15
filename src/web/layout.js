@@ -581,6 +581,50 @@ body.todo-fs-on .todo-fullscreen { display: flex; }
 @media (prefers-reduced-motion: reduce) { .chart-fs-btn { transition: none; } }
 
 
+/* ============ 自定义滚动条 (统一替换原生, 玻璃拟态风格) ============ */
+/* Firefox: 细窄 + 品牌半透明色; 因是根级属性, 会继承给所有可滚动元素 */
+* { scrollbar-width: thin; scrollbar-color: rgba(168,85,247,.35) transparent; }
+/* WebKit (Chrome/Edge/Safari): 通用滚动条 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(255,122,89,.45), rgba(168,85,247,.55) 55%, rgba(59,130,246,.5));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
+  transition: background .2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(255,122,89,.75), rgba(168,85,247,.85) 55%, rgba(59,130,246,.8));
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, #FF7A59, #A855F7 55%, #3B82F6);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner { background: transparent; }
+/* 细窄场景 (下拉/抽屉列表/多选面板): 用更纤细的 6px, 更贴合小容器 */
+.mp-menu::-webkit-scrollbar,
+.dropdown-menu::-webkit-scrollbar,
+.todo-drawer__list::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar {
+  width: 6px; height: 6px;
+}
+.mp-menu, .dropdown-menu, .todo-drawer__list, .modal-body { scrollbar-width: thin; }
+/* 深色底容器 (登录页/待办全屏遮罩): 拇指改用半透明白, 避免品牌色在深底泛脏 */
+.lg-fs::-webkit-scrollbar-thumb,
+.chart-fs-mask::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.28);
+  background-clip: padding-box;
+}
+.lg-fs::-webkit-scrollbar-thumb:hover,
+.chart-fs-mask::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,.45);
+  background-clip: padding-box;
+}
+.lg-fs, .chart-fs-mask { scrollbar-color: rgba(255,255,255,.28) transparent; }
+
 /* ============ 液态玻璃新增动效: reduced-motion 覆盖 ============ */
 @media (prefers-reduced-motion: reduce) {
   .topbar { animation: none; }
