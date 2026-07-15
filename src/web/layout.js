@@ -164,6 +164,18 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 .tag.disabled { background: #F0EFEA; color: #857D6B; border-color: #DDD8CC; }
 .tag.ok { background: #D1FAE5; color: #047857; border-color: #A7F3D0; }
 .tag.fail { background: #FEE4E2; color: #B42318; border-color: #FDA29B; }
+/* debt: 负债/欠款专用, 与 fail 同红系但更深沉如账单, 与 disabled(停用灰) 语义拉开 */
+.tag.debt { background: #FEF0EB; color: #C2410C; border-color: #FDBA8C; font-weight: 600; letter-spacing: .3px; }
+/* scroll-box: 历史/记录表格外壳, 固定高度, 表头 sticky, 避免记录多了撑爆页面 */
+.scroll-box { max-height: 360px; overflow-y: auto; border: 1px solid rgba(20,20,40,.05); border-radius: 10px; }
+.scroll-box > table { border-collapse: separate; border-spacing: 0; }
+.scroll-box > table thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: rgba(246, 245, 242, .96);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+/* 移动端表格转卡片模式下, sticky thead 已被 display:none, 高度也放宽避免拥挤 */
+@media (max-width: 640px) { .scroll-box { max-height: 60vh; } }
 .login-wrap { max-width: 360px; margin: 80px auto; }
 .login-wrap .card { padding: 30px; }
 .login-wrap h1 { text-align: center; margin-bottom: 20px; font-size: 22px; color: #A855F7; }

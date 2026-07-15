@@ -239,7 +239,7 @@ function fundPage(user) {
       <div id="profitEmpty" class="muted" style="display:none;text-align:center;padding:40px;">暂无每日收益数据，次日 15:00 后自动生成首条快照</div>
       <div id="profitChartWrap" style="max-width:720px;margin:20px auto 0;"><canvas id="profitChart"></canvas></div>
       <h3 style="margin:24px 0 8px;font-size:16px;">每日明细</h3>
-      <div style="max-height:240px;overflow-y:auto;">
+      <div class="scroll-box">
         <table><thead><tr style="background:#f8f9fa;"><th>日期</th><th>总收益(元)</th><th>较前一天增长(元)</th></tr></thead><tbody id="profitTbody"></tbody></table>
       </div>
     </div>
@@ -388,10 +388,12 @@ function weightPage(user) {
 
     <div class="card">
       <h2>历史记录</h2>
-      <table>
-        <thead><tr><th>日期</th><th>成员</th><th>体重</th><th>较上次</th><th>操作</th></tr></thead>
-        <tbody id="recTbody"></tbody>
-      </table>
+      <div class="scroll-box">
+        <table>
+          <thead><tr><th>日期</th><th>成员</th><th>体重</th><th>较上次</th><th>操作</th></tr></thead>
+          <tbody id="recTbody"></tbody>
+        </table>
+      </div>
     </div>
 
     <div class="card" id="shareCard" style="display:none;">
@@ -558,28 +560,34 @@ function assetPage(user) {
 
     <div class="card">
       <h2>钱包 <span id="walletMonthTag" class="muted" style="font-size:13px;font-weight:normal;"></span> <button class="btn sm" id="walletAdd" style="float:right;">+ 新建钱包</button></h2>
-      <table>
-        <thead><tr><th>类型</th><th>名称</th><th>本月金额</th><th>操作</th></tr></thead>
-        <tbody id="walletTbody"></tbody>
-      </table>
+      <div class="scroll-box">
+        <table>
+          <thead><tr><th>类型</th><th>名称</th><th>本月金额</th><th>操作</th></tr></thead>
+          <tbody id="walletTbody"></tbody>
+        </table>
+      </div>
       <p class="muted" style="margin-top:6px;">投资钱包分本金/持有收益；信用支付计为负债。每个钱包可「录入本月/其他月」或生成免密录入链接。</p>
     </div>
 
     <div class="card">
       <h2>月度各类型合计</h2>
-      <table>
-        <thead id="mttHead"></thead>
-        <tbody id="mttBody"></tbody>
-      </table>
+      <div class="scroll-box">
+        <table>
+          <thead id="mttHead"></thead>
+          <tbody id="mttBody"></tbody>
+        </table>
+      </div>
       <p class="muted" style="margin-top:6px;">每行一个月，横向为各类型钱包当月合计；净资产为负标红。随上方时间区间联动。</p>
     </div>
 
     <div class="card">
       <h2>月度记录</h2>
-      <table>
-        <thead><tr><th>月份</th><th>类型</th><th>钱包</th><th>金额</th><th>更新时间</th><th>操作</th></tr></thead>
-        <tbody id="recTbody"></tbody>
-      </table>
+      <div class="scroll-box">
+        <table>
+          <thead><tr><th>月份</th><th>类型</th><th>钱包</th><th>金额</th><th>更新时间</th><th>操作</th></tr></thead>
+          <tbody id="recTbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>`;
   return renderPage({ title: '资产报表', body, script: ASSET_JS });
@@ -631,10 +639,12 @@ function assetReportPage() {
       <div class="card"><h2>📈 净资产趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="netChart" style="max-height:340px;"></canvas></div>
       <div class="card"><h2>每月净存 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="consumeChart" style="max-height:340px;"></canvas></div>
       <div class="card"><h2>📋 月度记录 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2>
-        <table>
-          <thead><tr><th>月份</th><th>类型</th><th>钱包</th><th>金额</th><th>更新时间</th></tr></thead>
-          <tbody id="mttBody"></tbody>
-        </table>
+        <div class="scroll-box">
+          <table>
+            <thead><tr><th>月份</th><th>类型</th><th>钱包</th><th>金额</th><th>更新时间</th></tr></thead>
+            <tbody id="mttBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>`;
@@ -657,7 +667,7 @@ function fundReportPage() {
       <h2>📈 近30天总收益曲线</h2>
       <canvas id="profitChart" style="max-height:300px;"></canvas>
       <h3 style="margin:20px 0 8px;font-size:16px;">每日明细</h3>
-      <div style="max-height:240px;overflow-y:auto;">
+      <div class="scroll-box">
         <table><thead><tr style="background:#f8f9fa;"><th>日期</th><th>总收益(元)</th><th>较前一天增长(元)</th></tr></thead><tbody id="profitTbody"></tbody></table>
       </div>
     </div>

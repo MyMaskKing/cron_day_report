@@ -1946,8 +1946,8 @@ function renderRptHist(members, records, disp, uLabel) {
       '<td data-label="较上次">' + cell + '</td></tr>';
   }).join('') || '<tr><td colspan="4" class="muted">暂无记录</td></tr>';
   box.innerHTML = '<h3 style="margin:0 0 10px;font-size:16px;">历史记录</h3>' +
-    '<table><thead><tr><th>日期</th><th>成员</th><th>体重</th><th>较上次</th></tr></thead>' +
-    '<tbody>' + rows + '</tbody></table>';
+    '<div class="scroll-box"><table><thead><tr><th>日期</th><th>成员</th><th>体重</th><th>较上次</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>';
 }
 bindQuickLogin('weight-report');
 `;
@@ -1991,7 +1991,7 @@ function renderTypeTotal(list, latestMonth) {
   if (!list.length) { box.innerHTML = '<p class="muted">暂无记录</p>'; return; }
   var cells = list.map(function(t){
     var extra = t.type==='investment' ? '<div class="muted" style="font-size:12px;">本金 '+t.principal+' / 收益 '+t.profit+'</div>' : '';
-    var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag disabled">负债</span>' : '');
+    var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag debt">💳 负债</span>' : '');
     return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+ fmtMoney(t.balance, {frac:2}) +'</div><div class="lbl">'+label+'</div>'+extra+'</div>';
   }).join('');
   var tag = latestMonth ? '（' + latestMonth + '）' : '';
@@ -2119,7 +2119,7 @@ function renderWallets(list) {
   });
   tb.innerHTML = sorted.map(function(w){
     var amt = sumByWallet[w.id];
-    return '<tr><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag disabled">负债</span>':'') + '</td>' +
+    return '<tr><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt">💳 负债</span>':'') + '</td>' +
       '<td data-label="名称">' + esc(w.name) + '</td>' +
       '<td data-label="本月金额">' + (amt != null ? amt : '<span class="muted">—</span>') + '</td>' +
       '<td data-label="操作">' +
@@ -2156,7 +2156,7 @@ function renderTypeTotal(list) {
   if (!list.length) { box.innerHTML = ''; return; }
   var cells = list.map(function(t){
     var extra = t.type==='investment' ? '<div class="muted" style="font-size:12px;">本金 '+t.principal+' / 收益 '+t.profit+'</div>' : '';
-    var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag disabled">负债</span>' : '');
+    var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag debt">💳 负债</span>' : '');
     return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+ fmtMoney(t.balance, {frac:2}) +'</div>'+
       '<div class="lbl">'+label+'</div>'+extra+'</div>';
   }).join('');
