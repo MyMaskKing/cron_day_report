@@ -1058,7 +1058,9 @@ function applyProfitFilter() {
   var labels = [], vals = [];
   var now = new Date(Date.now()+8*3600*1000);
   var cutoff = '';
-  if (rng==='7d') { cutoff = new Date(now.getTime()-7*86400000).toISOString().slice(0,10); }
+  // 近 7 天 = 含今日往前 6 天, 共 7 天 (与 todo 的 todoRangeWindow 保持一致)
+  //   原 (now - 7天) 会把 today-7 也放行, 实际渲染 8 天; 应用 6*86400000
+  if (rng==='7d') { cutoff = new Date(now.getTime()-6*86400000).toISOString().slice(0,10); }
   else if (rng==='month') { cutoff = now.toISOString().slice(0,7); } // YYYY-MM
   else if (rng==='year') { cutoff = now.toISOString().slice(0,4); }  // YYYY
 
@@ -2121,7 +2123,7 @@ function renderWallets(list) {
     var amt = sumByWallet[w.id];
     return '<tr><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt">💳 负债</span>':'') + '</td>' +
       '<td data-label="名称">' + esc(w.name) + '</td>' +
-      '<td data-label="本月金额">' + (amt != null ? amt : '<span class="muted">—</span>') + '</td>' +
+      '<td data-label="本月金额">' + (amt != null ? fmtMoney(amt, {frac:2}) : '<span class="muted">—</span>') + '</td>' +
       '<td data-label="操作">' +
         '<button class="btn sm" onclick="wRec(' + w.id + ",'" + w.type + "'" + ')">录入本月</button> ' +
         '<button class="btn sm" onclick="wRecOther(' + w.id + ",'" + w.type + "'" + ')">录入其他月</button> ' +
@@ -2141,8 +2143,8 @@ function renderSummary(report, goal, year) {
   if (gInput) gInput.value = (goal && goal.target) ? goal.target : '';
   var gbox = document.getElementById('goalBox');
   if (goal) {
-    gbox.innerHTML = '<b>' + year + ' 年度目标：</b>' + goal.target +
-      ' 元 · 当前 ' + goal.current + ' · 还差 <b style="color:#cf1322;">' + goal.remaining + '</b>' +
+    gbox.innerHTML = '<b>' + year + ' 年度目标：</b>' + fmtMoney(goal.target, {frac:2}) +
+      ' 元 · 当前 ' + fmtMoney(goal.current, {frac:2}) + ' · 还差 <b style="color:#cf1322;">' + fmtMoney(goal.remaining, {frac:2}) + '</b>' +
       ' · 进度 ' + goal.progress + '%';
   } else {
     gbox.innerHTML = '<span class="muted">未设置 ' + year + ' 年度目标</span>';
@@ -2175,11 +2177,11 @@ function renderMonthlyTypeTotals(mtt) {
   body.innerHTML = rows.map(function(row){
     var tds = types.map(function(t){
       var v = row.totals[t];
-      return '<td data-label="' + (TYPE_LABEL[t]||t) + '">' + (v != null ? v : '—') + '</td>';
+      return '<td data-label="' + (TYPE_LABEL[t]||t) + '">' + (v != null ? fmtMoney(v, {frac:2}) : '—') + '</td>';
     }).join('');
     var netColor = row.net < 0 ? ' style="color:#cf1322;font-weight:bold;"' : '';
     return '<tr><td data-label="月份">' + row.month + '</td>' + tds +
-      '<td data-label="净资产"' + netColor + '>' + row.net + '</td></tr>';
+      '<td data-label="净资产"' + netColor + '>' + fmtMoney(row.net, {frac:2}) + '</td></tr>';
   }).join('') || '<tr><td colspan="' + (types.length + 2) + '" class="muted">暂无记录</td></tr>';
 }
 function drawCharts(report) {
