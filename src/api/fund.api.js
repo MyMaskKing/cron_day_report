@@ -293,11 +293,20 @@ async function publicFundInfo({ env, params }) {
   const info = await fetchFundNav(fund.code);
   const currentNav = info ? (info.gsz || info.nav) : 0;
   // 近30天持仓收益序列：份额 × (当日单位净值 − 成本净值)，实时拉历史净值计算
-  const history = await fetchNavHistory(fund.code, 30);
-  const profitSeries = history.map(h => ({
-    date: h.date,
-    profit: round2((fund.shares || 0) * (h.nav - (fund.cost_nav || 0)))
-  }));
+  // 天天基金 F10 返回的是"交易日"净值(周末/节假日不开盘, 30 条约覆盖 42 天),
+  // 直接取 pageSize=30 会把 30 交易日 ≈ 6 周前的数据也塞进"近30天", 与用户直觉不符;
+  // 因此多拉一点(45 条 ≈ 9 周), 再按"以今天为基准往前 30 自然日"截断到本地日期区间
+  const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
+  const today = localParts(Date.now(), tzOffset).dateStr; // YYYY-MM-DD
+  const cutoff = new Date(new Date(today + 'T00:00:00Z').getTime() - 30 * 86400000)
+    .toISOString().slice(0, 10);
+  const history = await fetchNavHistory(fund.code, 45);
+  const profitSeries = history
+    .filter(h => h.date >= cutoff && h.date <= today)
+    .map(h => ({
+      date: h.date,
+      profit: round2((fund.shares || 0) * (h.nav - (fund.cost_nav || 0)))
+    }));
   return json({
     success: true,
     fund: {
