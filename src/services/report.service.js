@@ -569,7 +569,9 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats, remi
   };
   const titleDate = today && today.length >= 10 ? `[今天:${Number(today.slice(5,7))}月${Number(today.slice(8,10))}]` : '';
   let t = `📌 待办日报${titleDate}\n\n`;
-  if (stats) {
+  // 定时推送(有 remind)时, remind 已含"还有 N 个待办"的时段化提示, 跳过固定统计句避免重复;
+  // 手动推送/预览无 remind, 保留原统计句
+  if (stats && !remind) {
     if (stats.pending > 0) t += `🥳您今天有 ${stats.pending} 件待办${stats.overdue ? `，其中 ${stats.overdue} 件逾期` : ''}。↙️\n`;
     else t += `🎉您今天暂无到期待办。\n`;
   }
@@ -615,7 +617,9 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, 
   };
   const titleDate = today && today.length >= 10 ? `[今天:${Number(today.slice(5,7))}月${Number(today.slice(8,10))}]` : '';
   let m = `## 📌 待办日报${titleDate}\n\n`;
-  if (stats) {
+  // 定时推送(有 remind)时, remind 已含"还有 N 个待办"的时段化提示, 跳过固定统计句避免重复;
+  // 手动推送/预览无 remind, 保留原统计句
+  if (stats && !remind) {
     if (stats.pending > 0) m += `🥳您今天有 **${stats.pending}** 件待办${stats.overdue ? `，其中 **${stats.overdue}** 件逾期` : ''}。↙️\n\n`;
     else m += `🎉 您今天暂无到期待办。\n\n`;
   }
