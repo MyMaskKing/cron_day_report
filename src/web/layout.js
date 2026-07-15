@@ -48,7 +48,8 @@ body {
     radial-gradient(900px 550px at 88% 8%, rgba(168,85,247,.12), transparent 55%),
     radial-gradient(1100px 700px at 50% 100%, rgba(59,130,246,.10), transparent 55%),
     #F6F5F2;
-  background-attachment: fixed;
+  /* 不再 fixed: fixed + card 的 backdrop-filter 会让磨砂内容始终采样固定背景,
+     滚动时"卡片动、磨砂内容不动"造成层叠错位感 (基金页 card 多最明显) */
   min-height: 100vh;
 }
 a { color: #A855F7; text-decoration: none; }
@@ -581,29 +582,61 @@ body.todo-fs-on .todo-fullscreen { display: flex; }
 @media (prefers-reduced-motion: reduce) { .chart-fs-btn { transition: none; } }
 
 
-/* ============ 自定义滚动条 (细窄纯色, 无过渡, 避免滚动抖动) ============ */
-/* scrollbar-gutter: stable 让页面始终预留滚动条空间, 消除滚动条出现/消失导致的横向抖动("折叠感"根因) */
+/* ============ 自定义滚动条 (极光流动: 品牌三色渐变 + 位置无限循环) ============ */
+/* scrollbar-gutter: stable 让页面始终预留槽位, 消除滚动条出现/消失的横向抖动 */
 html { scrollbar-gutter: stable; }
-/* Firefox 全局细窄 + 品牌紫半透明 */
-* { scrollbar-width: thin; scrollbar-color: rgba(168,85,247,.32) transparent; }
-/* WebKit: 主滚动条 6px, 纯色拇指, 无 transition/无渐变 —— 滚动时不重绘, 无分层感 */
+/* Firefox 不支持渐变/动画滚动条, 退化到品牌紫半透明 */
+* { scrollbar-width: thin; scrollbar-color: rgba(168,85,247,.38) transparent; }
+/* WebKit 主滚动条: 6px 极窄, 拇指是横向 400% 三色渐变, 位置无限左右流动 = 极光 */
 ::-webkit-scrollbar { width: 6px; height: 6px; background: transparent; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(168,85,247,.32); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(168,85,247,.55); }
-::-webkit-scrollbar-thumb:active { background: rgba(168,85,247,.75); }
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  /* 首尾同色 (珊瑚) 让 background-position 循环时无接缝跳变 */
+  background-image: linear-gradient(180deg,
+    #FF7A59 0%, #A855F7 25%, #3B82F6 50%, #A855F7 75%, #FF7A59 100%);
+  background-size: 100% 400%;
+  background-position: 0% 0%;
+  animation: scrollbarAurora 6s ease-in-out infinite;
+}
+::-webkit-scrollbar-thumb:hover { filter: brightness(1.12) saturate(1.15); }
+/* 横向滚动条 (少数场景, 如宽表格): 改为水平流光方向 */
+::-webkit-scrollbar-thumb:horizontal {
+  background-image: linear-gradient(90deg,
+    #FF7A59 0%, #A855F7 25%, #3B82F6 50%, #A855F7 75%, #FF7A59 100%);
+  background-size: 400% 100%;
+  animation: scrollbarAuroraX 6s ease-in-out infinite;
+}
 ::-webkit-scrollbar-corner { background: transparent; }
-/* 细窄容器 (下拉/抽屉/多选面板/modal): 再收窄到 4px, 更贴合小尺寸 */
+@keyframes scrollbarAurora {
+  0%,100% { background-position: 0% 0%; }
+  50%     { background-position: 0% 100%; }
+}
+@keyframes scrollbarAuroraX {
+  0%,100% { background-position: 0% 0%; }
+  50%     { background-position: 100% 0%; }
+}
+/* 细窄容器 (下拉/抽屉/多选面板/modal): 收窄到 4px, 更贴合小尺寸 */
 .mp-menu::-webkit-scrollbar,
 .dropdown-menu::-webkit-scrollbar,
 .todo-drawer__list::-webkit-scrollbar,
 .modal-body::-webkit-scrollbar { width: 4px; height: 4px; }
-/* 深色底容器 (登录页/图表全屏遮罩): 品牌紫在深底发脏, 改半透明白 */
-.lg-fs::-webkit-scrollbar-thumb { background: rgba(255,255,255,.24); }
-.lg-fs::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.42); }
-.chart-fs-mask::-webkit-scrollbar-thumb { background: rgba(255,255,255,.24); }
-.chart-fs-mask::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.42); }
-.lg-fs, .chart-fs-mask { scrollbar-color: rgba(255,255,255,.24) transparent; }
+/* 深色底容器 (登录页/图表全屏遮罩): 品牌色在深底发脏, 覆盖为极光白 */
+.lg-fs::-webkit-scrollbar-thumb,
+.chart-fs-mask::-webkit-scrollbar-thumb {
+  background-image: linear-gradient(180deg,
+    rgba(255,255,255,.5) 0%, rgba(180,200,255,.75) 50%, rgba(255,255,255,.5) 100%);
+  background-size: 100% 300%;
+  animation: scrollbarAurora 6s ease-in-out infinite;
+}
+.lg-fs, .chart-fs-mask { scrollbar-color: rgba(255,255,255,.35) transparent; }
+/* 无障碍: 用户开启 reduce motion 时停止极光流动 */
+@media (prefers-reduced-motion: reduce) {
+  ::-webkit-scrollbar-thumb,
+  ::-webkit-scrollbar-thumb:horizontal,
+  .lg-fs::-webkit-scrollbar-thumb,
+  .chart-fs-mask::-webkit-scrollbar-thumb { animation: none; }
+}
 
 /* ============ 液态玻璃新增动效: reduced-motion 覆盖 ============ */
 @media (prefers-reduced-motion: reduce) {
