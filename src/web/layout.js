@@ -103,7 +103,14 @@ a { color: #A855F7; text-decoration: none; }
   padding: 20px; margin-bottom: 18px;
   box-shadow: 0 1px 3px rgba(20, 20, 40, .04), 0 10px 30px rgba(20, 20, 40, .05);
   transition: transform .18s ease, box-shadow .22s ease, border-color .18s ease;
+  /* backdrop-filter 会为每张 card 创建独立堆叠上下文, 兄弟 card 之间按 DOM 顺序绘制;
+     不显式给 z-index 时, 上方 card 里绝对定位的弹窗(.mp-menu)溢出到下方 card 会被后者遮住;
+     统一 position:relative + z-index 让 card 参与父级堆叠排序 */
+  position: relative;
+  z-index: 1;
 }
+/* 当前打开多选弹窗的 card 提升到最上层, 弹窗才能压过后续 card */
+.card:has(.mp-menu.show) { z-index: 100; }
 .card:hover {
   transform: translateY(-2px);
   box-shadow: 0 2px 6px rgba(20, 20, 40, .05), 0 16px 40px rgba(168, 85, 247, .10);
