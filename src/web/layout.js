@@ -237,8 +237,8 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 .stat-nav .stat[data-nav="admin"]:hover { box-shadow: 0 10px 28px rgba(236,72,153,.18); border-color: rgba(236,72,153,.4); }
 .stat-nav .stat[data-nav="admin"]:hover .num--icon { background-color: rgba(236,72,153,.14); box-shadow: 0 4px 14px rgba(236,72,153,.22); transform: translateY(-2px); }
 .stat .lbl { font-size: 13px; color: #6C6C7E; margin-top: 4px; }
-/* 全局 loading: 双环反向旋转 (珊瑚 + 蓝) + 玻璃遮罩 */
-#globalLoading { display: none; position: fixed; inset: 0; background: rgba(246, 245, 242, .65); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); z-index: 9999; align-items: center; justify-content: center; }
+/* 全局 loading: 双环反向旋转 (珊瑚 + 蓝) + 玻璃遮罩; z-index 高于 modal, 保证 modal 内提交时用户能看到进度 */
+#globalLoading { display: none; position: fixed; inset: 0; background: rgba(246, 245, 242, .65); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); z-index: 10500; align-items: center; justify-content: center; }
 #globalLoading .spinner {
   position: relative; width: 52px; height: 52px; margin: 0 auto;
 }
@@ -441,8 +441,8 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-crumb__title { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: #1f2329; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ============ 按钮 busy 状态（点击后立即禁用防重） ============ */
-button[data-busy] { opacity: .55; cursor: wait; }
-button[data-busy]::after { content: ' …'; }
+/* opacity + wait 光标; 文字由 JS 换成"处理中…" 已足够明显, 不再叠加 ::after */
+button[data-busy] { opacity: .55; cursor: wait; pointer-events: none; }
 
 /* ============ 待办全屏模式（三态循环：default → 卡片全屏 → 完整树全屏） ============ */
 /* 全屏容器：默认 display:none, 由 JS 根据 _todoView 决定显隐 */

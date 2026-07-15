@@ -60,23 +60,36 @@ function loadingTextOf(path, opts) {
 }
 async function api(path, opts) {
   opts = opts || {};
-  showLoading(loadingTextOf(path, opts));
-  try {
-    setLoadingProgress(35);
-    const res = await fetch(path, {
-      method: opts.method || 'GET',
-      headers: opts.body ? { 'Content-Type': 'application/json' } : {},
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
-      credentials: 'same-origin'
-    });
-    let data = {};
-    try { data = await res.json(); } catch (e) {}
-    if (!res.ok) throw new Error(data.message || ('请求失败: ' + res.status));
-    setLoadingProgress(100);
-    return data;
-  } finally {
-    hideLoading();
-  }
+  // ===== 全局请求级去重: 相同 method+path+body 在进行中(或刚完成 300ms 内) 复用 Promise =====
+  // 兜底防抖: 即使某处按钮没走 bindClickBusy, 重复请求也不会翻倍 (体现在 UI: 不会创建两条记录)
+  var method = (opts.method || 'GET').toUpperCase();
+  var bodyKey = opts.body ? JSON.stringify(opts.body) : '';
+  var key = method + ' ' + path + ' ' + bodyKey;
+  if (!window._apiInflight) window._apiInflight = {};
+  if (window._apiInflight[key]) return window._apiInflight[key];
+  var p = (async function(){
+    showLoading(loadingTextOf(path, opts));
+    try {
+      setLoadingProgress(35);
+      var res = await fetch(path, {
+        method: method,
+        headers: opts.body ? { 'Content-Type': 'application/json' } : {},
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+        credentials: 'same-origin'
+      });
+      var data = {};
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok) throw new Error(data.message || ('请求失败: ' + res.status));
+      setLoadingProgress(100);
+      return data;
+    } finally {
+      hideLoading();
+      // 300ms 后释放该 key, 允许后续同请求重新发起 (足够 UI 完成关弹窗/重绘, 但拦住"点两次立即双提交")
+      setTimeout(function(){ if (window._apiInflight) delete window._apiInflight[key]; }, 300);
+    }
+  })();
+  window._apiInflight[key] = p;
+  return p;
 }
 function showMsg(el, text, ok) {
   el.className = 'msg ' + (ok ? 'ok' : 'err');
@@ -382,15 +395,28 @@ function autoGrowTextarea(el) {
 }
 // 按钮点击立即禁用防重：handler 是 async 函数, 完成/失败均恢复; 失败时用 alertModal 提示
 // btn 允许传 null（可选按钮不存在时静默跳过）
+// 三层防护: (1) btn.disabled 拦截 dom click (2) _busy 标志二次拦截 (3) 视觉上文字变"处理中…"给用户明确反馈
 function bindClickBusy(btn, handler) {
   if (!btn) return;
   btn.addEventListener('click', async function(e) {
-    if (btn.disabled) return;
+    if (btn.disabled || btn._busy) return;
+    btn._busy = true;
     btn.disabled = true;
     btn.setAttribute('data-busy', '1');
+    // 保存原文本, busy 期间改成"处理中…" (仅当按钮内是纯文本, 含 svg/img 的复合按钮跳过替换)
+    var originalText = null;
+    if (btn.childElementCount === 0 && btn.textContent && btn.textContent.trim()) {
+      originalText = btn.textContent;
+      btn.textContent = '处理中…';
+    }
     try { await handler.call(btn, e); }
     catch (err) { alertModal((err && err.message) || String(err), { ok: false }); }
-    finally { btn.disabled = false; btn.removeAttribute('data-busy'); }
+    finally {
+      btn._busy = false;
+      btn.disabled = false;
+      btn.removeAttribute('data-busy');
+      if (originalText != null) btn.textContent = originalText;
+    }
   });
 }
 // 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
