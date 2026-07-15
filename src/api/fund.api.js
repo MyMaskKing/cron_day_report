@@ -395,8 +395,14 @@ async function publicFundReport({ env, params }) {
   const portfolio = buildPortfolio(funds, navMap);
   const items = portfolio.items.map(it => ({ name: it.name, value: it.value }));
   // 每日总收益历史近 30 天（含较前一天差额），供曲线图联动
+  // record_date 可能因周末/未运行有空档, 用 slice(-30) 按行数截断会误把 6 周前的记录塞进"近30天";
+  // 改按"以全局时区今天为基准往前 30 自然日" YYYY-MM-DD 字符串比较来收敛日期区间
+  const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
+  const today = localParts(Date.now(), tzOffset).dateStr;
+  const cutoff = new Date(new Date(today + 'T00:00:00Z').getTime() - 30 * 86400000)
+    .toISOString().slice(0, 10);
   const all = await storage.fund.listProfitDaily(row.user_id);
-  const recent = all.slice(-30);
+  const recent = all.filter(r => r.record_date >= cutoff && r.record_date <= today);
   const profitSeries = recent.map((r, i) => ({
     date: r.record_date,
     profit: r.profit,

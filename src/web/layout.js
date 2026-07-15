@@ -138,6 +138,10 @@ a { color: #A855F7; text-decoration: none; }
 .btn.danger:hover { filter: brightness(1.06); box-shadow: 0 6px 18px rgba(239, 68, 68, .38), inset 0 1px 0 rgba(255,255,255,.22); }
 .btn.gray { background: linear-gradient(135deg, #8A8A99, #6C6C7E); box-shadow: 0 2px 6px rgba(60, 66, 80, .18), inset 0 1px 0 rgba(255,255,255,.14); }
 .btn.sm { padding: 4px 10px; font-size: 12px; }
+/* select 复用 .btn 样式时(如 profitRange/unitSel), select 本身是灰底白字,
+   但原生 <option> 展开层由浏览器接管、白底继承 color:#fff 会出现"白底白字看不清";
+   显式给 option 打回深色文字 + 白底 */
+select.btn option { color: #14141E; background: #fff; }
 input, select, textarea { width: 100%; padding: 9px 12px; border: 1px solid #E4E1D8; border-radius: 8px; font-size: 14px; margin-bottom: 12px; font-family: inherit; background: rgba(255,255,255,.75); }
 input:focus, select:focus, textarea:focus { outline: none; border-color: #A855F7; box-shadow: 0 0 0 3px rgba(168, 85, 247, .14); background: #fff; }
 label { display: block; font-size: 13px; color: #6C6C7E; margin-bottom: 5px; }
