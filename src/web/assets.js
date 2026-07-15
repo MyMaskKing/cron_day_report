@@ -141,11 +141,11 @@ function confirmModal(title, message, onConfirm) {
   openModal(title || '确认操作',
     '<p style="line-height:1.6;word-break:break-all;">' + esc(message) + '</p>' +
     '<div style="text-align:right;margin-top:18px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn danger" id="cmConfirm">确认</button></div>');
-  document.getElementById('cmConfirm').addEventListener('click', async function(){
-    var btn = this;
-    btn.disabled = true;
-    try { closeModal(); await onConfirm(); }
-    catch(e){ alertModal(e.message || e, {ok:false}); }
+  // 用 bindClickBusy 统一防重: 三层防护 (btn.disabled + _busy + data-busy CSS)
+  // handler 内先关弹窗再执行 onConfirm, 与原语义一致; 期间用户看到全局 loading 遮罩
+  bindClickBusy(document.getElementById('cmConfirm'), async function(){
+    closeModal();
+    await onConfirm();
   });
 }
 // 结果弹窗：独立遮罩，仅「确定」按钮或 ESC 可关闭，点击空白不关闭。ok 控制标题图标/色
