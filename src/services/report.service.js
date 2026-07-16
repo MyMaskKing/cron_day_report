@@ -14,6 +14,7 @@ import { fmtDateTime, localParts } from './time.service.js';
 import { buildChartUrl } from './chart.service.js';
 import { round2 } from './asset.service.js';
 import { analyzePortfolio } from './fund.service.js';
+import { todoDateLabel } from './todo.service.js';
 
 // ==================== 基金持仓日报 ====================
 
@@ -539,22 +540,22 @@ function statsOfReport(trees, today) {
 }
 
 /** 日报里任务的日期标签：逾期红色标注，否则普通显示；dueDate 为继承后的有效日期
- * 显示只取月/日（MM/DD），逾期判断仍用完整日期
+ * 显示走 todoDateLabel: 今天/明天/昨天/本周 X, 范围外 MM/DD; 网页 UI 与日报文案保持一致
  * 日报只含今天到期或逾期(filterTodayOverdue)，非逾期即当天到期，用醒目徽章突出 */
 function todoDateTag(dueDate, today, kind) {
   if (!dueDate) return '';
   const over = today && dueDate < today;
-  const disp = dueDate.length >= 10 ? `${dueDate.slice(5, 7)}/${dueDate.slice(8, 10)}` : dueDate;
+  const disp = todoDateLabel(dueDate, today);
   if (kind === 'html') {
     const pill = 'display:inline-block;border-radius:11px;padding:1px 10px;font-size:12px;font-weight:600;line-height:1.7;margin-left:2px;';
     return over
       ? ` <span style="${pill}background:#fff1f0;color:#cf1322;">⚠️ 逾期 ${disp}</span>`
-      : ` <span style="${pill}background:#e6f4ff;color:#0958d9;">📌 今日 ${disp}</span>`;
+      : ` <span style="${pill}background:#e6f4ff;color:#0958d9;">📌 ${disp}</span>`;
   }
   if (kind === 'markdown') {
-    return over ? ` **⚠️ 逾期 ${disp}**` : ` **📌 今日 ${disp}**`;
+    return over ? ` **⚠️ 逾期 ${disp}**` : ` **📌 ${disp}**`;
   }
-  return over ? ` ⚠️逾期 ${disp}` : ` 📌今日 ${disp}`;
+  return over ? ` ⚠️逾期 ${disp}` : ` 📌${disp}`;
 }
 
 function buildTodoReportText(trees, base, token, reportToken, today, stats, remind = '') {
@@ -563,7 +564,7 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats, remi
   const bar = '🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸';
   const dateBadge = (dueDate) => {
     if (!dueDate) return '';
-    const disp = dueDate.length >= 10 ? `${dueDate.slice(5, 7)}/${dueDate.slice(8, 10)}` : dueDate;
+    const disp = todoDateLabel(dueDate, today);
     const over = today && dueDate < today;
     return over ? `(⚠️逾期${disp})` : `(${disp})`;
   };
@@ -611,7 +612,7 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, 
   const bar = '🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸';
   const dateBadge = (dueDate) => {
     if (!dueDate) return '';
-    const disp = dueDate.length >= 10 ? `${dueDate.slice(5, 7)}/${dueDate.slice(8, 10)}` : dueDate;
+    const disp = todoDateLabel(dueDate, today);
     const over = today && dueDate < today;
     return over ? `（**⚠️逾期${disp}**）` : `（${disp}）`;
   };

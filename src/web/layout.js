@@ -369,13 +369,16 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 .todo-chip.due.overdue { background: #fff1f0; color: #cf1322; font-weight: 600; }
 .todo-chip.done-at { background: #f6ffed; color: #389e0d; }
 .todo-chip.repeat { background: #f9f0ff; color: #722ed1; font-weight: 600; }
-/* 行内操作按钮：默认淡，hover 行时显现 */
-.todo-ops { display: flex; gap: 2px; opacity: .35; transition: opacity .18s; flex-shrink: 0; }
+/* 行内操作按钮：默认略淡，hover 行时显现；SVG 图标走 currentColor, 移动端常显 */
+.todo-ops { display: flex; gap: 2px; opacity: .7; transition: opacity .18s; flex-shrink: 0; }
 .todo-row:hover .todo-ops { opacity: 1; }
-.todo-op { border: none; background: none; cursor: pointer; font-size: 15px; padding: 3px 5px; border-radius: 6px; line-height: 1; }
-.todo-op:hover { background: #f0f2f8; }
+.todo-op { border: none; background: none; cursor: pointer; font-size: 15px; padding: 5px 6px; border-radius: 6px; line-height: 1; color: #5a6b9a; display: inline-flex; align-items: center; justify-content: center; }
+.todo-op:hover { background: #f0f2f8; color: #A855F7; }
+.todo-op.danger { color: #cf1322; }
+.todo-op.danger:hover { background: #fff1f0; color: #a8071a; }
+.todo-op svg { width: 16px; height: 16px; display: block; pointer-events: none; }
 /* 拖拽手柄：按住即可拖动排序；touch-action:none 抑制移动端触摸滚动争抢 */
-.todo-drag { cursor: grab; color: #b0b6c8; font-size: 17px; touch-action: none; }
+.todo-drag { cursor: grab; color: #b0b6c8; touch-action: none; }
 .todo-drag:active { cursor: grabbing; }
 .todo-children.collapsed { display: none; }
 /* 顶层任务栏：作为分组头。浅灰底 + 左侧品牌蓝分组条表"这是一组"，与优先级圆点分属不同通道 */
@@ -447,7 +450,8 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   padding: 8px 12px; background: #fafbff; border-top: 1px solid #f0f2f8;
 }
 .todo-card__ops { display: flex; gap: 2px; }
-.todo-card__ops .todo-op { font-size: 16px; padding: 4px 8px; }
+.todo-card__ops .todo-op { font-size: 16px; padding: 6px 8px; }
+.todo-card__ops .todo-op svg { width: 18px; height: 18px; }
 .todo-card__enter { color: #A855F7; font-size: 13px; font-weight: 600; user-select: none; }
 .todo-card__count { background: #eef1ff; color: #A855F7; font-weight: 600; }
 .todo-card__count.done { background: #f6ffed; color: #389e0d; }

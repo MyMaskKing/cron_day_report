@@ -5,6 +5,46 @@
  * 数据取用仍在 api 层经 getStorage 调用。
  */
 
+// ============ 日期 label（网页 UI 与日报共用的显示语义） ============
+// 语义: 今天/昨天/明天 → 中文; 本周内(ISO 周, 周一为首) → 周一~周日; 否则 MM/DD
+// 输入均为 YYYY-MM-DD 北京日历串; 空/非法返回 ''
+// 与前端 COMMON_JS 里的同名函数逻辑必须保持一致(唯一事实源)
+const CN_WEEKDAY = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+function todoDateLabel(dueDate, today) {
+  if (!dueDate || dueDate.length < 10) return '';
+  if (!today || today.length < 10) return `${dueDate.slice(5, 7)}/${dueDate.slice(8, 10)}`;
+  const dMs = Date.UTC(+dueDate.slice(0, 4), +dueDate.slice(5, 7) - 1, +dueDate.slice(8, 10));
+  const tMs = Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10));
+  const diff = Math.round((dMs - tMs) / 86400000);
+  if (diff === 0) return '今天';
+  if (diff === -1) return '昨天';
+  if (diff === 1) return '明天';
+  // ISO 周: 周一为首。today 的周一距 today 的天数 = (dow+6)%7, dow: 0=周日..6=周六
+  const tDow = new Date(tMs).getUTCDay();
+  const monOff = (tDow + 6) % 7;
+  const monMs = tMs - monOff * 86400000;
+  const sunMs = monMs + 6 * 86400000;
+  if (dMs >= monMs && dMs <= sunMs) {
+    return CN_WEEKDAY[new Date(dMs).getUTCDay()];
+  }
+  return `${dueDate.slice(5, 7)}/${dueDate.slice(8, 10)}`;
+}
+
+/**
+ * 日期徽章: 未逾期 → "📅 <label>"; 逾期 → "⚠️ 逾期 <label>"
+ * kind: 'ui' | 'text' | 'markdown' | 'html' 只影响是否加粗/HTML 转义(html 由调用方自行 wrap 样式);
+ *       返回纯文本内容; html 层的红/蓝背景外壳仍由 report.service.js 保留
+ * @param {string} dueDate - YYYY-MM-DD
+ * @param {string} today - YYYY-MM-DD
+ * @param {boolean} overdue - 是否已逾期(未完成 + dueDate < today)
+ * @returns {string}
+ */
+function todoDateBadge(dueDate, today, overdue) {
+  const label = todoDateLabel(dueDate, today);
+  if (!label) return '';
+  return overdue ? `⚠️ 逾期 ${label}` : `📅 ${label}`;
+}
+
 /**
  * 扁平行 → 嵌套树
  * 按 parent_id 归组，同级按 sort_order + id 顺序，顶层为 parent_id 为空的节点
@@ -159,13 +199,15 @@ function buildChartSeries(raw, range, today) {
  * 计算重复任务的下次截止日期
  * 顶层任务勾选完成时用: 从旧 dueDate 推出新一条实例的 dueDate
  * @param {string} dueDate - 旧任务的 YYYY-MM-DD
- * @param {string} recurrence - 'daily' | 'weekly' | 'monthly' | 'yearly'
+ * @param {string} recurrence - 'daily' | 'weekly' | 'monthly' | 'yearly' | 'monthly_nth_weekday'
  * @param {boolean} jumpToCurrent - true 时以 todayStr 为基准找该周期下一个未来日
  * @param {string} todayStr - 今天 YYYY-MM-DD（北京日历）；仅 jumpToCurrent=true 时用
  * @param {number} interval - 每隔 N 个周期; 缺省或 <1 归一为 1
+ * @param {number} nth - 仅 monthly_nth_weekday 用: 1..5, 5=最后一个
+ * @param {number} weekday - 仅 monthly_nth_weekday 用: 0=周日..6=周六
  * @returns {string} 新 YYYY-MM-DD
  */
-function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr, interval) {
+function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr, interval, nth, weekday) {
   const step = (interval != null && interval >= 1) ? Math.floor(interval) : 1;
   const [y, m, d] = dueDate.split('-').map(Number);
   const clamp = (year, month, day) => {
@@ -179,6 +221,53 @@ function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr, interval) {
     const idx = (year * 12 + (month - 1)) + k;
     return [Math.floor(idx / 12), (idx % 12) + 1];
   };
+  // 该月第 n 个 weekday 的日号; n=5 或该月不足 n 个时取该月最后一个 weekday 的日号
+  // month 从 1 起, weekday 0..6
+  const nthWeekdayOf = (year, month, n, wd) => {
+    const first = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+    const firstOffset = ((wd - first) + 7) % 7; // 该月第 1 个 wd 的日号偏移
+    const first1 = 1 + firstOffset;
+    const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    if (n >= 5) {
+      // 取月内最后一个 wd
+      const lastWd = new Date(Date.UTC(year, month - 1, last)).getUTCDay();
+      const lastOff = ((lastWd - wd) + 7) % 7;
+      return last - lastOff;
+    }
+    const cand = first1 + (n - 1) * 7;
+    if (cand > last) {
+      // 不存在, 回退到最后一个
+      const lastWd = new Date(Date.UTC(year, month - 1, last)).getUTCDay();
+      const lastOff = ((lastWd - wd) + 7) % 7;
+      return last - lastOff;
+    }
+    return cand;
+  };
+
+  // ============ monthly_nth_weekday: 独立分支 ============
+  // nth/weekday 缺省则回退成 monthly(day-of-month) 逻辑, 保护脏数据
+  if (recurrence === 'monthly_nth_weekday') {
+    const n = (nth != null && nth >= 1 && nth <= 5) ? Math.floor(nth) : null;
+    const wd = (weekday != null && weekday >= 0 && weekday <= 6) ? Math.floor(weekday) : null;
+    if (n == null || wd == null) return dueDate;
+    if (!jumpToCurrent) {
+      const [ny, nm] = addMonths(y, m, step);
+      return fmt(ny, nm, nthWeekdayOf(ny, nm, n, wd));
+    }
+    const today = todayStr || new Date().toISOString().slice(0, 10);
+    const [ty, tm, td] = today.split('-').map(Number);
+    // 从 today 所在月出发, 找 nthWeekday > today; 不满足则每次跨 step 个月
+    let cy = ty, cm = tm;
+    for (let i = 0; i < 240; i++) { // 20 年上限, 防死循环
+      const day = nthWeekdayOf(cy, cm, n, wd);
+      if (cy > ty || (cy === ty && (cm > tm || (cm === tm && day > td)))) {
+        return fmt(cy, cm, day);
+      }
+      const [ny2, nm2] = addMonths(cy, cm, step);
+      cy = ny2; cm = nm2;
+    }
+    return fmt(cy, cm, nthWeekdayOf(cy, cm, n, wd));
+  }
 
   if (!jumpToCurrent) {
     if (recurrence === 'daily') {
@@ -264,4 +353,4 @@ function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr, interval) {
   return dueDate;
 }
 
-export { buildTree, flattenPending, countStats, buildChartSeries, CHART_RANGES, shiftDate };
+export { buildTree, flattenPending, countStats, buildChartSeries, CHART_RANGES, shiftDate, todoDateLabel, todoDateBadge };

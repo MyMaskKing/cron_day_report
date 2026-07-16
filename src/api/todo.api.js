@@ -28,8 +28,47 @@ function normRecurInterval(v) {
   if (!isFinite(n) || n < 1) return null;
   return Math.min(n, 99);
 }
+/** 规范化 monthly_nth_weekday 的第 N 个: [1..5], 5=最后一个; 非法返回 null */
+function normRecurNth(v) {
+  if (v == null || v === '') return null;
+  const n = parseInt(v, 10);
+  if (!isFinite(n) || n < 1 || n > 5) return null;
+  return n;
+}
+/** 规范化 monthly_nth_weekday 的星期几: [0..6], 0=周日; 非法返回 null */
+function normRecurWeekday(v) {
+  if (v == null || v === '') return null;
+  const n = parseInt(v, 10);
+  if (!isFinite(n) || n < 0 || n > 6) return null;
+  return n;
+}
 /** 重复周期白名单(顶层任务) */
-const REC_LIST = ['daily', 'weekly', 'monthly', 'yearly'];
+const REC_LIST = ['daily', 'weekly', 'monthly', 'yearly', 'monthly_nth_weekday'];
+
+/**
+ * 从 body 抽出重复相关字段, 归一到统一形状
+ * 返回 { recurrence, recur_interval, recur_nth, recur_weekday }
+ * - 非顶层任务(hasParent=true)一律清空 recurrence 与三伴生列
+ * - 无 recurrence 时三伴生列一律 null
+ * - recurrence 为 monthly_nth_weekday 且 nth/weekday 缺失时降级为 null(不写入无效行)
+ */
+function readRecurFields(body, hasParent) {
+  if (hasParent) return { recurrence: null, recur_interval: null, recur_nth: null, recur_weekday: null };
+  const raw = body.recurrence;
+  const rec = (raw && REC_LIST.includes(raw)) ? raw : null;
+  if (!rec) return { recurrence: null, recur_interval: null, recur_nth: null, recur_weekday: null };
+  const iv = normRecurInterval(body.recur_interval);
+  if (rec === 'monthly_nth_weekday') {
+    const nth = normRecurNth(body.recur_nth);
+    const wd = normRecurWeekday(body.recur_weekday);
+    // nth/weekday 必须完整; 缺一即视为未开重复, 避免写入残缺行
+    if (nth == null || wd == null) {
+      return { recurrence: null, recur_interval: null, recur_nth: null, recur_weekday: null };
+    }
+    return { recurrence: rec, recur_interval: iv, recur_nth: nth, recur_weekday: wd };
+  }
+  return { recurrence: rec, recur_interval: iv, recur_nth: null, recur_weekday: null };
+}
 
 // ==================== 登录态 CRUD ====================
 
@@ -60,19 +99,18 @@ async function createTodo({ request, env }) {
   }
   // 子任务日期继承主任务，不单独存日期；仅顶层任务可设 due_date
   const dueDate = parentId != null ? null : ((body.due_date || '').trim() || null);
-  // 重复周期: 仅顶层任务允许, 值须在白名单内
-  const REC = REC_LIST;
-  const rec = (parentId == null && body.recurrence && REC.includes(body.recurrence)) ? body.recurrence : null;
-  // 重复间隔: 仅在 rec 非空时保留; 无 rec 或非法值 → null(等价每 1 个周期)
-  const recIv = rec ? normRecurInterval(body.recur_interval) : null;
+  // 重复字段: 仅顶层任务允许; 走 readRecurFields 统一归一(含 nth/weekday)
+  const recFields = readRecurFields(body, parentId != null);
   const id = await storage.todo.create(auth.user_id, {
     parent_id: parentId, title,
     priority: normPriority(body.priority),
     due_date: dueDate,
     category: (body.category || '').trim() || null,
     note: (body.note || '').trim() || null,
-    recurrence: rec,
-    recur_interval: recIv
+    recurrence: recFields.recurrence,
+    recur_interval: recFields.recur_interval,
+    recur_nth: recFields.recur_nth,
+    recur_weekday: recFields.recur_weekday
   });
   return json({ success: true, message: '任务已添加', id });
 }
@@ -92,7 +130,6 @@ async function updateTodo({ request, env, params }) {
   // 子任务日期继承主任务，不单独存日期；仅顶层任务可设 due_date
   const dueDate = t.parent_id != null ? null : ((body.due_date || '').trim() || null);
   // 重复周期: 仅顶层任务允许; body.recurrence 显式为空字符串或 null 时清空; 未传则不改动
-  const REC = REC_LIST;
   const payload = {
     title,
     priority: normPriority(body.priority),
@@ -101,9 +138,11 @@ async function updateTodo({ request, env, params }) {
     note: (body.note || '').trim() || null
   };
   if (Object.prototype.hasOwnProperty.call(body, 'recurrence')) {
-    payload.recurrence = (t.parent_id == null && body.recurrence && REC.includes(body.recurrence)) ? body.recurrence : null;
-    // recur_interval 与 recurrence 同步: rec 有值时读 body 的 recur_interval, 否则清空
-    payload.recur_interval = payload.recurrence ? normRecurInterval(body.recur_interval) : null;
+    const recFields = readRecurFields(body, t.parent_id != null);
+    payload.recurrence = recFields.recurrence;
+    payload.recur_interval = recFields.recur_interval;
+    payload.recur_nth = recFields.recur_nth;
+    payload.recur_weekday = recFields.recur_weekday;
   }
   await storage.todo.update(id, auth.user_id, payload);
   return json({ success: true, message: '任务已更新' });
@@ -283,7 +322,6 @@ async function publicUpdateTodo({ request, env, params }) {
   if (!allowIds.has(id)) return error('任务不属于此清单', 400);
   // 仅清单根任务是顶层，可设截止日期；其余子任务日期继承主任务
   const dueDate = id === root.id ? ((body.due_date || '').trim() || null) : null;
-  const REC = REC_LIST;
   const payload = {
     title,
     priority: normPriority(body.priority),
@@ -292,8 +330,11 @@ async function publicUpdateTodo({ request, env, params }) {
     note: (body.note || '').trim() || null
   };
   if (id === root.id && Object.prototype.hasOwnProperty.call(body, 'recurrence')) {
-    payload.recurrence = (body.recurrence && REC.includes(body.recurrence)) ? body.recurrence : null;
-    payload.recur_interval = payload.recurrence ? normRecurInterval(body.recur_interval) : null;
+    const recFields = readRecurFields(body, false);
+    payload.recurrence = recFields.recurrence;
+    payload.recur_interval = recFields.recur_interval;
+    payload.recur_nth = recFields.recur_nth;
+    payload.recur_weekday = recFields.recur_weekday;
   }
   await storage.todo.update(id, root.user_id, payload);
   return json({ success: true, message: '任务已更新' });
@@ -376,17 +417,18 @@ async function publicAllAdd({ request, env, params }) {
   }
   // 顶层可设截止日期；子任务日期继承主任务，不单独存
   const dueDate = parentId != null ? null : ((body.due_date || '').trim() || null);
-  // 顶层重复周期与间隔
-  const rec = (parentId == null && body.recurrence && REC_LIST.includes(body.recurrence)) ? body.recurrence : null;
-  const recIv = rec ? normRecurInterval(body.recur_interval) : null;
+  // 顶层重复字段: 走统一 readRecurFields
+  const recFields = readRecurFields(body, parentId != null);
   const id = await storage.todo.create(userId, {
     parent_id: parentId, title,
     priority: normPriority(body.priority),
     due_date: dueDate,
     category: (body.category || '').trim() || null,
     note: (body.note || '').trim() || null,
-    recurrence: rec,
-    recur_interval: recIv
+    recurrence: recFields.recurrence,
+    recur_interval: recFields.recur_interval,
+    recur_nth: recFields.recur_nth,
+    recur_weekday: recFields.recur_weekday
   });
   return json({ success: true, message: '已添加', id });
 }
@@ -425,7 +467,6 @@ async function publicAllUpdate({ request, env, params }) {
   const t = await storage.todo.findById(id);
   if (!t || t.user_id !== userId) return error('任务不存在', 404);
   const dueDate = t.parent_id != null ? null : ((body.due_date || '').trim() || null);
-  const REC = REC_LIST;
   const payload = {
     title,
     priority: normPriority(body.priority),
@@ -434,8 +475,11 @@ async function publicAllUpdate({ request, env, params }) {
     note: (body.note || '').trim() || null
   };
   if (t.parent_id == null && Object.prototype.hasOwnProperty.call(body, 'recurrence')) {
-    payload.recurrence = (body.recurrence && REC.includes(body.recurrence)) ? body.recurrence : null;
-    payload.recur_interval = payload.recurrence ? normRecurInterval(body.recur_interval) : null;
+    const recFields = readRecurFields(body, false);
+    payload.recurrence = recFields.recurrence;
+    payload.recur_interval = recFields.recur_interval;
+    payload.recur_nth = recFields.recur_nth;
+    payload.recur_weekday = recFields.recur_weekday;
   }
   await storage.todo.update(id, userId, payload);
   return json({ success: true, message: '任务已更新' });

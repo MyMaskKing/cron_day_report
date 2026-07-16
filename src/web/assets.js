@@ -4,6 +4,15 @@
 
 // 通用 API 请求与工具函数（所有页面共用）
 const COMMON_JS = `
+// ============ 统一 SVG 图标(24x24, stroke: currentColor, 与 topbar 风格一致) ============
+// 移动端 emoji 在浅底色行上易被吞噬(尤其 ✏️/🔗/🗑️), 全部换成矢量描边图标; 颜色由 .todo-op 决定
+var ICONS = {
+  plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  edit:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>',
+  drag:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>'
+};
 var _loadingCount = 0;
 function showLoading(text) {
   _loadingCount++;
@@ -60,13 +69,33 @@ function loadingTextOf(path, opts) {
 }
 async function api(path, opts) {
   opts = opts || {};
-  // ===== 全局请求级去重: 相同 method+path+body 在进行中(或刚完成 300ms 内) 复用 Promise =====
-  // 兜底防抖: 即使某处按钮没走 bindClickBusy, 重复请求也不会翻倍 (体现在 UI: 不会创建两条记录)
+  // ===== 请求指纹缓存: 三级防重, 覆盖 fetch 报错后手动重试导致的重复提交 =====
+  //   in-flight: 相同 (method+path+body) 复用 Promise
+  //   成功后 15s: 命中直接返回上次 data(避免"手抖点两次立即产生两条记录")
+  //   失败后 3s : 命中抛提示错误, 让用户看清"刚才那次刚失败了"再决定重试
+  //   GET 不参与缓存: 查询无副作用, 缓存反而妨碍 UI 手动刷新
   var method = (opts.method || 'GET').toUpperCase();
   var bodyKey = opts.body ? JSON.stringify(opts.body) : '';
   var key = method + ' ' + path + ' ' + bodyKey;
+  var cacheable = method !== 'GET';
   if (!window._apiInflight) window._apiInflight = {};
+  if (!window._apiCache) window._apiCache = {};
   if (window._apiInflight[key]) return window._apiInflight[key];
+  if (cacheable) {
+    var cached = window._apiCache[key];
+    var now = Date.now();
+    if (cached) {
+      if (cached.err && now - cached.at < 3000) {
+        var leftE = Math.max(1, Math.ceil((3000 - (now - cached.at)) / 1000));
+        throw new Error('刚才这次请求已失败: ' + cached.err + '。请等待 ' + leftE + ' 秒后重试, 或刷新页面确认是否已生效。');
+      }
+      if (cached.data && now - cached.at < 15000) {
+        var leftO = Math.max(1, Math.ceil((15000 - (now - cached.at)) / 1000));
+        // 直接抛出提示, 阻断"表面上重复提交"的写操作; UI 层已有 alertModal 承接
+        throw new Error('这次请求刚已提交过 (' + leftO + ' 秒前)。请刷新页面确认结果, 无需重复提交。');
+      }
+    }
+  }
   var p = (async function(){
     showLoading(loadingTextOf(path, opts));
     try {
@@ -81,11 +110,15 @@ async function api(path, opts) {
       try { data = await res.json(); } catch (e) {}
       if (!res.ok) throw new Error(data.message || ('请求失败: ' + res.status));
       setLoadingProgress(100);
+      if (cacheable) window._apiCache[key] = { at: Date.now(), data: data };
       return data;
+    } catch (err) {
+      if (cacheable) window._apiCache[key] = { at: Date.now(), err: (err && err.message) || String(err) };
+      throw err;
     } finally {
       hideLoading();
-      // 300ms 后释放该 key, 允许后续同请求重新发起 (足够 UI 完成关弹窗/重绘, 但拦住"点两次立即双提交")
-      setTimeout(function(){ if (window._apiInflight) delete window._apiInflight[key]; }, 300);
+      // in-flight 释放: 保证 UI 侧下次可正常发起(缓存拦截由 _apiCache 负责)
+      setTimeout(function(){ if (window._apiInflight) delete window._apiInflight[key]; }, 100);
     }
   })();
   window._apiInflight[key] = p;
@@ -330,6 +363,120 @@ function bindQuickLogin(kind) {
 }
 // 图表横屏全屏查看：给页面每个图表 canvas 加「⛶」按钮，点击把 canvas 移入旋转 90° 的全屏层
 // 依赖 Chart.js v4 的 ResizeObserver：canvas 移入新尺寸容器后自动重绘，无需操作图表实例
+// (注意: initChartFullscreen 定义在本片段中段, 见下方同名函数)
+// ============ 日期人性化 label(与后端 services/todo.service.js 逻辑一致) ============
+// 今天/昨天/明天 → 中文; 本周内(ISO 周, 周一为首) → 周一~周日; 否则 MM/DD
+var _CN_WEEKDAY = ['周日','周一','周二','周三','周四','周五','周六'];
+function todoDateLabel(dueDate, today) {
+  if (!dueDate || dueDate.length < 10) return '';
+  if (!today || today.length < 10) return dueDate.slice(5,7) + '/' + dueDate.slice(8,10);
+  var dMs = Date.UTC(+dueDate.slice(0,4), +dueDate.slice(5,7)-1, +dueDate.slice(8,10));
+  var tMs = Date.UTC(+today.slice(0,4), +today.slice(5,7)-1, +today.slice(8,10));
+  var diff = Math.round((dMs - tMs) / 86400000);
+  if (diff === 0) return '今天';
+  if (diff === -1) return '昨天';
+  if (diff === 1) return '明天';
+  var tDow = new Date(tMs).getUTCDay();
+  var monOff = (tDow + 6) % 7;
+  var monMs = tMs - monOff * 86400000;
+  var sunMs = monMs + 6 * 86400000;
+  if (dMs >= monMs && dMs <= sunMs) return _CN_WEEKDAY[new Date(dMs).getUTCDay()];
+  return dueDate.slice(5,7) + '/' + dueDate.slice(8,10);
+}
+
+// ============ 全局左滑返回手势 ============
+// 触发条件: 从左缘 24px 起 pointerdown, 水平右滑 > 60 且 > 2×垂直位移
+// 优先级依次关闭: 抽屉 → 图表全屏 → modal → 待办全屏 → 待办详情 → history.back / 回 dashboard
+// 排除: input/select/textarea/.mp-menu/.todo-drag/横向可滚动区域 内部起手, 避免误伤原生手势
+function initGlobalSwipeBack() {
+  if (window._swipeBackReady) return;
+  window._swipeBackReady = 1;
+  var startX = 0, startY = 0, tracking = false, fired = false;
+  var EDGE = 24, THRESHOLD_X = 60, MAX_Y_RATIO = 0.5;
+  function insideHorizScroll(el) {
+    for (var p = el; p && p !== document.body; p = p.parentElement) {
+      if (!p.getBoundingClientRect) break;
+      // 命中横向滚动容器时放行, 避免劫持内容内滑动
+      try {
+        var style = getComputedStyle(p);
+        if ((style.overflowX === 'auto' || style.overflowX === 'scroll') && p.scrollWidth > p.clientWidth) return true;
+      } catch (e) { /* ignore */ }
+    }
+    return false;
+  }
+  document.addEventListener('pointerdown', function(e){
+    tracking = false; fired = false;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.clientX > EDGE) return;
+    var t = e.target;
+    if (!t) return;
+    var tag = (t.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    if (t.closest && (t.closest('.todo-drag') || t.closest('.mp-menu') || t.closest('input[type=range]'))) return;
+    if (insideHorizScroll(t)) return;
+    tracking = true;
+    startX = e.clientX; startY = e.clientY;
+  }, { passive: true });
+  document.addEventListener('pointermove', function(e){
+    if (!tracking || fired) return;
+    var dx = e.clientX - startX;
+    var dy = Math.abs(e.clientY - startY);
+    if (dx > THRESHOLD_X && dy < dx * MAX_Y_RATIO) {
+      fired = true;
+      tracking = false;
+      handleSwipeBack();
+    } else if (dx < -8 || dy > 30) {
+      // 反向/竖向: 中止本次跟踪
+      tracking = false;
+    }
+  }, { passive: true });
+  document.addEventListener('pointerup', function(){ tracking = false; }, { passive: true });
+  document.addEventListener('pointercancel', function(){ tracking = false; }, { passive: true });
+  function handleSwipeBack() {
+    // 1. 待办抽屉打开 → 关抽屉
+    var drawer = document.getElementById('todoDrawer');
+    if (drawer && drawer.classList.contains('open')) {
+      try { window._todoDrawerOpen = false; } catch(e){}
+      try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+      drawer.classList.remove('open'); drawer.classList.add('closed');
+      var m = document.getElementById('todoDrawerMask');
+      if (m) m.classList.remove('show');
+      return;
+    }
+    // 2. 图表全屏遮罩
+    var chartMask = document.querySelector('.chart-fs-mask');
+    if (chartMask) {
+      var closeBtn = chartMask.querySelector('.chart-fs-close');
+      if (closeBtn) closeBtn.click();
+      return;
+    }
+    // 3. modal 遮罩
+    var modal = document.getElementById('modalMask');
+    if (modal && modal.classList.contains('show')) { closeModal(); return; }
+    // 4. 待办全屏
+    if (document.body.classList.contains('todo-fs-on')) {
+      var exitBtn = document.getElementById('exitFullscreen');
+      if (exitBtn) { exitBtn.click(); return; }
+    }
+    // 5. 待办详情面包屑
+    var back = document.querySelector('.todo-crumb__back');
+    if (back && back.offsetParent !== null) { back.click(); return; }
+    // 6. 兜底: history.back / 回 dashboard
+    var canBack = false;
+    try {
+      if (document.referrer) {
+        var u = new URL(document.referrer);
+        if (u.origin === location.origin) canBack = true;
+      }
+    } catch(e){}
+    if (canBack && history.length > 1) { history.back(); return; }
+    // 登录页不做兜底跳转
+    if (location.pathname === '/login' || location.pathname === '/setup') return;
+    location.href = '/dashboard';
+  }
+}
+
+// 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
 function initChartFullscreen() {
   var canvases = document.querySelectorAll('canvas');
   Array.prototype.forEach.call(canvases, function(cv){
@@ -420,10 +567,12 @@ function bindClickBusy(btn, handler) {
   });
 }
 // 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
+// 同步启用全局左滑返回手势(pointer events, 移动端/桌面通用, 从左缘 24px 起手)
+function _initGlobalUX() { initChartFullscreen(); initGlobalSwipeBack(); }
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initChartFullscreen);
+  document.addEventListener('DOMContentLoaded', _initGlobalUX);
 } else {
-  initChartFullscreen();
+  _initGlobalUX();
 }
 
 // ========= 数字/金额格式化 =========
@@ -2613,10 +2762,11 @@ function todoDoneByFilter(rows, filter, today, range) {
   return count;
 }
 // 前端版 shiftDate: 与后端 services/todo.service.js 的 shiftDate 逻辑一致
-// dueDate: YYYY-MM-DD; recurrence: 'daily'|'weekly'|'monthly'|'yearly'
+// dueDate: YYYY-MM-DD; recurrence: 'daily'|'weekly'|'monthly'|'yearly'|'monthly_nth_weekday'
 // jumpToCurrent=true 时以 todayStr 为基准找该周期最近未来日
 // interval: 每隔 N 个周期; 缺省或 <1 归一为 1
-function shiftDateLocal(dueDate, recurrence, jumpToCurrent, todayStr, interval) {
+// nth/weekday: 仅 monthly_nth_weekday 用; nth 1..5(5=最后一个), weekday 0..6(0=周日)
+function shiftDateLocal(dueDate, recurrence, jumpToCurrent, todayStr, interval, nth, weekday) {
   var step = (interval != null && interval >= 1) ? Math.floor(interval) : 1;
   var parts = dueDate.split('-');
   var y = +parts[0], m = +parts[1], d = +parts[2];
@@ -2626,6 +2776,47 @@ function shiftDateLocal(dueDate, recurrence, jumpToCurrent, todayStr, interval) 
   function addMonths(year, month, k) {
     var idx = (year * 12 + (month - 1)) + k;
     return [Math.floor(idx / 12), (idx % 12) + 1];
+  }
+  // 该月第 n 个 weekday 的日号; n=5 或该月不足 n 个时取该月最后一个 weekday
+  function nthWeekdayOf(year, month, n, wd) {
+    var first = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+    var firstOff = ((wd - first) + 7) % 7;
+    var first1 = 1 + firstOff;
+    var last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    if (n >= 5) {
+      var lastWd = new Date(Date.UTC(year, month - 1, last)).getUTCDay();
+      var lastOff = ((lastWd - wd) + 7) % 7;
+      return last - lastOff;
+    }
+    var cand = first1 + (n - 1) * 7;
+    if (cand > last) {
+      var lastWd2 = new Date(Date.UTC(year, month - 1, last)).getUTCDay();
+      var lastOff2 = ((lastWd2 - wd) + 7) % 7;
+      return last - lastOff2;
+    }
+    return cand;
+  }
+  // ============ monthly_nth_weekday 分支 ============
+  if (recurrence === 'monthly_nth_weekday') {
+    var n = (nth != null && nth >= 1 && nth <= 5) ? Math.floor(nth) : null;
+    var wd = (weekday != null && weekday >= 0 && weekday <= 6) ? Math.floor(weekday) : null;
+    if (n == null || wd == null) return dueDate;
+    if (!jumpToCurrent) {
+      var mm = addMonths(y, m, step);
+      return fmt(mm[0], mm[1], nthWeekdayOf(mm[0], mm[1], n, wd));
+    }
+    var _today = todayStr || new Date(Date.now() + 8*3600*1000).toISOString().slice(0,10);
+    var _tp = _today.split('-');
+    var _ty = +_tp[0], _tm = +_tp[1], _td = +_tp[2];
+    var cy0 = _ty, cm0 = _tm;
+    for (var i = 0; i < 240; i++) {
+      var day = nthWeekdayOf(cy0, cm0, n, wd);
+      if (cy0 > _ty || (cy0 === _ty && (cm0 > _tm || (cm0 === _tm && day > _td)))) {
+        return fmt(cy0, cm0, day);
+      }
+      var _mm = addMonths(cy0, cm0, step); cy0 = _mm[0]; cm0 = _mm[1];
+    }
+    return fmt(cy0, cm0, nthWeekdayOf(cy0, cm0, n, wd));
   }
   if (!jumpToCurrent) {
     if (recurrence === 'daily') { var t = Date.UTC(y, m-1, d) + step * 86400000; return new Date(t).toISOString().slice(0,10); }
@@ -2704,17 +2895,27 @@ function todoCatDistinct(rows) {
 // 重复徽章文案: recurrence + interval → "每日" / "每2周" / "每3月" / ...
 //   interval 缺省或 ≤1 时省略数字: "每日" / "每周" / "每月" / "每年"
 //   interval ≥2: daily→"每2天"(注意 daily 无 interval 时展示"每日", 与旧数据一致), 其它按 每N周/月/年
-function todoRecurLabel(recurrence, interval) {
+//   monthly_nth_weekday: 需要 nth/weekday, "每月第 N 个周 X" (N=5 显示为"最后一个")
+function todoRecurLabel(recurrence, interval, nth, weekday) {
   var n = (interval != null && interval >= 1) ? Math.floor(interval) : 1;
   if (recurrence === 'daily')   return n > 1 ? ('每' + n + '天') : '每日';
   if (recurrence === 'weekly')  return n > 1 ? ('每' + n + '周') : '每周';
   if (recurrence === 'monthly') return n > 1 ? ('每' + n + '月') : '每月';
   if (recurrence === 'yearly')  return n > 1 ? ('每' + n + '年') : '每年';
+  if (recurrence === 'monthly_nth_weekday') {
+    var NTH = { 1:'第一个', 2:'第二个', 3:'第三个', 4:'第四个', 5:'最后一个' };
+    var WD  = ['周日','周一','周二','周三','周四','周五','周六'];
+    var pos = NTH[nth] || '';
+    var w = (weekday != null) ? WD[weekday] : '';
+    if (!pos || !w) return n > 1 ? ('每' + n + '月') : '每月';
+    return n > 1 ? ('每' + n + '月的' + pos + w) : ('每月' + pos + w);
+  }
   return recurrence || '';
 }
-// 待办弹窗: 绑定"重复"下拉与"每 N 单位"数字框的联动
-//   选中"不重复" → 隐藏数字框
+// 待办弹窗: 绑定"重复"下拉与"每 N 单位"数字框、monthly_nth_weekday 双下拉的联动
+//   选中"不重复" → 隐藏数字框 + 隐藏 nth/weekday
 //   选中 daily/weekly/monthly/yearly → 显示数字框, 单位文案切换为 天/周/月/年
+//   选中 monthly_nth_weekday → 显示数字框(单位=月) + 显示 nth/weekday 两下拉
 // 幂等: __recBound 标记避免重复绑定
 function todoBindRecurUI() {
   var sel = document.getElementById('tfRecur');
@@ -2722,12 +2923,13 @@ function todoBindRecurUI() {
   sel.__recBound = 1;
   var box = document.getElementById('tfRecurNBox');
   var unit = document.getElementById('tfRecurUnit');
-  var UNITS = { daily:'天', weekly:'周', monthly:'月', yearly:'年' };
+  var nthWrap = document.getElementById('tfNthWrap');
+  var UNITS = { daily:'天', weekly:'周', monthly:'月', monthly_nth_weekday:'月', yearly:'年' };
   sel.addEventListener('change', function(){
     var v = sel.value;
-    if (!box || !unit) return;
-    if (v) { box.style.display = 'inline-flex'; unit.textContent = UNITS[v] || '天'; }
-    else box.style.display = 'none';
+    if (box) box.style.display = v ? 'inline-flex' : 'none';
+    if (unit && v) unit.textContent = UNITS[v] || '天';
+    if (nthWrap) nthWrap.style.display = (v === 'monthly_nth_weekday') ? 'flex' : 'none';
   });
 }
 // 弹窗内分类下拉填充: 先清空 sel 里除固定项外的所有 option, 再插入现有分类
@@ -3183,7 +3385,7 @@ function renderTodoTree(container, trees, opts) {
       var over = !node.done && today && effDue < today;
       var dc = document.createElement('span');
       dc.className = 'todo-chip due' + (over ? ' overdue' : '');
-      dc.textContent = (over ? '⚠️ 逾期 ' : '📅 ') + effDue;
+      dc.textContent = (over ? '⚠️ 逾期 ' : '📅 ') + todoDateLabel(effDue, today);
       meta.appendChild(dc);
     }
     // 完成时间 chip：已完成且有完成日期时显示
@@ -3197,7 +3399,7 @@ function renderTodoTree(container, trees, opts) {
     if (depth === 0 && node.recurrence) {
       var rc = document.createElement('span');
       rc.className = 'todo-chip repeat';
-      rc.textContent = '🔁 ' + todoRecurLabel(node.recurrence, node.recur_interval);
+      rc.textContent = '🔁 ' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday);
       meta.appendChild(rc);
     }
     if (meta.childNodes.length) main.appendChild(meta);
@@ -3218,13 +3420,13 @@ function renderTodoTree(container, trees, opts) {
       if (opts.onReorder && depth > 0) {
         dragHandle = document.createElement('button');
         dragHandle.type = 'button'; dragHandle.className = 'todo-op todo-drag'; dragHandle.title = '拖动排序';
-        dragHandle.textContent = '≡';
+        dragHandle.innerHTML = ICONS.drag;
         ops.appendChild(dragHandle);
       }
-      if (opts.onAddChild) { var b1 = mkOp('➕', '添加子任务', function(){ opts.onAddChild(node); }); ops.appendChild(b1); }
-      if (opts.onEdit)     { var b2 = mkOp('✏️', '编辑', function(){ opts.onEdit(node); }); ops.appendChild(b2); }
-      if (opts.onShare && depth === 0) { var b3 = mkOp('🔗', '协作链接', function(){ opts.onShare(node); }); ops.appendChild(b3); }
-      if (opts.onDel)      { var b4 = mkOp('🗑️', '删除', function(){ opts.onDel(node); }); ops.appendChild(b4); }
+      if (opts.onAddChild) { var b1 = mkOp(ICONS.plus,  '添加子任务', function(){ opts.onAddChild(node); }); ops.appendChild(b1); }
+      if (opts.onEdit)     { var b2 = mkOp(ICONS.edit,  '编辑',       function(){ opts.onEdit(node); }); ops.appendChild(b2); }
+      if (opts.onShare && depth === 0) { var b3 = mkOp(ICONS.share, '协作链接', function(){ opts.onShare(node); }); ops.appendChild(b3); }
+      if (opts.onDel)      { var b4 = mkOp(ICONS.trash, '删除',       function(){ opts.onDel(node); }, 'danger'); ops.appendChild(b4); }
       if (ops.childNodes.length) row.appendChild(ops);
       // 手柄插入后再绑定拖拽
       if (dragHandle) todoBindDrag(dragHandle, wrap, node, opts);
@@ -3248,10 +3450,11 @@ function renderTodoTree(container, trees, opts) {
     }
     return wrap;
   }
-  function mkOp(icon, title, fn) {
+  function mkOp(icon, title, fn, extraClass) {
     var b = document.createElement('button');
-    b.type = 'button'; b.className = 'todo-op'; b.title = title;
-    b.textContent = icon;
+    b.type = 'button'; b.className = 'todo-op' + (extraClass ? ' ' + extraClass : ''); b.title = title;
+    b.setAttribute('aria-label', title);
+    b.innerHTML = icon;
     b.addEventListener('click', function(e){ e.stopPropagation(); fn(); });
     return b;
   }
@@ -3327,7 +3530,7 @@ function renderTodoCards(container, trees, opts) {
       var over = !root.done && today && root.due_date < today;
       var dc = document.createElement('span');
       dc.className = 'todo-chip due' + (over ? ' overdue' : '');
-      dc.textContent = (over ? '⚠️ 逾期 ' : '📅 ') + root.due_date;
+      dc.textContent = (over ? '⚠️ 逾期 ' : '📅 ') + todoDateLabel(root.due_date, today);
       meta.appendChild(dc);
     }
     if (root.done && root.done_at) {
@@ -3339,7 +3542,7 @@ function renderTodoCards(container, trees, opts) {
     if (root.recurrence) {
       var rc = document.createElement('span');
       rc.className = 'todo-chip repeat';
-      rc.textContent = '🔁 ' + todoRecurLabel(root.recurrence, root.recur_interval);
+      rc.textContent = '🔁 ' + todoRecurLabel(root.recurrence, root.recur_interval, root.recur_nth, root.recur_weekday);
       meta.appendChild(rc);
     }
     if (hasChildren) {
@@ -3366,10 +3569,10 @@ function renderTodoCards(container, trees, opts) {
       var ops = document.createElement('div'); ops.className = 'todo-card__ops';
       if (!opts.readOnly) {
         // 顶层卡片"添加子任务"入口：直接调用 onAddChild, 不必先进详情
-        if (opts.onAddChild) ops.appendChild(mkCardOp('➕', '添加子任务', function(){ opts.onAddChild(root); }));
-        if (opts.onEdit)  ops.appendChild(mkCardOp('✏️', '编辑', function(){ opts.onEdit(root); }));
-        if (opts.onShare) ops.appendChild(mkCardOp('🔗', '协作链接', function(){ opts.onShare(root); }));
-        if (opts.onDel)   ops.appendChild(mkCardOp('🗑️', '删除', function(){ opts.onDel(root); }));
+        if (opts.onAddChild) ops.appendChild(mkCardOp(ICONS.plus,  '添加子任务', function(){ opts.onAddChild(root); }));
+        if (opts.onEdit)  ops.appendChild(mkCardOp(ICONS.edit,  '编辑',       function(){ opts.onEdit(root); }));
+        if (opts.onShare) ops.appendChild(mkCardOp(ICONS.share, '协作链接',   function(){ opts.onShare(root); }));
+        if (opts.onDel)   ops.appendChild(mkCardOp(ICONS.trash, '删除',       function(){ opts.onDel(root); }, 'danger'));
       }
       foot.appendChild(ops);
       if (canEnter) {
@@ -3392,10 +3595,11 @@ function renderTodoCards(container, trees, opts) {
   });
 }
 // 卡片视图行内操作按钮工厂：与 renderTodoTree 内 mkOp 独立作用域, 避免重名污染
-function mkCardOp(icon, title, fn) {
+function mkCardOp(icon, title, fn, extraClass) {
   var b = document.createElement('button');
-  b.type = 'button'; b.className = 'todo-op'; b.title = title;
-  b.textContent = icon;
+  b.type = 'button'; b.className = 'todo-op' + (extraClass ? ' ' + extraClass : ''); b.title = title;
+  b.setAttribute('aria-label', title);
+  b.innerHTML = icon;
   b.addEventListener('click', function(e){ e.stopPropagation(); fn(); });
   return b;
 }
@@ -3572,16 +3776,37 @@ function todoFormHtml(t, isNew, isChild) {
           '<option value="">不重复</option>' +
           '<option value="daily"' + (t.recurrence === 'daily' ? ' selected' : '') + '>🔁 每日</option>' +
           '<option value="weekly"' + (t.recurrence === 'weekly' ? ' selected' : '') + '>🔁 每周</option>' +
-          '<option value="monthly"' + (t.recurrence === 'monthly' ? ' selected' : '') + '>🔁 每月</option>' +
+          '<option value="monthly"' + (t.recurrence === 'monthly' ? ' selected' : '') + '>🔁 每月 (按日期, 如每月 5 号)</option>' +
+          '<option value="monthly_nth_weekday"' + (t.recurrence === 'monthly_nth_weekday' ? ' selected' : '') + '>🔁 每月第 N 个星期 X</option>' +
           '<option value="yearly"' + (t.recurrence === 'yearly' ? ' selected' : '') + '>🔁 每年</option>' +
         '</select>' +
         '<span id="tfRecurNBox" style="display:' + (t.recurrence ? 'inline-flex' : 'none') + ';align-items:center;gap:4px;color:#5a6b9a;font-size:13px;">' +
           '每' +
           '<input id="tfRecurN" type="number" min="1" max="99" value="' + (t.recur_interval && t.recur_interval >= 1 ? t.recur_interval : 1) + '" style="width:58px;padding:4px 6px;text-align:center;">' +
-          '<span id="tfRecurUnit">' + (({ daily:'天', weekly:'周', monthly:'月', yearly:'年' })[t.recurrence] || '天') + '</span>' +
+          '<span id="tfRecurUnit">' + (({ daily:'天', weekly:'周', monthly:'月', monthly_nth_weekday:'月', yearly:'年' })[t.recurrence] || '天') + '</span>' +
         '</span>' +
       '</div>' +
-      '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">🔁 完成后自动生成下一条任务；如"每 2 周"、"每 3 月"</p>') +
+      // monthly_nth_weekday 专属两下拉: 位置(第 N 个) + 星期几; 仅在选中该重复时显示
+      '<div id="tfNthWrap" style="display:' + (t.recurrence === 'monthly_nth_weekday' ? 'flex' : 'none') + ';gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">' +
+        '<span style="color:#5a6b9a;font-size:13px;">的</span>' +
+        '<select id="tfRecurNth" style="flex:1;min-width:110px;">' +
+          '<option value="1"' + (t.recur_nth === 1 ? ' selected' : '') + '>第一个</option>' +
+          '<option value="2"' + (t.recur_nth === 2 ? ' selected' : '') + '>第二个</option>' +
+          '<option value="3"' + (t.recur_nth === 3 ? ' selected' : '') + '>第三个</option>' +
+          '<option value="4"' + (t.recur_nth === 4 ? ' selected' : '') + '>第四个</option>' +
+          '<option value="5"' + (t.recur_nth === 5 ? ' selected' : '') + '>最后一个</option>' +
+        '</select>' +
+        '<select id="tfRecurWd" style="flex:1;min-width:110px;">' +
+          '<option value="1"' + (t.recur_weekday === 1 ? ' selected' : '') + '>周一</option>' +
+          '<option value="2"' + (t.recur_weekday === 2 ? ' selected' : '') + '>周二</option>' +
+          '<option value="3"' + (t.recur_weekday === 3 ? ' selected' : '') + '>周三</option>' +
+          '<option value="4"' + (t.recur_weekday === 4 ? ' selected' : '') + '>周四</option>' +
+          '<option value="5"' + (t.recur_weekday === 5 ? ' selected' : '') + '>周五</option>' +
+          '<option value="6"' + (t.recur_weekday === 6 ? ' selected' : '') + '>周六</option>' +
+          '<option value="0"' + (t.recur_weekday === 0 ? ' selected' : '') + '>周日</option>' +
+        '</select>' +
+      '</div>' +
+      '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">🔁 完成后自动生成下一条任务；如"每 2 周"、"每月第一个周一"</p>') +
     '<label>分类（可选）</label>' +
     '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
     '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;">' +
@@ -3611,6 +3836,23 @@ function todoFormRead() {
       var v = parseInt(n.value, 10);
       if (!isFinite(v) || v < 1) return 1;
       return Math.min(v, 99);
+    })(),
+    // monthly_nth_weekday 专属两列: 其它周期时忽略即可(后端 readRecurFields 会强制清空)
+    recur_nth: (function(){
+      var e = document.getElementById('tfRecur');
+      var n = document.getElementById('tfRecurNth');
+      if (!e || e.value !== 'monthly_nth_weekday' || !n) return null;
+      var v = parseInt(n.value, 10);
+      if (!isFinite(v) || v < 1 || v > 5) return null;
+      return v;
+    })(),
+    recur_weekday: (function(){
+      var e = document.getElementById('tfRecur');
+      var w = document.getElementById('tfRecurWd');
+      if (!e || e.value !== 'monthly_nth_weekday' || !w) return null;
+      var v = parseInt(w.value, 10);
+      if (!isFinite(v) || v < 0 || v > 6) return null;
+      return v;
     })()
   };
 }
@@ -3754,16 +3996,17 @@ function drawTree() {
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
     onToggleRecur: function(node){
       var dueDate = node.due_date || todayStr();
-      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, todayStr(), node.recur_interval);
-      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, todayStr(), node.recur_interval);
+      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, todayStr(), node.recur_interval, node.recur_nth, node.recur_weekday);
+      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, todayStr(), node.recur_interval, node.recur_nth, node.recur_weekday);
       var sameDate = defaultNext === jumpNext;
+      var _t = todayStr();
       var html =
-        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval) + '）</p>' +
-        '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
+        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday) + '）</p>' +
+        '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(todoDateLabel(dueDate, _t)) + ' <span style="color:#b0b6c8;">(' + dueDate + ')</span></p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
-        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + todoDateLabel(defaultNext, _t) + ' <span style="color:#b0b6c8;font-size:12px;">(' + defaultNext + ')</span>（下一周期，默认）</label>' +
         (sameDate ? '' :
-          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
+          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _t) + ' <span style="color:#b0b6c8;font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
       openModal('✅ 完成重复任务', html);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
@@ -4148,16 +4391,16 @@ function drawTree() {
     // 顶层重复任务勾选前弹窗选下一日期(与 TODO_COLLAB_JS 同口径)
     onToggleRecur: function(node){
       var dueDate = node.due_date || _today;
-      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today, node.recur_interval);
-      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today, node.recur_interval);
+      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today, node.recur_interval, node.recur_nth, node.recur_weekday);
+      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today, node.recur_interval, node.recur_nth, node.recur_weekday);
       var sameDate = defaultNext === jumpNext;
       var html =
-        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval) + '）</p>' +
-        '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
+        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday) + '）</p>' +
+        '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(todoDateLabel(dueDate, _today)) + ' <span style="color:#b0b6c8;">(' + dueDate + ')</span></p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
-        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + todoDateLabel(defaultNext, _today) + ' <span style="color:#b0b6c8;font-size:12px;">(' + defaultNext + ')</span>（下一周期，默认）</label>' +
         (sameDate ? '' :
-          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
+          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _today) + ' <span style="color:#b0b6c8;font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
       openModal('✅ 完成重复任务', html);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
@@ -4381,16 +4624,16 @@ function drawTree(trees) {
     onEnter: function(node){ _todoDetailRootId = node.id; loadCollab(); },
     onToggleRecur: function(node){
       var dueDate = node.due_date || _today;
-      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today, node.recur_interval);
-      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today, node.recur_interval);
+      var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today, node.recur_interval, node.recur_nth, node.recur_weekday);
+      var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today, node.recur_interval, node.recur_nth, node.recur_weekday);
       var sameDate = defaultNext === jumpNext;
       var html =
-        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval) + '）</p>' +
-        '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(dueDate) + '</p>' +
+        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday) + '）</p>' +
+        '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(todoDateLabel(dueDate, _today)) + ' <span style="color:#b0b6c8;">(' + dueDate + ')</span></p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
-        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + defaultNext + '（下一周期，默认）</label>' +
+        '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + todoDateLabel(defaultNext, _today) + ' <span style="color:#b0b6c8;font-size:12px;">(' + defaultNext + ')</span>（下一周期，默认）</label>' +
         (sameDate ? '' :
-          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + jumpNext + '（跳到当前周期）</label>') +
+          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _today) + ' <span style="color:#b0b6c8;font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
       openModal('✅ 完成重复任务', html);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
