@@ -89,8 +89,8 @@ a { color: #A855F7; text-decoration: none; }
 .topbar .brand-sep { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.55); }
 .topbar .brand-w2 {
   font-size: 14px; font-weight: 700; letter-spacing: .3px;
-  /* 珊瑚→黄的渐变字, 与"监控追踪"白色形成"检测→广播"的语义对比 */
-  background: linear-gradient(90deg, #FFD86B 0%, #FF9F6B 100%);
+  /* 紫→蓝渐变字, 与火箭珊瑚色首尾呼应, 走完 topbar 三色渐变的冷端 */
+  background: linear-gradient(90deg, #C084FC 0%, #60A5FA 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 @keyframes rocketPulse {
