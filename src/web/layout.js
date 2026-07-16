@@ -66,20 +66,36 @@ a { color: #A855F7; text-decoration: none; }
   from { background-position: 0% 50%; }
   to   { background-position: 100% 50%; }
 }
-.topbar h1 { font-size: 16px; font-weight: 600; letter-spacing: .2px; display: inline-flex; align-items: baseline; gap: 6px; }
-/* Logo：极简小火箭 + 主副标一行；不加容器不加大绿点，寸土寸金 */
-.topbar .brand-rocket {
-  display: inline-block; font-size: 18px; line-height: 1;
-  /* 火箭尾焰: 珊瑚色发光, 呼应 topbar 渐变起点; 无额外元素/占位 */
-  filter: drop-shadow(0 3px 4px rgba(255, 122, 89, .55));
-  animation: rocketPulse 2.4s ease-in-out infinite;
-  transform-origin: center;
+.topbar h1 { font-size: 16px; font-weight: 600; letter-spacing: .2px; }
+/* Logo 组：小火箭 + 双主题词, 套在一个深色玻璃胶囊里当 logo 底座 */
+.topbar .brand {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px 5px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(20, 10, 50, .28) 0%, rgba(60, 20, 90, .22) 100%);
+  border: 1px solid rgba(255, 255, 255, .22);
+  box-shadow: 0 2px 8px rgba(30, 20, 80, .18), 0 0 0 1px rgba(255,255,255,.08) inset;
+  line-height: 1;
 }
-.topbar .brand-main { font-weight: 700; letter-spacing: .3px; }
-.topbar .brand-sub  { font-size: 11px; font-weight: 400; letter-spacing: 1px; opacity: .68; margin-left: 2px; }
+.topbar .brand-rocket {
+  display: inline-flex; width: 16px; height: 16px; line-height: 1;
+  /* 尾焰: 珊瑚发光, 呼应 topbar 渐变起点 */
+  filter: drop-shadow(0 2px 3px rgba(255, 122, 89, .7));
+  animation: rocketPulse 2.4s ease-in-out infinite;
+}
+.topbar .brand-rocket svg { width: 100%; height: 100%; display: block; }
+/* 两个主题词同字号 (14px, 权重不同以形成节奏, 又不破坏"同等地位") */
+.topbar .brand-w1 { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: .3px; }
+.topbar .brand-sep { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.55); }
+.topbar .brand-w2 {
+  font-size: 14px; font-weight: 700; letter-spacing: .3px;
+  /* 珊瑚→黄的渐变字, 与"监控追踪"白色形成"检测→广播"的语义对比 */
+  background: linear-gradient(90deg, #FFD86B 0%, #FF9F6B 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
 @keyframes rocketPulse {
-  0%, 100% { filter: drop-shadow(0 3px 4px rgba(255, 122, 89, .55)); }
-  50%      { filter: drop-shadow(0 4px 7px rgba(255, 122, 89, .85)); }
+  0%, 100% { filter: drop-shadow(0 2px 3px rgba(255, 122, 89, .7)); }
+  50%      { filter: drop-shadow(0 3px 6px rgba(255, 122, 89, 1)); }
 }
 .topbar .nav a {
   color: #fff; margin-left: 18px; font-size: 14px; opacity: .82;
@@ -691,9 +707,10 @@ html { scrollbar-gutter: stable; }
 /* ============ 移动端适配 (<=640px) ============ */
 @media (max-width: 640px) {
   .topbar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
-  .topbar h1 { font-size: 15px; gap: 5px; }
-  .topbar h1 .brand-rocket { font-size: 16px; }
-  .topbar h1 .brand-sub { font-size: 10px; letter-spacing: .5px; }
+  .topbar h1 { font-size: 15px; }
+  .topbar h1 .brand { padding: 4px 10px 4px 9px; gap: 6px; }
+  .topbar h1 .brand-rocket { width: 14px; height: 14px; }
+  .topbar h1 .brand-w1, .topbar h1 .brand-w2 { font-size: 13px; }
   .topbar .nav { display: flex; flex-wrap: wrap; gap: 6px 0; }
   .topbar .nav a { margin-left: 0; margin-right: 16px; }
   .topbar .user { font-size: 13px; flex-wrap: wrap; }
@@ -786,7 +803,7 @@ function renderTopbar(user, active = '') {
   ).join('');
 
   return `<div class="topbar">
-    <h1><span class="brand-rocket" aria-hidden="true">🚀</span><span class="brand-main">监控追踪</span><span class="brand-sub">· 定时发送</span></h1>
+    <h1><span class="brand"><span class="brand-rocket" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="rocketGrad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#FFD86B"/><stop offset="100%" stop-color="#FF7A59"/></linearGradient></defs><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" fill="url(#rocketGrad)" stroke="url(#rocketGrad)"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" fill="url(#rocketGrad)" stroke="#fff" stroke-width="1.2"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" stroke="url(#rocketGrad)"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" stroke="url(#rocketGrad)"/></svg></span><span class="brand-w1">监控追踪</span><span class="brand-sep" aria-hidden="true"></span><span class="brand-w2">定时发送</span></span></h1>
     <div class="nav">${navHtml}</div>
     <div class="user">${user.nickname || user.username} <span class="tag ${user.role}">${user.role === 'admin' ? '超管' : '用户'}</span>
       ${restricted ? '' : '<a href="/settings" class="act-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</a>'}
