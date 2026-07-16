@@ -66,24 +66,16 @@ a { color: #A855F7; text-decoration: none; }
   from { background-position: 0% 50%; }
   to   { background-position: 100% 50%; }
 }
-.topbar h1 { font-size: 18px; font-weight: 600; letter-spacing: .2px; display: inline-flex; align-items: center; gap: 10px; }
-/* topbar 上的 "定时发送" 徽章：呼应模块本质(cron)，绿点脉冲暗示定时任务在跑 */
-.topbar .brand-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px; border-radius: 999px;
-  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28);
-  font-size: 12px; font-weight: 500; letter-spacing: .3px;
-  color: rgba(255,255,255,.92); white-space: nowrap;
-}
-.topbar .brand-badge .dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,.9);
-  animation: brandDot 2s ease-in-out infinite;
-}
-.topbar .brand-sep { opacity: .38; font-weight: 300; }
-@keyframes brandDot {
+.topbar h1 { font-size: 16px; font-weight: 600; letter-spacing: .2px; display: inline-flex; align-items: center; gap: 10px; }
+/* Logo：SVG 表盘图标(定时) + 右上角脉冲绿点(活跃发送) + 中文主副标 */
+.topbar .brand-icon { display: inline-flex; width: 26px; height: 26px; flex-shrink: 0; }
+.topbar .brand-icon svg { width: 100%; height: 100%; }
+.topbar .brand-icon .live { animation: brandLive 2s ease-in-out infinite; transform-origin: 19px 5px; }
+.topbar .brand-main { font-size: 16px; font-weight: 700; letter-spacing: .3px; }
+.topbar .brand-sub  { font-size: 12px; font-weight: 400; letter-spacing: 1px; opacity: .72; margin-left: 2px; }
+@keyframes brandLive {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: .35; transform: scale(.75); }
+  50%      { opacity: .4; transform: scale(.7); }
 }
 .topbar .nav a {
   color: #fff; margin-left: 18px; font-size: 14px; opacity: .82;
@@ -678,7 +670,7 @@ html { scrollbar-gutter: stable; }
   ::-webkit-scrollbar-thumb:horizontal,
   .lg-fs::-webkit-scrollbar-thumb,
   .chart-fs-mask::-webkit-scrollbar-thumb { animation: none; }
-  .topbar .brand-badge .dot { animation: none; }
+  .topbar .brand-icon .live { animation: none; }
 }
 
 /* ============ 液态玻璃新增动效: reduced-motion 覆盖 ============ */
@@ -695,9 +687,10 @@ html { scrollbar-gutter: stable; }
 /* ============ 移动端适配 (<=640px) ============ */
 @media (max-width: 640px) {
   .topbar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
-  .topbar h1 { font-size: 16px; }
-  .topbar h1 .brand-badge { padding: 3px 8px; font-size: 11px; }
-  .topbar h1 .brand-badge .dot { width: 5px; height: 5px; }
+  .topbar h1 { font-size: 15px; gap: 8px; }
+  .topbar h1 .brand-icon { width: 22px; height: 22px; }
+  .topbar h1 .brand-main { font-size: 15px; }
+  .topbar h1 .brand-sub  { font-size: 11px; letter-spacing: .5px; }
   .topbar .nav { display: flex; flex-wrap: wrap; gap: 6px 0; }
   .topbar .nav a { margin-left: 0; margin-right: 16px; }
   .topbar .user { font-size: 13px; flex-wrap: wrap; }
@@ -790,7 +783,11 @@ function renderTopbar(user, active = '') {
   ).join('');
 
   return `<div class="topbar">
-    <h1>🚀 监控追踪 <span class="brand-sep">·</span> <span class="brand-badge"><span class="dot"></span>定时发送</span></h1>
+    <h1>
+      <span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9 2h6"/><circle class="live" cx="19" cy="5" r="2.2" fill="#4ade80" stroke="none"/></svg></span>
+      <span class="brand-main">监控追踪</span>
+      <span class="brand-sub">· 定时发送</span>
+    </h1>
     <div class="nav">${navHtml}</div>
     <div class="user">${user.nickname || user.username} <span class="tag ${user.role}">${user.role === 'admin' ? '超管' : '用户'}</span>
       ${restricted ? '' : '<a href="/settings" class="act-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>设置</a>'}
