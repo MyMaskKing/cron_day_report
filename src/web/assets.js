@@ -11,7 +11,11 @@ var ICONS = {
   edit:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
   share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>',
-  drag:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>'
+  drag:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>',
+  cards: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  tree:  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M12 2v6"/><path d="M12 8l-4 4v4"/><path d="M12 8l4 4v4"/><circle cx="12" cy="2" r="1"/><circle cx="8" cy="16" r="2"/><circle cx="16" cy="16" r="2"/><circle cx="12" cy="20" r="2"/></svg>',
+  close_x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  fs_expand: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>'
 };
 var _loadingCount = 0;
 function showLoading(text) {
@@ -518,7 +522,7 @@ function initChartFullscreen() {
     cv.parentNode.insertBefore(wrap, cv);
     wrap.appendChild(cv);
     var btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'chart-fs-btn'; btn.title = '放大查看'; btn.textContent = '⛶';
+    btn.type = 'button'; btn.className = 'chart-fs-btn'; btn.title = '放大查看'; btn.innerHTML = ICONS.fs_expand;
     btn.addEventListener('click', function(e){ e.stopPropagation(); openChartFullscreen(cv); });
     wrap.appendChild(btn);
   });
@@ -534,7 +538,7 @@ function openChartFullscreen(cv) {
   var fsCanvas = document.createElement('canvas');
   stage.appendChild(fsCanvas);
   var close = document.createElement('button');
-  close.type = 'button'; close.className = 'chart-fs-close'; close.title = '关闭'; close.textContent = '✕';
+  close.type = 'button'; close.className = 'chart-fs-close'; close.title = '关闭'; close.innerHTML = ICONS.close_x;;
   var fsChart = null;
   function shut(){
     if (fsChart) fsChart.destroy();
@@ -1195,7 +1199,9 @@ function colorOf(n){ return n>=0 ? '#cf1322' : '#389e0d'; }
 // ---------- 报表 ----------
 async function loadReport() {
   var data = await api('/api/fund/report', { loadingText: stepText('正在拉取基金实时净值与收益汇总…') });
-  var t = data.totals;
+  // 防御性兜底: 微信 X5 内偶发 fetch 到非 JSON 响应时 data 会是 {}, totals/items 缺失导致 "cannot read properties of undefined (reading 'cost')"
+  var t = data.totals || { cost: 0, value: 0, profit: 0, rate: 0 };
+  var items = data.items || [];
   document.getElementById('sumCost').textContent = fmtMoney(t.cost, {frac:2});
   document.getElementById('sumValue').textContent = fmtMoney(t.value, {frac:2});
   var pe = document.getElementById('sumProfit');
@@ -1205,7 +1211,7 @@ async function loadReport() {
 
   // 明细表（按创建时间倒序）
   var tb = document.getElementById('fundTbody');
-  var items = data.items.slice().sort(function(a,b){
+  items = items.slice().sort(function(a,b){
     return (b.created_at||'').localeCompare(a.created_at||'');
   });
   tb.innerHTML = items.map(function(it){
@@ -1226,7 +1232,7 @@ async function loadReport() {
         '</div>' +
       '</div></td></tr>';
   }).join('') || '<tr><td colspan="8" class="muted">暂无持仓</td></tr>';
-  window._items = data.items;
+  window._items = items;
 
   drawChart(data.items);
   await loadProfitHistory();
@@ -3108,9 +3114,9 @@ function applyTodoView(getRowsFn, onDrawTree) {
   //   vBtn (默认页外壳): 永远只做"进入卡片全屏", 文案固定 "🗂️ 卡片视图"
   //   vBtnFs (全屏顶栏): 在卡片全屏 ↔ 完整树全屏之间切换; 卡片态下显示 "🌳 完整树", 树态下显示 "🗂️ 卡片视图"
   //   exitBtn (全屏顶栏): 任意全屏态下点一下直接回默认页
-  if (vBtn) vBtn.textContent = '🗂️ 卡片视图';
+  if (vBtn) vBtn.innerHTML = ICONS.cards + '卡片视图';
   if (vBtnFs) {
-    vBtnFs.textContent = (_todoView === 'tree') ? '🗂️ 卡片视图' : '🌳 完整树';
+    vBtnFs.innerHTML = (_todoView === 'tree') ? (ICONS.cards + '卡片视图') : (ICONS.tree + '完整树');
     if (!vBtnFs.__fsBound) {
       vBtnFs.__fsBound = 1;
       bindClickBusy(vBtnFs, function(){

@@ -11,11 +11,23 @@ import {
   TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS
 } from './assets.js';
 
+// ============ 统一 SVG 图标(currentColor 描边, 替代微信 X5 内核 emoji 失渲染) ============
+// 仅用于 pages.js 里的服务端 HTML 拼接; 前端 JS 用的另一份在 assets.js COMMON_JS 的 window.ICO
+// UI 图标性质的 emoji 全部换 SVG; 情绪表情(🎉🔥😄等)保留, 即使失渲染中文语义仍完整
+const ICO_KEY    = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>';
+const ICO_CARDS  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>';
+const ICO_TREE   = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M12 2v6"/><path d="M12 8l-4 4v4"/><path d="M12 8l4 4v4"/><circle cx="12" cy="2" r="1"/><circle cx="8" cy="16" r="2"/><circle cx="16" cy="16" r="2"/><circle cx="12" cy="20" r="2"/></svg>';
+const ICO_FOLDER = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+const ICO_MENU   = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+const ICO_CLOSE  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+const ICO_PLUS   = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+const ICO_WRENCH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:5px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
+
 /** 初始化超管页 */
 function setupPage() {
   const body = `<div class="login-wrap">
     <div class="card">
-      <h1>🔧 系统初始化</h1>
+      <h1>${ICO_WRENCH}系统初始化</h1>
       <p class="muted" style="text-align:center;margin-bottom:16px;">创建第一个超级管理员账号</p>
       <div id="msg" class="msg"></div>
       <form id="setupForm">
@@ -314,8 +326,8 @@ function fundPage(user) {
 function publicBuyPage() {
   const body = `<div class="login-wrap" style="max-width:420px;">
     <div class="card">
-      <h1 style="text-align:center;color:#A855F7;font-size:20px;margin-bottom:16px;">➕ 快速加仓</h1>
-      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
+      <h1 style="text-align:center;color:#A855F7;font-size:20px;margin-bottom:16px;">${ICO_PLUS}快速加仓</h1>
+      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
         <h2 id="fundName" style="font-size:16px;"></h2>
@@ -446,7 +458,7 @@ function publicWeightPage() {
       <div id="streakLine" style="text-align:center;font-size:22px;font-weight:700;margin-bottom:4px;display:none;"></div>
       <p id="streakTitle" style="text-align:center;color:#389e0d;font-weight:600;margin-bottom:2px;"></p>
       <p id="monthDays" style="text-align:center;color:#888;font-size:13px;margin-bottom:16px;"></p>
-      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
+      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
         <form id="wForm">
@@ -609,7 +621,7 @@ function publicAssetPage() {
     <div class="card">
       <h1 style="text-align:center;color:#A855F7;font-size:20px;margin-bottom:6px;">💰 <span id="walletName"></span></h1>
       <p style="text-align:center;color:#888;font-size:13px;margin-bottom:16px;">录入 <span id="monthLabel"></span>金额</p>
-      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
+      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
         <form id="aForm">
@@ -630,7 +642,7 @@ function publicAssetPage() {
 function weightReportPage() {
   const body = `<div class="container" style="max-width:760px;margin:24px auto;">
     <div class="card">
-      <h2>⚖️ 体重曲线 <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button></h2>
+      <h2>⚖️ 体重曲线 <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button></h2>
       <div id="content" style="display:none;">
         <canvas id="rptChart" style="max-height:420px;"></canvas>
         <div id="rptHist" style="margin-top:20px;"></div>
@@ -643,7 +655,7 @@ function weightReportPage() {
 /** 资产免密报告查看页 */
 function assetReportPage() {
   const body = `<div class="container" style="max-width:760px;margin:24px auto;">
-    <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">🔑 用本人账号登录</button></div>
+    <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
     <div id="content" style="display:none;">
       <div class="card"><h2>💰 当月各类型合计</h2><div id="typeTotalBox"></div></div>
       <div class="card"><h2>📈 净资产趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="netChart" style="max-height:340px;"></canvas></div>
@@ -667,7 +679,7 @@ function fundReportPage() {
     <div class="card">
       <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <span>📊 持仓分布</span>
-        <button class="btn sm gray" id="quickLoginBtn" style="font-weight:normal;">🔑 用本人账号登录</button>
+        <button class="btn sm gray" id="quickLoginBtn" style="font-weight:normal;">${ICO_KEY}用本人账号登录</button>
       </h2>
       <div id="content" style="display:none;">
         <canvas id="pieChart" style="max-height:420px;"></canvas>
@@ -702,7 +714,7 @@ function todoPage(user) {
     <div class="card">
       <h2>待办清单
         <button class="btn sm" id="tAdd" style="float:right;">+ 新建任务</button>
-        <button class="btn sm gray" id="viewToggle" style="float:right;margin-right:8px;">🗂️ 卡片视图</button>
+        <button class="btn sm gray" id="viewToggle" style="float:right;margin-right:8px;">${ICO_CARDS}卡片视图</button>
         <label style="float:right;margin-right:14px;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
       </h2>
       <div class="todo-range todo-filter" id="todoFilter">
@@ -752,17 +764,17 @@ function todoPage(user) {
   <div id="todoFullscreen" class="todo-fullscreen">
     <div id="todoDrawerMask" class="todo-drawer-mask"></div>
     <div id="todoDrawer" class="todo-drawer closed">
-      <div class="todo-drawer__head">📂 分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">✕</button></div>
+      <div class="todo-drawer__head">${ICO_FOLDER}分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">${ICO_CLOSE}</button></div>
       <div id="drawerList" class="todo-drawer__list"></div>
       <div id="drawerFoot" class="todo-drawer__foot">共 0 个分类</div>
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
+        <button class="btn sm gray" id="drawerToggle" style="display:none;">${ICO_MENU}分类</button>
         <span class="todo-fs-title">待办清单</span>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="btn sm" id="tAddFs">+ 新建任务</button>
-        <button class="btn sm gray" id="viewToggleFs">🌳 完整树</button>
+        <button class="btn sm gray" id="viewToggleFs">${ICO_TREE}完整树</button>
         <button class="btn sm danger" id="exitFullscreen">↩️ 退出全屏</button>
       </div>
     </div>
@@ -774,7 +786,7 @@ function todoPage(user) {
 function publicTodoPage() {
   const body = `<div class="container" style="max-width:560px;margin:24px auto;">
     <div class="card">
-      <h2>📝 <span id="rootTitle">待办</span> <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button></h2>
+      <h2>📝 <span id="rootTitle">待办</span> <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button></h2>
       <p id="ownerLine" class="muted" style="margin-bottom:12px;"></p>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
@@ -786,7 +798,7 @@ function publicTodoPage() {
         </div>
         <div style="margin-bottom:12px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
-          <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">🗂️ 卡片视图</button>
+          <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">${ICO_CARDS}卡片视图</button>
           <label style="float:right;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </div>
         <div id="todoTreeHome">
@@ -803,16 +815,16 @@ function publicTodoPage() {
   <div id="todoFullscreen" class="todo-fullscreen">
     <div id="todoDrawerMask" class="todo-drawer-mask"></div>
     <div id="todoDrawer" class="todo-drawer closed">
-      <div class="todo-drawer__head">📂 分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">✕</button></div>
+      <div class="todo-drawer__head">${ICO_FOLDER}分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">${ICO_CLOSE}</button></div>
       <div id="drawerList" class="todo-drawer__list"></div>
       <div id="drawerFoot" class="todo-drawer__foot">共 0 个分类</div>
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
+        <button class="btn sm gray" id="drawerToggle" style="display:none;">${ICO_MENU}分类</button>
         <span class="todo-fs-title">待办协作</span>
         <button class="btn sm" id="tAddFs">+ 添加任务</button>
-        <button class="btn sm gray" id="viewToggleFs">🌳 完整树</button>
+        <button class="btn sm gray" id="viewToggleFs">${ICO_TREE}完整树</button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="btn sm danger" id="exitFullscreen">↩️ 退出全屏</button>
       </div>
@@ -827,8 +839,8 @@ function todoReportPage() {
     <div id="content" style="display:none;">
       <div class="card">
         <h2 style="overflow:hidden;">📝 全部待办
-          <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button>
-          <button class="btn sm gray" id="viewToggle" style="float:right;margin-right:8px;">🗂️ 卡片视图</button>
+          <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>
+          <button class="btn sm gray" id="viewToggle" style="float:right;margin-right:8px;">${ICO_CARDS}卡片视图</button>
         </h2>
         <div id="statsHint" class="muted" style="font-size:12px;margin:8px 0;clear:both;"></div>
         <div class="todo-stats" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">
@@ -873,16 +885,16 @@ function todoReportPage() {
   <div id="todoFullscreen" class="todo-fullscreen">
     <div id="todoDrawerMask" class="todo-drawer-mask"></div>
     <div id="todoDrawer" class="todo-drawer closed">
-      <div class="todo-drawer__head">📂 分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">✕</button></div>
+      <div class="todo-drawer__head">${ICO_FOLDER}分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">${ICO_CLOSE}</button></div>
       <div id="drawerList" class="todo-drawer__list"></div>
       <div id="drawerFoot" class="todo-drawer__foot">共 0 个分类</div>
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
+        <button class="btn sm gray" id="drawerToggle" style="display:none;">${ICO_MENU}分类</button>
         <span class="todo-fs-title">全部待办</span>
         <button class="btn sm" id="tAddFs">+ 添加任务</button>
-        <button class="btn sm gray" id="viewToggleFs">🌳 完整树</button>
+        <button class="btn sm gray" id="viewToggleFs">${ICO_TREE}完整树</button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="btn sm danger" id="exitFullscreen">↩️ 退出全屏</button>
       </div>
@@ -895,7 +907,7 @@ function todoReportPage() {
 function todoCollabPage() {
   const body = `<div class="container" style="max-width:640px;margin:24px auto;">
     <div class="card">
-      <h2>📝 <span id="ownerTitle">待办协作</span> <button class="btn sm gray" id="quickLoginBtn" style="float:right;">🔑 用本人账号登录</button></h2>
+      <h2>📝 <span id="ownerTitle">待办协作</span> <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button></h2>
       <p class="muted" style="margin-bottom:12px;">今日到期与逾期任务，可直接勾选、编辑或添加。</p>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
@@ -907,7 +919,7 @@ function todoCollabPage() {
         </div>
         <div style="margin-bottom:12px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
-          <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">🗂️ 卡片视图</button>
+          <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">${ICO_CARDS}卡片视图</button>
           <label style="float:right;font-weight:normal;color:#666;font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </div>
         <div class="todo-range todo-filter" id="todoFilter">
@@ -933,16 +945,16 @@ function todoCollabPage() {
   <div id="todoFullscreen" class="todo-fullscreen">
     <div id="todoDrawerMask" class="todo-drawer-mask"></div>
     <div id="todoDrawer" class="todo-drawer closed">
-      <div class="todo-drawer__head">📂 分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">✕</button></div>
+      <div class="todo-drawer__head">${ICO_FOLDER}分类目录 <button class="todo-drawer__close" id="drawerClose" aria-label="关闭">${ICO_CLOSE}</button></div>
       <div id="drawerList" class="todo-drawer__list"></div>
       <div id="drawerFoot" class="todo-drawer__foot">共 0 个分类</div>
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <button class="btn sm gray" id="drawerToggle" style="display:none;">☰ 分类</button>
+        <button class="btn sm gray" id="drawerToggle" style="display:none;">${ICO_MENU}分类</button>
         <span class="todo-fs-title">待办协作</span>
         <button class="btn sm" id="tAddFs">+ 添加任务</button>
-        <button class="btn sm gray" id="viewToggleFs">🌳 完整树</button>
+        <button class="btn sm gray" id="viewToggleFs">${ICO_TREE}完整树</button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="btn sm danger" id="exitFullscreen">↩️ 退出全屏</button>
       </div>
