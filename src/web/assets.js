@@ -385,9 +385,11 @@ function todoDateLabel(dueDate, today) {
 }
 
 // ============ 全局左滑返回手势 ============
-// 触发条件: 任意位置 pointerdown, 水平右滑 > 60 且垂直位移 < 0.5×水平位移
-// 优先级依次关闭: 抽屉 → 图表全屏 → modal → 待办全屏 → 待办详情 → history.back / 回 dashboard
-// 排除: input/select/textarea/.mp-menu/.todo-drag/横向可滚动区域 内部起手, 避免误伤原生手势
+// 触发条件: 任意位置起手, 水平右滑 > 60 且垂直位移 < 0.5×水平位移
+// 优先级依次关闭: 抽屉 → 图表全屏 → modal → 待办详情 → 待办全屏 → history.back / 回 dashboard
+// 排除: input/select/textarea/button/a/.mp-menu/.todo-drag/横向可滚动区域 内部起手, 避免误伤原生手势
+// 兼容性: touchstart/touchmove/touchend 覆盖手机(含微信 X5 / WKWebView, 那里 pointer events 不稳);
+//         pointerdown/move/up 覆盖桌面; 双路径同一状态机, 有 fired 标志防重触发
 function initGlobalSwipeBack() {
   if (window._swipeBackReady) return;
   window._swipeBackReady = 1;
@@ -404,35 +406,58 @@ function initGlobalSwipeBack() {
     }
     return false;
   }
-  document.addEventListener('pointerdown', function(e){
+  // 起手判定: 起点合法则开始跟踪
+  function onStart(x, y, target) {
     tracking = false; fired = false;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    var t = e.target;
-    if (!t) return;
-    var tag = (t.tagName || '').toLowerCase();
+    if (!target) return;
+    var tag = (target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
-    // 按钮/链接内部起手时放行, 避免拖动过头误触返回
-    if (t.closest && (t.closest('button') || t.closest('a'))) return;
-    if (t.closest && (t.closest('.todo-drag') || t.closest('.mp-menu') || t.closest('input[type=range]'))) return;
-    if (insideHorizScroll(t)) return;
+    if (target.closest && (target.closest('button') || target.closest('a'))) return;
+    if (target.closest && (target.closest('.todo-drag') || target.closest('.mp-menu') || target.closest('input[type=range]'))) return;
+    if (insideHorizScroll(target)) return;
     tracking = true;
-    startX = e.clientX; startY = e.clientY;
-  }, { passive: true });
-  document.addEventListener('pointermove', function(e){
+    startX = x; startY = y;
+  }
+  // 移动判定: 达到阈值即触发, 只触发一次(fired); 反向/大幅垂直则中止
+  function onMove(x, y) {
     if (!tracking || fired) return;
-    var dx = e.clientX - startX;
-    var dy = Math.abs(e.clientY - startY);
+    var dx = x - startX;
+    var dy = Math.abs(y - startY);
     if (dx > THRESHOLD_X && dy < dx * MAX_Y_RATIO) {
-      fired = true;
-      tracking = false;
+      fired = true; tracking = false;
       handleSwipeBack();
     } else if (dx < -8 || dy > 30) {
-      // 反向/竖向: 中止本次跟踪
       tracking = false;
     }
+  }
+  // pointer events (桌面兜底)
+  document.addEventListener('pointerdown', function(e){
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // touch/pen 由 touch 分支处理, 避免同一次触摸重复触发
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
+    onStart(e.clientX, e.clientY, e.target);
   }, { passive: true });
-  document.addEventListener('pointerup', function(){ tracking = false; }, { passive: true });
-  document.addEventListener('pointercancel', function(){ tracking = false; }, { passive: true });
+  document.addEventListener('pointermove', function(e){
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
+    onMove(e.clientX, e.clientY);
+  }, { passive: true });
+  document.addEventListener('pointerup', function(e){
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
+    tracking = false;
+  }, { passive: true });
+  // touch events (手机主路径, 包括微信内置浏览器)
+  document.addEventListener('touchstart', function(e){
+    if (!e.touches || e.touches.length !== 1) { tracking = false; return; }
+    var t = e.touches[0];
+    onStart(t.clientX, t.clientY, e.target);
+  }, { passive: true });
+  document.addEventListener('touchmove', function(e){
+    if (!e.touches || e.touches.length !== 1) { tracking = false; return; }
+    var t = e.touches[0];
+    onMove(t.clientX, t.clientY);
+  }, { passive: true });
+  document.addEventListener('touchend', function(){ tracking = false; }, { passive: true });
+  document.addEventListener('touchcancel', function(){ tracking = false; }, { passive: true });
   function handleSwipeBack() {
     // 1. 待办抽屉打开 → 关抽屉
     var drawer = document.getElementById('todoDrawer');

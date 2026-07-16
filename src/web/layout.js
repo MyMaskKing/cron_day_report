@@ -41,7 +41,7 @@ const BASE_CSS = `
 * { box-sizing: border-box; margin: 0; padding: 0; }
 /* 暖米底 + 三点极淡径向光斑 (珊瑚/紫/蓝), 给玻璃卡片留天然光源 */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', EmojiSymbols;
   color: #14141E;
   background:
     radial-gradient(1000px 600px at 12% -5%, rgba(255,122,89,.15), transparent 55%),
@@ -236,30 +236,37 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
   font-variant-numeric: tabular-nums;
   letter-spacing: -.01em;
 }
-/* 图标态: 让 emoji 保留自身彩色, 落在圆角玻璃方块里 */
+/* 图标态: SVG 图标居中在圆角玻璃方块里, 尺寸/颜色由 accent 规则控制 */
 .stat .num.num--icon {
-  color: initial; font-size: 32px; line-height: 1;
+  color: #6C6C7E; font-size: 32px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
   width: 56px; height: 56px; margin: 0 auto 4px; border-radius: 16px;
   background-color: rgba(255,255,255,.45);
   border: 1px solid rgba(255,255,255,.7);
   font-variant-numeric: normal;
-  transition: background-color .2s ease, box-shadow .2s ease, transform .2s ease;
+  transition: background-color .2s ease, box-shadow .2s ease, transform .2s ease, color .2s ease;
 }
-/* 6 个功能入口各自 accent, hover 时卡片渗出对应色相 + 图标环发光 */
+.stat .num.num--icon svg { width: 28px; height: 28px; display: block; }
+/* 6 个功能入口各自 accent 色, 图标默认就着色, hover 时卡片渗出对应色相 + 图标环发光 */
 .stat-nav .stat { transition: transform .18s ease, box-shadow .2s ease, border-color .2s ease; }
+.stat-nav .stat[data-nav="monitor"] .num--icon { color: rgba(59,130,246,.85); }
 .stat-nav .stat[data-nav="monitor"]:hover { box-shadow: 0 10px 28px rgba(59,130,246,.18); border-color: rgba(59,130,246,.35); }
-.stat-nav .stat[data-nav="monitor"]:hover .num--icon { background-color: rgba(59,130,246,.14); box-shadow: 0 4px 14px rgba(59,130,246,.22); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="monitor"]:hover .num--icon { background-color: rgba(59,130,246,.14); box-shadow: 0 4px 14px rgba(59,130,246,.22); color: rgba(59,130,246,1); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="fund"] .num--icon { color: rgba(168,85,247,.85); }
 .stat-nav .stat[data-nav="fund"]:hover { box-shadow: 0 10px 28px rgba(168,85,247,.18); border-color: rgba(168,85,247,.35); }
-.stat-nav .stat[data-nav="fund"]:hover .num--icon { background-color: rgba(168,85,247,.14); box-shadow: 0 4px 14px rgba(168,85,247,.22); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="fund"]:hover .num--icon { background-color: rgba(168,85,247,.14); box-shadow: 0 4px 14px rgba(168,85,247,.22); color: rgba(168,85,247,1); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="asset"] .num--icon { color: rgba(255,122,89,.9); }
 .stat-nav .stat[data-nav="asset"]:hover { box-shadow: 0 10px 28px rgba(255,122,89,.20); border-color: rgba(255,122,89,.4); }
-.stat-nav .stat[data-nav="asset"]:hover .num--icon { background-color: rgba(255,122,89,.16); box-shadow: 0 4px 14px rgba(255,122,89,.26); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="asset"]:hover .num--icon { background-color: rgba(255,122,89,.16); box-shadow: 0 4px 14px rgba(255,122,89,.26); color: rgba(255,90,60,1); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="weight"] .num--icon { color: rgba(16,185,129,.9); }
 .stat-nav .stat[data-nav="weight"]:hover { box-shadow: 0 10px 28px rgba(16,185,129,.18); border-color: rgba(16,185,129,.4); }
-.stat-nav .stat[data-nav="weight"]:hover .num--icon { background-color: rgba(16,185,129,.14); box-shadow: 0 4px 14px rgba(16,185,129,.22); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="weight"]:hover .num--icon { background-color: rgba(16,185,129,.14); box-shadow: 0 4px 14px rgba(16,185,129,.22); color: rgba(16,185,129,1); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="todo"] .num--icon { color: rgba(245,158,11,.95); }
 .stat-nav .stat[data-nav="todo"]:hover { box-shadow: 0 10px 28px rgba(245,158,11,.20); border-color: rgba(245,158,11,.4); }
-.stat-nav .stat[data-nav="todo"]:hover .num--icon { background-color: rgba(245,158,11,.16); box-shadow: 0 4px 14px rgba(245,158,11,.26); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="todo"]:hover .num--icon { background-color: rgba(245,158,11,.16); box-shadow: 0 4px 14px rgba(245,158,11,.26); color: rgba(217,119,6,1); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="admin"] .num--icon { color: rgba(236,72,153,.85); }
 .stat-nav .stat[data-nav="admin"]:hover { box-shadow: 0 10px 28px rgba(236,72,153,.18); border-color: rgba(236,72,153,.4); }
-.stat-nav .stat[data-nav="admin"]:hover .num--icon { background-color: rgba(236,72,153,.14); box-shadow: 0 4px 14px rgba(236,72,153,.22); transform: translateY(-2px); }
+.stat-nav .stat[data-nav="admin"]:hover .num--icon { background-color: rgba(236,72,153,.14); box-shadow: 0 4px 14px rgba(236,72,153,.22); color: rgba(236,72,153,1); transform: translateY(-2px); }
 .stat .lbl { font-size: 13px; color: #6C6C7E; margin-top: 4px; }
 /* 全局 loading: 双环反向旋转 (珊瑚 + 蓝) + 玻璃遮罩; z-index 高于 modal, 保证 modal 内提交时用户能看到进度 */
 #globalLoading { display: none; position: fixed; inset: 0; background: rgba(246, 245, 242, .65); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); z-index: 10500; align-items: center; justify-content: center; }

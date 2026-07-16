@@ -94,6 +94,16 @@ function loginPage() {
 
 /** 仪表盘 */
 function dashboardPage(user) {
+  // 仪表盘 6 个入口图标: 用内联 SVG (24x24, currentColor stroke), 避免微信/QQ 内置浏览器
+  // 老旧 emoji 字体导致的"⚖️/⏰变灰或缺失"问题; 颜色跟随各卡片 accent 色由 CSS 控制
+  const NAV_ICONS = {
+    monitor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>',
+    fund:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>',
+    asset:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>',
+    weight:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21h12l-1.5-13a2 2 0 0 0-2-1.8H9.5a2 2 0 0 0-2 1.8L6 21z"/><circle cx="12" cy="10" r="2.2"/><path d="M9 4.5c0-1.4 1.3-2.5 3-2.5s3 1.1 3 2.5"/></svg>',
+    todo:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/><polyline points="9 14 11 16 15 12"/></svg>',
+    admin:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+  };
   const body = renderTopbar(user, 'dashboard') + `<div class="container">
     <div class="card">
       <h2 id="welcome">仪表盘</h2>
@@ -102,12 +112,12 @@ function dashboardPage(user) {
     <div class="card">
       <h2>功能入口</h2>
       <div class="grid-stats stat-nav">
-        <a class="stat" data-nav="monitor" href="/monitor"><div class="num num--icon">⏰</div><div class="lbl">定时任务</div></a>
-        <a class="stat" data-nav="fund" href="/fund"><div class="num num--icon">📈</div><div class="lbl">基金追踪</div></a>
-        <a class="stat" data-nav="asset" href="/asset"><div class="num num--icon">💰</div><div class="lbl">资产报表</div></a>
-        <a class="stat" data-nav="weight" href="/weight"><div class="num num--icon">⚖️</div><div class="lbl">体重曲线</div></a>
-        <a class="stat" data-nav="todo" href="/todo"><div class="num num--icon">📝</div><div class="lbl">待办清单</div></a>
-        ${user.role === 'admin' ? '<a class="stat" data-nav="admin" href="/admin"><div class="num num--icon">👥</div><div class="lbl">用户管理</div></a>' : ''}
+        <a class="stat" data-nav="monitor" href="/monitor"><div class="num num--icon">${NAV_ICONS.monitor}</div><div class="lbl">定时任务</div></a>
+        <a class="stat" data-nav="fund" href="/fund"><div class="num num--icon">${NAV_ICONS.fund}</div><div class="lbl">基金追踪</div></a>
+        <a class="stat" data-nav="asset" href="/asset"><div class="num num--icon">${NAV_ICONS.asset}</div><div class="lbl">资产报表</div></a>
+        <a class="stat" data-nav="weight" href="/weight"><div class="num num--icon">${NAV_ICONS.weight}</div><div class="lbl">体重曲线</div></a>
+        <a class="stat" data-nav="todo" href="/todo"><div class="num num--icon">${NAV_ICONS.todo}</div><div class="lbl">待办清单</div></a>
+        ${user.role === 'admin' ? `<a class="stat" data-nav="admin" href="/admin"><div class="num num--icon">${NAV_ICONS.admin}</div><div class="lbl">用户管理</div></a>` : ''}
       </div>
     </div>
   </div>`;
