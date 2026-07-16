@@ -385,14 +385,14 @@ function todoDateLabel(dueDate, today) {
 }
 
 // ============ 全局左滑返回手势 ============
-// 触发条件: 从左缘 24px 起 pointerdown, 水平右滑 > 60 且 > 2×垂直位移
+// 触发条件: 任意位置 pointerdown, 水平右滑 > 60 且垂直位移 < 0.5×水平位移
 // 优先级依次关闭: 抽屉 → 图表全屏 → modal → 待办全屏 → 待办详情 → history.back / 回 dashboard
 // 排除: input/select/textarea/.mp-menu/.todo-drag/横向可滚动区域 内部起手, 避免误伤原生手势
 function initGlobalSwipeBack() {
   if (window._swipeBackReady) return;
   window._swipeBackReady = 1;
   var startX = 0, startY = 0, tracking = false, fired = false;
-  var EDGE = 24, THRESHOLD_X = 60, MAX_Y_RATIO = 0.5;
+  var THRESHOLD_X = 60, MAX_Y_RATIO = 0.5;
   function insideHorizScroll(el) {
     for (var p = el; p && p !== document.body; p = p.parentElement) {
       if (!p.getBoundingClientRect) break;
@@ -407,11 +407,12 @@ function initGlobalSwipeBack() {
   document.addEventListener('pointerdown', function(e){
     tracking = false; fired = false;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (e.clientX > EDGE) return;
     var t = e.target;
     if (!t) return;
     var tag = (t.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    // 按钮/链接内部起手时放行, 避免拖动过头误触返回
+    if (t.closest && (t.closest('button') || t.closest('a'))) return;
     if (t.closest && (t.closest('.todo-drag') || t.closest('.mp-menu') || t.closest('input[type=range]'))) return;
     if (insideHorizScroll(t)) return;
     tracking = true;
