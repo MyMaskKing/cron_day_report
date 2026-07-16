@@ -89,13 +89,25 @@ a { color: #A855F7; text-decoration: none; }
 .topbar .brand-sep { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.55); }
 .topbar .brand-w2 {
   font-size: 14px; font-weight: 700; letter-spacing: .3px;
-  /* 紫→蓝渐变字, 与火箭珊瑚色首尾呼应, 走完 topbar 三色渐变的冷端 */
-  background: linear-gradient(90deg, #C084FC 0%, #60A5FA 100%);
+  /* 青→亮蓝渐变字, 在深紫玻璃底座上对比度更高; 冷端呼应 topbar 主色 #3B82F6 */
+  background: linear-gradient(90deg, #7DD3FC 0%, #38BDF8 50%, #A5B4FC 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
+  /* 文字发光: 让冷色字在渐变背景上"浮起" */
+  filter: drop-shadow(0 0 6px rgba(125, 211, 252, .5));
 }
 @keyframes rocketPulse {
   0%, 100% { filter: drop-shadow(0 2px 3px rgba(255, 122, 89, .7)); }
   50%      { filter: drop-shadow(0 3px 6px rgba(255, 122, 89, 1)); }
+}
+/* 移动端(含大屏手机/小平板)取消 logo 玻璃底座, 只留图标+文字, 寸土寸金 */
+@media (max-width: 900px) {
+  .topbar .brand {
+    padding: 0 !important; gap: 6px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
 }
 .topbar .nav a {
   color: #fff; margin-left: 18px; font-size: 14px; opacity: .82;
@@ -708,11 +720,6 @@ html { scrollbar-gutter: stable; }
 @media (max-width: 640px) {
   .topbar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 16px; }
   .topbar h1 { font-size: 15px; }
-  /* 手机上取消 logo 底座, 保留纯图标+文字, 寸土寸金 */
-  .topbar h1 .brand {
-    padding: 0; gap: 6px;
-    background: none; border: none; box-shadow: none;
-  }
   .topbar h1 .brand-rocket { width: 14px; height: 14px; }
   .topbar h1 .brand-w1, .topbar h1 .brand-w2 { font-size: 13px; }
   .topbar .nav { display: flex; flex-wrap: wrap; gap: 6px 0; }
