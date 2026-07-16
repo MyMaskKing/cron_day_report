@@ -454,14 +454,18 @@ function initGlobalSwipeBack() {
     // 3. modal 遮罩
     var modal = document.getElementById('modalMask');
     if (modal && modal.classList.contains('show')) { closeModal(); return; }
-    // 4. 待办全屏
+    // 4. 待办详情面包屑(先于全屏关闭: 详情本身仍处于全屏容器中, 若先退出全屏会跳过返回卡片列表这一步)
+    //    判据用面包屑 DOM 可见性, 比 offsetParent 更稳(卡片视图与全屏视图都可能出现详情)
+    var crumb = document.getElementById('todoCrumb');
+    if (crumb && crumb.style.display !== 'none' && crumb.style.display !== '') {
+      var back = crumb.querySelector('.todo-crumb__back');
+      if (back) { back.click(); return; }
+    }
+    // 5. 待办全屏
     if (document.body.classList.contains('todo-fs-on')) {
       var exitBtn = document.getElementById('exitFullscreen');
       if (exitBtn) { exitBtn.click(); return; }
     }
-    // 5. 待办详情面包屑
-    var back = document.querySelector('.todo-crumb__back');
-    if (back && back.offsetParent !== null) { back.click(); return; }
     // 6. 兜底: history.back / 回 dashboard
     var canBack = false;
     try {
