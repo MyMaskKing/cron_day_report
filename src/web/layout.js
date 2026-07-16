@@ -291,9 +291,10 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 @keyframes spinRev { to { transform: rotate(-360deg); } }
 
 /* 弹窗 modal */
-.modal-mask { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+/* 短内容居中、长内容顶部对齐可滚：靠 .modal-box 的 margin:auto 自适应 */
+.modal-mask { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000; padding: 40px 16px; overflow-y: auto; }
 .modal-mask.show { display: flex; }
-.modal-box { background: #fff; border-radius: 10px; width: 100%; max-width: 440px; box-shadow: 0 10px 40px rgba(0,0,0,.2); animation: modalIn .2s ease; }
+.modal-box { background: #fff; border-radius: 10px; width: 100%; max-width: 440px; margin: auto; box-shadow: 0 10px 40px rgba(0,0,0,.2); animation: modalIn .2s ease; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #eee; font-size: 16px; font-weight: 600; }
 #modalClose { cursor: pointer; font-size: 24px; line-height: 1; color: #999; }
 #modalClose:hover { color: #333; }
