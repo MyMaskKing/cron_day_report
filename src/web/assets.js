@@ -2172,7 +2172,7 @@ function renderTypeTotal(list, latestMonth) {
   if (!list.length) { box.innerHTML = '<p class="muted">暂无记录</p>'; return; }
   var cells = list.map(function(t){
     var extra = t.type==='investment' ? '<div class="muted" style="font-size:12px;">本金 '+t.principal+' / 收益 '+t.profit+'</div>' : '';
-    var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag debt">💳 负债</span>' : '');
+    var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag debt"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>负债</span>' : '');
     return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+ fmtMoney(t.balance, {frac:2}) +'</div><div class="lbl">'+label+'</div>'+extra+'</div>';
   }).join('');
   var tag = latestMonth ? '（' + latestMonth + '）' : '';
@@ -2300,7 +2300,7 @@ function renderWallets(list) {
   });
   tb.innerHTML = sorted.map(function(w){
     var amt = sumByWallet[w.id];
-    return '<tr><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt">💳 负债</span>':'') + '</td>' +
+    return '<tr><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>负债</span>':'') + '</td>' +
       '<td data-label="名称">' + esc(w.name) + '</td>' +
       '<td data-label="本月金额">' + (amt != null ? fmtMoney(amt, {frac:2}) : '<span class="muted">—</span>') + '</td>' +
       '<td data-label="操作">' +
@@ -2337,7 +2337,7 @@ function renderTypeTotal(list) {
   if (!list.length) { box.innerHTML = ''; return; }
   var cells = list.map(function(t){
     var extra = t.type==='investment' ? '<div class="muted" style="font-size:12px;">本金 '+t.principal+' / 收益 '+t.profit+'</div>' : '';
-    var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag debt">💳 负债</span>' : '');
+    var label = (TYPE_LABEL[t.type]||t.type) + (t.type==='credit' ? ' <span class="tag debt"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>负债</span>' : '');
     return '<div class="stat" style="min-width:120px;"><div class="num" style="font-size:18px;">'+ fmtMoney(t.balance, {frac:2}) +'</div>'+
       '<div class="lbl">'+label+'</div>'+extra+'</div>';
   }).join('');
