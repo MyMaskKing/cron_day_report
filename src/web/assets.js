@@ -3154,10 +3154,13 @@ function applyTodoView(getRowsFn, onDrawTree) {
     document.__todoEscBound = 1;
     document.addEventListener('keydown', function(e){
       if (e.key !== 'Escape' && e.keyCode !== 27) return;
-      if (_todoView === 'default') return; // 非全屏态不处理
-      // 让打开的 modal / 抽屉优先关闭, 若都不在则退全屏
-      var modal = document.getElementById('modal');
-      if (modal && modal.style.display && modal.style.display !== 'none') return;
+      // 优先关 modal: modal 用 #modalMask.show 表示打开, 之前误判 #modal 永远拿不到导致 ESC 越过 modal 直退全屏
+      var mask = document.getElementById('modalMask');
+      if (mask && mask.classList.contains('show')) {
+        closeModal();
+        return;
+      }
+      if (_todoView === 'default') return; // 非全屏态且无 modal, 交还系统默认
       if (todoDrawerIsOpen() && window.innerWidth <= 640) {
         // 窄屏下抽屉浮层态优先关抽屉
         _todoDrawerOpen = false;
