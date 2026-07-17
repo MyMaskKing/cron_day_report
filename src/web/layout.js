@@ -152,8 +152,9 @@ a { color: #A855F7; text-decoration: none; }
   position: relative;
   z-index: 1;
 }
-/* 当前打开多选弹窗的 card 提升到最上层, 弹窗才能压过后续 card */
-.card:has(.mp-menu.show) { z-index: 100; }
+/* 当前打开多选弹窗 / 操作下拉菜单的 card 提升到最上层, 弹窗才能压过后续 card */
+.card:has(.mp-menu.show),
+.card:has(.dropdown-menu.show) { z-index: 100; }
 .card:hover {
   transform: translateY(-2px);
   box-shadow: 0 2px 6px rgba(20, 20, 40, .05), 0 16px 40px rgba(168, 85, 247, .10);
