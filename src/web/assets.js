@@ -15,7 +15,19 @@ var ICONS = {
   cards: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
   tree:  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M12 2v6"/><path d="M12 8l-4 4v4"/><path d="M12 8l4 4v4"/><circle cx="12" cy="2" r="1"/><circle cx="8" cy="16" r="2"/><circle cx="16" cy="16" r="2"/><circle cx="12" cy="20" r="2"/></svg>',
   close_x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
-  fs_expand: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>'
+  fs_expand: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>',
+  // 日期日历: 用于 due chip / drawer section title / form 子任务提示
+  calendar: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  // 重复: 环形箭头, 用于 repeat chip / form 提示
+  repeat: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+  // 逾期警告 (三角+感叹号): 用于 overdue chip
+  warn: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  // 完成对勾 (圆圈+勾): 用于 done-at chip
+  check_circle: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  // 完成 (纯对勾): 用于按钮 label
+  check: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>',
+  // 撤销/回退箭头
+  undo: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>'
 };
 var _loadingCount = 0;
 function showLoading(text) {
@@ -369,7 +381,7 @@ function bindQuickLogin(kind) {
 // 依赖 Chart.js v4 的 ResizeObserver：canvas 移入新尺寸容器后自动重绘，无需操作图表实例
 // (注意: initChartFullscreen 定义在本片段中段, 见下方同名函数)
 // ============ 日期人性化 label(与后端 services/todo.service.js 逻辑一致) ============
-// 今天/昨天/明天 → 中文; 本周内(ISO 周, 周一为首) → 周一~周日; 否则 MM/DD
+// 今天/昨天/明天 → 中文; 本周内(ISO 周, 周一为首) → 本周一~本周日; 否则 MM/DD
 var _CN_WEEKDAY = ['周日','周一','周二','周三','周四','周五','周六'];
 function todoDateLabel(dueDate, today) {
   if (!dueDate || dueDate.length < 10) return '';
@@ -384,7 +396,7 @@ function todoDateLabel(dueDate, today) {
   var monOff = (tDow + 6) % 7;
   var monMs = tMs - monOff * 86400000;
   var sunMs = monMs + 6 * 86400000;
-  if (dMs >= monMs && dMs <= sunMs) return _CN_WEEKDAY[new Date(dMs).getUTCDay()];
+  if (dMs >= monMs && dMs <= sunMs) return '本' + _CN_WEEKDAY[new Date(dMs).getUTCDay()];
   return dueDate.slice(5,7) + '/' + dueDate.slice(8,10);
 }
 
@@ -3012,7 +3024,7 @@ function renderTodoDrawer(rows, onSelect) {
   if (fbar) {
     var section1 = document.createElement('div');
     section1.className = 'todo-drawer__section';
-    var title1 = document.createElement('div'); title1.className = 'todo-drawer__section-title'; title1.textContent = '📅 时间筛选';
+    var title1 = document.createElement('div'); title1.className = 'todo-drawer__section-title'; title1.innerHTML = ICONS.calendar + '时间筛选';
     section1.appendChild(title1);
     var timeCounts = todoTimeCounts(rows);
     Array.prototype.forEach.call(fbar.querySelectorAll('button[data-filter]'), function(btn){
@@ -3421,21 +3433,21 @@ function renderTodoTree(container, trees, opts) {
       var over = !node.done && today && effDue < today;
       var dc = document.createElement('span');
       dc.className = 'todo-chip due' + (over ? ' overdue' : '');
-      dc.textContent = (over ? '⚠️ 逾期 ' : '📅 ') + todoDateLabel(effDue, today);
+      dc.innerHTML = (over ? (ICONS.warn + '逾期 ') : ICONS.calendar) + esc(todoDateLabel(effDue, today));
       meta.appendChild(dc);
     }
     // 完成时间 chip：已完成且有完成日期时显示
     if (node.done && node.done_at) {
       var doneC = document.createElement('span');
       doneC.className = 'todo-chip done-at';
-      doneC.textContent = '✅ 完成于 ' + node.done_at;
+      doneC.innerHTML = ICONS.check_circle + '完成于 ' + esc(node.done_at);
       meta.appendChild(doneC);
     }
     // 重复徽章: 仅顶层任务显示
     if (depth === 0 && node.recurrence) {
       var rc = document.createElement('span');
       rc.className = 'todo-chip repeat';
-      rc.textContent = '🔁 ' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday);
+      rc.innerHTML = ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday));
       meta.appendChild(rc);
     }
     if (meta.childNodes.length) main.appendChild(meta);
@@ -3566,19 +3578,19 @@ function renderTodoCards(container, trees, opts) {
       var over = !root.done && today && root.due_date < today;
       var dc = document.createElement('span');
       dc.className = 'todo-chip due' + (over ? ' overdue' : '');
-      dc.textContent = (over ? '⚠️ 逾期 ' : '📅 ') + todoDateLabel(root.due_date, today);
+      dc.innerHTML = (over ? (ICONS.warn + '逾期 ') : ICONS.calendar) + esc(todoDateLabel(root.due_date, today));
       meta.appendChild(dc);
     }
     if (root.done && root.done_at) {
       var doneC = document.createElement('span');
       doneC.className = 'todo-chip done-at';
-      doneC.textContent = '✅ 完成于 ' + root.done_at;
+      doneC.innerHTML = ICONS.check_circle + '完成于 ' + esc(root.done_at);
       meta.appendChild(doneC);
     }
     if (root.recurrence) {
       var rc = document.createElement('span');
       rc.className = 'todo-chip repeat';
-      rc.textContent = '🔁 ' + todoRecurLabel(root.recurrence, root.recur_interval, root.recur_nth, root.recur_weekday);
+      rc.innerHTML = ICONS.repeat + esc(todoRecurLabel(root.recurrence, root.recur_interval, root.recur_nth, root.recur_weekday));
       meta.appendChild(rc);
     }
     if (hasChildren) {
@@ -3684,9 +3696,9 @@ function todoRenderView(container, trees, opts) {
         var doneBtn = document.createElement('button');
         doneBtn.type = 'button';
         doneBtn.className = 'btn sm' + (root.done ? ' gray' : '');
-        doneBtn.textContent = root.done
-          ? '↩️ 取消完成'
-          : (hasKids ? '✅ 完成主任务（级联）' : '✅ 完成主任务');
+        doneBtn.innerHTML = root.done
+          ? (ICONS.undo + '取消完成')
+          : (ICONS.check + (hasKids ? '完成主任务（级联）' : '完成主任务'));
         doneBtn.addEventListener('click', async function(e){
           e.stopPropagation();
           if (doneBtn.disabled) return;
@@ -3803,18 +3815,18 @@ function todoFormHtml(t, isNew, isChild) {
       '</select></div>' +
       dueField +
     '</div>' +
-    (isChild ? '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📅 子任务的截止日期跟随主任务</p>'
+    (isChild ? '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">' + ICONS.calendar + '子任务的截止日期跟随主任务</p>'
              : '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📌 留空截止日期即作备忘录，不计入日报</p>') +
     (isChild ? '' :
       '<label>重复</label>' +
       '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
         '<select id="tfRecur" style="flex:1;min-width:120px;">' +
           '<option value="">不重复</option>' +
-          '<option value="daily"' + (t.recurrence === 'daily' ? ' selected' : '') + '>🔁 每日</option>' +
-          '<option value="weekly"' + (t.recurrence === 'weekly' ? ' selected' : '') + '>🔁 每周</option>' +
-          '<option value="monthly"' + (t.recurrence === 'monthly' ? ' selected' : '') + '>🔁 每月 (按日期, 如每月 5 号)</option>' +
-          '<option value="monthly_nth_weekday"' + (t.recurrence === 'monthly_nth_weekday' ? ' selected' : '') + '>🔁 每月第 N 个星期 X</option>' +
-          '<option value="yearly"' + (t.recurrence === 'yearly' ? ' selected' : '') + '>🔁 每年</option>' +
+          '<option value="daily"' + (t.recurrence === 'daily' ? ' selected' : '') + '>每日</option>' +
+          '<option value="weekly"' + (t.recurrence === 'weekly' ? ' selected' : '') + '>每周</option>' +
+          '<option value="monthly"' + (t.recurrence === 'monthly' ? ' selected' : '') + '>每月 (按日期, 如每月 5 号)</option>' +
+          '<option value="monthly_nth_weekday"' + (t.recurrence === 'monthly_nth_weekday' ? ' selected' : '') + '>每月第 N 个星期 X</option>' +
+          '<option value="yearly"' + (t.recurrence === 'yearly' ? ' selected' : '') + '>每年</option>' +
         '</select>' +
         '<span id="tfRecurNBox" style="display:' + (t.recurrence ? 'inline-flex' : 'none') + ';align-items:center;gap:4px;color:#5a6b9a;font-size:13px;">' +
           '每' +
@@ -3842,7 +3854,7 @@ function todoFormHtml(t, isNew, isChild) {
           '<option value="0"' + (t.recur_weekday === 0 ? ' selected' : '') + '>周日</option>' +
         '</select>' +
       '</div>' +
-      '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">🔁 完成后自动生成下一条任务；如"每 2 周"、"每月第一个周一"</p>') +
+      '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">' + ICONS.repeat + '完成后自动生成下一条任务；如"每 2 周"、"每月第一个周一"</p>') +
     '<label>分类（可选）</label>' +
     '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
     '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;">' +
@@ -4044,7 +4056,7 @@ function drawTree() {
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _t) + ' <span style="color:#b0b6c8;font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
-      openModal('✅ 完成重复任务', html);
+      openModal('完成重复任务', html);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');
@@ -4438,7 +4450,7 @@ function drawTree() {
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _today) + ' <span style="color:#b0b6c8;font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
-      openModal('✅ 完成重复任务', html);
+      openModal('完成重复任务', html);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');
@@ -4671,7 +4683,7 @@ function drawTree(trees) {
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _today) + ' <span style="color:#b0b6c8;font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
-      openModal('✅ 完成重复任务', html);
+      openModal('完成重复任务', html);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');

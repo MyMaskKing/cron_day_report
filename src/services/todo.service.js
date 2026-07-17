@@ -6,7 +6,7 @@
  */
 
 // ============ 日期 label（网页 UI 与日报共用的显示语义） ============
-// 语义: 今天/昨天/明天 → 中文; 本周内(ISO 周, 周一为首) → 周一~周日; 否则 MM/DD
+// 语义: 今天/昨天/明天 → 中文; 本周内(ISO 周, 周一为首) → 本周一~本周日; 否则 MM/DD
 // 输入均为 YYYY-MM-DD 北京日历串; 空/非法返回 ''
 // 与前端 COMMON_JS 里的同名函数逻辑必须保持一致(唯一事实源)
 const CN_WEEKDAY = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
@@ -25,7 +25,7 @@ function todoDateLabel(dueDate, today) {
   const monMs = tMs - monOff * 86400000;
   const sunMs = monMs + 6 * 86400000;
   if (dMs >= monMs && dMs <= sunMs) {
-    return CN_WEEKDAY[new Date(dMs).getUTCDay()];
+    return '本' + CN_WEEKDAY[new Date(dMs).getUTCDay()];
   }
   return `${dueDate.slice(5, 7)}/${dueDate.slice(8, 10)}`;
 }
