@@ -4056,7 +4056,7 @@ function drawTree() {
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _t) + ' <span style="color:#b0b6c8;font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
-      openModal('完成重复任务', html);
+      openModal('✅ 完成重复任务', html);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');
@@ -4450,7 +4450,7 @@ function drawTree() {
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _today) + ' <span style="color:#b0b6c8;font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
-      openModal('完成重复任务', html);
+      openModal('✅ 完成重复任务', html);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');
@@ -4683,7 +4683,7 @@ function drawTree(trees) {
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _today) + ' <span style="color:#b0b6c8;font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
-      openModal('完成重复任务', html);
+      openModal('✅ 完成重复任务', html);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');
