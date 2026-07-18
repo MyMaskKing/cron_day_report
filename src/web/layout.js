@@ -747,8 +747,36 @@ html { scrollbar-gutter: stable; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */
   .dropdown-menu { right: auto; left: 0; }
   .modal-mask { padding: 20px 10px; }
-  /* 多选面板窄屏: 4 列 grid 收成 3 列, 弹出面板对齐窗口边缘不溢出 */
-  .mp-menu.show { grid-template-columns: repeat(3, 1fr); min-width: 0; width: 100%; }
+  /* 多选面板窄屏: 改为底部弹出面板 (bottom sheet), 脱离 card 堆叠, 触点位于拇指区域;
+     关闭沿用 assets.js 的 document.click(target 不在 .multi-pick 内即关) —— 点遮罩即关 */
+  .mp-menu {
+    position: fixed; left: 0; right: 0; top: auto; bottom: 0;
+    margin: 0; width: 100%; max-height: 60vh;
+    border-radius: 16px 16px 0 0;
+    padding: 14px 12px calc(14px + env(safe-area-inset-bottom));
+    box-shadow: 0 -6px 24px rgba(0,0,0,.18);
+    z-index: 1200;
+  }
+  .mp-menu.show { grid-template-columns: repeat(4, 1fr); min-width: 0; animation: mpSheetIn .22s ease; }
+  /* 顶部小拖拽条, 暗示"底部面板"可关闭 */
+  .mp-menu.show::before {
+    content: ''; display: block; grid-column: 1 / -1;
+    width: 40px; height: 4px; margin: -4px auto 8px;
+    background: #d9dbe3; border-radius: 2px;
+  }
+  /* 加大触点与字号, 方便手指操作 */
+  .mp-item { padding: 10px 8px; font-size: 15px; }
+  .mp-item input { width: 18px; height: 18px; }
+  /* 半透明遮罩: :has() 与本文件 .card:has(.mp-menu.show) 同源, 老浏览器降级为无遮罩不影响功能 */
+  body:has(.mp-menu.show)::before {
+    content: ''; position: fixed; inset: 0;
+    background: rgba(0,0,0,.35); z-index: 1100;
+    animation: mpMaskIn .2s ease;
+  }
+}
+@keyframes mpSheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes mpMaskIn { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 640px) {
   /* 待办树：缩进收窄, 操作按钮常显 */
   .todo-row { margin-left: calc(var(--depth, 0) * 16px); gap: 8px; padding: 8px 10px; }
   .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
