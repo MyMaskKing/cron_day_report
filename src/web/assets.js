@@ -281,11 +281,36 @@ function initMultiPick(container, min, max, vals, labelFn) {
     var vs = values();
     btn.textContent = vs.length ? (labelFn ? vs.map(labelFn).join('、') : vs.join(',')) : '未选择';
   }
+  // 底部"完成"按钮: 只在窄屏 CSS 显示, 让用户明确关闭. 桌面下 .mp-done { display:none } 隐藏
+  var doneBtn = document.createElement('button');
+  doneBtn.type = 'button'; doneBtn.className = 'mp-done'; doneBtn.textContent = '完成';
+  doneBtn.addEventListener('click', function(e){ e.stopPropagation(); closeMenu(); });
+  menu.appendChild(doneBtn);
+  // 关闭时: 若菜单被移到 body(窄屏模式), 归位回 container, 避免下次初始化引用错乱
+  function closeMenu(){
+    menu.classList.remove('show');
+    if (menu.parentNode !== container) container.appendChild(menu);
+  }
   btn.addEventListener('click', function(e){
     e.stopPropagation();
     var open = menu.classList.contains('show');
-    document.querySelectorAll('.mp-menu.show').forEach(function(m){ m.classList.remove('show'); });
-    if (!open) menu.classList.add('show');
+    // 关闭所有其他菜单, 并各自归位
+    document.querySelectorAll('.mp-menu.show').forEach(function(m){
+      m.classList.remove('show');
+      if (m._returnTo && m.parentNode !== m._returnTo) m._returnTo.appendChild(m);
+    });
+    if (!open) {
+      // 窄屏关键: .card 上的 z-index/backdrop-filter 都会创建独立堆叠上下文,
+      // 内部 .mp-menu 无论 z-index 多高都被封印在 card 层. 唯一出路是把节点移到 body 末尾.
+      var isMobile = window.matchMedia && window.matchMedia('(max-width:640px)').matches;
+      if (isMobile) {
+        menu._returnTo = container;
+        if (menu.parentNode !== document.body) document.body.appendChild(menu);
+      } else {
+        if (menu.parentNode !== container) container.appendChild(menu);
+      }
+      menu.classList.add('show');
+    }
   });
   container.innerHTML = '';
   container.appendChild(btn);
@@ -294,8 +319,12 @@ function initMultiPick(container, min, max, vals, labelFn) {
   return { getValues: values, getString: function(){ return values().join(','); } };
 }
 document.addEventListener('click', function(e){
-  if (!e.target.closest('.multi-pick')) {
-    document.querySelectorAll('.mp-menu.show').forEach(function(m){ m.classList.remove('show'); });
+  // 点击面板外任意区域关闭菜单. 注意窄屏时菜单被移到 body, 所以对 target 判断是"不在 .multi-pick 内且不在 .mp-menu 内".
+  if (!e.target.closest('.multi-pick') && !e.target.closest('.mp-menu')) {
+    document.querySelectorAll('.mp-menu.show').forEach(function(m){
+      m.classList.remove('show');
+      if (m._returnTo && m.parentNode !== m._returnTo) m._returnTo.appendChild(m);
+    });
   }
 });
 
@@ -332,11 +361,32 @@ function initListPick(container, items, vals) {
     var vs = values();
     btn.textContent = vs.length ? vs.map(function(v){ return labelOf[v] || v; }).join('、') : '未选择';
   }
+  // 见 initMultiPick 同名注释
+  var doneBtn = document.createElement('button');
+  doneBtn.type = 'button'; doneBtn.className = 'mp-done'; doneBtn.textContent = '完成';
+  doneBtn.addEventListener('click', function(e){ e.stopPropagation(); closeMenu(); });
+  menu.appendChild(doneBtn);
+  function closeMenu(){
+    menu.classList.remove('show');
+    if (menu.parentNode !== container) container.appendChild(menu);
+  }
   btn.addEventListener('click', function(e){
     e.stopPropagation();
     var open = menu.classList.contains('show');
-    document.querySelectorAll('.mp-menu.show').forEach(function(m){ m.classList.remove('show'); });
-    if (!open) menu.classList.add('show');
+    document.querySelectorAll('.mp-menu.show').forEach(function(m){
+      m.classList.remove('show');
+      if (m._returnTo && m.parentNode !== m._returnTo) m._returnTo.appendChild(m);
+    });
+    if (!open) {
+      var isMobile = window.matchMedia && window.matchMedia('(max-width:640px)').matches;
+      if (isMobile) {
+        menu._returnTo = container;
+        if (menu.parentNode !== document.body) document.body.appendChild(menu);
+      } else {
+        if (menu.parentNode !== container) container.appendChild(menu);
+      }
+      menu.classList.add('show');
+    }
   });
   container.innerHTML = '';
   container.appendChild(btn);

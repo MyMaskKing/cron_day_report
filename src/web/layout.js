@@ -364,6 +364,8 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 .mp-item { display: flex; align-items: center; gap: 4px; padding: 5px 8px; font-size: 13px; cursor: pointer; border-radius: 6px; white-space: nowrap; }
 .mp-item:hover { background: #f5f7ff; }
 .mp-item input { width: auto; margin: 0; }
+/* "完成"按钮: 仅窄屏可见, 桌面下拉隐藏 */
+.mp-done { display: none; }
 
 /* ============ 待办树（signature） ============ */
 /* 层级缩进靠 --depth 变量驱动；每个节点一行，左侧优先级色带 + 圆形勾选框 */
@@ -747,41 +749,38 @@ html { scrollbar-gutter: stable; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */
   .dropdown-menu { right: auto; left: 0; }
   .modal-mask { padding: 20px 10px; }
-  /* 多选面板窄屏: 改为底部弹出面板 (bottom sheet), 脱离 card 堆叠, 触点位于拇指区域;
-     关闭沿用 assets.js 的 document.click(target 不在 .multi-pick 内即关) —— 点遮罩即关 */
+  /* 多选面板窄屏: 改为居中 modal 弹窗 (JS 侧已把 .mp-menu 移到 body 末尾, 彻底脱离 card 堆叠上下文,
+     否则 .card 的 z-index/backdrop-filter 会封印内部 fixed 元素, 导致遮罩必然盖住面板)
+     居中显示、大触点、显式"完成"按钮, 比底部弹出更好操作 */
   .mp-menu {
-    position: fixed; left: 0; right: 0; top: auto; bottom: 0;
-    margin: 0; width: 100%; max-height: 60vh;
-    border-radius: 16px 16px 0 0;
-    padding: 14px 12px calc(14px + env(safe-area-inset-bottom));
-    box-shadow: 0 -6px 24px rgba(0,0,0,.18);
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    margin: 0; width: 92vw; max-width: 400px; max-height: 78vh;
+    border-radius: 14px;
+    padding: 16px 14px 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.28);
     z-index: 1200;
   }
-  .mp-menu.show { grid-template-columns: repeat(4, 1fr); min-width: 0; animation: mpSheetIn .22s ease; }
-  /* 顶部小拖拽条, 暗示"底部面板"可关闭 */
-  .mp-menu.show::before {
-    content: ''; display: block; grid-column: 1 / -1;
-    width: 40px; height: 4px; margin: -4px auto 8px;
-    background: #d9dbe3; border-radius: 2px;
-  }
+  .mp-menu.show { grid-template-columns: repeat(4, 1fr); gap: 6px; min-width: 0; animation: mpModalIn .2s ease; }
   /* 加大触点与字号, 方便手指操作 */
-  .mp-item { padding: 10px 8px; font-size: 15px; }
+  .mp-item { padding: 12px 6px; font-size: 15px; justify-content: center; background: #f8f9ff; }
   .mp-item input { width: 18px; height: 18px; }
-  /* 半透明遮罩: :has() 与本文件 .card:has(.mp-menu.show) 同源, 老浏览器降级为无遮罩不影响功能 */
+  /* "完成"按钮: 铺满底部, 品牌色 */
+  .mp-done {
+    display: block; grid-column: 1 / -1;
+    margin-top: 8px; padding: 12px; font-size: 15px; font-weight: 600;
+    color: #fff; background: linear-gradient(135deg, #A855F7, #6366F1);
+    border: none; border-radius: 10px; cursor: pointer;
+  }
+  /* 半透明遮罩: :has() 老浏览器降级为无遮罩不影响功能 */
   body:has(.mp-menu.show)::before {
     content: ''; position: fixed; inset: 0;
-    background: rgba(0,0,0,.35); z-index: 1100;
+    background: rgba(0,0,0,.5); z-index: 1100;
     animation: mpMaskIn .2s ease;
   }
 }
-@keyframes mpSheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes mpModalIn { from { transform: translate(-50%, -50%) scale(.92); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
 @keyframes mpMaskIn { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 640px) {
-  /* 微信 X5 关键修复: .card 的 backdrop-filter 会让内部 position:fixed 后代改以 card 为 containing block,
-     导致 .mp-menu 的 fixed bottom:0 相对 card 而非视口, 又被 card 独立堆叠上下文封印, body 层遮罩必然盖住;
-     窄屏移除 backdrop-filter, mp-menu 才能真正冲到视口底部并压过遮罩. 视觉上退回到 layout.js:165 已定义的
-     实心浅白 fallback, 手机端几乎无差别 */
-  .card { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.92); }
   /* 待办树：缩进收窄, 操作按钮常显 */
   .todo-row { margin-left: calc(var(--depth, 0) * 16px); gap: 8px; padding: 8px 10px; }
   .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
