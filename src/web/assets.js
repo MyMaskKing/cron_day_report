@@ -36,10 +36,14 @@ function showLoading(text) {
   if (el) el.style.display = 'flex';
   setLoadingText(text || '加载中…');
   setLoadingProgress(10);
+  // 首次显示才上锁; 后续 showLoading 只累计计数, 由 hideLoading 归零时解锁一次
+  if (_loadingCount === 1) lockBodyScroll();
 }
 function hideLoading() {
   _loadingCount = Math.max(0, _loadingCount - 1);
   if (_loadingCount === 0) {
+    // 计数归零立即解锁, 不等 setTimeout 收起 UI —— 用户已可交互
+    unlockBodyScroll();
     setTimeout(function(){
       if (_loadingCount !== 0) return;
       var el = document.getElementById('globalLoading');
@@ -238,11 +242,13 @@ function alertModal(message, opts) {
       '<p style="line-height:1.6;word-break:break-all;">' + esc(message) + '</p>' +
       '<div style="text-align:right;margin-top:18px;"><button class="btn amOk">确定</button></div>' +
     '</div></div>';
-  function shut(){ mask.remove(); document.removeEventListener('keydown', onKey, true); }
+  var locked = false;
+  function shut(){ mask.remove(); document.removeEventListener('keydown', onKey, true); if (locked) { locked = false; unlockBodyScroll(); } }
   function onKey(e){ if (e.key === 'Escape') shut(); }
   mask.querySelector('.amOk').addEventListener('click', shut);
   document.addEventListener('keydown', onKey, true);
   document.body.appendChild(mask);
+  lockBodyScroll(); locked = true;
 }
 // 下拉菜单：点击切换，点击外部关闭
 function toggleDropdown(el) {
@@ -639,10 +645,12 @@ function openChartFullscreen(cv) {
   var close = document.createElement('button');
   close.type = 'button'; close.className = 'chart-fs-close'; close.title = '关闭'; close.innerHTML = ICONS.close_x;;
   var fsChart = null;
+  var locked = false;
   function shut(){
     if (fsChart) fsChart.destroy();
     mask.remove();
     document.removeEventListener('keydown', onKey, true);
+    if (locked) { locked = false; unlockBodyScroll(); }
   }
   function onKey(e){ if (e.key === 'Escape') shut(); }
   close.addEventListener('click', shut);
@@ -651,6 +659,7 @@ function openChartFullscreen(cv) {
   mask.appendChild(stage);
   mask.appendChild(close);
   document.body.appendChild(mask);
+  lockBodyScroll(); locked = true;
   // 用原图的 type/data + options 副本新建；data 深拷贝，避免两实例共享引用导致图例 toggle 互相污染
   var opts = Object.assign({}, src.config.options, { responsive: true, maintainAspectRatio: false });
   var dataCopy;
