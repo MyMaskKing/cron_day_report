@@ -743,6 +743,84 @@ function createD1Adapter(env) {
            ON CONFLICT(key) DO UPDATE SET value=excluded.value`
         ).bind(key, value).run();
       }
+    },
+
+    // ==================== 推送日志 ====================
+    // 每次真正调用 sendNotification 都记一条; 无自动清理, 靠超管画面按区间手动删除
+    pushLog: {
+      /**
+       * 写一条推送日志
+       * @param {Object} r - { user_id, module, channel_id?, channel_name?, channel_type?, format?, trigger_by?, success, error? }
+       */
+      async add(r) {
+        await db.prepare(
+          `INSERT INTO push_log
+           (user_id, module, channel_id, channel_name, channel_type, format, trigger_by, success, error)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          r.user_id, r.module,
+          r.channel_id == null ? null : r.channel_id,
+          r.channel_name == null ? null : r.channel_name,
+          r.channel_type == null ? null : r.channel_type,
+          r.format == null ? null : r.format,
+          r.trigger_by || 'cron',
+          r.success ? 1 : 0,
+          r.error ? String(r.error).slice(0, 500) : null
+        ).run();
+      },
+      /**
+       * 分页读取; 支持按 module / user_id / success 过滤; 列表带 username 便于展示
+       * @param {Object} opts - { module?, userId?, success?, limit=100, offset=0 }
+       * @returns {Promise<{ rows, total }>}
+       */
+      async list(opts = {}) {
+        const where = [];
+        const args = [];
+        if (opts.module) { where.push('l.module = ?'); args.push(opts.module); }
+        if (opts.userId) { where.push('l.user_id = ?'); args.push(opts.userId); }
+        if (opts.success != null && opts.success !== '') {
+          where.push('l.success = ?');
+          args.push(opts.success == 1 || opts.success === true ? 1 : 0);
+        }
+        const wh = where.length ? ('WHERE ' + where.join(' AND ')) : '';
+        const limit = Math.min(500, Math.max(1, parseInt(opts.limit, 10) || 100));
+        const offset = Math.max(0, parseInt(opts.offset, 10) || 0);
+        const rowsQ = await db.prepare(
+          `SELECT l.*, u.username FROM push_log l LEFT JOIN users u ON u.id = l.user_id
+           ${wh} ORDER BY l.id DESC LIMIT ? OFFSET ?`
+        ).bind(...args, limit, offset).all();
+        const totalQ = await db.prepare(
+          `SELECT COUNT(*) AS c FROM push_log l ${wh}`
+        ).bind(...args).first();
+        return { rows: rowsQ.results || [], total: totalQ ? totalQ.c : 0 };
+      },
+      /**
+       * 按 created_at 区间统计条数 (用于删除前二次确认)
+       * @param {Object} range - { from?: 'YYYY-MM-DD HH:mm:ss', to?: 'YYYY-MM-DD HH:mm:ss' } UTC
+       */
+      async countRange({ from, to } = {}) {
+        const where = [], args = [];
+        if (from) { where.push('created_at >= ?'); args.push(from); }
+        if (to)   { where.push('created_at <= ?'); args.push(to); }
+        const wh = where.length ? 'WHERE ' + where.join(' AND ') : '';
+        const row = await db.prepare(`SELECT COUNT(*) AS c FROM push_log ${wh}`).bind(...args).first();
+        return row ? row.c : 0;
+      },
+      /**
+       * 按 created_at 区间删除
+       * 安全兜底: from/to 都没传时返回 0, 防止全表清空
+       * @returns {Promise<number>} 实际删除条数
+       */
+      async deleteRange({ from, to } = {}) {
+        const where = [], args = [];
+        if (from) { where.push('created_at >= ?'); args.push(from); }
+        if (to)   { where.push('created_at <= ?'); args.push(to); }
+        if (!where.length) return 0;
+        const res = await db.prepare(
+          `DELETE FROM push_log WHERE ${where.join(' AND ')}`
+        ).bind(...args).run();
+        return res.meta ? (res.meta.changes || 0) : 0;
+      }
     }
   };
 }

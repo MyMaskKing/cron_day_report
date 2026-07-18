@@ -976,6 +976,112 @@ if (baseUrlSave) baseUrlSave.addEventListener('click', async function(){
 });
 loadBaseUrl();
 loadUsers();
+
+// ============ 推送日志管理 ============
+var plState = { limit: 50, offset: 0, total: 0 };
+var MODULE_LABEL = { fund:'基金', weight:'体重', asset:'资产', todo:'待办', monitor:'监控' };
+var TRIGGER_LABEL = { cron:'定时', manual:'手动' };
+
+// datetime-local 输入值 'YYYY-MM-DDTHH:mm' 视为北京时间(与页面其他时间显示统一), 转 UTC 'YYYY-MM-DD HH:mm:ss'
+function plLocalToUtc(v) {
+  if (!v) return '';
+  var m = String(v).match(/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})$/);
+  if (!m) return '';
+  var t = Date.UTC(+m[1], +m[2]-1, +m[3], +m[4], +m[5]) - 8*3600*1000;
+  var d = new Date(t);
+  var pad = function(n){ return n<10?'0'+n:''+n; };
+  return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())+
+    ' '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds());
+}
+
+async function loadPushLogs() {
+  var q = new URLSearchParams();
+  var m = document.getElementById('plModule').value;
+  var uid = document.getElementById('plUserId').value.trim();
+  var suc = document.getElementById('plSuccess').value;
+  if (m) q.set('module', m);
+  if (uid) q.set('user_id', uid);
+  if (suc !== '') q.set('success', suc);
+  q.set('limit', plState.limit);
+  q.set('offset', plState.offset);
+  try {
+    var d = await api('/api/admin/push-log?' + q.toString());
+    plState.total = d.total || 0;
+    var body = document.getElementById('plTbody');
+    body.innerHTML = (d.rows || []).map(function(r){
+      var errCell = r.success ? '<span class="muted">—</span>' : ('<span style="color:#B42318;">' + esc(r.error || '') + '</span>');
+      return '<tr>' +
+        '<td data-label="时间">' + fmtUTC2CN(r.created_at) + '</td>' +
+        '<td data-label="用户">' + esc(r.username || ('#' + r.user_id)) + '</td>' +
+        '<td data-label="模块">' + (MODULE_LABEL[r.module] || r.module) + '</td>' +
+        '<td data-label="渠道">' + esc(r.channel_name || ('#' + (r.channel_id || '-'))) + (r.channel_type ? ' <span class="muted">('+esc(r.channel_type)+')</span>' : '') + '</td>' +
+        '<td data-label="格式">' + esc(r.format || '') + '</td>' +
+        '<td data-label="触发">' + (TRIGGER_LABEL[r.trigger_by] || r.trigger_by) + '</td>' +
+        '<td data-label="状态">' + (r.success ? '<span class="tag ok">成功</span>' : '<span class="tag fail">失败</span>') + '</td>' +
+        '<td data-label="错误信息">' + errCell + '</td>' +
+      '</tr>';
+    }).join('');
+    var from = plState.total === 0 ? 0 : (plState.offset + 1);
+    var to = Math.min(plState.total, plState.offset + plState.limit);
+    document.getElementById('plPage').textContent = from + '~' + to + ' / 共 ' + plState.total;
+  } catch (err) { alertModal(err.message, {ok:false}); }
+}
+
+var plModuleEl = document.getElementById('plModule');
+var plUserIdEl = document.getElementById('plUserId');
+var plSuccessEl = document.getElementById('plSuccess');
+if (plModuleEl) plModuleEl.addEventListener('change', function(){ plState.offset = 0; loadPushLogs(); });
+if (plUserIdEl) plUserIdEl.addEventListener('change', function(){ plState.offset = 0; loadPushLogs(); });
+if (plSuccessEl) plSuccessEl.addEventListener('change', function(){ plState.offset = 0; loadPushLogs(); });
+var plRefreshBtn = document.getElementById('plRefresh');
+if (plRefreshBtn) plRefreshBtn.addEventListener('click', function(){ loadPushLogs(); });
+var plPrevBtn = document.getElementById('plPrev');
+if (plPrevBtn) plPrevBtn.addEventListener('click', function(){
+  if (plState.offset === 0) return;
+  plState.offset = Math.max(0, plState.offset - plState.limit);
+  loadPushLogs();
+});
+var plNextBtn = document.getElementById('plNext');
+if (plNextBtn) plNextBtn.addEventListener('click', function(){
+  if (plState.offset + plState.limit >= plState.total) return;
+  plState.offset += plState.limit;
+  loadPushLogs();
+});
+
+// 区间删除: 前端先查条数 → 弹窗二次确认 → 真删
+var plDelBtn = document.getElementById('plDelRange');
+if (plDelBtn) bindClickBusy(plDelBtn, async function(){
+  var fromStr = plLocalToUtc(document.getElementById('plFrom').value);
+  var toStr = plLocalToUtc(document.getElementById('plTo').value);
+  if (!fromStr && !toStr) { alertModal('起始与结束时间至少填一个', {ok:false}); return; }
+  if (fromStr && toStr && fromStr > toStr) { alertModal('起始时间不能晚于结束时间', {ok:false}); return; }
+  var q = new URLSearchParams();
+  if (fromStr) q.set('from', fromStr);
+  if (toStr)   q.set('to', toStr);
+  var cnt;
+  try {
+    var d = await api('/api/admin/push-log/count?' + q.toString());
+    cnt = d.count || 0;
+  } catch (err) { alertModal(err.message, {ok:false}); return; }
+  if (cnt === 0) { alertModal('该区间内没有可删除的日志', {ok:false}); return; }
+  var rangeText = '';
+  if (fromStr) rangeText += '从 ' + (document.getElementById('plFrom').value || '').replace('T',' ');
+  if (fromStr && toStr) rangeText += ' 到 ';
+  if (toStr)   rangeText += (document.getElementById('plTo').value || '').replace('T',' ');
+  confirmModal('确认删除推送日志',
+    rangeText + ' 区间内共 ' + cnt + ' 条日志将被永久删除, 无法恢复。是否继续?',
+    async function(){
+      try {
+        var r = await api('/api/admin/push-log/delete-range', { method: 'POST', body: { from: fromStr || null, to: toStr || null } });
+        alertModal(r.message);
+        plState.offset = 0;
+        loadPushLogs();
+      } catch (err) { alertModal(err.message, {ok:false}); }
+    }
+  );
+});
+
+loadPushLogs();
 `;
 
 // 定时任务管理 JS

@@ -43,6 +43,7 @@ import {
 } from './api/asset.api.js';
 import { buildAssetReportData } from './services/asset.service.js';
 import { getPushConfig, setPushConfig, resetMyModuleShare, adminResetModuleShare } from './api/push.api.js';
+import { listPushLogs, countPushLogs, deletePushLogsRange } from './api/pushLog.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
 import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue } from './services/report.service.js';
 import { buildTree, flattenPending } from './services/todo.service.js';
@@ -93,6 +94,11 @@ router.get('/api/admin/settings/timezone', getTimezone);
 router.put('/api/admin/settings/timezone', setTimezone);
 router.get('/api/admin/settings/base-url', getBaseUrl);
 router.put('/api/admin/settings/base-url', setBaseUrl);
+
+// --- 超管推送日志 API ---
+router.get('/api/admin/push-log', listPushLogs);
+router.get('/api/admin/push-log/count', countPushLogs);
+router.post('/api/admin/push-log/delete-range', deletePushLogsRange);
 
 // --- 手动触发（兼容保留，执行当前登录用户的启用任务）---
 router.get('/api/monitor/run', runMyMonitors);
@@ -316,7 +322,7 @@ async function runMyMonitors({ request, env }) {
   const tasks = (await storage.monitor.listByUser(session.user_id)).filter(t => t.enabled);
   if (tasks.length === 0) return json({ success: true, message: '没有启用的监控任务', results: [] });
 
-  const result = await executeTasksAndNotify(env, storage, tasks, tzOffset);
+  const result = await executeTasksAndNotify(env, storage, tasks, tzOffset, 'manual');
   return json({ success: true, message: '执行完成', ...result });
 }
 
@@ -356,6 +362,13 @@ async function runMyModulePush({ request, env, params }) {
     const r = await sendNotification(message, channel, fmt, moduleSubject(module, tzOffset));
     results.push({ channel_id: cid, ...r });
     anySent = true;
+    // 推送日志: 手动触发, 写失败不影响主流程
+    await storage.pushLog.add({
+      user_id: session.user_id, module,
+      channel_id: cid, channel_name: channel.name, channel_type: channel.type,
+      format: fmt, trigger_by: 'manual',
+      success: !!r.success, error: r.success ? null : r.message
+    }).catch(() => {});
   }
   if (!anySent) return error('绑定的通知渠道不存在或已停用', 400);
   return json({ success: true, message: '已推送', results });
@@ -368,7 +381,7 @@ async function runMyModulePush({ request, env, params }) {
  * @param {Array} tasks
  * @returns {Promise<Object>} { results, notified }
  */
-async function executeTasksAndNotify(env, storage, tasks, tzOffset = 8) {
+async function executeTasksAndNotify(env, storage, tasks, tzOffset = 8, triggerBy = 'cron') {
   const timeoutConfig = getTimeoutConfig(env);
   const results = await batchAccessUrls(tasks, timeoutConfig);
 
@@ -395,6 +408,13 @@ async function executeTasksAndNotify(env, storage, tasks, tzOffset = 8) {
     const message = formatResults([r], returnType, tzOffset);
     const sendResult = await sendNotification(message, channel, returnType, subject);
     notified.push({ channelId: r.channel_id, standalone: true, ...sendResult });
+    // 推送日志: 落发送动作本身, 失败原因取 sendResult.message; 写失败不影响主流程
+    await storage.pushLog.add({
+      user_id: r.user_id, module: 'monitor',
+      channel_id: channel.id, channel_name: channel.name, channel_type: channel.type,
+      format: returnType, trigger_by: triggerBy,
+      success: !!sendResult.success, error: sendResult.success ? null : sendResult.message
+    }).catch(() => {});
   }
 
   // 合并发送：同一 channel_id 的结果合并为一条消息
@@ -412,6 +432,13 @@ async function executeTasksAndNotify(env, storage, tasks, tzOffset = 8) {
     const message = formatResults(group, returnType, tzOffset);
     const sendResult = await sendNotification(message, channel, returnType, subject);
     notified.push({ channelId, ...sendResult });
+    // 推送日志: 合并组以组内第一条的 user_id 作为归属 (同用户同渠道)
+    await storage.pushLog.add({
+      user_id: group[0].user_id, module: 'monitor',
+      channel_id: channel.id, channel_name: channel.name, channel_type: channel.type,
+      format: returnType, trigger_by: triggerBy,
+      success: !!sendResult.success, error: sendResult.success ? null : sendResult.message
+    }).catch(() => {});
   }
 
   return { results, notified };
@@ -440,7 +467,7 @@ async function handleScheduled(cron, env, ctx) {
       if (!manual && !shouldRun('monitor', cfg, now)) continue;
       const tasks = (await storage.monitor.listByUser(cfg.user_id)).filter(t => t.enabled);
       if (tasks.length === 0) continue;
-      await executeTasksAndNotify(env, storage, tasks, tzOffset);
+      await executeTasksAndNotify(env, storage, tasks, tzOffset, manual ? 'manual' : 'cron');
       total += tasks.length;
     }
     summary.monitor = { count: total };
@@ -526,6 +553,13 @@ async function runModulePush(env, storage, module, now, manual, tzOffset) {
       if (!message) continue;
       const r = await sendNotification(message, channel, fmt, moduleSubject(module, tzOffset));
       sent.push({ user_id: cfg.user_id, channel_id: cid, ...r });
+      // 推送日志: 定时触发; manual 全量重放时(/cron) trigger_by 记为 'manual'
+      await storage.pushLog.add({
+        user_id: cfg.user_id, module,
+        channel_id: cid, channel_name: channel.name, channel_type: channel.type,
+        format: fmt, trigger_by: manual ? 'manual' : 'cron',
+        success: !!r.success, error: r.success ? null : r.message
+      }).catch(() => {});
     }
   }
   return { sent };

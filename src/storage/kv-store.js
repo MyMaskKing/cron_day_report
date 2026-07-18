@@ -20,10 +20,12 @@ async function kvSetSession(kv, token, data, ttlSeconds) {
 
 /**
  * 读取会话
+ * 加 cacheTtl:60 让同一 POP 边缘缓存 60 秒内的重复读走缓存, 不计入 KV 读额度;
+ * 副作用: 登出/切换身份最多有 60 秒延迟生效 (旧值在边缘缓存里)
  * @returns {Promise<Object|null>}
  */
 async function kvGetSession(kv, token) {
-  const raw = await kv.get(SESSION_PREFIX + token);
+  const raw = await kv.get(SESSION_PREFIX + token, { cacheTtl: 60 });
   return raw ? JSON.parse(raw) : null;
 }
 

@@ -166,6 +166,49 @@ function adminPage(user) {
         <tbody id="userTbody"></tbody>
       </table>
     </div>
+    <div class="card">
+      <h2>推送日志
+        <button class="btn sm gray" id="plRefresh" style="float:right;">刷新</button>
+      </h2>
+      <div id="plMsg" class="msg"></div>
+      <div class="row">
+        <div><label>模块</label>
+          <select id="plModule">
+            <option value="">全部</option>
+            <option value="fund">基金</option>
+            <option value="weight">体重</option>
+            <option value="asset">资产</option>
+            <option value="todo">待办</option>
+            <option value="monitor">监控</option>
+          </select>
+        </div>
+        <div><label>用户 ID（可选）</label><input id="plUserId" type="number" min="1" placeholder="留空=全部"></div>
+        <div><label>状态</label>
+          <select id="plSuccess">
+            <option value="">全部</option>
+            <option value="1">成功</option>
+            <option value="0">失败</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="border-top:1px dashed #E4E1D8;padding-top:10px;">
+        <div><label>删除区间 · 起始时间</label><input id="plFrom" type="datetime-local"></div>
+        <div><label>删除区间 · 结束时间</label><input id="plTo" type="datetime-local"></div>
+        <div style="display:flex;align-items:flex-end;margin-bottom:12px;">
+          <button class="btn danger" id="plDelRange">删除区间内日志</button>
+        </div>
+      </div>
+      <p class="muted">起始与结束至少填一个；留空表示不设该端边界。点击删除后会弹窗显示条数二次确认。</p>
+      <table>
+        <thead><tr><th>时间</th><th>用户</th><th>模块</th><th>渠道</th><th>格式</th><th>触发</th><th>状态</th><th>错误信息</th></tr></thead>
+        <tbody id="plTbody"></tbody>
+      </table>
+      <div style="margin-top:8px;text-align:center;">
+        <button class="btn sm gray" id="plPrev">上一页</button>
+        <span class="muted" id="plPage" style="margin:0 12px;"></span>
+        <button class="btn sm gray" id="plNext">下一页</button>
+      </div>
+    </div>
     <div class="card" id="detail" style="display:none;"></div>
   </div>`;
   return renderPage({ title: '用户管理', body, script: ADMIN_JS });
