@@ -787,6 +787,11 @@ html { scrollbar-gutter: stable; }
 @keyframes mpModalIn { from { transform: translate(-50%, -50%) scale(.92); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
 @keyframes mpMaskIn { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 640px) {
+  /* 长列表窄屏限高滚动: 让分页按钮始终在屏内, 避免用户长滑找不到"下一页"
+     max-height 用 vh 而非固定 px, 适应不同屏幕. 底部渐隐提示还有内容可滚 */
+  .table-scroll-mobile { max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; position: relative; }
+  .table-scroll-mobile::-webkit-scrollbar { width: 4px; }
+  .table-scroll-mobile::-webkit-scrollbar-thumb { background: #cbcfda; border-radius: 2px; }
   /* 待办树：缩进收窄, 操作按钮常显 */
   .todo-row { margin-left: calc(var(--depth, 0) * 16px); gap: 8px; padding: 8px 10px; }
   .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
