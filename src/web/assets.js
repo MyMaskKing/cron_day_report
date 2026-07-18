@@ -165,9 +165,12 @@ function esc(s) {
 function openModal(title, bodyHtml) {
   var mask = document.getElementById('modalMask');
   if (!mask) return;
+  var wasOpen = mask.classList.contains('show');
   document.getElementById('modalTitle').textContent = title || '';
   document.getElementById('modalBody').innerHTML = bodyHtml || '';
   mask.classList.add('show');
+  // 已打开时(如 confirmModal 内部再次 openModal)不重复上锁, 避免引用计数与 close 不匹配
+  if (!wasOpen) lockBodyScroll();
   // 弹窗内 textarea 支持 data-autogrow：随内容高度自动撑开
   var box = document.getElementById('modalBody');
   var tas = box ? box.querySelectorAll('textarea[data-autogrow]') : [];
@@ -177,7 +180,31 @@ function openModal(title, bodyHtml) {
 }
 function closeModal() {
   var mask = document.getElementById('modalMask');
-  if (mask) mask.classList.remove('show');
+  if (!mask) return;
+  var wasOpen = mask.classList.contains('show');
+  mask.classList.remove('show');
+  if (wasOpen) unlockBodyScroll();
+}
+// 全局滚动锁: 弹窗(modal + mp-menu)打开时锁, 关闭时恢复.
+// 用引用计数, 因为可能同时打开多个层(如 modal 里再开 confirmModal)
+// iOS Safari 单纯 overflow:hidden 仍能滑动, 需 body.no-scroll (position:fixed) 兼容
+var _bodyScrollLockCount = 0;
+var _bodyScrollY = 0;
+function lockBodyScroll() {
+  if (_bodyScrollLockCount === 0) {
+    _bodyScrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.top = -_bodyScrollY + 'px';
+    document.body.classList.add('no-scroll');
+  }
+  _bodyScrollLockCount++;
+}
+function unlockBodyScroll() {
+  if (_bodyScrollLockCount > 0) _bodyScrollLockCount--;
+  if (_bodyScrollLockCount === 0) {
+    document.body.classList.remove('no-scroll');
+    document.body.style.top = '';
+    window.scrollTo(0, _bodyScrollY);
+  }
 }
 function bindModal() {
   var mask = document.getElementById('modalMask');
@@ -288,16 +315,19 @@ function initMultiPick(container, min, max, vals, labelFn) {
   menu.appendChild(doneBtn);
   // 关闭时: 若菜单被移到 body(窄屏模式), 归位回 container, 避免下次初始化引用错乱
   function closeMenu(){
+    var wasShown = menu.classList.contains('show');
     menu.classList.remove('show');
     if (menu.parentNode !== container) container.appendChild(menu);
+    if (wasShown && menu._locked) { menu._locked = false; unlockBodyScroll(); }
   }
   btn.addEventListener('click', function(e){
     e.stopPropagation();
     var open = menu.classList.contains('show');
-    // 关闭所有其他菜单, 并各自归位
+    // 关闭所有其他菜单, 并各自归位 (含滚动锁释放)
     document.querySelectorAll('.mp-menu.show').forEach(function(m){
       m.classList.remove('show');
       if (m._returnTo && m.parentNode !== m._returnTo) m._returnTo.appendChild(m);
+      if (m._locked) { m._locked = false; unlockBodyScroll(); }
     });
     if (!open) {
       // 窄屏关键: .card 上的 z-index/backdrop-filter 都会创建独立堆叠上下文,
@@ -306,6 +336,7 @@ function initMultiPick(container, min, max, vals, labelFn) {
       if (isMobile) {
         menu._returnTo = container;
         if (menu.parentNode !== document.body) document.body.appendChild(menu);
+        menu._locked = true; lockBodyScroll();
       } else {
         if (menu.parentNode !== container) container.appendChild(menu);
       }
@@ -324,6 +355,7 @@ document.addEventListener('click', function(e){
     document.querySelectorAll('.mp-menu.show').forEach(function(m){
       m.classList.remove('show');
       if (m._returnTo && m.parentNode !== m._returnTo) m._returnTo.appendChild(m);
+      if (m._locked) { m._locked = false; unlockBodyScroll(); }
     });
   }
 });
@@ -336,7 +368,8 @@ function initListPick(container, items, vals) {
   var btn = document.createElement('button');
   btn.type = 'button'; btn.className = 'mp-btn';
   var menu = document.createElement('div');
-  menu.className = 'mp-menu';
+  // mp-menu-list: 窄屏改为单列 + 允许换行, 避免长渠道名撑爆容器出现横向滚动
+  menu.className = 'mp-menu mp-menu-list';
   var labelOf = {};
   (items || []).forEach(function(it){
     labelOf[it.value] = it.label;
@@ -367,8 +400,10 @@ function initListPick(container, items, vals) {
   doneBtn.addEventListener('click', function(e){ e.stopPropagation(); closeMenu(); });
   menu.appendChild(doneBtn);
   function closeMenu(){
+    var wasShown = menu.classList.contains('show');
     menu.classList.remove('show');
     if (menu.parentNode !== container) container.appendChild(menu);
+    if (wasShown && menu._locked) { menu._locked = false; unlockBodyScroll(); }
   }
   btn.addEventListener('click', function(e){
     e.stopPropagation();
@@ -376,12 +411,14 @@ function initListPick(container, items, vals) {
     document.querySelectorAll('.mp-menu.show').forEach(function(m){
       m.classList.remove('show');
       if (m._returnTo && m.parentNode !== m._returnTo) m._returnTo.appendChild(m);
+      if (m._locked) { m._locked = false; unlockBodyScroll(); }
     });
     if (!open) {
       var isMobile = window.matchMedia && window.matchMedia('(max-width:640px)').matches;
       if (isMobile) {
         menu._returnTo = container;
         if (menu.parentNode !== document.body) document.body.appendChild(menu);
+        menu._locked = true; lockBodyScroll();
       } else {
         if (menu.parentNode !== container) container.appendChild(menu);
       }

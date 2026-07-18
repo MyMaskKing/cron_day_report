@@ -337,6 +337,9 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 /* 短内容居中、长内容顶部对齐可滚：靠 .modal-box 的 margin:auto 自适应 */
 .modal-mask { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000; padding: 40px 16px; overflow-y: auto; }
 .modal-mask.show { display: flex; }
+/* 全局滚动锁: body.no-scroll 由 JS 在打开弹窗(modal / mp-menu)时加, 关闭时移除.
+   position:fixed + width:100% 兼容 iOS Safari, 单纯 overflow:hidden 在 iOS 上仍能滑动 */
+body.no-scroll { overflow: hidden; position: fixed; width: 100%; }
 .modal-box { background: #fff; border-radius: 10px; width: 100%; max-width: 440px; margin: auto; box-shadow: 0 10px 40px rgba(0,0,0,.2); animation: modalIn .2s ease; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #eee; font-size: 16px; font-weight: 600; }
 #modalClose { cursor: pointer; font-size: 24px; line-height: 1; color: #999; }
@@ -761,6 +764,9 @@ html { scrollbar-gutter: stable; }
     z-index: 1200;
   }
   .mp-menu.show { grid-template-columns: repeat(4, 1fr); gap: 6px; min-width: 0; animation: mpModalIn .2s ease; }
+  /* 渠道等自定义文本长度不定, 窄屏收成 1 列 + 允许换行, 避免撑爆 400px 容器出现横向滚动条 */
+  .mp-menu-list.show { grid-template-columns: 1fr; }
+  .mp-menu-list .mp-item { justify-content: flex-start; white-space: normal; word-break: break-all; text-align: left; }
   /* 加大触点与字号, 方便手指操作 */
   .mp-item { padding: 12px 6px; font-size: 15px; justify-content: center; background: #f8f9ff; }
   .mp-item input { width: 18px; height: 18px; }
