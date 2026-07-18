@@ -777,6 +777,11 @@ html { scrollbar-gutter: stable; }
 @keyframes mpSheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes mpMaskIn { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 640px) {
+  /* 微信 X5 关键修复: .card 的 backdrop-filter 会让内部 position:fixed 后代改以 card 为 containing block,
+     导致 .mp-menu 的 fixed bottom:0 相对 card 而非视口, 又被 card 独立堆叠上下文封印, body 层遮罩必然盖住;
+     窄屏移除 backdrop-filter, mp-menu 才能真正冲到视口底部并压过遮罩. 视觉上退回到 layout.js:165 已定义的
+     实心浅白 fallback, 手机端几乎无差别 */
+  .card { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.92); }
   /* 待办树：缩进收窄, 操作按钮常显 */
   .todo-row { margin-left: calc(var(--depth, 0) * 16px); gap: 8px; padding: 8px 10px; }
   .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
