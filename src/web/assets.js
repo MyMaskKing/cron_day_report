@@ -144,6 +144,56 @@ function loadingTextOf(path, opts) {
   if (method === 'DELETE') return '正在删除数据…';
   return '正在处理请求…';
 }
+// 页面跳转 loading: 立即显示遮罩 (跳过 200ms 延迟), 供菜单点击 / location.href 场景使用.
+// 因为跳转必然经历 网络+服务端渲染 至少一个 RTT, 快请求那套"200ms 内无感"在这里不适用.
+function _showLoadingImmediate(text) {
+  _loadingCount++;
+  _loadingLastText = text || '正在打开页面…';
+  if (_loadingShown) { setLoadingText(_loadingLastText); return; }
+  // 已排了延迟定时器: 取消它, 直接同步显示
+  if (_loadingShowTimer) { clearTimeout(_loadingShowTimer); _loadingShowTimer = null; }
+  _showLoadingNow();
+  // 兜底进度条仍按 3s 计时 (导航 3s 内完成不显示条, 慢导航才出现)
+  if (!_loadingBarTimer && !_loadingBarShown) {
+    _loadingBarTimer = setTimeout(function(){
+      _loadingBarTimer = null;
+      if (_loadingCount === 0) return;
+      _showLoadingBarNow();
+    }, LOADING_BAR_DELAY);
+  }
+}
+// 统一封装的页面跳转: 立即显示 loading → 触发 location.href.
+// 相比裸 location.href, 用户在点击后立刻看到反馈, 不用干等到新页面渲染.
+function navTo(url, text) {
+  _showLoadingImmediate(text || '正在打开页面…');
+  location.href = url;
+}
+// 全局 <a> 点击拦截: 同源内部路径导航立即触发 loading.
+// 排除: 外链 / 锚点 / target=_blank / 修饰键(新窗口/新标签) / download 属性 / javascript: 协议
+document.addEventListener('click', function(e){
+  // 允许其他 listener 已经 preventDefault (如自定义 SPA 逻辑)
+  if (e.defaultPrevented) return;
+  // 修饰键: 用户主动新窗口打开时不该显示当前页的 loading
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button === 1) return;
+  var a = e.target && e.target.closest && e.target.closest('a[href]');
+  if (!a) return;
+  var href = a.getAttribute('href');
+  if (!href || href.charAt(0) === '#') return;
+  if (a.hasAttribute('download')) return;
+  if (a.target && a.target !== '' && a.target !== '_self') return;
+  // 只处理相对路径 或 同源绝对路径
+  var isRelative = href.charAt(0) === '/' && href.charAt(1) !== '/';
+  var isSameOrigin = false;
+  if (!isRelative) {
+    try {
+      var u = new URL(href, location.href);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return;   // 排除 mailto: / tel: / javascript:
+      isSameOrigin = u.origin === location.origin;
+    } catch (err) { return; }
+  }
+  if (!isRelative && !isSameOrigin) return;
+  _showLoadingImmediate('正在打开页面…');
+});
 async function api(path, opts) {
   opts = opts || {};
   // ===== 请求指纹缓存: 三级防重, 覆盖 fetch 报错后手动重试导致的重复提交 =====
@@ -209,12 +259,12 @@ function bindLogout() {
   bindClickBusy(document.getElementById('logoutBtn'), async function(e){
     if (e && e.preventDefault) e.preventDefault();
     try { await api('/api/auth/logout', { method: 'POST' }); } catch (err) {}
-    location.href = '/login';
+    navTo('/login');
   });
   bindClickBusy(document.getElementById('stopImpersonateBtn'), async function(e){
     if (e && e.preventDefault) e.preventDefault();
     await api('/api/admin/stop-impersonate', { method: 'POST' });
-    location.href = '/admin';
+    navTo('/admin');
   });
 }
 function esc(s) {
@@ -524,7 +574,7 @@ function bindQuickLogin(kind) {
   bindClickBusy(document.getElementById('quickLoginBtn'), async function(e){
     if (e && e.preventDefault) e.preventDefault();
     var r = await api('/api/public/quick-login/' + kind + '/' + tk, { method: 'POST' });
-    location.href = r.redirect || '/dashboard';
+    navTo(r.redirect || '/dashboard');
   });
 }
 // 图表横屏全屏查看：给页面每个图表 canvas 加「⛶」按钮，点击把 canvas 移入旋转 90° 的全屏层
@@ -668,7 +718,7 @@ function initGlobalSwipeBack() {
     if (canBack && history.length > 1) { history.back(); return; }
     // 登录页不做兜底跳转
     if (location.pathname === '/login' || location.pathname === '/setup') return;
-    location.href = '/dashboard';
+    navTo('/dashboard');
   }
 }
 
@@ -832,7 +882,7 @@ loginForm.addEventListener('submit', async function(e) {
       username: document.getElementById('lu').value,
       password: document.getElementById('lp').value
     }});
-    location.href = '/dashboard';
+    navTo('/dashboard');
   } catch (err) { showMsg(msg, err.message, false); }
 });
 regForm.addEventListener('submit', async function(e) {
@@ -857,7 +907,7 @@ bindLogout();
   try {
     var me = await api('/api/auth/me');
     document.getElementById('welcome').textContent = '欢迎，' + (me.user.nickname || me.user.username);
-  } catch (err) { location.href = '/login'; }
+  } catch (err) { navTo('/login'); }
 })();
 `;
 
@@ -874,7 +924,7 @@ var msg = document.getElementById('msg');
     document.getElementById('pfNick').value = d.profile.nickname;
     var ql = document.getElementById('qlRestrict');
     if (ql) ql.checked = d.profile.restrict_quicklogin != 0;
-  } catch(e){ location.href = '/login'; }
+  } catch(e){ navTo('/login'); }
 })();
 // 免密登录限制开关：切换即保存
 var qlEl = document.getElementById('qlRestrict');
@@ -925,7 +975,7 @@ var tokenField = document.getElementById('tokenField');
     var st = await api('/api/auth/setup-status');
     if (!st.needSetup) {
       showMsg(msg, '系统已初始化，正在跳转登录...', true);
-      setTimeout(function(){ location.href = '/login'; }, 1500);
+      setTimeout(function(){ navTo('/login'); }, 1500);
       form.style.display = 'none';
       return;
     }
@@ -941,7 +991,7 @@ form.addEventListener('submit', async function(e) {
       token: document.getElementById('st') ? document.getElementById('st').value : undefined
     }});
     showMsg(msg, '超管创建成功，正在跳转登录...', true);
-    setTimeout(function(){ location.href = '/login'; }, 1500);
+    setTimeout(function(){ navTo('/login'); }, 1500);
   } catch (err) { showMsg(msg, err.message, false); }
 });
 `;
@@ -991,7 +1041,7 @@ async function loadUsers() {
           '</div>' +
         '</div></td></tr>';
     }).join('');
-  } catch (err) { alertModal(err.message, {ok:false}); if (err.message.indexOf('权限') >= 0 || err.message.indexOf('登录') >= 0) location.href = '/login'; }
+  } catch (err) { alertModal(err.message, {ok:false}); if (err.message.indexOf('权限') >= 0 || err.message.indexOf('登录') >= 0) navTo('/login'); }
 }
 async function viewUser(id) {
   try {
@@ -1040,7 +1090,7 @@ async function toggleStatus(id, cur) {
 }
 async function impersonate(id, name) {
   confirmModal('切换身份', '确认切换到 ' + name + ' 的身份浏览?', async function(){
-    try { await api('/api/admin/users/' + id + '/impersonate', { method: 'POST' }); location.href = '/dashboard'; }
+    try { await api('/api/admin/users/' + id + '/impersonate', { method: 'POST' }); navTo('/dashboard'); }
     catch (err) { alertModal(err.message, {ok:false}); }
   });
 }
@@ -1375,7 +1425,7 @@ if (mpSend) mpSend.addEventListener('click', async function(){
 
 (async function(){
   try { await loadChannels(); await loadTasks(); await loadMonitorPush(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
 })();
 `;
 
@@ -1445,7 +1495,7 @@ window.delCh = async function(id){
 document.getElementById('chNew').addEventListener('click', function(){ chModal({}); });
 (async function(){
   try { await loadChannels(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
 })();
 `;
 
@@ -1754,7 +1804,7 @@ document.getElementById('scRun').addEventListener('click', async function(){
   _initTotal = 4; _initStep = 0;   // loadReport(净值汇总+收益曲线) + loadReportConfig(渠道+推送配置)
   showLoading('加载中…');   // 外层占位：保持计数>0，使 4 个串行请求间进度不被归零重置
   try { await loadReport(); await loadReportConfig(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
   finally { _initTotal = 0; hideLoading(); }
   // 绑定筛选（select 在 loadReport 时 DOM 已就绪）
   document.getElementById('profitRange').addEventListener('change', applyProfitFilter);
@@ -2133,7 +2183,7 @@ if (pushSend) pushSend.addEventListener('click', async function(){
 
 (async function(){
   try { await loadAll(); initFilter(); await loadPush(); await initCompare(); await initShare(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
 })();
 `;
 
@@ -2857,7 +2907,7 @@ if (aPushSend) aPushSend.addEventListener('click', async function(){
 
 (async function(){
   try { await loadAll(); initAssetFilter(); await loadPush(); }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
 })();
 `;
 
@@ -4489,7 +4539,7 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
     // 应用视图状态: localStorage 里可能已有 'card'/'tree', 首次进入直接全屏
     applyTodoView(_todoGetRows, drawTree);
   }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) location.href='/login'; else alertModal(e.message, {ok:false}); }
+  catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
 })();
 `;
 
