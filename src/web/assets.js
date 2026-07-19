@@ -4624,8 +4624,8 @@ function drawTree(trees) {
     detailRootId: _todoDetailRootId,
     crumbEl: crumb,
     today: _today, hideDone: hideDone,
-    onExitDetail: function(){ _todoDetailRootId = null; loadPublic(); },
-    onEnter: function(node){ _todoDetailRootId = node.id; loadPublic(); },
+    onExitDetail: function(){ _todoDetailRootId = null; drawTree(visibleTrees()); },
+    onEnter: function(node){ _todoDetailRootId = node.id; drawTree(visibleTrees()); },
     onToggle: async function(node, done){
       try {
         await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
@@ -4980,8 +4980,8 @@ function drawTree(trees) {
     detailRootId: _todoDetailRootId,
     crumbEl: document.getElementById('todoCrumb'),
     today: _today, hideDone: hideDone,
-    onExitDetail: function(){ _todoDetailRootId = null; loadCollab(); },
-    onEnter: function(node){ _todoDetailRootId = node.id; loadCollab(); },
+    onExitDetail: function(){ _todoDetailRootId = null; drawTree(visibleTrees()); },
+    onEnter: function(node){ _todoDetailRootId = node.id; drawTree(visibleTrees()); },
     onToggleRecur: function(node){
       var dueDate = node.due_date || _today;
       var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today, node.recur_interval, node.recur_nth, node.recur_weekday);
