@@ -29,16 +29,21 @@ var ICONS = {
   // 撤销/回退箭头
   undo: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>'
 };
-// ============ 全局 loading: 双环 + 磨砂 + 底部进度条 ============
-// 目标: 快请求(<200ms)完全无感, 慢请求出现遮罩且进度条匀速爬升到 90%, 完成秒跳 100 立即消失.
-// 之所以不显示"数字百分比": 前端并不知道后端真实进度, 数字给用户"精确进度"暗示反而失真;
-// 改为一根 3px 高的横条, 用 rAF 缓动填充, 视觉柔和且不承诺精度.
+// ============ 全局 loading: 双环 + 磨砂 + 慢请求兜底进度条 ============
+// 分层展示:
+//   0-200ms   什么都不显示 → 快请求无感
+//   200ms-3s  双环 spinner + 文案     → 正常"忙碌"信号
+//   ≥3s       spinner + 文案 + 底部进度条 → 慢请求兜底反馈, 明确告诉用户"确实在动"
+// 不显示数字: 前端不知道后端真实进度; 进度条只在 3s 后作为"再等等"的强反馈出现.
 var _loadingCount = 0;
-var _loadingShowTimer = null;  // 200ms 延迟出现定时器 (窗口内 hide → 遮罩不显示, 用户无感)
+var _loadingShowTimer = null;  // 200ms 延迟出现定时器
+var _loadingBarTimer = null;   // 3s 兜底进度条出现定时器
 var _loadingShown = false;     // 遮罩当前是否真的显示
+var _loadingBarShown = false;  // 兜底进度条当前是否显示
 var _loadingBarRAF = null;     // 进度条 rAF 句柄
 var _loadingLastText = '';     // 最新 loadingText, 遮罩出现时应用
-var LOADING_SHOW_DELAY = 200;  // 阈值: 200ms 内完成的请求完全无感
+var LOADING_SHOW_DELAY = 200;  // 遮罩延迟出现阈值 (< 此值的请求完全无感)
+var LOADING_BAR_DELAY = 3000;  // 进度条延迟出现阈值 (从 showLoading 起算, ≥ 此值才显示)
 
 function showLoading(text) {
   _loadingCount++;
@@ -53,6 +58,12 @@ function showLoading(text) {
     if (_loadingCount === 0) return;   // 已经完成, 不显示
     _showLoadingNow();
   }, LOADING_SHOW_DELAY);
+  // 兜底进度条: 从 showLoading 起 3s 后仍未完成 → 进度条出现开始爬升
+  _loadingBarTimer = setTimeout(function(){
+    _loadingBarTimer = null;
+    if (_loadingCount === 0) return;
+    _showLoadingBarNow();
+  }, LOADING_BAR_DELAY);
 }
 function _showLoadingNow() {
   var el = document.getElementById('globalLoading');
@@ -61,48 +72,63 @@ function _showLoadingNow() {
   _loadingShown = true;
   setLoadingText(_loadingLastText);
   lockBodyScroll();               // 只在真正显示时才锁滚动
+}
+function _showLoadingBarNow() {
+  var bar = document.getElementById('loadingBar');
+  if (!bar) return;
+  bar.style.display = 'block';
+  _setLoadingBar(0);
+  // 让浏览器先应用 display:block, 再切 .show 触发 opacity 过渡 (避免同帧内 fade-in 失效)
+  requestAnimationFrame(function(){ bar.classList.add('show'); });
+  _loadingBarShown = true;
   _startLoadingBar();
 }
 function hideLoading() {
   _loadingCount = Math.max(0, _loadingCount - 1);
   if (_loadingCount > 0) return;
-  // 200ms 窗口内完成 → 定时器取消, 遮罩从未显示 ✅ 用户无感
-  if (_loadingShowTimer) { clearTimeout(_loadingShowTimer); _loadingShowTimer = null; return; }
-  // 已经显示 → 秒跳 100 → 立即隐藏
+  // 200ms 窗口内完成 → 遮罩定时器取消, 遮罩从未显示 ✅ 用户无感
+  if (_loadingShowTimer) { clearTimeout(_loadingShowTimer); _loadingShowTimer = null; }
+  // 3s 窗口内完成 → 进度条定时器取消, 进度条从未显示
+  if (_loadingBarTimer) { clearTimeout(_loadingBarTimer); _loadingBarTimer = null; }
+  // 已经显示 → 立即隐藏
   if (_loadingShown) {
-    _setLoadingBar(100);
-    _stopLoadingBar();
     var el = document.getElementById('globalLoading');
     if (el) el.style.display = 'none';
     _loadingShown = false;
     unlockBodyScroll();
   }
+  // 进度条同步隐藏并复位
+  if (_loadingBarShown) {
+    _stopLoadingBar();
+    var bar = document.getElementById('loadingBar');
+    if (bar) { bar.classList.remove('show'); bar.style.display = 'none'; }
+    _setLoadingBar(0);
+    _loadingBarShown = false;
+  }
 }
-// 兼容层: 保留 setLoadingProgress 让旧调用点 (setLoadingProgress(35/90) 等) 不报错.
-// 中间值一律忽略 (由 rAF 匀速爬升自动处理); 100 走 hideLoading 收尾, 无需在此单独处理.
-function setLoadingProgress(_target) { /* no-op, 由 rAF 内部动画驱动 */ }
-function resetLoadingProgress() { _stopLoadingBar(); _setLoadingBar(0); }
+// 兼容层: 保留 setLoadingProgress / resetLoadingProgress 让旧调用点不报错, 内部无操作.
+function setLoadingProgress(_target) { /* no-op */ }
+function resetLoadingProgress() { /* no-op */ }
 function setLoadingText(text) {
   var t = document.getElementById('loadingText');
   if (t) t.textContent = text || '加载中…';
 }
-// 进度条控制: 用 rAF (而非 setInterval) 减少主线程压力, 手机也不卡.
-// easeOutQuad 让爬升越接近 90% 越慢, 符合"就快好了"直觉; 停在 90% 等待 fetch 完成 → hideLoading 跳 100.
+// 进度条控制: rAF (而非 setInterval) 减少主线程压力, 手机也不卡.
+// 从 0% 匀速爬到 90%, easeOutQuad 让越接近 90% 越慢, 符合"就快好了"直觉; 停在 90% 等待 fetch 完成.
 function _setLoadingBar(pct) {
   var el = document.querySelector('#globalLoading .lb-fill');
   if (el) el.style.width = Math.max(0, Math.min(100, pct)) + '%';
 }
 function _startLoadingBar() {
   _stopLoadingBar();
-  var start = performance.now(), from = 5, to = 90, dur = 8000;
-  _setLoadingBar(from);
+  var start = performance.now(), from = 0, to = 90, dur = 8000;
   function tick(now) {
-    if (!_loadingShown) { _loadingBarRAF = null; return; }
+    if (!_loadingBarShown) { _loadingBarRAF = null; return; }
     var t = Math.min(1, (now - start) / dur);
     var eased = 1 - (1 - t) * (1 - t);              // easeOutQuad
     _setLoadingBar(from + (to - from) * eased);
     if (t < 1) _loadingBarRAF = requestAnimationFrame(tick);
-    else _loadingBarRAF = null;                     // 到 90% 停住, 等 hideLoading 秒跳 100
+    else _loadingBarRAF = null;                     // 到 90% 停住, 等 hideLoading 直接消失
   }
   _loadingBarRAF = requestAnimationFrame(tick);
 }

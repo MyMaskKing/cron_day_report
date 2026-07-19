@@ -22,7 +22,7 @@ function renderPage({ title = '控制台', body = '', script = '' }) {
   <div style="text-align:center;">
     <div class="spinner"></div>
     <div id="loadingText" style="margin-top:8px;color:#A855F7;font-size:14px;"></div>
-    <div id="loadingBar" class="loading-bar"><div class="lb-fill"></div></div>
+    <div id="loadingBar" class="loading-bar" style="display:none;"><div class="lb-fill"></div></div>
   </div>
 </div>
 <div id="modalMask" class="modal-mask">
@@ -331,8 +331,10 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
   animation: spinRev .9s cubic-bezier(.5,.1,.5,.9) infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-/* loading 底部进度条: 3px 高, 品牌渐变, 由 JS 修改 .lb-fill 的 width 实现"缓动到 90% → 完成秒跳 100" */
-#globalLoading .loading-bar { width: 160px; height: 3px; margin: 14px auto 0; background: rgba(168, 85, 247, .15); border-radius: 2px; overflow: hidden; }
+/* loading 慢请求兜底进度条 (仅 ≥3s 请求显示): 3px 品牌渐变, 从 0% 匀速爬到 90%, 完成时同步消失.
+   出现方式: opacity 0→1 fade-in 150ms, 避免"突兀弹出" */
+#globalLoading .loading-bar { width: 200px; height: 3px; margin: 14px auto 0; background: rgba(168, 85, 247, .15); border-radius: 2px; overflow: hidden; opacity: 0; transition: opacity .15s ease; }
+#globalLoading .loading-bar.show { opacity: 1; }
 #globalLoading .loading-bar .lb-fill { width: 0; height: 100%; background: linear-gradient(90deg, #FF7A59, #A855F7, #3B82F6); border-radius: 2px; transition: width .12s linear; }
 @keyframes spinRev { to { transform: rotate(-360deg); } }
 
