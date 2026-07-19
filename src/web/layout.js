@@ -18,10 +18,10 @@ function renderPage({ title = '控制台', body = '', script = '' }) {
 <style>${BASE_CSS}</style>
 </head>
 <body>
-<div id="globalLoading">
+<div id="globalLoading" class="boot-visible" style="display:flex;">
   <div style="text-align:center;">
     <div class="spinner"></div>
-    <div id="loadingText" style="margin-top:8px;color:#A855F7;font-size:14px;"></div>
+    <div id="loadingText" style="margin-top:8px;color:#A855F7;font-size:14px;">加载中…</div>
     <div id="loadingBar" class="loading-bar" style="display:none;"><div class="lb-fill"></div></div>
   </div>
 </div>
@@ -313,6 +313,9 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 .stat .lbl { font-size: 13px; color: #6C6C7E; margin-top: 4px; }
 /* 全局 loading: 双环反向旋转 (珊瑚 + 蓝) + 玻璃遮罩; z-index 高于 modal, 保证 modal 内提交时用户能看到进度 */
 #globalLoading { display: none; position: fixed; inset: 0; background: rgba(246, 245, 242, .65); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); z-index: 10500; align-items: center; justify-content: center; }
+/* 启动阶段: display:flex 但 opacity:0, 300ms 后 fade in. 快请求 (JS 就绪 + 首屏 api <300ms 完成) 全程 opacity=0 → 无感 */
+#globalLoading.boot-visible { opacity: 0; animation: bootLoadingFadeIn .2s ease-out 300ms forwards; }
+@keyframes bootLoadingFadeIn { to { opacity: 1; } }
 #globalLoading .spinner {
   position: relative; width: 52px; height: 52px; margin: 0 auto;
 }

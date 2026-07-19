@@ -30,25 +30,31 @@ var ICONS = {
   undo: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>'
 };
 // ============ 全局 loading: 双环 + 磨砂 + 慢请求兜底进度条 ============
+// 生命周期覆盖: "点击 → 浏览器导航 → 新页面 HTML 到达 → 页面 JS 执行 → 首屏 api 完成"
+// 关键设计: layout.js 里 #globalLoading 默认 display:flex → 新页面 HTML 一到就 paint 遮罩,
+// 早于任何 JS 执行. COMMON_JS 初始化时把 _loadingCount 顶到 1, _loadingShown = true,
+// 让 JS 状态与 HTML 视觉一致, 后续任何 showLoading()/hideLoading() 自然接管. DOM ready 后
+// 800ms 若首屏 api 未起来 → 兜底 hide, 静态页面不会永远转圈.
 // 分层展示 (四层防闪, 目标: 快请求无感 / 中速请求平滑 / 慢请求有反馈):
-//   0-300ms       什么都不显示 → 快请求无感 (LOADING_SHOW_DELAY)
+//   0-300ms       什么都不显示 → 快请求无感 (LOADING_SHOW_DELAY, 仅对"页面内 api"生效)
 //   显示后 <400ms  即使 api 已完成也不隐藏, 保底停留 → 杜绝"闪一下"      (LOADING_MIN_VISIBLE)
 //   count 归 0 后  再等 120ms 才真正 hide, 期间新请求可复用 → 串行 api 合并 (LOADING_HIDE_DELAY)
 //   ≥3s          底部进度条出现 (从 showLoading 起算)                (LOADING_BAR_DELAY)
 // 不显示数字: 前端不知道后端真实进度; 进度条只在 3s 后作为"再等等"的强反馈出现.
-var _loadingCount = 0;
+var _loadingCount = 1;         // ★ 从 1 起步, 承接 layout.js 默认可见的遮罩
 var _loadingShowTimer = null;  // 显示延迟定时器
 var _loadingHideTimer = null;  // 熄灯延迟定时器 (可被新 showLoading 打断)
 var _loadingBarTimer = null;   // 3s 兜底进度条出现定时器
-var _loadingShown = false;     // 遮罩当前是否真的显示
-var _loadingShownAt = 0;       // 遮罩真正 paint 的时刻, 用于最小停留计算
+var _loadingShown = true;      // ★ 与 HTML 默认 display:flex 对齐
+var _loadingShownAt = Date.now(); // ★ 视为 JS 加载时刻已 paint
 var _loadingBarShown = false;  // 兜底进度条当前是否显示
 var _loadingBarRAF = null;     // 进度条 rAF 句柄
-var _loadingLastText = '';     // 最新 loadingText, 遮罩出现时应用
+var _loadingLastText = '加载中…'; // 最新 loadingText, 遮罩出现时应用
 var LOADING_SHOW_DELAY = 300;  // 遮罩延迟出现阈值 (< 此值的请求完全无感)
 var LOADING_MIN_VISIBLE = 400; // 遮罩最小停留时长 (paint 之后至少停这么久才允许 hide)
 var LOADING_HIDE_DELAY = 120;  // count 归 0 后的熄灯延迟 (串行 api 合并窗口)
 var LOADING_BAR_DELAY = 3000;  // 进度条延迟出现阈值 (从 showLoading 起算, ≥ 此值才显示)
+var LOADING_BOOT_FALLBACK = 300; // ★ DOM ready 后多久若无 api 起来则自动 hide 启动 count
 
 function showLoading(text) {
   _loadingCount++;
@@ -75,6 +81,8 @@ function showLoading(text) {
 function _showLoadingNow() {
   var el = document.getElementById('globalLoading');
   if (!el) return;
+  el.classList.remove('boot-visible');   // 主动显示 → 移除 CSS 延迟规则, 立即可见
+  el.style.opacity = '';                 // 清可能被 animation 留下的 opacity
   el.style.display = 'flex';
   _loadingShown = true;
   _loadingShownAt = Date.now();   // 记录 paint 时刻, hideLoading 用它算最小停留
@@ -100,15 +108,18 @@ function hideLoading() {
   if (_loadingBarTimer) { clearTimeout(_loadingBarTimer); _loadingBarTimer = null; }
   // 已经显示 → 走"最小停留 + 熄灯延迟"两段式关闭, 避免闪 & 合并串行 api
   if (_loadingShown) {
+    var el0 = document.getElementById('globalLoading');
+    var isBoot = el0 && el0.classList.contains('boot-visible');
     var elapsed = Date.now() - _loadingShownAt;
-    var remainMin = Math.max(0, LOADING_MIN_VISIBLE - elapsed);   // 补足最小停留
+    // 启动阶段(boot-visible 还挂着): 遮罩靠 CSS 300ms 后才真的可见 → 跳过 400ms 最小停留, 只留 120ms 熄灯延迟, 让快请求真正无感
+    var remainMin = isBoot ? 0 : Math.max(0, LOADING_MIN_VISIBLE - elapsed);
     var wait = remainMin + LOADING_HIDE_DELAY;                    // 再多等一小段, 让下一个 api 有机会合并
     if (_loadingHideTimer) clearTimeout(_loadingHideTimer);
     _loadingHideTimer = setTimeout(function(){
       _loadingHideTimer = null;
       if (_loadingCount > 0) return;                              // 期间又有新请求 → 保持显示
       var el = document.getElementById('globalLoading');
-      if (el) el.style.display = 'none';
+      if (el) { el.classList.remove('boot-visible'); el.style.opacity = ''; el.style.display = 'none'; }
       _loadingShown = false;
       _loadingShownAt = 0;
       unlockBodyScroll();
@@ -228,6 +239,25 @@ document.addEventListener('click', function(e){
   if (!isRelative && !isSameOrigin) return;
   _showLoadingImmediate('正在打开页面…');
 });
+// ===== 启动阶段的 loading 生命周期 =====
+// JS 一执行就锁滚动 (承接 layout.js 默认可见的遮罩); 若 800ms 内没有任何 api / 导航追加 count,
+// 判定为"静态页面 / 页面 JS 已就绪且无首屏 api", 自动 hide 掉启动那次 count.
+// 如果 800ms 内有 api 起来 (常态), count 会顶到 ≥2 → 兜底 hide 只让 count 回落到 1 → 遮罩保持 →
+// 数据到 → api hide → count 归 0 → 遮罩最终关闭. 视觉上是"点击 → 一直遮罩 → 数据到 → 消失"连续.
+try { lockBodyScroll(); } catch (e) {}
+(function bootLoadingFallback(){
+  function scheduleHide(){
+    setTimeout(function(){
+      // 只消化启动那 1 次 count. 若期间已有 api 起来把 count 顶高, 这里让 count -1 保持遮罩.
+      if (_loadingCount > 0) hideLoading();
+    }, LOADING_BOOT_FALLBACK);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scheduleHide, { once: true });
+  } else {
+    scheduleHide();
+  }
+})();
 async function api(path, opts) {
   opts = opts || {};
   // ===== 请求指纹缓存: 三级防重, 覆盖 fetch 报错后手动重试导致的重复提交 =====
