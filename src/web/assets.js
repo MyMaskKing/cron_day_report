@@ -144,15 +144,21 @@ function loadingTextOf(path, opts) {
   if (method === 'DELETE') return '正在删除数据…';
   return '正在处理请求…';
 }
-// 页面跳转 loading: 立即显示遮罩 (跳过 200ms 延迟), 供菜单点击 / location.href 场景使用.
-// 因为跳转必然经历 网络+服务端渲染 至少一个 RTT, 快请求那套"200ms 内无感"在这里不适用.
+// 页面跳转 loading: 延迟 LOADING_NAV_DELAY(150ms) 后显示遮罩, 供菜单点击 / location.href 场景使用.
+// 快导航(缓存命中 / 边缘节点极快)会在 150ms 内被新页面覆盖 → 旧 timer 随旧 JS 环境一起销毁, 遮罩从未 paint → 无闪.
+// 慢导航 → 150ms 后遮罩正常出现, 让用户看到"确实在动"; 3s 仍未完成时兜底进度条也出现.
+var LOADING_NAV_DELAY = 150;
 function _showLoadingImmediate(text) {
   _loadingCount++;
   _loadingLastText = text || '正在打开页面…';
   if (_loadingShown) { setLoadingText(_loadingLastText); return; }
-  // 已排了延迟定时器: 取消它, 直接同步显示
-  if (_loadingShowTimer) { clearTimeout(_loadingShowTimer); _loadingShowTimer = null; }
-  _showLoadingNow();
+  // 已排了延迟定时器: 只更新文案, 沿用它
+  if (_loadingShowTimer) return;
+  _loadingShowTimer = setTimeout(function(){
+    _loadingShowTimer = null;
+    if (_loadingCount === 0) return;
+    _showLoadingNow();
+  }, LOADING_NAV_DELAY);
   // 兜底进度条仍按 3s 计时 (导航 3s 内完成不显示条, 慢导航才出现)
   if (!_loadingBarTimer && !_loadingBarShown) {
     _loadingBarTimer = setTimeout(function(){
