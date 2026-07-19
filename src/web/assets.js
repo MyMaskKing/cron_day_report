@@ -30,29 +30,36 @@ var ICONS = {
   undo: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>'
 };
 // ============ 全局 loading: 双环 + 磨砂 + 慢请求兜底进度条 ============
-// 分层展示:
-//   0-200ms   什么都不显示 → 快请求无感
-//   200ms-3s  双环 spinner + 文案     → 正常"忙碌"信号
-//   ≥3s       spinner + 文案 + 底部进度条 → 慢请求兜底反馈, 明确告诉用户"确实在动"
+// 分层展示 (四层防闪, 目标: 快请求无感 / 中速请求平滑 / 慢请求有反馈):
+//   0-300ms       什么都不显示 → 快请求无感 (LOADING_SHOW_DELAY)
+//   显示后 <400ms  即使 api 已完成也不隐藏, 保底停留 → 杜绝"闪一下"      (LOADING_MIN_VISIBLE)
+//   count 归 0 后  再等 120ms 才真正 hide, 期间新请求可复用 → 串行 api 合并 (LOADING_HIDE_DELAY)
+//   ≥3s          底部进度条出现 (从 showLoading 起算)                (LOADING_BAR_DELAY)
 // 不显示数字: 前端不知道后端真实进度; 进度条只在 3s 后作为"再等等"的强反馈出现.
 var _loadingCount = 0;
-var _loadingShowTimer = null;  // 200ms 延迟出现定时器
+var _loadingShowTimer = null;  // 显示延迟定时器
+var _loadingHideTimer = null;  // 熄灯延迟定时器 (可被新 showLoading 打断)
 var _loadingBarTimer = null;   // 3s 兜底进度条出现定时器
 var _loadingShown = false;     // 遮罩当前是否真的显示
+var _loadingShownAt = 0;       // 遮罩真正 paint 的时刻, 用于最小停留计算
 var _loadingBarShown = false;  // 兜底进度条当前是否显示
 var _loadingBarRAF = null;     // 进度条 rAF 句柄
 var _loadingLastText = '';     // 最新 loadingText, 遮罩出现时应用
-var LOADING_SHOW_DELAY = 200;  // 遮罩延迟出现阈值 (< 此值的请求完全无感)
+var LOADING_SHOW_DELAY = 300;  // 遮罩延迟出现阈值 (< 此值的请求完全无感)
+var LOADING_MIN_VISIBLE = 400; // 遮罩最小停留时长 (paint 之后至少停这么久才允许 hide)
+var LOADING_HIDE_DELAY = 120;  // count 归 0 后的熄灯延迟 (串行 api 合并窗口)
 var LOADING_BAR_DELAY = 3000;  // 进度条延迟出现阈值 (从 showLoading 起算, ≥ 此值才显示)
 
 function showLoading(text) {
   _loadingCount++;
   _loadingLastText = text || '加载中…';
+  // 有正在排队的熄灯定时器 → 取消, 复用当前显示状态 (合并串行 api)
+  if (_loadingHideTimer) { clearTimeout(_loadingHideTimer); _loadingHideTimer = null; }
   // 已经在显示: 只更新文案
   if (_loadingShown) { setLoadingText(_loadingLastText); return; }
-  // 已经排了显示定时器: 只更新文案, 等 200ms 后一并显示
+  // 已经排了显示定时器: 只更新文案, 等阈值后一并显示
   if (_loadingShowTimer) return;
-  // 首次进入, 起延迟定时器. 200ms 内被 hideLoading 会 clearTimeout —— 完全无感
+  // 首次进入, 起延迟定时器. 阈值内被 hideLoading 会 clearTimeout —— 完全无感
   _loadingShowTimer = setTimeout(function(){
     _loadingShowTimer = null;
     if (_loadingCount === 0) return;   // 已经完成, 不显示
@@ -70,6 +77,7 @@ function _showLoadingNow() {
   if (!el) return;
   el.style.display = 'flex';
   _loadingShown = true;
+  _loadingShownAt = Date.now();   // 记录 paint 时刻, hideLoading 用它算最小停留
   setLoadingText(_loadingLastText);
   lockBodyScroll();               // 只在真正显示时才锁滚动
 }
@@ -86,22 +94,40 @@ function _showLoadingBarNow() {
 function hideLoading() {
   _loadingCount = Math.max(0, _loadingCount - 1);
   if (_loadingCount > 0) return;
-  // 200ms 窗口内完成 → 遮罩定时器取消, 遮罩从未显示 ✅ 用户无感
+  // 300ms 窗口内完成 → 遮罩定时器取消, 遮罩从未显示 ✅ 用户无感
   if (_loadingShowTimer) { clearTimeout(_loadingShowTimer); _loadingShowTimer = null; }
   // 3s 窗口内完成 → 进度条定时器取消, 进度条从未显示
   if (_loadingBarTimer) { clearTimeout(_loadingBarTimer); _loadingBarTimer = null; }
-  // 已经显示 → 立即隐藏
+  // 已经显示 → 走"最小停留 + 熄灯延迟"两段式关闭, 避免闪 & 合并串行 api
   if (_loadingShown) {
-    var el = document.getElementById('globalLoading');
-    if (el) el.style.display = 'none';
-    _loadingShown = false;
-    unlockBodyScroll();
+    var elapsed = Date.now() - _loadingShownAt;
+    var remainMin = Math.max(0, LOADING_MIN_VISIBLE - elapsed);   // 补足最小停留
+    var wait = remainMin + LOADING_HIDE_DELAY;                    // 再多等一小段, 让下一个 api 有机会合并
+    if (_loadingHideTimer) clearTimeout(_loadingHideTimer);
+    _loadingHideTimer = setTimeout(function(){
+      _loadingHideTimer = null;
+      if (_loadingCount > 0) return;                              // 期间又有新请求 → 保持显示
+      var el = document.getElementById('globalLoading');
+      if (el) el.style.display = 'none';
+      _loadingShown = false;
+      _loadingShownAt = 0;
+      unlockBodyScroll();
+      // 进度条同步隐藏并复位
+      if (_loadingBarShown) {
+        _stopLoadingBar();
+        var bar = document.getElementById('loadingBar');
+        if (bar) { bar.classList.remove('show'); bar.style.display = 'none'; }
+        _setLoadingBar(0);
+        _loadingBarShown = false;
+      }
+    }, wait);
+    return;
   }
-  // 进度条同步隐藏并复位
+  // 遮罩从未显示: 进度条兜底状态也一并清理 (通常已在 _loadingBarTimer 分支清理, 保险起见)
   if (_loadingBarShown) {
     _stopLoadingBar();
-    var bar = document.getElementById('loadingBar');
-    if (bar) { bar.classList.remove('show'); bar.style.display = 'none'; }
+    var bar2 = document.getElementById('loadingBar');
+    if (bar2) { bar2.classList.remove('show'); bar2.style.display = 'none'; }
     _setLoadingBar(0);
     _loadingBarShown = false;
   }
@@ -151,6 +177,8 @@ var LOADING_NAV_DELAY = 150;
 function _showLoadingImmediate(text) {
   _loadingCount++;
   _loadingLastText = text || '正在打开页面…';
+  // 熄灯排队中 → 取消, 沿用当前显示
+  if (_loadingHideTimer) { clearTimeout(_loadingHideTimer); _loadingHideTimer = null; }
   if (_loadingShown) { setLoadingText(_loadingLastText); return; }
   // 已排了延迟定时器: 只更新文案, 沿用它
   if (_loadingShowTimer) return;
