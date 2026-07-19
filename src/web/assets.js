@@ -44,12 +44,12 @@ function hideLoading() {
   if (_loadingCount === 0) {
     // 计数归零立即解锁, 不等 setTimeout 收起 UI —— 用户已可交互
     unlockBodyScroll();
-    setTimeout(function(){
-      if (_loadingCount !== 0) return;
-      var el = document.getElementById('globalLoading');
-      if (el) el.style.display = 'none';
-      resetLoadingProgress();
-    }, 180);
+    // 立即隐藏, 不再 setTimeout 180ms 停留在 100. 之前保留 180ms 是想让用户看到"100"完成态,
+    // 但配合 setLoadingProgress 逐步爬升(20ms/1%), 从 35→100 要 1.3s, 且期间定时器一直触发 DOM 写,
+    // 在慢速手机(微信/iOS 内核)会阻塞后续 location.href 导航, 表现为"loading 完了没跳转, 再点提示已操作过"
+    var el = document.getElementById('globalLoading');
+    if (el) el.style.display = 'none';
+    resetLoadingProgress();
   }
 }
 // setLoadingText: 不改变计数, 仅更新提示文字(用于同一请求内多阶段说明)
@@ -64,7 +64,16 @@ function _pctRender() {
   if (el) { el.style.display = 'block'; el.textContent = _pctVal + '%'; }
 }
 function setLoadingProgress(target) {
-  _pctTarget = Math.max(_pctTarget, Math.min(100, target || 0));
+  var t = Math.max(_pctTarget, Math.min(100, target || 0));
+  _pctTarget = t;
+  // 100% 直接跳到位, 不再逐步爬升 —— 请求已结束, 让 loading 立即消失, 避免用户在"数字还在爬"的假象里
+  // 等 1-3 秒(旧逻辑 20ms/1%, 40→100 约 1.2s), 甚至以为"点了没反应"
+  if (t >= 100) {
+    if (_pctTimer) { clearInterval(_pctTimer); _pctTimer = null; }
+    _pctVal = 100;
+    _pctRender();
+    return;
+  }
   _pctRender();
   if (_pctTimer) return;
   _pctTimer = setInterval(function(){

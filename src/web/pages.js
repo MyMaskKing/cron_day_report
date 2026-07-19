@@ -199,10 +199,12 @@ function adminPage(user) {
         </div>
       </div>
       <p class="muted">起始与结束至少填一个；留空表示不设该端边界。点击删除后会弹窗显示条数二次确认。</p>
-      <table>
-        <thead><tr><th>时间</th><th>用户</th><th>模块</th><th>渠道</th><th>格式</th><th>触发</th><th>状态</th><th>错误信息</th></tr></thead>
-        <tbody id="plTbody"></tbody>
-      </table>
+      <div class="table-scroll-mobile">
+        <table>
+          <thead><tr><th>时间</th><th>用户</th><th>模块</th><th>渠道</th><th>格式</th><th>触发</th><th>状态</th><th>错误信息</th></tr></thead>
+          <tbody id="plTbody"></tbody>
+        </table>
+      </div>
       <div style="margin-top:8px;text-align:center;">
         <button class="btn sm gray" id="plPrev">上一页</button>
         <span class="muted" id="plPage" style="margin:0 12px;"></span>
