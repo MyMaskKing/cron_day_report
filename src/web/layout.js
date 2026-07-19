@@ -21,8 +21,8 @@ function renderPage({ title = '控制台', body = '', script = '' }) {
 <div id="globalLoading">
   <div style="text-align:center;">
     <div class="spinner"></div>
-    <div id="loadingPct" style="display:none;margin-top:12px;color:#A855F7;font-size:24px;font-weight:700;line-height:1;"></div>
     <div id="loadingText" style="margin-top:8px;color:#A855F7;font-size:14px;"></div>
+    <div id="loadingBar" class="loading-bar"><div class="lb-fill"></div></div>
   </div>
 </div>
 <div id="modalMask" class="modal-mask">
@@ -331,6 +331,9 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
   animation: spinRev .9s cubic-bezier(.5,.1,.5,.9) infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* loading 底部进度条: 3px 高, 品牌渐变, 由 JS 修改 .lb-fill 的 width 实现"缓动到 90% → 完成秒跳 100" */
+#globalLoading .loading-bar { width: 160px; height: 3px; margin: 14px auto 0; background: rgba(168, 85, 247, .15); border-radius: 2px; overflow: hidden; }
+#globalLoading .loading-bar .lb-fill { width: 0; height: 100%; background: linear-gradient(90deg, #FF7A59, #A855F7, #3B82F6); border-radius: 2px; transition: width .12s linear; }
 @keyframes spinRev { to { transform: rotate(-360deg); } }
 
 /* 弹窗 modal */

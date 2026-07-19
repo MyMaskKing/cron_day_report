@@ -29,63 +29,85 @@ var ICONS = {
   // 撤销/回退箭头
   undo: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>'
 };
+// ============ 全局 loading: 双环 + 磨砂 + 底部进度条 ============
+// 目标: 快请求(<200ms)完全无感, 慢请求出现遮罩且进度条匀速爬升到 90%, 完成秒跳 100 立即消失.
+// 之所以不显示"数字百分比": 前端并不知道后端真实进度, 数字给用户"精确进度"暗示反而失真;
+// 改为一根 3px 高的横条, 用 rAF 缓动填充, 视觉柔和且不承诺精度.
 var _loadingCount = 0;
+var _loadingShowTimer = null;  // 200ms 延迟出现定时器 (窗口内 hide → 遮罩不显示, 用户无感)
+var _loadingShown = false;     // 遮罩当前是否真的显示
+var _loadingBarRAF = null;     // 进度条 rAF 句柄
+var _loadingLastText = '';     // 最新 loadingText, 遮罩出现时应用
+var LOADING_SHOW_DELAY = 200;  // 阈值: 200ms 内完成的请求完全无感
+
 function showLoading(text) {
   _loadingCount++;
+  _loadingLastText = text || '加载中…';
+  // 已经在显示: 只更新文案
+  if (_loadingShown) { setLoadingText(_loadingLastText); return; }
+  // 已经排了显示定时器: 只更新文案, 等 200ms 后一并显示
+  if (_loadingShowTimer) return;
+  // 首次进入, 起延迟定时器. 200ms 内被 hideLoading 会 clearTimeout —— 完全无感
+  _loadingShowTimer = setTimeout(function(){
+    _loadingShowTimer = null;
+    if (_loadingCount === 0) return;   // 已经完成, 不显示
+    _showLoadingNow();
+  }, LOADING_SHOW_DELAY);
+}
+function _showLoadingNow() {
   var el = document.getElementById('globalLoading');
-  if (el) el.style.display = 'flex';
-  setLoadingText(text || '加载中…');
-  setLoadingProgress(10);
-  // 首次显示才上锁; 后续 showLoading 只累计计数, 由 hideLoading 归零时解锁一次
-  if (_loadingCount === 1) lockBodyScroll();
+  if (!el) return;
+  el.style.display = 'flex';
+  _loadingShown = true;
+  setLoadingText(_loadingLastText);
+  lockBodyScroll();               // 只在真正显示时才锁滚动
+  _startLoadingBar();
 }
 function hideLoading() {
   _loadingCount = Math.max(0, _loadingCount - 1);
-  if (_loadingCount === 0) {
-    // 计数归零立即解锁, 不等 setTimeout 收起 UI —— 用户已可交互
-    unlockBodyScroll();
-    // 立即隐藏, 不再 setTimeout 180ms 停留在 100. 之前保留 180ms 是想让用户看到"100"完成态,
-    // 但配合 setLoadingProgress 逐步爬升(20ms/1%), 从 35→100 要 1.3s, 且期间定时器一直触发 DOM 写,
-    // 在慢速手机(微信/iOS 内核)会阻塞后续 location.href 导航, 表现为"loading 完了没跳转, 再点提示已操作过"
+  if (_loadingCount > 0) return;
+  // 200ms 窗口内完成 → 定时器取消, 遮罩从未显示 ✅ 用户无感
+  if (_loadingShowTimer) { clearTimeout(_loadingShowTimer); _loadingShowTimer = null; return; }
+  // 已经显示 → 秒跳 100 → 立即隐藏
+  if (_loadingShown) {
+    _setLoadingBar(100);
+    _stopLoadingBar();
     var el = document.getElementById('globalLoading');
     if (el) el.style.display = 'none';
-    resetLoadingProgress();
+    _loadingShown = false;
+    unlockBodyScroll();
   }
 }
-// setLoadingText: 不改变计数, 仅更新提示文字(用于同一请求内多阶段说明)
+// 兼容层: 保留 setLoadingProgress 让旧调用点 (setLoadingProgress(35/90) 等) 不报错.
+// 中间值一律忽略 (由 rAF 匀速爬升自动处理); 100 走 hideLoading 收尾, 无需在此单独处理.
+function setLoadingProgress(_target) { /* no-op, 由 rAF 内部动画驱动 */ }
+function resetLoadingProgress() { _stopLoadingBar(); _setLoadingBar(0); }
 function setLoadingText(text) {
   var t = document.getElementById('loadingText');
-  if (t && _loadingCount > 0) t.textContent = text;
+  if (t) t.textContent = text || '加载中…';
 }
-// 平滑进度：显示 #loadingPct，用定时器让当前值逐 1% 爬升至 target(0-100)，到 100 稍停后自动收起
-var _pctVal = 0, _pctTarget = 0, _pctTimer = null;
-function _pctRender() {
-  var el = document.getElementById('loadingPct');
-  if (el) { el.style.display = 'block'; el.textContent = _pctVal + '%'; }
+// 进度条控制: 用 rAF (而非 setInterval) 减少主线程压力, 手机也不卡.
+// easeOutQuad 让爬升越接近 90% 越慢, 符合"就快好了"直觉; 停在 90% 等待 fetch 完成 → hideLoading 跳 100.
+function _setLoadingBar(pct) {
+  var el = document.querySelector('#globalLoading .lb-fill');
+  if (el) el.style.width = Math.max(0, Math.min(100, pct)) + '%';
 }
-function setLoadingProgress(target) {
-  var t = Math.max(_pctTarget, Math.min(100, target || 0));
-  _pctTarget = t;
-  // 100% 直接跳到位, 不再逐步爬升 —— 请求已结束, 让 loading 立即消失, 避免用户在"数字还在爬"的假象里
-  // 等 1-3 秒(旧逻辑 20ms/1%, 40→100 约 1.2s), 甚至以为"点了没反应"
-  if (t >= 100) {
-    if (_pctTimer) { clearInterval(_pctTimer); _pctTimer = null; }
-    _pctVal = 100;
-    _pctRender();
-    return;
+function _startLoadingBar() {
+  _stopLoadingBar();
+  var start = performance.now(), from = 5, to = 90, dur = 8000;
+  _setLoadingBar(from);
+  function tick(now) {
+    if (!_loadingShown) { _loadingBarRAF = null; return; }
+    var t = Math.min(1, (now - start) / dur);
+    var eased = 1 - (1 - t) * (1 - t);              // easeOutQuad
+    _setLoadingBar(from + (to - from) * eased);
+    if (t < 1) _loadingBarRAF = requestAnimationFrame(tick);
+    else _loadingBarRAF = null;                     // 到 90% 停住, 等 hideLoading 秒跳 100
   }
-  _pctRender();
-  if (_pctTimer) return;
-  _pctTimer = setInterval(function(){
-    if (_pctVal < _pctTarget) { _pctVal++; _pctRender(); }
-    else { clearInterval(_pctTimer); _pctTimer = null; }
-  }, 20);
+  _loadingBarRAF = requestAnimationFrame(tick);
 }
-function resetLoadingProgress() {
-  if (_pctTimer) { clearInterval(_pctTimer); _pctTimer = null; }
-  _pctVal = 0; _pctTarget = 0;
-  var el = document.getElementById('loadingPct');
-  if (el) { el.style.display = 'none'; el.textContent = ''; }
+function _stopLoadingBar() {
+  if (_loadingBarRAF) { cancelAnimationFrame(_loadingBarRAF); _loadingBarRAF = null; }
 }
 function loadingTextOf(path, opts) {
   if (opts.loadingText) return opts.loadingText;
