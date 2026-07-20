@@ -387,6 +387,7 @@ function lockBodyScroll() {
     _bodyScrollY = window.scrollY || window.pageYOffset || 0;
     document.body.style.top = -_bodyScrollY + 'px';
     document.body.classList.add('no-scroll');
+    document.documentElement.classList.add('no-scroll');   // ★ 兼容不支持 :has() 的内核
     document.body.classList.remove('booting');   // JS 接管后, 移除纯 CSS 的启动锁类, 避免冗余样式
   }
   _bodyScrollLockCount++;
@@ -396,6 +397,7 @@ function unlockBodyScroll() {
   _bodyScrollLockCount--;
   if (_bodyScrollLockCount === 0) {
     document.body.classList.remove('no-scroll');
+    document.documentElement.classList.remove('no-scroll');
     document.body.style.top = '';
     window.scrollTo(0, _bodyScrollY);
   }
