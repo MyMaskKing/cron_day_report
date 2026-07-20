@@ -4048,25 +4048,23 @@ function mkCardOp(icon, title, fn, extraClass) {
   b.addEventListener('click', function(e){ e.stopPropagation(); fn(); });
   return b;
 }
-// 详情页"完成主任务/取消完成"文字链: 挂到 #todoTreeHome 后紧邻的 <p class="muted"> 提示文末尾
-// 只有当页面存在这段提示文时才启用(仅主页有), 命中则返回 true, 表示面包屑不再重复放该按钮
+// 详情页"完成主任务/取消完成"文字链: 优先挂到 #todoTreeHome 后紧邻的 <p class="muted"> 提示文末尾
+// 若页面无该提示文(免密页/报告页/全屏视图等), 兜底在 #todoTreeHome 末尾追加独立一行文字链
 // 只读页(无 onToggle)不渲染; 未完成的顶层重复任务点击后走 onToggleRecur 弹窗(与卡片勾选框一致)
 function todoAttachDoneLinkToTip(container, root, opts) {
-  if (!opts.onToggle || opts.readOnly) return false;
+  if (!opts.onToggle || opts.readOnly) return;
   var homeBox = container.parentNode;
-  if (!homeBox) return false;
+  if (!homeBox) return;
   // 只找 #todoTreeHome 后紧邻的兄弟节点里第一个 <p class="muted">, 不跨 card 边界
   var tipEl = null, sib = homeBox.nextElementSibling;
   while (sib) {
     if (sib.tagName === 'P' && sib.classList && sib.classList.contains('muted')) { tipEl = sib; break; }
     sib = sib.nextElementSibling;
   }
-  if (!tipEl) return false;
   var hasKids = root.children.length > 0;
   var link = document.createElement('button');
   link.type = 'button';
   link.className = 'todo-detail-done';
-  link.style.cssText = 'background:none;border:0;padding:2px 6px;margin-left:8px;color:#999;font-size:12px;text-decoration:underline;cursor:pointer;';
   link.textContent = root.done
     ? '↺ 取消完成'
     : (hasKids ? '✓ 完成主任务（级联）' : '✓ 完成主任务');
@@ -4082,8 +4080,19 @@ function todoAttachDoneLinkToTip(container, root, opts) {
     try { await opts.onToggle(root, !root.done); }
     finally { link.disabled = false; link.removeAttribute('data-busy'); }
   });
-  tipEl.appendChild(link);
-  return true;
+  if (tipEl) {
+    // 命中提示文: 追加到文字流末尾, 与提示同段同行
+    link.style.cssText = 'background:none;border:0;padding:2px 6px;margin-left:8px;color:#999;font-size:12px;text-decoration:underline;cursor:pointer;';
+    tipEl.appendChild(link);
+  } else {
+    // 无提示文兜底: 独立一行, 靠右轻量文字链(免密页/报告页/全屏视图)
+    link.style.cssText = 'background:none;border:0;padding:6px 8px;color:#999;font-size:12px;text-decoration:underline;cursor:pointer;';
+    var wrap = document.createElement('div');
+    wrap.className = 'todo-detail-done-wrap';
+    wrap.style.cssText = 'text-align:right;margin:12px 0 4px;';
+    wrap.appendChild(link);
+    homeBox.appendChild(wrap);
+  }
 }
 // 三态视图调度器：opts.view + opts.detailRootId 决定渲染哪种
 //   view='tree'                       → 完整树（多棵）
@@ -4098,11 +4107,14 @@ function todoRenderView(container, trees, opts) {
   container.className = view === 'card' && opts.detailRootId == null ? 'todo-cards' : 'todo-tree';
 
   // 每次渲染先清理详情页"完成主任务"文字链, 由详情分支按需重新挂载
-  // 因为按钮挂在 #todoTreeHome 后紧邻的 <p class="muted"> 里, 清理时需从 <p> 里 remove
+  // 命中提示文时按钮挂在 .card 内的 <p> 里(homeBox.parentNode 范围), 兜底时挂在 homeBox 末尾
   var homeBox = container.parentNode;
-  if (homeBox && homeBox.parentNode) {
-    var oldLink = homeBox.parentNode.querySelector('.todo-detail-done');
+  if (homeBox) {
+    var scope = homeBox.parentNode || homeBox;
+    var oldLink = scope.querySelector('.todo-detail-done');
     if (oldLink) oldLink.parentNode.removeChild(oldLink);
+    var oldWrap = scope.querySelector('.todo-detail-done-wrap');
+    if (oldWrap) oldWrap.parentNode.removeChild(oldWrap);
   }
 
   if (view === 'tree') {
@@ -4119,9 +4131,9 @@ function todoRenderView(container, trees, opts) {
       if (opts.onExitDetail) opts.onExitDetail();
       return;
     }
-    // 优先把"完成主任务"链挂到提示文末尾; 命中则面包屑不再重复放该按钮
-    // 未命中(分享页/报告页/全屏视图等无提示文的页面), 面包屑保留原完成按钮
-    var doneOnTip = todoAttachDoneLinkToTip(container, root, opts);
+    // 把"完成主任务"链挂到提示文末尾(命中主页 <p class="muted">); 无提示文时兜底独立一行
+    // 无论哪种, 面包屑都不再放该按钮, 顶栏永远只有「← 返回 | 标题 | ➕ 添加子任务」
+    todoAttachDoneLinkToTip(container, root, opts);
     if (crumb) {
       crumb.style.display = 'flex';
       crumb.innerHTML = '';
@@ -4134,30 +4146,8 @@ function todoRenderView(container, trees, opts) {
       t.textContent = root.title;
       crumb.appendChild(back);
       crumb.appendChild(t);
-      // 面包屑"完成主任务/取消完成"入口: 仅当页面无提示文承接(doneOnTip=false)时才显示
-      // 只读页(无 onToggle)不显示; 未完成的顶层重复任务优先走 onToggleRecur 弹窗
-      if (!doneOnTip && opts.onToggle && !opts.readOnly) {
-        var hasKids = root.children.length > 0;
-        var doneBtn = document.createElement('button');
-        doneBtn.type = 'button';
-        doneBtn.className = 'btn sm' + (root.done ? ' gray' : '');
-        doneBtn.innerHTML = root.done
-          ? (ICONS.undo + '取消完成')
-          : (ICONS.check + (hasKids ? '完成主任务（级联）' : '完成主任务'));
-        doneBtn.addEventListener('click', async function(e){
-          e.stopPropagation();
-          if (doneBtn.disabled) return;
-          if (root.recurrence && root.parent_id == null && !root.done && opts.onToggleRecur) {
-            opts.onToggleRecur(root);
-            return;
-          }
-          doneBtn.disabled = true;
-          doneBtn.setAttribute('data-busy', '1');
-          try { await opts.onToggle(root, !root.done); }
-          finally { doneBtn.disabled = false; doneBtn.removeAttribute('data-busy'); }
-        });
-        crumb.appendChild(doneBtn);
-      }
+      // "完成主任务"入口不放这里(已由 todoAttachDoneLinkToTip 挂到提示文末尾或独立一行)
+      // 面包屑永远只有「← 返回 | 标题 | ➕ 添加子任务」, 宽度稳定不换行
       // 详情页添加子任务入口: 只读页(无 onAddChild)不显示
       if (opts.onAddChild) {
         var addBtn = document.createElement('button');
