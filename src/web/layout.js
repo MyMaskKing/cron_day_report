@@ -348,8 +348,9 @@ th { color: #6C6C7E; font-weight: 600; background: rgba(20, 20, 40, .025); }
 /* 全局滚动锁: body.no-scroll 由 JS 在打开弹窗(modal / mp-menu)时加, 关闭时移除.
    position:fixed + width:100% 兼容 iOS Safari, 单纯 overflow:hidden 在 iOS 上仍能滑动 */
 body.no-scroll { overflow: hidden; position: fixed; width: 100%; }
-/* 启动阶段: body.booting 提供纯 CSS 滚动锁, 早于任何 JS. JS 就绪后由 lockBodyScroll 接管, 会移除此类 */
-body.booting { overflow: hidden; }
+/* 启动阶段: body.booting 提供纯 CSS 滚动锁, 早于任何 JS. JS 就绪后由 lockBodyScroll 接管, 会移除此类.
+   position:fixed + width:100% 与 no-scroll 一致, 因 iOS Safari 单纯 overflow:hidden 仍能滑动. 启动时 scrollY 必然是 0, 无跳动 */
+body.booting { overflow: hidden; position: fixed; width: 100%; }
 .modal-box { background: #fff; border-radius: 10px; width: 100%; max-width: 440px; margin: auto; box-shadow: 0 10px 40px rgba(0,0,0,.2); animation: modalIn .2s ease; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #eee; font-size: 16px; font-weight: 600; }
 #modalClose { cursor: pointer; font-size: 24px; line-height: 1; color: #999; }
