@@ -4048,6 +4048,38 @@ function mkCardOp(icon, title, fn, extraClass) {
   b.addEventListener('click', function(e){ e.stopPropagation(); fn(); });
   return b;
 }
+// 详情页底部"完成主任务/取消完成"文字链: 低频动作物理下移, 远离顶部高频"添加子任务", 避免误点
+// 只读页(无 onToggle)不渲染; 未完成的顶层重复任务点击后走 onToggleRecur 弹窗(与卡片勾选框一致)
+function todoAppendDetailDoneLink(container, root, opts) {
+  if (!opts.onToggle || opts.readOnly) return;
+  var homeBox = container.parentNode;
+  if (!homeBox) return;
+  var hasKids = root.children.length > 0;
+  var wrap = document.createElement('div');
+  wrap.className = 'todo-detail-done';
+  wrap.style.cssText = 'text-align:right;margin:14px 0 4px;';
+  var link = document.createElement('button');
+  link.type = 'button';
+  link.className = 'todo-detail-done__link';
+  link.style.cssText = 'background:none;border:0;padding:12px 8px;color:#999;font-size:13px;text-decoration:underline;cursor:pointer;';
+  link.textContent = root.done
+    ? '↺ 取消完成'
+    : (hasKids ? '✓ 标记此任务完成（级联子任务）' : '✓ 标记此任务完成');
+  link.addEventListener('click', async function(e){
+    e.stopPropagation();
+    if (link.disabled) return;
+    if (root.recurrence && root.parent_id == null && !root.done && opts.onToggleRecur) {
+      opts.onToggleRecur(root);
+      return;
+    }
+    link.disabled = true;
+    link.setAttribute('data-busy', '1');
+    try { await opts.onToggle(root, !root.done); }
+    finally { link.disabled = false; link.removeAttribute('data-busy'); }
+  });
+  wrap.appendChild(link);
+  homeBox.appendChild(wrap);
+}
 // 三态视图调度器：opts.view + opts.detailRootId 决定渲染哪种
 //   view='tree'                       → 完整树（多棵）
 //   view='card' && detailRootId==null → 顶层卡片列表
@@ -4059,6 +4091,13 @@ function todoRenderView(container, trees, opts) {
   var view = opts.view || 'card';
   var crumb = opts.crumbEl || null;
   container.className = view === 'card' && opts.detailRootId == null ? 'todo-cards' : 'todo-tree';
+
+  // 每次渲染先清理详情页底部"完成主任务"文字链, 由详情分支按需重新挂载
+  var homeBox = container.parentNode;
+  if (homeBox) {
+    var oldLink = homeBox.querySelector('.todo-detail-done');
+    if (oldLink) oldLink.parentNode.removeChild(oldLink);
+  }
 
   if (view === 'tree') {
     if (crumb) crumb.style.display = 'none';
@@ -4086,31 +4125,8 @@ function todoRenderView(container, trees, opts) {
       t.textContent = root.title;
       crumb.appendChild(back);
       crumb.appendChild(t);
-      // 详情页"完成主任务/取消完成"入口: 复用 onToggle/onToggleRecur, 与卡片视图勾选框行为一致
-      // 只读页(无 onToggle)不显示; 未完成的顶层重复任务优先走 onToggleRecur 弹窗
-      if (opts.onToggle && !opts.readOnly) {
-        var hasKids = root.children.length > 0;
-        var doneBtn = document.createElement('button');
-        doneBtn.type = 'button';
-        doneBtn.className = 'btn sm' + (root.done ? ' gray' : '');
-        doneBtn.innerHTML = root.done
-          ? (ICONS.undo + '取消完成')
-          : (ICONS.check + (hasKids ? '完成主任务（级联）' : '完成主任务'));
-        doneBtn.addEventListener('click', async function(e){
-          e.stopPropagation();
-          if (doneBtn.disabled) return;
-          if (root.recurrence && root.parent_id == null && !root.done && opts.onToggleRecur) {
-            opts.onToggleRecur(root);
-            return;
-          }
-          doneBtn.disabled = true;
-          doneBtn.setAttribute('data-busy', '1');
-          try { await opts.onToggle(root, !root.done); }
-          finally { doneBtn.disabled = false; doneBtn.removeAttribute('data-busy'); }
-        });
-        crumb.appendChild(doneBtn);
-      }
       // 详情页添加子任务入口: 只读页(无 onAddChild)不显示
+      // 完成主任务入口不放这里(移到 todoTree 下方文字链, 避免高频/低频按钮误点)
       if (opts.onAddChild) {
         var addBtn = document.createElement('button');
         addBtn.type = 'button'; addBtn.className = 'btn sm'; addBtn.textContent = '➕ 添加子任务';
@@ -4123,6 +4139,7 @@ function todoRenderView(container, trees, opts) {
     if (root.children.length === 0) {
       container.className = 'todo-tree';
       container.innerHTML = '<div class="todo-empty">此任务暂无子任务' + (opts.onAddChild ? '，点击右上角 ➕ 添加' : '') + '</div>';
+      todoAppendDetailDoneLink(container, root, opts);
       return;
     }
     var childOpts = {};
@@ -4130,6 +4147,7 @@ function todoRenderView(container, trees, opts) {
     childOpts.startDepth = 0;
     childOpts.forcedRootDue = root.due_date;
     renderTodoTree(container, root.children, childOpts);
+    todoAppendDetailDoneLink(container, root, opts);
     return;
   }
   // 卡片列表
@@ -4657,11 +4675,10 @@ async function loadPublic() {
     applyTodoView(_todoGetRows, function(){ drawTree(visibleTrees()); });
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
 }
-// 可见树：仅截止今天或已逾期的顶层任务（与日报 filterTodayOverdue 口径一致），子任务随顶层
+// 可见树：免密协作页只覆盖一棵指定子树(被分享的顶层任务本身), 无论其 due_date
+// 直接返回 todoBuildTree(_rows) 即可, 不做日期过滤(否则备忘录/未来任务会被误藏)
 function visibleTrees() {
-  return todoBuildTree(_rows).filter(function(t){
-    return t.due_date && _today && t.due_date <= _today;
-  });
+  return todoBuildTree(_rows);
 }
 // 统计（口径同日报 statsOfReport）：基于可见树，子任务继承顶层截止日期判逾期
 // 已完成一栏改为"当月完成"(免密单链接页无 filter, 默认按月)
@@ -4694,12 +4711,11 @@ function _todoGetRows() { return _rows; }
 function drawTree(trees) {
   var container = document.getElementById('todoTree');
   var crumb = document.getElementById('todoCrumb');
-  // 若已切到 tree/card 全屏, 用扁平 rows 按分类过滤后重新可见树; 默认页面沿用传入的 visibleTrees
+  // 若已切到 tree/card 全屏, 用扁平 rows 按分类过滤后重建树; 默认页面沿用传入的 visibleTrees
+  // 免密协作页范围本就限定在该子树, 不再叠加日期过滤(与 visibleTrees 一致)
   var effectiveTrees = trees;
   if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
-    effectiveTrees = todoBuildTree(todoRowsByCategory(_rows)).filter(function(t){
-      return t.due_date && _today && t.due_date <= _today;
-    });
+    effectiveTrees = todoBuildTree(todoRowsByCategory(_rows));
   }
   // 免密单链接页只覆盖一个顶层子树, 时间筛选无意义; 仅支持"隐藏已完成"
   var hideBox = document.getElementById('hideDone');
