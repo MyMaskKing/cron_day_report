@@ -28,11 +28,16 @@ async function fetchFundNav(code) {
     const match = text.match(/jsonpgz\((.*)\)/);
     if (!match) return null;
     const data = JSON.parse(match[1]);
+    const nav = parseFloat(data.dwjz) || 0;
+    const gsz = parseFloat(data.gsz) || 0;
+    // 严格校验: dwjz/gsz 至少一项为正数才认定成功
+    // 否则视作失败返回 null, 避免 0 被当作当前净值导致 "今日收益=-本金"
+    if (nav <= 0 && gsz <= 0) return null;
     return {
       code: data.fundcode || code,
       name: data.name || '',
-      nav: parseFloat(data.dwjz) || 0,
-      gsz: parseFloat(data.gsz) || 0,
+      nav,
+      gsz,
       gszzl: parseFloat(data.gszzl) || 0,
       navDate: data.gztime || data.jzrq || ''
     };
@@ -114,14 +119,32 @@ function round2(n) {
 /**
  * 组装单个用户的持仓明细（含实时净值与收益）
  * @param {Array} funds - 用户持仓列表
- * @param {Map} navMap - code -> navInfo
+ * @param {Map} navMap - code -> navInfo (本次成功获取)
+ * @param {Map} [fallbackNavMap] - code -> navInfo (来自 fund_nav_cache 的上次快照兜底; 可选)
  * @returns {Object} { items, totals }
  */
-function buildPortfolio(funds, navMap) {
+function buildPortfolio(funds, navMap, fallbackNavMap) {
+  const fb = fallbackNavMap || new Map();
   const items = funds.map(f => {
     const nav = navMap.get(f.code);
-    const currentNav = nav ? (nav.gsz || nav.nav) : 0;
+    // currentNav 取值顺序: 本次估算 > 本次昨日净值 > 缓存估算 > 缓存净值 > 成本净值
+    //   最后一档兜底成 cost_nav, 相当于"今日收益=0", 比 0 -> "-本金" 安全
+    let currentNav = 0, nav_stale = false;
+    if (nav && (nav.gsz > 0 || nav.nav > 0)) {
+      currentNav = nav.gsz || nav.nav;
+    } else {
+      const fbNav = fb.get(f.code);
+      if (fbNav && (fbNav.gsz > 0 || fbNav.nav > 0)) {
+        currentNav = fbNav.gsz || fbNav.nav;
+        nav_stale = true;
+      } else {
+        currentNav = f.cost_nav || 0;
+        nav_stale = true;
+      }
+    }
     const profit = calcFundProfit(f, currentNav);
+    // 展示用净值信息: 优先本次, 否则用兜底信息标注 stale
+    const displayNav = nav || fb.get(f.code) || null;
     return {
       id: f.id,
       code: f.code,
@@ -132,7 +155,8 @@ function buildPortfolio(funds, navMap) {
       created_at: f.created_at || '',
       current_nav: currentNav,
       gszzl: nav ? nav.gszzl : 0,
-      nav_date: nav ? nav.navDate : '',
+      nav_date: displayNav ? (displayNav.navDate || '') : '',
+      nav_stale,
       ...profit
     };
   });
@@ -147,6 +171,28 @@ function buildPortfolio(funds, navMap) {
   totals.profit = round2(totals.profit);
   totals.rate = totals.cost > 0 ? round2((totals.profit / totals.cost) * 100) : 0;
   return { items, totals };
+}
+
+/**
+ * 对本次 fetchNavBatch 未命中的 code, 从 fund_nav_cache 取上次成功快照作 fallback
+ * 用法: 在 buildPortfolio 前调用, 结果作为第 3 参传入
+ * @param {Object} storage - getStorage(env)
+ * @param {Array} funds - 用户持仓列表(用于枚举 code)
+ * @param {Map} navMap - fetchNavBatch 返回的成功 Map
+ * @returns {Promise<Map>} code -> { nav, gsz, navDate }
+ */
+async function enrichNavWithCache(storage, funds, navMap) {
+  const fallback = new Map();
+  for (const f of funds) {
+    if (navMap.has(f.code)) continue;
+    const cached = await storage.fund.getNav(f.code);
+    if (!cached) continue;
+    const nav = +cached.nav || 0;
+    const gsz = +cached.gsz || 0;
+    if (nav <= 0 && gsz <= 0) continue;
+    fallback.set(f.code, { nav, gsz, navDate: cached.nav_date || '' });
+  }
+  return fallback;
 }
 
 /**
@@ -284,6 +330,6 @@ function calcScenarios(amount, nav, opts = {}) {
 
 export {
   fetchFundNav, fetchNavBatch, fetchNavHistory, calcFundProfit,
-  buildPortfolio, analyzePortfolio,
+  buildPortfolio, enrichNavWithCache, analyzePortfolio,
   applyBuy, calcScenarios, round2
 };

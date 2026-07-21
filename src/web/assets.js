@@ -1893,6 +1893,16 @@ document.getElementById('scRun').addEventListener('click', async function(){
   finally { _initTotal = 0; hideLoading(); }
   // 绑定筛选（select 在 loadReport 时 DOM 已就绪）
   document.getElementById('profitRange').addEventListener('change', applyProfitFilter);
+  // 手动刷新净值: 拉最新估算 + 覆盖今日 fund_profit_daily 快照(修 -本金 类污染)
+  // 只刷数据不推送; 如需重发日报, 另点"立即发送日报"按钮
+  bindClickBusy(document.getElementById('fRefresh'), async function(){
+    var r = await api('/api/fund/refresh', { method:'POST', loadingText:'正在刷新净值并覆盖今日快照…' });
+    await loadReport();
+    var tip = '刷新完成: 成功 ' + r.refreshed + ' 只' +
+      (r.fallback ? '; 缓存兜底 ' + r.fallback + ' 只' : '') +
+      (r.missing ? '; 无净值 ' + r.missing + ' 只(按成本价计, 今日收益记 0)' : '');
+    alertModal(tip);
+  });
 })();
 `;
 

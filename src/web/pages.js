@@ -284,7 +284,9 @@ function channelsPage(user) {
 function fundPage(user) {
   const body = renderTopbar(user, 'fund') + `<div class="container">
     <div class="card">
-      <h2>收益汇总</h2>
+      <h2>收益汇总
+        <button class="btn sm gray" id="fRefresh" style="float:right;">🔄 刷新净值</button>
+      </h2>
       <div class="grid-stats">
         <div class="stat"><div class="num" id="sumCost">0</div><div class="lbl">总本金</div></div>
         <div class="stat"><div class="num" id="sumValue">0</div><div class="lbl">现值</div></div>

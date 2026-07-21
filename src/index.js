@@ -25,11 +25,11 @@ import { listChannels, createChannel, updateChannel, removeChannel } from './api
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
 import {
   listFunds, createFund, updateFund, removeFund,
-  fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
+  fundReport, refreshFundNav, getReportConfig, setReportConfig, sendReport, fundAnalysis,
   getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund,
   fundProfitHistory
 } from './api/fund.api.js';
-import { fetchNavBatch, buildPortfolio } from './services/fund.service.js';
+import { fetchNavBatch, buildPortfolio, enrichNavWithCache } from './services/fund.service.js';
 import {
   listMembers, createMember, updateMember, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
@@ -120,6 +120,7 @@ router.delete('/api/monitor/tasks/:id', removeTask);
 // --- 基金追踪 API ---
 router.get('/api/fund/list', listFunds);
 router.get('/api/fund/report', fundReport);
+router.post('/api/fund/refresh', refreshFundNav);
 router.get('/api/fund/profit-history', fundProfitHistory);
 router.get('/api/fund/report-config', getReportConfig);
 router.put('/api/fund/report-config', setReportConfig);
@@ -602,7 +603,9 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
     if (funds.length === 0) return null;
     const navMap = await fetchNavBatch(funds.map(f => f.code));
     for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
-    const portfolio = buildPortfolio(funds, navMap);
+    // 本次失败的 code 用 fund_nav_cache 上次快照兜底, 避免 0 净值导致 -本金
+    const fallback = await enrichNavWithCache(storage, funds, navMap);
+    const portfolio = buildPortfolio(funds, navMap, fallback);
     const linkMap = await buildShareLinkMap(env, storage, funds);
     // 持仓分布饼图免密报告页链接
     let reportLink = '';
@@ -717,7 +720,11 @@ async function snapshotFundProfit(storage, dateStr) {
     const navMap = new Map();
     for (const f of funds) {
       const nav = await storage.fund.getNav(f.code);
-      if (nav) navMap.set(f.code, { nav: nav.nav, gsz: nav.gsz, navDate: nav.nav_date });
+      // 只把有效净值(nav 或 gsz > 0)塞入; 无效值让 buildPortfolio 内部走 cost_nav 兜底,
+      // 避免历史被 0 污染的缓存把当日 value 计算成 0 -> profit=-本金
+      if (nav && ((+nav.nav > 0) || (+nav.gsz > 0))) {
+        navMap.set(f.code, { nav: +nav.nav || 0, gsz: +nav.gsz || 0, navDate: nav.nav_date });
+      }
     }
     const { totals } = buildPortfolio(funds, navMap);
     await storage.fund.upsertProfitDaily(uid, dateStr, { cost: totals.cost, value: totals.value, profit: totals.profit });

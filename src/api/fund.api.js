@@ -8,7 +8,7 @@ import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
 import { generateToken } from '../auth/password.js';
 import {
-  fetchFundNav, fetchNavBatch, fetchNavHistory, buildPortfolio,
+  fetchFundNav, fetchNavBatch, fetchNavHistory, buildPortfolio, enrichNavWithCache,
   analyzePortfolio, calcScenarios, applyBuy, round2
 } from '../services/fund.service.js';
 import { sendNotification } from '../services/notify.service.js';
@@ -98,11 +98,46 @@ async function fundReport({ request, env }) {
   if (funds.length === 0) return json({ success: true, items: [], totals: { cost: 0, value: 0, profit: 0, rate: 0 } });
 
   const navMap = await fetchNavBatch(funds.map(f => f.code));
-  // 顺带更新净值缓存（并发写入）
+  // 顺带更新净值缓存（并发写入）—— 仅写本次成功获取的, 不用 0 覆盖历史
   await Promise.all([...navMap].map(([code, nav]) => storage.fund.upsertNav(code, nav)));
+  // 本次失败的 code 用 fund_nav_cache 上次快照兜底, 避免"currentNav=0 → -本金"
+  const fallback = await enrichNavWithCache(storage, funds, navMap);
 
-  const portfolio = buildPortfolio(funds, navMap);
+  const portfolio = buildPortfolio(funds, navMap, fallback);
   return json({ success: true, ...portfolio });
+}
+
+/** POST /api/fund/refresh  手动刷新净值 + 覆盖今日 fund_profit_daily 快照
+ * 场景: 净值接口曾返回异常值(如"今日收益=-本金")污染了今日快照; 用户点此按钮抢救
+ * 只刷数据不推送; 如需重发日报, 另点"立即发送日报"按钮
+ */
+async function refreshFundNav({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const funds = await storage.fund.listByUser(auth.user_id);
+  if (funds.length === 0) return json({ success: true, refreshed: 0, fallback: 0, missing: 0, totals: { cost: 0, value: 0, profit: 0, rate: 0 } });
+
+  const navMap = await fetchNavBatch(funds.map(f => f.code));
+  // 仅把本次成功获取的写入缓存, 保护历史 fund_nav_cache 不被 0 覆盖
+  await Promise.all([...navMap].map(([code, nav]) => storage.fund.upsertNav(code, nav)));
+  const fallback = await enrichNavWithCache(storage, funds, navMap);
+  const portfolio = buildPortfolio(funds, navMap, fallback);
+
+  // 覆盖今日 fund_profit_daily 快照, 修正被错值污染的"较昨日 delta"
+  const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
+  const today = localParts(Date.now(), tzOffset).dateStr;
+  await storage.fund.upsertProfitDaily(auth.user_id, today, portfolio.totals);
+
+  const codes = new Set(funds.map(f => f.code));
+  const missing = [...codes].filter(c => !navMap.has(c) && !fallback.has(c)).length;
+  return json({
+    success: true,
+    refreshed: navMap.size,
+    fallback: fallback.size,
+    missing,
+    totals: portfolio.totals
+  });
 }
 
 /** GET /api/fund/profit-history  每日总收益历史（曲线图/表格用，含较前一天差额） */
@@ -171,7 +206,10 @@ async function sendReport({ request, env, url }) {
   if (funds.length === 0) return error('暂无持仓，无法生成日报', 400);
 
   const navMap = await fetchNavBatch(funds.map(f => f.code));
-  const portfolio = buildPortfolio(funds, navMap);
+  // 仅把本次成功获取的写入缓存, 失败的走上次快照兜底
+  await Promise.all([...navMap].map(([code, nav]) => storage.fund.upsertNav(code, nav)));
+  const fallback = await enrichNavWithCache(storage, funds, navMap);
+  const portfolio = buildPortfolio(funds, navMap, fallback);
   const format = config.format || 'text';
   const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
 
@@ -218,7 +256,8 @@ async function fundAnalysis({ request, env, url }) {
     return json({ success: true, items: [], summary: [], rules: {}, disclaimer: '暂无持仓' });
   }
   const navMap = await fetchNavBatch(funds.map(f => f.code));
-  const portfolio = buildPortfolio(funds, navMap);
+  const fallback = await enrichNavWithCache(storage, funds, navMap);
+  const portfolio = buildPortfolio(funds, navMap, fallback);
 
   // 阈值可通过查询参数覆盖，非法则用默认
   const rules = {};
@@ -392,7 +431,8 @@ async function publicFundReport({ env, params }) {
   await storage.users.updateLastPublic(row.user_id);
   const funds = await storage.fund.listByUser(row.user_id);
   const navMap = await fetchNavBatch(funds.map(f => f.code));
-  const portfolio = buildPortfolio(funds, navMap);
+  const fallback = await enrichNavWithCache(storage, funds, navMap);
+  const portfolio = buildPortfolio(funds, navMap, fallback);
   const items = portfolio.items.map(it => ({ name: it.name, value: it.value }));
   // 每日总收益历史近 30 天（含较前一天差额），供曲线图联动
   // record_date 可能因周末/未运行有空档, 用 slice(-30) 按行数截断会误把 6 周前的记录塞进"近30天";
@@ -413,7 +453,7 @@ async function publicFundReport({ env, params }) {
 
 export {
   listFunds, createFund, updateFund, removeFund,
-  fundReport, getReportConfig, setReportConfig, sendReport, fundAnalysis,
+  fundReport, refreshFundNav, getReportConfig, setReportConfig, sendReport, fundAnalysis,
   getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund,
   fundProfitHistory
 };
