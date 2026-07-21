@@ -1,10 +1,12 @@
 /**
  * 基金服务：净值获取、收益计算、日报生成
  *
- * 净值数据源：天天基金公开接口（非官方，失效时只需改 fetchFundNav 一处）
- *   http://fundgz.1234567.com.cn/js/{code}.js  返回 jsonpgz({...})
- *   字段: fundcode 代码, name 名称, dwjz 单位净值(昨日),
- *         gsz 估算净值, gszzl 估算涨跌幅(%), gztime 估算时间
+ * 净值数据源：天天基金移动端 API（非官方，失效时只需改 fetchFundNav 一处）
+ *   https://fundmobapi.eastmoney.com/FundMNewApi/FundMNBasicInformation
+ *   返回 {Datas:{FCODE, SHORTNAME, FSRQ, DWJZ, RZDF, ...} | null}
+ *   字段: FCODE 代码, SHORTNAME 简称, FSRQ 净值日期,
+ *         DWJZ 单位净值(当日已确认;盘中返回昨日), RZDF 日涨幅(%)
+ *   注: 原 fundgz.1234567.com.cn/js/{code}.js 已下线 (返回 404 页面)
  */
 
 /**
@@ -14,32 +16,29 @@
  */
 async function fetchFundNav(code) {
   try {
-    const url = `https://fundgz.1234567.com.cn/js/${code}.js`;
+    const url = `https://fundmobapi.eastmoney.com/FundMNewApi/FundMNBasicInformation`
+              + `?FCODE=${code}&plat=Iphone&deviceid=1&product=EFund&version=6.4.4&Uid=`;
     const resp = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://fund.eastmoney.com/'
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15'
       },
       cf: { cacheTtl: 0 }
     });
     if (!resp.ok) return null;
-    const text = await resp.text();
-    // 解析 jsonpgz({...})
-    const match = text.match(/jsonpgz\((.*)\)/);
-    if (!match) return null;
-    const data = JSON.parse(match[1]);
-    const nav = parseFloat(data.dwjz) || 0;
-    const gsz = parseFloat(data.gsz) || 0;
-    // 严格校验: dwjz/gsz 至少一项为正数才认定成功
+    const data = await resp.json();
+    const d = data && data.Datas;
+    if (!d) return null;                 // 代码不存在或无数据
+    const nav = parseFloat(d.DWJZ) || 0;
+    // 严格校验: DWJZ 为正数才认定成功
     // 否则视作失败返回 null, 避免 0 被当作当前净值导致 "今日收益=-本金"
-    if (nav <= 0 && gsz <= 0) return null;
+    if (nav <= 0) return null;
     return {
-      code: data.fundcode || code,
-      name: data.name || '',
+      code: d.FCODE || code,
+      name: d.SHORTNAME || '',
       nav,
-      gsz,
-      gszzl: parseFloat(data.gszzl) || 0,
-      navDate: data.gztime || data.jzrq || ''
+      gsz: nav,                          // 新接口无盘中估算, 用当日已确认净值
+      gszzl: parseFloat(d.RZDF) || 0,    // 日涨幅(%)
+      navDate: d.FSRQ || ''
     };
   } catch {
     return null;
