@@ -4367,18 +4367,20 @@ function bindTodoRange(fn) {
   });
 }
 // 庆祝数量：叶子口径，完成父任务代表整枝结束，其后代不再计入
-function todoCelebrationCount(trees) {
+// datedOnly=true 时排除无截止日期的备忘录，与主页面/报告页的“未完成”统计一致
+function todoCelebrationCount(trees, datedOnly) {
   var total = 0, done = 0;
-  function walk(node) {
+  function walk(node, rootDue) {
     if (node.done && node.children.length > 0) return;
     if (node.children.length > 0) {
-      node.children.forEach(walk);
+      node.children.forEach(function(c){ walk(c, rootDue); });
       return;
     }
+    if (datedOnly && !rootDue) return;
     total++;
     if (node.done) done++;
   }
-  (trees || []).forEach(walk);
+  (trees || []).forEach(function(root){ walk(root, root.due_date); });
   return { remaining: total - done, total: total };
 }
 // 完成任务的庆祝特效：撒花 + toast，显示剩余数与按完成度分级的激励词
@@ -4512,7 +4514,7 @@ function drawTree() {
         await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent } });
         closeModal();
         await loadTodos(); await loadChart();
-        var cc = todoCelebrationCount(todoBuildTree(_rows));
+        var cc = todoCelebrationCount(todoBuildTree(_rows), true);
         todoCelebrate(cc.remaining, cc.total);
       });
     },
@@ -4521,7 +4523,7 @@ function drawTree() {
         await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadTodos(); await loadChart();
         if (done) {
-          var cc = todoCelebrationCount(todoBuildTree(_rows));
+          var cc = todoCelebrationCount(todoBuildTree(_rows), true);
           todoCelebrate(cc.remaining, cc.total);
         }
       }
@@ -4914,7 +4916,7 @@ function drawTree() {
         await reloadReport();
         if (done) {
           // 庆祝口径与当前任务树一致：完成父任务后整枝不再计入
-          var cc = todoCelebrationCount(_trees);
+          var cc = todoCelebrationCount(_trees, true);
           todoCelebrate(cc.remaining, cc.total);
         }
       }
