@@ -3203,6 +3203,26 @@ function todoDoneByFilter(rows, filter, today, range) {
   }
   return count;
 }
+// 基于可见顶层树重算 pending / overdue / memo(叶子口径, 与后端 countStats 一致)
+//   pending: 未完成叶子且顶层有 due_date(不含备忘录)
+//   overdue: 未完成叶子且顶层 due_date < today
+//   memo:    未完成叶子且顶层无 due_date
+// trees: 已按当前 _filter 过滤后的顶层数组
+function todoStatsByVisible(trees, today) {
+  var pending = 0, overdue = 0, memo = 0;
+  function walk(node, rootDue) {
+    if (node.done) return;
+    if (node.children.length > 0) {
+      node.children.forEach(function(c){ walk(c, rootDue); });
+      return;
+    }
+    if (!rootDue) { memo++; return; }
+    pending++;
+    if (today && rootDue < today) overdue++;
+  }
+  trees.forEach(function(root){ walk(root, root.due_date); });
+  return { pending: pending, overdue: overdue, memo: memo };
+}
 // 前端版 shiftDate: 与后端 services/todo.service.js 的 shiftDate 逻辑一致
 // dueDate: YYYY-MM-DD; recurrence: 'daily'|'weekly'|'monthly'|'yearly'|'monthly_nth_weekday'
 // jumpToCurrent=true 时以 todayStr 为基准找该周期最近未来日
@@ -4459,23 +4479,31 @@ async function loadTodos() {
   _rows = data.todos || [];
   var s = data.stats || { pending:0, overdue:0, done:0, total:0, memo:0 };
   _stats = s;
-  document.getElementById('stPending').textContent = s.pending;
-  document.getElementById('stOverdue').textContent = s.overdue;
+  renderPendingStats();
   document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, todayStr(), _curRange);
-  document.getElementById('stMemo').textContent = s.memo || 0;
   updateStatsHint(_filter, _curRange);
   drawTree();
 }
-var _filter = 'all'; // all | today | overdue | future | memo | done
+var _filter = 'all'; // all | cur | today | overdue | future | memo | done
 // 按筛选归类顶层任务（子任务随顶层，因日期继承主任务）
 function todoFilterTrees(trees) {
   var t = todayStr();
+  if (_filter === 'cur')     return trees.filter(function(n){ return n.due_date && n.due_date <= t; });
   if (_filter === 'today')   return trees.filter(function(n){ return n.due_date && n.due_date === t; });
   if (_filter === 'overdue') return trees.filter(function(n){ return n.due_date && n.due_date < t; });
   if (_filter === 'future')  return trees.filter(function(n){ return n.due_date && n.due_date > t; });
   if (_filter === 'memo')    return trees.filter(function(n){ return !n.due_date; });
   if (_filter === 'done')    return trees.filter(function(n){ return n.done; });
   return trees;
+}
+// 按当前 _filter 过滤后的可见顶层树重算 未完成/已逾期/备忘录 三项统计
+// 与已完成一栏保持一致的联动风格; 已完成节点(整枝)不计入
+function renderPendingStats() {
+  var trees = todoFilterTrees(todoBuildTree(todoRowsByCategory(_rows)));
+  var s = todoStatsByVisible(trees, todayStr());
+  document.getElementById('stPending').textContent = s.pending;
+  document.getElementById('stOverdue').textContent = s.overdue;
+  document.getElementById('stMemo').textContent = s.memo;
 }
 // 视图 3 态循环需要的一对回调: 取当前 rows / 触发树重绘
 function _todoGetRows() { return _rows; }
@@ -4624,6 +4652,8 @@ document.getElementById('todoFilter').addEventListener('click', function(e){
   _filter = btn.getAttribute('data-filter');
   Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
   btn.classList.add('active');
+  // 未完成/已逾期/备忘录 按当前筛选后的可见顶层树重算
+  renderPendingStats();
   // 已完成计数按 filter × range 双维度联动
   document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, todayStr(), _curRange);
   updateStatsHint(_filter, _curRange);
@@ -4848,17 +4878,32 @@ bindQuickLogin('todo-report');
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _curRange = 'month';
 var _rows = [], _trees = [], _today = '';
-var _filter = 'all'; // all | today | overdue | future | memo | done
+var _filter = 'all'; // all | cur | today | overdue | future | memo | done
 function _todoGetRows() { return _rows; }
 async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=' + _curRange); drawTodoChart('todoChart', c.series); }
   catch(e){ /* 图表失败不阻断 */ }
 }
+// 按当前 _filter 过滤后的可见顶层树重算 未完成/已逾期 两项统计(此页无 memo 卡片)
+function renderPendingStats() {
+  var t = _today;
+  var trees = _trees;
+  if (_filter === 'cur')          trees = _trees.filter(function(n){ return n.due_date && n.due_date <= t; });
+  else if (_filter === 'today')   trees = _trees.filter(function(n){ return n.due_date && n.due_date === t; });
+  else if (_filter === 'overdue') trees = _trees.filter(function(n){ return n.due_date && n.due_date < t; });
+  else if (_filter === 'future')  trees = _trees.filter(function(n){ return n.due_date && n.due_date > t; });
+  else if (_filter === 'memo')    trees = _trees.filter(function(n){ return !n.due_date; });
+  else if (_filter === 'done')    trees = _trees.filter(function(n){ return n.done; });
+  var s = todoStatsByVisible(trees, _today);
+  document.getElementById('stPending').textContent = s.pending;
+  document.getElementById('stOverdue').textContent = s.overdue;
+}
 function drawTree() {
   var t = _today;
   // 时间筛选 tab: 与登录态 TODO_JS 逻辑一致(顶层口径)
   var filtered = _trees;
-  if (_filter === 'today')   filtered = _trees.filter(function(n){ return n.due_date && n.due_date === t; });
+  if (_filter === 'cur')          filtered = _trees.filter(function(n){ return n.due_date && n.due_date <= t; });
+  else if (_filter === 'today')   filtered = _trees.filter(function(n){ return n.due_date && n.due_date === t; });
   else if (_filter === 'overdue') filtered = _trees.filter(function(n){ return n.due_date && n.due_date < t; });
   else if (_filter === 'future')  filtered = _trees.filter(function(n){ return n.due_date && n.due_date > t; });
   else if (_filter === 'memo')    filtered = _trees.filter(function(n){ return !n.due_date; });
@@ -4869,6 +4914,7 @@ function drawTree() {
     var byCat = todoBuildTree(todoRowsByCategory(_rows));
     // 分类过滤后再按当前 filter 过滤一次(保持两者协同)
     trees = byCat.filter(function(n){
+      if (_filter === 'cur')     return n.due_date && n.due_date <= t;
       if (_filter === 'today')   return n.due_date && n.due_date === t;
       if (_filter === 'overdue') return n.due_date && n.due_date < t;
       if (_filter === 'future')  return n.due_date && n.due_date > t;
@@ -4943,12 +4989,10 @@ function openAddForm(parentId, title, isChild) {
 // 刷新数据并重绘: 勾选后调用, 重新拉 report + 重算 stats + 重画树
 async function reloadReport() {
   var d = await api('/api/public/todo-report/' + _token);
-  var s = d.stats || { pending:0, overdue:0, done:0 };
-  document.getElementById('stPending').textContent = s.pending;
-  document.getElementById('stOverdue').textContent = s.overdue;
   _rows = d.todos || [];
   _trees = todoBuildTree(_rows);
   _today = d.today || '';
+  renderPendingStats();
   document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
   updateStatsHint(_filter, _curRange);
   drawTree();
@@ -4956,13 +5000,12 @@ async function reloadReport() {
 (async function(){
   try {
     var d = await api('/api/public/todo-report/' + _token);
-    var s = d.stats || { pending:0, overdue:0, done:0 };
-    document.getElementById('stPending').textContent = s.pending;
-    document.getElementById('stOverdue').textContent = s.overdue;
     document.getElementById('content').style.display = 'block';
     _rows = d.todos || [];
     _trees = todoBuildTree(_rows);
     _today = d.today || '';
+    // 未完成/已逾期: 按当前 _filter 过滤后的可见顶层树重算
+    renderPendingStats();
     // 已完成一栏: 按 _filter × _curRange 双维度联动
     document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
     updateStatsHint(_filter, _curRange);
@@ -5003,6 +5046,8 @@ async function reloadReport() {
       _filter = btn.getAttribute('data-filter');
       Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
       btn.classList.add('active');
+      // 未完成/已逾期: 按当前筛选后的可见顶层树重算
+      renderPendingStats();
       // 已完成计数按 filter × range 双维度联动
       document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
       updateStatsHint(_filter, _curRange);
