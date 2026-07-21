@@ -81,7 +81,10 @@ function buildTree(rows) {
 function flattenPending(trees) {
   function prune(node) {
     if (node.done) return null;
+    const hadChildren = node.children.length > 0;
     const keptChildren = node.children.map(prune).filter(Boolean);
+    // 叶子未完成才保留；原本有子任务但后代已全部结束时，父任务不单独计为未完成
+    if (hadChildren && keptChildren.length === 0) return null;
     return { ...node, children: keptChildren };
   }
   return trees.map(prune).filter(Boolean);

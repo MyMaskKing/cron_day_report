@@ -4366,6 +4366,21 @@ function bindTodoRange(fn) {
     fn(btn.getAttribute('data-range'));
   });
 }
+// 庆祝数量：叶子口径，完成父任务代表整枝结束，其后代不再计入
+function todoCelebrationCount(trees) {
+  var total = 0, done = 0;
+  function walk(node) {
+    if (node.done && node.children.length > 0) return;
+    if (node.children.length > 0) {
+      node.children.forEach(walk);
+      return;
+    }
+    total++;
+    if (node.done) done++;
+  }
+  (trees || []).forEach(walk);
+  return { remaining: total - done, total: total };
+}
 // 完成任务的庆祝特效：撒花 + toast，显示剩余数与按完成度分级的激励词
 // remaining=未完成数, total=总数（含子任务）
 function todoCelebrate(remaining, total) {
@@ -4497,14 +4512,18 @@ function drawTree() {
         await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent } });
         closeModal();
         await loadTodos(); await loadChart();
-        todoCelebrate(_stats.total - _stats.done, _stats.total);
+        var cc = todoCelebrationCount(todoBuildTree(_rows));
+        todoCelebrate(cc.remaining, cc.total);
       });
     },
     onToggle: async function(node, done){
       try {
         await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadTodos(); await loadChart();
-        if (done) todoCelebrate(_stats.total - _stats.done, _stats.total);
+        if (done) {
+          var cc = todoCelebrationCount(todoBuildTree(_rows));
+          todoCelebrate(cc.remaining, cc.total);
+        }
       }
       catch(e){ alertModal(e.message, {ok:false}); }
     },
@@ -4753,13 +4772,9 @@ function drawTree(trees) {
         await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadPublic();
         if (done) {
-          // 庆祝口径与可见列表一致（叶子口径）：有子任务的父不计，只数末端叶子
-          var total = 0, doneCnt = 0;
-          (function count(list){ list.forEach(function(n){
-            if (n.children.length > 0) { count(n.children); return; }
-            total++; if (n.done) doneCnt++;
-          }); })(visibleTrees());
-          todoCelebrate(total - doneCnt, total);
+          // 庆祝口径与可见列表一致：完成父任务后整枝不再计入
+          var cc = todoCelebrationCount(visibleTrees());
+          todoCelebrate(cc.remaining, cc.total);
         }
       }
       catch(e){ alertModal(e.message, {ok:false}); }
@@ -4898,13 +4913,9 @@ function drawTree() {
         await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await reloadReport();
         if (done) {
-          // 庆祝口径与可见列表一致(叶子口径): 有子任务的父不计, 只数末端叶子
-          var total = 0, doneCnt = 0;
-          (function count(list){ list.forEach(function(n){
-            if (n.children.length > 0) { count(n.children); return; }
-            total++; if (n.done) doneCnt++;
-          }); })(_trees);
-          todoCelebrate(total - doneCnt, total);
+          // 庆祝口径与当前任务树一致：完成父任务后整枝不再计入
+          var cc = todoCelebrationCount(_trees);
+          todoCelebrate(cc.remaining, cc.total);
         }
       }
       catch(e){ alertModal(e.message, {ok:false}); }
@@ -5134,12 +5145,8 @@ function drawTree(trees) {
         await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadCollab();
         if (done) {
-          var total = 0, doneCnt = 0;
-          (function count(list){ list.forEach(function(n){
-            if (n.children.length > 0) { count(n.children); return; }
-            total++; if (n.done) doneCnt++;
-          }); })(visibleTrees());
-          todoCelebrate(total - doneCnt, total);
+          var cc = todoCelebrationCount(visibleTrees());
+          todoCelebrate(cc.remaining, cc.total);
         }
       }
       catch(e){ alertModal(e.message, {ok:false}); }
