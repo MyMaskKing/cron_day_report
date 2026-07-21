@@ -3747,10 +3747,9 @@ function todoBuildTree(rows) {
   sortRec(roots);
   return roots;
 }
-// 子树是否含未完成（隐藏已完成时用于判断整枝是否隐藏）
+// 子树是否仍进行中（完成节点代表整枝结束，后代状态仅保留、不参与未完成展示）
 function todoSubtreePending(node){
-  if (!node.done) return true;
-  return node.children.some(todoSubtreePending);
+  return !node.done;
 }
 var _todoCollapsed = {}; // id -> true 折叠状态（前端会话内保留）
 function renderTodoTree(container, trees, opts) {
@@ -3780,25 +3779,29 @@ function renderTodoTree(container, trees, opts) {
     caret.textContent = '▼';
     row.appendChild(caret);
 
-    // 圆形勾选框（点击立即禁用防重，onToggle 完成后由重绘替换掉本按钮）
-    var check = document.createElement('button');
-    check.type = 'button';
-    check.className = 'todo-check' + (node.done ? ' done' : '');
-    check.title = node.done ? '取消完成' : '标记完成';
-    if (opts.onToggle) check.addEventListener('click', async function(e){
-      e.stopPropagation();
-      if (check.disabled) return;
-      // 顶层重复任务从未完成→完成: 由页面侧弹选择器决定 jumpToCurrent
-      if (node.recurrence && node.parent_id == null && !node.done && opts.onToggleRecur) {
-        opts.onToggleRecur(node);
-        return;
-      }
-      check.disabled = true;
-      check.setAttribute('data-busy', '1');
-      try { await opts.onToggle(node, !node.done); }
-      finally { check.disabled = false; check.removeAttribute('data-busy'); }
-    });
-    row.appendChild(check);
+    // 备忘录子任务（顶层无截止日期）不显示完成按钮
+    var isMemoChild = !rootDue && (depth > 0 || Object.prototype.hasOwnProperty.call(opts, 'forcedRootDue'));
+    if (!isMemoChild) {
+      // 圆形勾选框（点击立即禁用防重，onToggle 完成后由重绘替换掉本按钮）
+      var check = document.createElement('button');
+      check.type = 'button';
+      check.className = 'todo-check' + (node.done ? ' done' : '');
+      check.title = node.done ? '取消完成' : '标记完成';
+      if (opts.onToggle) check.addEventListener('click', async function(e){
+        e.stopPropagation();
+        if (check.disabled) return;
+        // 顶层重复任务从未完成→完成: 由页面侧弹选择器决定 jumpToCurrent
+        if (node.recurrence && node.parent_id == null && !node.done && opts.onToggleRecur) {
+          opts.onToggleRecur(node);
+          return;
+        }
+        check.disabled = true;
+        check.setAttribute('data-busy', '1');
+        try { await opts.onToggle(node, !node.done); }
+        finally { check.disabled = false; check.removeAttribute('data-busy'); }
+      });
+      row.appendChild(check);
+    }
 
     // 优先级圆点：标题前克制点缀（红=高 琥珀=中 灰=低），不占左色带
     var dot = document.createElement('span');
@@ -3937,13 +3940,12 @@ function renderTodoCards(container, trees, opts) {
     var body = document.createElement('div'); body.className = 'todo-card__body';
     var head = document.createElement('div'); head.className = 'todo-card__head';
 
-    // 勾选框: 主任务无论有无子任务都显示, 勾选会级联标记整棵子树完成(后端已实现)
-    // readOnly 时始终不显示
+    // 勾选框：主任务无论有无子任务都显示；readOnly 时始终不显示
     if (!opts.readOnly && opts.onToggle) {
       var check = document.createElement('button');
       check.type = 'button';
       check.className = 'todo-card__check' + (root.done ? ' done' : '');
-      check.title = root.done ? '取消完成(级联)' : (hasChildren ? '标记完成(级联子任务)' : '标记完成');
+      check.title = root.done ? '取消完成' : '标记完成';
       check.addEventListener('click', async function(e){
         e.stopPropagation();
         if (check.disabled) return;
@@ -4061,13 +4063,10 @@ function todoAttachDoneLinkToTip(container, root, opts) {
     if (sib.tagName === 'P' && sib.classList && sib.classList.contains('muted')) { tipEl = sib; break; }
     sib = sib.nextElementSibling;
   }
-  var hasKids = root.children.length > 0;
   var link = document.createElement('button');
   link.type = 'button';
   link.className = 'todo-detail-done';
-  link.textContent = root.done
-    ? '↺ 取消完成'
-    : (hasKids ? '✓ 完成主任务（级联）' : '✓ 完成主任务');
+  link.textContent = root.done ? '↺ 取消完成' : '✓ 完成主任务';
   link.addEventListener('click', async function(e){
     e.stopPropagation();
     if (link.disabled) return;
@@ -4705,6 +4704,8 @@ function visibleTrees() {
 function renderStats(trees) {
   var pending = 0, overdue = 0;
   function walk(node, rootDue){
+    // 完成节点代表该分支已结束，后代状态保留但不计入未完成/逾期
+    if (node.done) return;
     if (node.children.length > 0) {
       // 有子任务：父不计入，仅递归统计子任务（叶子口径，与后端 countStats 一致）
       node.children.forEach(function(c){ walk(c, rootDue); });
@@ -5056,6 +5057,8 @@ function visibleTrees() {
 function renderStats(trees) {
   var pending = 0, overdue = 0;
   function walk(node, rootDue){
+    // 完成节点代表该分支已结束，后代状态保留但不计入未完成/逾期
+    if (node.done) return;
     if (node.children.length > 0) {
       // 有子任务：父不计入，仅递归统计子任务（叶子口径，与后端 countStats 一致）
       node.children.forEach(function(c){ walk(c, rootDue); });

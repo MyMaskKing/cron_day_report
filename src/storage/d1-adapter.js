@@ -587,24 +587,20 @@ function createD1Adapter(env) {
         });
         await db.batch(stmts);
       },
-      // 批量置完成状态（勾选父任务级联子树时用）；done=1 写完成日期，done=0 清空
-      async setDone(idList, done, doneAt) {
-        if (!idList || idList.length === 0) return;
-        const placeholders = idList.map(() => '?').join(',');
+      // 仅修改当前任务状态；done=1 写完成日期，done=0 清空
+      async setDone(id, done, doneAt) {
         await db.prepare(
-          `UPDATE todos SET done=?, done_at=? WHERE id IN (${placeholders})`
-        ).bind(done ? 1 : 0, done ? (doneAt || null) : null, ...idList).run();
+          'UPDATE todos SET done=?, done_at=? WHERE id=?'
+        ).bind(done ? 1 : 0, done ? (doneAt || null) : null, id).run();
       },
-      // 完成/取消完成, 若命中"顶层重复任务且 done=1", 自动 clone 一条新任务(含子树)
+      // 完成/取消完成当前任务；若命中“顶层重复任务且 done=1”，自动 clone 一条新任务（含子树）
       // 返回 { cloned: boolean, next_id?, next_due? }
-      // done=0 或非顶层重复走原有级联逻辑, cloned=false
-      // userId 双校验用: 目标不属该用户视为无效, cloned=false 且不写任何数据
+      // 新周期子任务重置为未完成，原任务子树状态保持不变
+      // userId 双校验用：目标不属该用户视为无效，cloned=false 且不写任何数据
       async markDoneWithRecur(id, userId, done, jumpToCurrent, todayStr) {
         const self = await db.prepare('SELECT * FROM todos WHERE id=? AND user_id=?').bind(id, userId).first();
         if (!self) return { cloned: false };
-        // 先处理原有的级联完成
-        const desc = await this.collectDescendantIds(id);
-        await this.setDone([id, ...desc], !!done, todayStr);
+        await this.setDone(id, !!done, todayStr);
         // 判断是否需要 clone: 必须 done=1, 顶层, 有 recurrence, 有 due_date
         if (!done) return { cloned: false };
         if (self.parent_id != null) return { cloned: false };

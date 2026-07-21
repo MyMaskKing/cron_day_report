@@ -774,7 +774,7 @@ function todoPage(user) {
         <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
         <div id="todoTree" class="todo-tree"></div>
       </div>
-      <p class="muted" style="margin-top:8px;">勾选父任务将连带其全部子任务；每个顶层任务可生成免密协作链接，家人无需登录即可添加或勾选。</p>
+      <p class="muted" style="margin-top:8px;">每个任务的完成状态独立保存；每个顶层任务可生成免密协作链接，家人无需登录即可添加或勾选。</p>
     </div>
 
     <div class="card">

@@ -74,18 +74,15 @@ function buildTree(rows) {
 
 /**
  * 从树中提取仍有未完成任务的顶层子树（推送用）
- * 保留结构，仅剪掉"整棵已完成"的分支；节点自身或其任一后代未完成即保留
+ * 完成节点视为整棵子树已结束；其后代状态保留，但不再进入未完成任务树
  * @param {Array} trees - buildTree 结果
  * @returns {Array} 过滤后的树（新对象，不改原树）
  */
 function flattenPending(trees) {
   function prune(node) {
+    if (node.done) return null;
     const keptChildren = node.children.map(prune).filter(Boolean);
-    // 自身未完成，或有未完成后代 → 保留
-    if (!node.done || keptChildren.length > 0) {
-      return { ...node, children: keptChildren };
-    }
-    return null;
+    return { ...node, children: keptChildren };
   }
   return trees.map(prune).filter(Boolean);
 }
@@ -104,6 +101,15 @@ function countStats(rows, today) {
   // 有子任务的父 id 集合：这些父不是叶子，不计入统计
   const hasChild = new Set();
   for (const r of rows) if (r.parent_id != null) hasChild.add(r.parent_id);
+  // 是否存在已完成祖先：已结束任务下的后代保留原状态，但不计入未完成/逾期/备忘录
+  const hasDoneAncestor = (r) => {
+    let cur = r;
+    while (cur.parent_id != null && byId.has(cur.parent_id)) {
+      cur = byId.get(cur.parent_id);
+      if (cur.done) return true;
+    }
+    return false;
+  };
   // 有效截止日期：顶层用自身，子任务继承顶层祖先（与树渲染 effDue 口径一致）
   const effDue = (r) => {
     let cur = r;
@@ -113,6 +119,7 @@ function countStats(rows, today) {
   let total = 0, done = 0, overdue = 0, memo = 0, pending = 0;
   for (const r of rows) {
     if (hasChild.has(r.id)) continue; // 非叶子（父任务）跳过
+    if (hasDoneAncestor(r)) continue;
     total++;
     if (r.done) { done++; continue; }
     const due = effDue(r);

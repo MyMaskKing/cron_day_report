@@ -1,6 +1,6 @@
 /**
  * 待办 API
- * 任务 CRUD（无限嵌套子任务）、勾选（父任务级联子树）、免密协作填写、免密报告查看
+ * 任务 CRUD（无限嵌套子任务）、独立完成状态、免密协作填写、免密报告查看
  */
 
 import { json, error } from '../router.js';
@@ -148,9 +148,7 @@ async function updateTodo({ request, env, params }) {
   return json({ success: true, message: '任务已更新' });
 }
 
-/** PUT /api/todo/:id/done  勾选/取消完成  body: { done }
- * 勾选父任务连带其全部子任务一起置为该状态（级联）
- */
+/** PUT /api/todo/:id/done  勾选/取消完成当前任务  body: { done } */
 async function toggleTodo({ request, env, params }) {
   const auth = await requireAuth(request, env);
   if (auth instanceof Response) return auth;
@@ -285,7 +283,7 @@ async function publicAddTodo({ request, env, params }) {
   return json({ success: true, message: '已添加', id });
 }
 
-/** PUT /api/public/todo/:token/:id/done  免密勾选（级联子树），校验目标属该子树
+/** PUT /api/public/todo/:token/:id/done  免密勾选当前任务，校验目标属该子树
  * body: { done }
  */
 async function publicToggleTodo({ request, env, params }) {
@@ -433,7 +431,7 @@ async function publicAllAdd({ request, env, params }) {
   return json({ success: true, message: '已添加', id });
 }
 
-/** PUT /api/public/todo-all/:token/:id/done  免密汇总页勾选（级联子树），校验任务属该用户
+/** PUT /api/public/todo-all/:token/:id/done  免密汇总页勾选当前任务，校验任务属该用户
  * body: { done }
  */
 async function publicAllToggle({ request, env, params }) {

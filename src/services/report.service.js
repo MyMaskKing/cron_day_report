@@ -524,6 +524,8 @@ function buildTodoReport(trees, opts = {}) {
 function statsOfReport(trees, today) {
   let pending = 0, overdue = 0;
   const walk = (node, rootDue) => {
+    // 完成节点代表该分支已结束，后代即使保留未完成状态也不再统计
+    if (node.done) return;
     if (node.children.length > 0) {
       // 有子任务：父不计入，仅递归统计子任务
       for (const c of node.children) walk(c, rootDue);
