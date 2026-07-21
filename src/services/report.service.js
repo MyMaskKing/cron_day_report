@@ -66,6 +66,13 @@ function buildAnalysisText(analysis) {
 function buildFundReportText(items, totals, linkMap, tzOffset, analysis, reportLink = '', profitDelta = null) {
   const line = '━━━━━━━━━━━━━━';
   let t = `📈 基金持仓日报${titleDate(tzOffset)}\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n${line}\n`;
+  // 净值接口异常告警: 若有基金走了缓存/成本价兜底, 顶部醒目提示, 便于用户第一时间发现数据源问题
+  const staleItems = items.filter(it => it.nav_stale);
+  if (staleItems.length) {
+    t += `⚠️ 净值接口异常: ${staleItems.length}/${items.length} 只基金未取到实时净值\n`;
+    t += `　可能原因: 天天基金接口变更或临时故障; 请打开 /fund 页点"🔄 刷新净值"重试\n`;
+    t += `${line}\n`;
+  }
   t += `💰 总本金：${totals.cost}\n`;
   t += `📈 现　值：${totals.value}\n`;
   t += `📊 总收益：${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）\n`;
@@ -74,7 +81,8 @@ function buildFundReportText(items, totals, linkMap, tzOffset, analysis, reportL
   t += `${line}\n`;
   items.forEach((it, i) => {
     const icon = it.profit >= 0 ? '🔴' : '🟢';
-    t += `\n${icon} ${i + 1}. ${it.name}（${it.code}）\n`;
+    const staleTag = it.nav_stale ? '  ⚠️净值兜底' : '';
+    t += `\n${icon} ${i + 1}. ${it.name}（${it.code}）${staleTag}\n`;
     t += `　持仓：${it.shares} 份\n`;
     t += `　现价：${it.current_nav}（${fmtSign(it.gszzl)}%）\n`;
     t += `　收益：${fmtSign(it.profit)}（${fmtSign(it.rate)}%）\n`;
@@ -101,13 +109,19 @@ function buildAnalysisMarkdown(analysis) {
 
 function buildFundReportMarkdown(items, totals, linkMap, tzOffset, analysis, reportLink = '', profitDelta = null) {
   let m = `## 📈 基金持仓日报${titleDate(tzOffset)}\n🕐 ${fmtDateTime(Date.now(), tzOffset)}\n\n`;
+  const staleItems = items.filter(it => it.nav_stale);
+  if (staleItems.length) {
+    m += `> ⚠️ **净值接口异常**: ${staleItems.length}/${items.length} 只基金未取到实时净值\n`;
+    m += `> 可能原因: 天天基金接口变更或临时故障; 请打开 \`/fund\` 页点"🔄 刷新净值"重试\n\n`;
+  }
   m += `💰 总本金：**${totals.cost}** · 现值：**${totals.value}**\n`;
   m += `📊 总收益：**${fmtSign(totals.profit)}（${fmtSign(totals.rate)}%）**\n`;
   if (profitDelta && profitDelta.delta != null) m += `📅 较昨日：**${fmtSign(round2(profitDelta.delta))} 元**\n`;
   else m += `📅 暂无昨日对比数据，次日 15:00 后可见\n`;
   items.forEach((it, i) => {
     const icon = it.profit >= 0 ? '🔴' : '🟢';
-    m += `\n${icon} **${i + 1}. ${it.name}（${it.code}）**\n`;
+    const staleTag = it.nav_stale ? ' ⚠️净值兜底' : '';
+    m += `\n${icon} **${i + 1}. ${it.name}（${it.code}）${staleTag}**\n`;
     m += `> 持仓 ${it.shares} 份 · 现价 ${it.current_nav}（${fmtSign(it.gszzl)}%）\n`;
     m += `> 收益 ${fmtSign(it.profit)}（${fmtSign(it.rate)}%）\n`;
     if (linkMap && linkMap[it.id]) m += `> [➕ 快速加仓](${linkMap[it.id]})\n`;
@@ -129,8 +143,15 @@ function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis, reportL
   const profitColor = totals.profit >= 0 ? '#cf1322' : '#389e0d';
   let h = `<div style="font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;">
     <h2>📈 基金持仓日报</h2>
-    <p>${fmtDateTime(Date.now(), tzOffset)}</p>
-    <p>💰 总本金: ${totals.cost} · 现值: ${totals.value}</p>
+    <p>${fmtDateTime(Date.now(), tzOffset)}</p>`;
+  const staleItems = items.filter(it => it.nav_stale);
+  if (staleItems.length) {
+    h += `<div style="background:#fff2f0;border:1px solid #ffccc7;border-radius:6px;padding:10px 12px;margin:8px 0;color:#a8071a;">
+      ⚠️ <b>净值接口异常</b>: ${staleItems.length}/${items.length} 只基金未取到实时净值
+      <div style="color:#a8071a;font-size:13px;margin-top:4px;">可能原因: 天天基金接口变更或临时故障; 请打开 <code>/fund</code> 页点"🔄 刷新净值"重试</div>
+    </div>`;
+  }
+  h += `<p>💰 总本金: ${totals.cost} · 现值: ${totals.value}</p>
     <p style="color:${profitColor};font-weight:bold;">📊 总收益: ${fmtSign(totals.profit)} (${fmtSign(totals.rate)}%)</p>`;
   if (profitDelta && profitDelta.delta != null) {
     const deltaColor = profitDelta.delta >= 0 ? '#cf1322' : '#389e0d';
@@ -140,10 +161,11 @@ function buildFundReportHTML(items, totals, linkMap, tzOffset, analysis, reportL
   }
   items.forEach((it, i) => {
     const color = it.profit >= 0 ? '#cf1322' : '#389e0d';
+    const staleTag = it.nav_stale ? ' <span style="color:#a8071a;font-size:12px;font-weight:normal;">⚠️净值兜底</span>' : '';
     const link = linkMap && linkMap[it.id]
       ? `<div style="margin-top:6px;"><a href="${linkMap[it.id]}" style="color:#4a6cf7;">➕ 快速加仓</a></div>` : '';
     h += `<div style="background:#f8f9fa;margin:8px 0;padding:12px;border-radius:6px;border-left:4px solid ${color};">
-      <div><b>${i + 1}. ${it.name} (${it.code})</b></div>
+      <div><b>${i + 1}. ${it.name} (${it.code})</b>${staleTag}</div>
       <div style="color:#6c757d;font-size:14px;">持仓 ${it.shares} 份 · 现价 ${it.current_nav} (${fmtSign(it.gszzl)}%)</div>
       <div style="color:${color};">收益: ${fmtSign(it.profit)} (${fmtSign(it.rate)}%)</div>
       ${link}
