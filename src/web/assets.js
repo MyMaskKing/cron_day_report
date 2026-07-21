@@ -5110,26 +5110,12 @@ function visibleTrees() {
   if (_filter === 'done')    return trees.filter(function(n){ return n.done; });
   return trees;
 }
-// 统计（口径同日报 statsOfReport）：基于可见树，子任务继承顶层截止日期判逾期
+// 统计（口径同后端 countStats）：基于可见树, 叶子任务; 备忘录(顶层无 due_date)不计入 pending/overdue
 // 已完成一栏按 _filter 联动: cur→今日+逾期完成, today→今日, overdue/future/memo→各自类别, all/done→当月
 function renderStats(trees) {
-  var pending = 0, overdue = 0;
-  function walk(node, rootDue){
-    // 完成节点代表该分支已结束，后代状态保留但不计入未完成/逾期
-    if (node.done) return;
-    if (node.children.length > 0) {
-      // 有子任务：父不计入，仅递归统计子任务（叶子口径，与后端 countStats 一致）
-      node.children.forEach(function(c){ walk(c, rootDue); });
-      return;
-    }
-    if (!node.done) {
-      pending++;
-      if (rootDue && _today && rootDue < _today) overdue++;
-    }
-  }
-  trees.forEach(function(root){ walk(root, root.due_date); });
-  document.getElementById('stPending').textContent = pending;
-  document.getElementById('stOverdue').textContent = overdue;
+  var s = todoStatsByVisible(trees, _today);
+  document.getElementById('stPending').textContent = s.pending;
+  document.getElementById('stOverdue').textContent = s.overdue;
   document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
   updateStatsHint(_filter, _curRange);
 }
