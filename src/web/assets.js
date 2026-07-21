@@ -5264,11 +5264,12 @@ if (_tf) _tf.addEventListener('click', function(e){
   _filter = btn.getAttribute('data-filter');
   Array.prototype.forEach.call(this.querySelectorAll('button'), function(b){ b.classList.remove('active'); });
   btn.classList.add('active');
-  // 已完成计数按 filter × range 双维度联动
-  document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
+  // 未完成/已逾期/已完成 三项均按当前筛选后的可见顶层树重算
+  var trees = visibleTrees();
+  renderStats(trees);
   updateStatsHint(_filter, _curRange);
   syncChartRangeToFilter(_filter);
-  drawTree(visibleTrees());
+  drawTree(trees);
 });
 loadCollab();
 `;
