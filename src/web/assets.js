@@ -5178,7 +5178,8 @@ function drawTree(trees) {
         await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadCollab();
         if (done) {
-          var cc = todoCelebrationCount(visibleTrees());
+          // datedOnly=true 排除备忘录, 与画面未完成栏(todoStatsByVisible)口径一致
+          var cc = todoCelebrationCount(visibleTrees(), true);
           todoCelebrate(cc.remaining, cc.total);
         }
       }
