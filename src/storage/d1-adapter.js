@@ -65,6 +65,13 @@ function createD1Adapter(env) {
       async countAdmins() {
         const row = await db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").first();
         return row ? row.c : 0;
+      },
+      async getInvestmentStrategy(userId) {
+        const row = await db.prepare('SELECT investment_strategy FROM users WHERE id = ?').bind(userId).first();
+        return row ? row.investment_strategy : null;
+      },
+      async setInvestmentStrategy(userId, content) {
+        await db.prepare('UPDATE users SET investment_strategy = ? WHERE id = ?').bind(content, userId).run();
       }
     },
 

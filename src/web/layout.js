@@ -370,6 +370,59 @@ body.booting { overflow: hidden; position: fixed; width: 100%; touch-action: non
 .dropdown-menu button { display: block; width: 100%; text-align: left; padding: 9px 14px; border: none; background: none; font-size: 14px; cursor: pointer; color: #1f2329; }
 .dropdown-menu button:hover { background: #f5f7ff; }
 .dropdown-menu button.danger { color: #dc3545; }
+/* 投资策略: 悬浮按钮 + 可拖拽悬浮框 */
+.strat-fab {
+  position: fixed; right: 24px; bottom: 24px; z-index: 998;
+  width: 52px; height: 52px; border-radius: 50%; border: none;
+  background: linear-gradient(135deg, #667eea, #4a6cf7); color: #fff;
+  font-size: 24px; cursor: pointer; box-shadow: 0 6px 18px rgba(74,108,247,.4);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.strat-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(74,108,247,.5); }
+.strat-panel {
+  position: fixed; right: 24px; bottom: 88px; z-index: 999;
+  width: 380px; max-width: calc(100vw - 32px);
+  max-height: min(560px, 80vh); background: #fff;
+  border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid #e6e8f0;
+}
+.strat-head {
+  padding: 10px 14px; background: linear-gradient(135deg, #667eea, #4a6cf7);
+  color: #fff; cursor: move; user-select: none;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.strat-title { font-size: 14px; font-weight: 600; }
+.strat-actions { display: flex; align-items: center; gap: 6px; }
+.strat-actions .btn.sm { padding: 4px 10px; font-size: 12px; }
+.strat-close { cursor: pointer; font-size: 20px; line-height: 1; padding: 0 4px; }
+.strat-close:hover { opacity: .75; }
+.strat-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+.strat-view { font-size: 14px; line-height: 1.7; color: #1f2329; word-break: break-word; }
+.strat-view h1, .strat-view h2, .strat-view h3 { margin: 10px 0 6px; font-weight: 600; }
+.strat-view h1 { font-size: 18px; }
+.strat-view h2 { font-size: 16px; }
+.strat-view h3 { font-size: 15px; }
+.strat-view p { margin: 6px 0; }
+.strat-view ul, .strat-view ol { margin: 6px 0; padding-left: 22px; }
+.strat-view li { margin: 3px 0; }
+.strat-view code { background: #f2f4f8; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+.strat-view pre { background: #f6f8fa; padding: 10px; border-radius: 6px; overflow-x: auto; margin: 8px 0; }
+.strat-view pre code { background: none; padding: 0; }
+.strat-view blockquote { border-left: 3px solid #d9dbe3; padding-left: 10px; color: #666; margin: 6px 0; }
+.strat-view a { color: #4a6cf7; text-decoration: none; }
+.strat-view a:hover { text-decoration: underline; }
+.strat-view hr { border: none; border-top: 1px solid #eee; margin: 10px 0; }
+.strat-view strong { font-weight: 600; }
+.strat-editor {
+  width: 100%; min-height: 320px; padding: 10px 12px;
+  border: 1px solid #d9dbe3; border-radius: 8px; resize: vertical;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6;
+}
+@media (max-width: 480px) {
+  .strat-panel { right: 12px; left: 12px; width: auto; bottom: 80px; }
+  .strat-fab { right: 16px; bottom: 16px; }
+}
 .multi-pick { position: relative; display: inline-block; width: 100%; }
 /* 已选值显示按钮: 允许多行, 长文本自动换行 */
 .mp-btn {

@@ -1903,7 +1903,201 @@ document.getElementById('scRun').addEventListener('click', async function(){
       (r.missing ? '; 无净值 ' + r.missing + ' 只(按成本价计, 今日收益记 0)' : '');
     alertModal(tip);
   });
+  // 初始化投资策略悬浮面板 (独立入口, 不阻塞主流程)
+  initStrategyPanel();
 })();
+
+// ============ 投资策略: 悬浮按钮 + 可拖拽面板 + 简易 Markdown 渲染 ============
+// 已设置(内容非空) -> 显示 📝 圆形悬浮按钮, 点击展开面板; 未设置 -> 显示底部"记录我的投资策略"CTA 按钮.
+// 面板可通过标题栏拖动(桌面 mousedown / 移动 touchstart), 位置存 localStorage, 下次打开复原.
+// Markdown 渲染: 支持 # 标题 / 列表 / **加粗** / *斜体* / \`code\` / [链接](url) / --- 分割线 / > 引用 / \`\`\`代码块\`\`\`.
+var _stratLoaded = null;   // 服务端已保存的内容, 用于取消编辑时回退
+function _mdEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function renderMarkdown(src){
+  if (!src) return '<p class="muted">还没有内容, 点右上"编辑"开始记录你的投资策略</p>';
+  var lines = String(src).replace(/\\r\\n/g,'\\n').split('\\n');
+  var out = [], i = 0;
+  function inline(s){
+    // 代码块内不再转义, 其他先转义再替换标记 (转义后 [text](url) 里的 url 仍可用, 因为 & 不影响我们的正则)
+    s = _mdEsc(s);
+    // 行内代码
+    s = s.replace(/\`([^\`]+)\`/g, '<code>$1</code>');
+    // 加粗/斜体 (先双星再单星避免嵌套误判)
+    s = s.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
+    s = s.replace(/\\*([^*]+)\\*/g, '<em>$1</em>');
+    // 链接 [text](url) - url 只允许 http/https/相对路径
+    s = s.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, function(m, t, u){
+      var safe = /^(https?:\\/\\/|\\/|#)/.test(u) ? u : '#';
+      return '<a href="' + safe + '" target="_blank" rel="noopener">' + t + '</a>';
+    });
+    return s;
+  }
+  while (i < lines.length){
+    var line = lines[i];
+    // 代码块 \`\`\`
+    if (/^\`\`\`/.test(line)) {
+      var lang = line.replace(/^\`\`\`\\s*/, '').trim();
+      i++;
+      var buf = [];
+      while (i < lines.length && !/^\`\`\`/.test(lines[i])) { buf.push(lines[i]); i++; }
+      i++;
+      out.push('<pre><code>' + _mdEsc(buf.join('\\n')) + '</code></pre>');
+      continue;
+    }
+    // 分割线
+    if (/^\\s*---+\\s*$/.test(line)) { out.push('<hr>'); i++; continue; }
+    // 标题
+    var mh = line.match(/^(#{1,3})\\s+(.+)$/);
+    if (mh) { var lv = mh[1].length; out.push('<h' + lv + '>' + inline(mh[2]) + '</h' + lv + '>'); i++; continue; }
+    // 引用
+    if (/^>\\s?/.test(line)) {
+      var qb = [];
+      while (i < lines.length && /^>\\s?/.test(lines[i])) { qb.push(lines[i].replace(/^>\\s?/, '')); i++; }
+      out.push('<blockquote>' + inline(qb.join(' ')) + '</blockquote>');
+      continue;
+    }
+    // 无序列表
+    if (/^\\s*[-*+]\\s+/.test(line)) {
+      var lb = [];
+      while (i < lines.length && /^\\s*[-*+]\\s+/.test(lines[i])) { lb.push(lines[i].replace(/^\\s*[-*+]\\s+/, '')); i++; }
+      out.push('<ul>' + lb.map(function(x){ return '<li>' + inline(x) + '</li>'; }).join('') + '</ul>');
+      continue;
+    }
+    // 有序列表
+    if (/^\\s*\\d+\\.\\s+/.test(line)) {
+      var ob = [];
+      while (i < lines.length && /^\\s*\\d+\\.\\s+/.test(lines[i])) { ob.push(lines[i].replace(/^\\s*\\d+\\.\\s+/, '')); i++; }
+      out.push('<ol>' + ob.map(function(x){ return '<li>' + inline(x) + '</li>'; }).join('') + '</ol>');
+      continue;
+    }
+    // 空行 -> 段落分隔
+    if (/^\\s*$/.test(line)) { i++; continue; }
+    // 普通段落 (连续非空行合并)
+    var pb = [];
+    while (i < lines.length && !/^\\s*$/.test(lines[i])
+      && !/^(#{1,3})\\s+/.test(lines[i]) && !/^\\s*[-*+]\\s+/.test(lines[i])
+      && !/^\\s*\\d+\\.\\s+/.test(lines[i]) && !/^>\\s?/.test(lines[i])
+      && !/^\`\`\`/.test(lines[i]) && !/^\\s*---+\\s*$/.test(lines[i])) {
+      pb.push(lines[i]); i++;
+    }
+    out.push('<p>' + inline(pb.join(' ')) + '</p>');
+  }
+  return out.join('');
+}
+function _stratRefreshEntry(content){
+  var hasContent = !!(content && content.trim());
+  var fab = document.getElementById('stratFab');
+  var cta = document.getElementById('stratSetup');
+  if (hasContent) { if (fab) fab.style.display = 'inline-block'; if (cta) cta.style.display = 'none'; }
+  else { if (fab) fab.style.display = 'none'; if (cta) cta.style.display = 'inline-block'; }
+}
+function _stratOpen(){
+  var panel = document.getElementById('stratPanel');
+  if (!panel) return;
+  panel.style.display = 'flex';
+  // 恢复上次位置
+  try {
+    var pos = JSON.parse(localStorage.getItem('stratPanelPos') || 'null');
+    if (pos && typeof pos.left === 'number' && typeof pos.top === 'number') {
+      panel.style.left = pos.left + 'px'; panel.style.top = pos.top + 'px';
+      panel.style.right = 'auto'; panel.style.bottom = 'auto';
+    }
+  } catch(e){}
+  _stratShowView(_stratLoaded);
+}
+function _stratClose(){
+  var panel = document.getElementById('stratPanel');
+  if (panel) panel.style.display = 'none';
+}
+function _stratShowView(content){
+  document.getElementById('stratView').innerHTML = renderMarkdown(content || '');
+  document.getElementById('stratView').style.display = 'block';
+  document.getElementById('stratEditor').style.display = 'none';
+  document.getElementById('stratEdit').style.display = 'inline-block';
+  document.getElementById('stratSave').style.display = 'none';
+  document.getElementById('stratCancel').style.display = 'none';
+}
+function _stratShowEdit(content){
+  var ta = document.getElementById('stratEditor');
+  ta.value = content || '';
+  document.getElementById('stratView').style.display = 'none';
+  ta.style.display = 'block';
+  document.getElementById('stratEdit').style.display = 'none';
+  document.getElementById('stratSave').style.display = 'inline-block';
+  document.getElementById('stratCancel').style.display = 'inline-block';
+  setTimeout(function(){ ta.focus(); }, 30);
+}
+function _stratBindDrag(){
+  var panel = document.getElementById('stratPanel');
+  var head = document.getElementById('stratHead');
+  if (!panel || !head) return;
+  var dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  function down(clientX, clientY){
+    dragging = true;
+    var rect = panel.getBoundingClientRect();
+    // 切换到 left/top 定位, 释放 right/bottom
+    panel.style.left = rect.left + 'px'; panel.style.top = rect.top + 'px';
+    panel.style.right = 'auto'; panel.style.bottom = 'auto';
+    sx = clientX; sy = clientY; ox = rect.left; oy = rect.top;
+    document.body.style.userSelect = 'none';
+  }
+  function move(clientX, clientY){
+    if (!dragging) return;
+    var nx = ox + (clientX - sx), ny = oy + (clientY - sy);
+    var w = panel.offsetWidth, h = panel.offsetHeight;
+    nx = Math.max(4, Math.min(window.innerWidth - w - 4, nx));
+    ny = Math.max(4, Math.min(window.innerHeight - h - 4, ny));
+    panel.style.left = nx + 'px'; panel.style.top = ny + 'px';
+  }
+  function up(){
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+    try { localStorage.setItem('stratPanelPos', JSON.stringify({ left: parseInt(panel.style.left,10), top: parseInt(panel.style.top,10) })); } catch(e){}
+  }
+  head.addEventListener('mousedown', function(e){
+    // 点击按钮/关闭区不触发拖动
+    if (e.target.closest('button') || e.target.closest('.strat-close')) return;
+    down(e.clientX, e.clientY); e.preventDefault();
+  });
+  document.addEventListener('mousemove', function(e){ move(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', up);
+  head.addEventListener('touchstart', function(e){
+    if (e.target.closest('button') || e.target.closest('.strat-close')) return;
+    var t = e.touches[0]; down(t.clientX, t.clientY);
+  }, {passive: true});
+  document.addEventListener('touchmove', function(e){
+    if (!dragging) return; var t = e.touches[0]; move(t.clientX, t.clientY);
+  }, {passive: true});
+  document.addEventListener('touchend', up);
+}
+function initStrategyPanel(){
+  // 拉取当前内容, 决定入口形态; 失败时保持默认 CTA 可见, 不阻塞用户
+  api('/api/fund/strategy').then(function(d){
+    _stratLoaded = d && d.content || '';
+    _stratRefreshEntry(_stratLoaded);
+  }).catch(function(err){
+    console.warn('[strategy] load failed:', err && err.message);
+    _stratRefreshEntry('');   // 兜底: 显示 CTA 按钮, 用户仍可进入编辑并保存
+  });
+  document.getElementById('stratFab').addEventListener('click', _stratOpen);
+  document.getElementById('stratSetup').addEventListener('click', function(){
+    _stratOpen(); _stratShowEdit(_stratLoaded);
+  });
+  document.getElementById('stratClose').addEventListener('click', _stratClose);
+  document.getElementById('stratEdit').addEventListener('click', function(){ _stratShowEdit(_stratLoaded); });
+  document.getElementById('stratCancel').addEventListener('click', function(){ _stratShowView(_stratLoaded); });
+  bindClickBusy(document.getElementById('stratSave'), async function(){
+    var v = document.getElementById('stratEditor').value;
+    var r = await api('/api/fund/strategy', { method: 'PUT', body: { content: v }, loadingText: '正在保存投资策略…' });
+    if (r && r.success) {
+      _stratLoaded = v;
+      _stratRefreshEntry(_stratLoaded);
+      _stratShowView(_stratLoaded);
+    }
+  });
+  _stratBindDrag();
+}
 `;
 
 // 免密加仓公开页 JS（无需登录，通过 URL 中的 token 操作）

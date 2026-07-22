@@ -451,9 +451,31 @@ async function publicFundReport({ env, params }) {
   return json({ success: true, items, totals: portfolio.totals, profitSeries });
 }
 
+/** GET /api/fund/strategy  读取当前用户的投资策略（Markdown） */
+async function getStrategy({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const content = await storage.users.getInvestmentStrategy(auth.user_id);
+  return json({ success: true, content: content || '' });
+}
+
+/** PUT /api/fund/strategy  保存当前用户的投资策略（Markdown）  body: { content } */
+async function setStrategy({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const content = typeof body.content === 'string' ? body.content : '';
+  if (content.length > 20000) return error('投资策略内容不能超过 20000 字符');
+  const storage = getStorage(env);
+  await storage.users.setInvestmentStrategy(auth.user_id, content || null);
+  return json({ success: true, message: '投资策略已保存' });
+}
+
 export {
   listFunds, createFund, updateFund, removeFund,
   fundReport, refreshFundNav, getReportConfig, setReportConfig, sendReport, fundAnalysis,
   getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund,
-  fundProfitHistory
+  fundProfitHistory,
+  getStrategy, setStrategy
 };

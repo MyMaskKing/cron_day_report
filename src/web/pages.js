@@ -365,7 +365,26 @@ function fundPage(user) {
       <button class="btn" id="scRun">开始测算</button>
       <div id="scResult" style="margin-top:14px;"></div>
     </div>
-  </div>`;
+  </div>
+
+  <!-- 投资策略: 悬浮按钮 + 可拖拽悬浮框, 内容为 Markdown, 存于当前用户 -->
+  <button id="stratFab" class="strat-fab" title="投资策略" style="display:none;">📝</button>
+  <div id="stratPanel" class="strat-panel" style="display:none;">
+    <div class="strat-head" id="stratHead">
+      <span class="strat-title">📝 我的投资策略</span>
+      <span class="strat-actions">
+        <button class="btn sm gray" id="stratEdit">编辑</button>
+        <button class="btn sm" id="stratSave" style="display:none;">保存</button>
+        <button class="btn sm gray" id="stratCancel" style="display:none;">取消</button>
+        <span class="strat-close" id="stratClose">&times;</span>
+      </span>
+    </div>
+    <div class="strat-body">
+      <div id="stratView" class="strat-view"></div>
+      <textarea id="stratEditor" class="strat-editor" style="display:none;" placeholder="用 Markdown 记录你的投资策略, 例如:&#10;&#10;## 核心原则&#10;- 长期持有指数基金&#10;- 单只不超过 30%&#10;&#10;## 加/减仓规则&#10;- 跌 10% 分批加仓&#10;- 涨 20% 止盈一半"></textarea>
+    </div>
+  </div>
+  <button id="stratSetup" class="btn" style="position:fixed;right:24px;bottom:24px;z-index:998;box-shadow:0 4px 12px rgba(74,108,247,.35);">📝 记录我的投资策略</button>`;
   return renderPage({ title: '基金追踪', body, script: FUND_JS });
 }
 
