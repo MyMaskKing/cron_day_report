@@ -370,7 +370,7 @@ body.booting { overflow: hidden; position: fixed; width: 100%; touch-action: non
 .dropdown-menu button { display: block; width: 100%; text-align: left; padding: 9px 14px; border: none; background: none; font-size: 14px; cursor: pointer; color: #1f2329; }
 .dropdown-menu button:hover { background: #f5f7ff; }
 .dropdown-menu button.danger { color: #dc3545; }
-/* 投资策略: 悬浮按钮 + 可拖拽悬浮框 */
+/* 投资策略: 悬浮按钮 + 可拖拽/可缩放悬浮框 */
 .strat-fab {
   position: fixed; right: 24px; bottom: 24px; z-index: 998;
   width: 52px; height: 52px; border-radius: 50%; border: none;
@@ -379,25 +379,29 @@ body.booting { overflow: hidden; position: fixed; width: 100%; touch-action: non
   transition: transform .15s ease, box-shadow .15s ease;
 }
 .strat-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(74,108,247,.5); }
+/* 桌面: 面板本身 resize: both, 右下角可拖拉调尺寸; 位置由 JS 拖动标题栏改 left/top */
 .strat-panel {
   position: fixed; right: 24px; bottom: 88px; z-index: 999;
-  width: 380px; max-width: calc(100vw - 32px);
-  max-height: min(560px, 80vh); background: #fff;
-  border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  width: 380px; height: 460px;
+  min-width: 280px; min-height: 240px;
+  max-width: calc(100vw - 16px); max-height: calc(100vh - 16px);
+  background: #fff; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.18);
   display: flex; flex-direction: column; overflow: hidden;
   border: 1px solid #e6e8f0;
+  resize: both;
 }
 .strat-head {
   padding: 10px 14px; background: linear-gradient(135deg, #667eea, #4a6cf7);
-  color: #fff; cursor: move; user-select: none;
-  display: flex; align-items: center; justify-content: space-between;
+  color: #fff; cursor: move; user-select: none; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
-.strat-title { font-size: 14px; font-weight: 600; }
-.strat-actions { display: flex; align-items: center; gap: 6px; }
+.strat-title { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.strat-actions { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
 .strat-actions .btn.sm { padding: 4px 10px; font-size: 12px; }
 .strat-close { cursor: pointer; font-size: 20px; line-height: 1; padding: 0 4px; }
 .strat-close:hover { opacity: .75; }
-.strat-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+/* body 撑满剩余空间, 内部滚动 */
+.strat-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; }
 .strat-view { font-size: 14px; line-height: 1.7; color: #1f2329; word-break: break-word; }
 .strat-view h1, .strat-view h2, .strat-view h3 { margin: 10px 0 6px; font-weight: 600; }
 .strat-view h1 { font-size: 18px; }
@@ -414,14 +418,28 @@ body.booting { overflow: hidden; position: fixed; width: 100%; touch-action: non
 .strat-view a:hover { text-decoration: underline; }
 .strat-view hr { border: none; border-top: 1px solid #eee; margin: 10px 0; }
 .strat-view strong { font-weight: 600; }
+/* editor: 面板尺寸变时撑满剩余; 关掉 textarea 自身 resize, 由面板整体 resize 控制 */
 .strat-editor {
-  width: 100%; min-height: 320px; padding: 10px 12px;
-  border: 1px solid #d9dbe3; border-radius: 8px; resize: vertical;
+  width: 100%; flex: 1 1 auto; min-height: 160px; padding: 10px 12px;
+  border: 1px solid #d9dbe3; border-radius: 8px; resize: none;
   font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6;
 }
-@media (max-width: 480px) {
-  .strat-panel { right: 12px; left: 12px; width: auto; bottom: 80px; }
-  .strat-fab { right: 16px; bottom: 16px; }
+/* 手机: 贴底大浮层, 禁 resize/位置拖动, 高度稳定 */
+@media (max-width: 640px) {
+  .strat-panel {
+    left: 8px !important; right: 8px !important;
+    top: auto !important; bottom: 8px !important;
+    width: auto !important; height: 75vh !important;
+    max-height: calc(100vh - 16px); min-width: 0; min-height: 0;
+    resize: none; border-radius: 14px;
+  }
+  .strat-head { cursor: default; padding: 12px 14px; }
+  .strat-title { font-size: 15px; }
+  .strat-actions .btn.sm { padding: 6px 12px; font-size: 13px; }
+  .strat-close { font-size: 24px; padding: 0 6px; }
+  .strat-body { padding: 12px 14px; }
+  .strat-fab { right: 16px; bottom: 16px; width: 48px; height: 48px; font-size: 22px; }
+  #stratSetup { right: 12px !important; left: 12px !important; bottom: 16px !important; width: auto; }
 }
 .multi-pick { position: relative; display: inline-block; width: 100%; }
 /* 已选值显示按钮: 允许多行, 长文本自动换行 */

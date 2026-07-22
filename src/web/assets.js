@@ -1991,18 +1991,28 @@ function _stratRefreshEntry(content){
   if (hasContent) { if (fab) fab.style.display = 'inline-block'; if (cta) cta.style.display = 'none'; }
   else { if (fab) fab.style.display = 'none'; if (cta) cta.style.display = 'inline-block'; }
 }
+function _stratIsMobile(){ return window.matchMedia && window.matchMedia('(max-width: 640px)').matches; }
 function _stratOpen(){
   var panel = document.getElementById('stratPanel');
   if (!panel) return;
   panel.style.display = 'flex';
-  // 恢复上次位置
-  try {
-    var pos = JSON.parse(localStorage.getItem('stratPanelPos') || 'null');
-    if (pos && typeof pos.left === 'number' && typeof pos.top === 'number') {
-      panel.style.left = pos.left + 'px'; panel.style.top = pos.top + 'px';
-      panel.style.right = 'auto'; panel.style.bottom = 'auto';
-    }
-  } catch(e){}
+  // 恢复上次位置 + 尺寸(仅桌面; 手机走 CSS 贴底浮层)
+  if (!_stratIsMobile()) {
+    try {
+      var pos = JSON.parse(localStorage.getItem('stratPanelPos') || 'null');
+      if (pos && typeof pos.left === 'number' && typeof pos.top === 'number') {
+        // 复原位置前夹一次视口, 防止上次拖到边缘后窗口缩小导致飞出屏外
+        var w = (pos.width && pos.width > 0) ? pos.width : panel.offsetWidth;
+        var h = (pos.height && pos.height > 0) ? pos.height : panel.offsetHeight;
+        var left = Math.max(4, Math.min(window.innerWidth - w - 4, pos.left));
+        var top = Math.max(4, Math.min(window.innerHeight - h - 4, pos.top));
+        panel.style.left = left + 'px'; panel.style.top = top + 'px';
+        panel.style.right = 'auto'; panel.style.bottom = 'auto';
+        if (pos.width) panel.style.width = pos.width + 'px';
+        if (pos.height) panel.style.height = pos.height + 'px';
+      }
+    } catch(e){}
+  }
   _stratShowView(_stratLoaded);
 }
 function _stratClose(){
@@ -2027,17 +2037,31 @@ function _stratShowEdit(content){
   document.getElementById('stratCancel').style.display = 'inline-block';
   setTimeout(function(){ ta.focus(); }, 30);
 }
+// 保存当前位置+尺寸到 localStorage (仅桌面, 手机端由 CSS 强制布局, 不写)
+function _stratPersistBox(panel){
+  if (_stratIsMobile()) return;
+  try {
+    localStorage.setItem('stratPanelPos', JSON.stringify({
+      left: parseInt(panel.style.left, 10) || panel.getBoundingClientRect().left,
+      top: parseInt(panel.style.top, 10) || panel.getBoundingClientRect().top,
+      width: panel.offsetWidth,
+      height: panel.offsetHeight
+    }));
+  } catch(e){}
+}
 function _stratBindDrag(){
   var panel = document.getElementById('stratPanel');
   var head = document.getElementById('stratHead');
   if (!panel || !head) return;
   var dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
   function down(clientX, clientY){
+    if (_stratIsMobile()) return;   // 手机: 面板贴底固定, 禁拖动
     dragging = true;
     var rect = panel.getBoundingClientRect();
-    // 切换到 left/top 定位, 释放 right/bottom
+    // 切换到 left/top 定位, 释放 right/bottom; 同时锁死当前宽高避免 resize:both 被右侧夹紧改变
     panel.style.left = rect.left + 'px'; panel.style.top = rect.top + 'px';
     panel.style.right = 'auto'; panel.style.bottom = 'auto';
+    panel.style.width = rect.width + 'px'; panel.style.height = rect.height + 'px';
     sx = clientX; sy = clientY; ox = rect.left; oy = rect.top;
     document.body.style.userSelect = 'none';
   }
@@ -2053,7 +2077,7 @@ function _stratBindDrag(){
     if (!dragging) return;
     dragging = false;
     document.body.style.userSelect = '';
-    try { localStorage.setItem('stratPanelPos', JSON.stringify({ left: parseInt(panel.style.left,10), top: parseInt(panel.style.top,10) })); } catch(e){}
+    _stratPersistBox(panel);
   }
   head.addEventListener('mousedown', function(e){
     // 点击按钮/关闭区不触发拖动
@@ -2063,6 +2087,7 @@ function _stratBindDrag(){
   document.addEventListener('mousemove', function(e){ move(e.clientX, e.clientY); });
   document.addEventListener('mouseup', up);
   head.addEventListener('touchstart', function(e){
+    if (_stratIsMobile()) return;
     if (e.target.closest('button') || e.target.closest('.strat-close')) return;
     var t = e.touches[0]; down(t.clientX, t.clientY);
   }, {passive: true});
@@ -2070,6 +2095,80 @@ function _stratBindDrag(){
     if (!dragging) return; var t = e.touches[0]; move(t.clientX, t.clientY);
   }, {passive: true});
   document.addEventListener('touchend', up);
+  // 监听 resize:both 拖角落造成的尺寸变化, 持久化 (ResizeObserver 覆盖桌面主流浏览器)
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(function(){
+      if (panel.style.display === 'none' || _stratIsMobile()) return;
+      _stratPersistBox(panel);
+    });
+    ro.observe(panel);
+  }
+}
+// FAB 悬浮按钮可拖动: 位移 < 阈值视为点击(打开面板), 否则视为拖动(仅挪位置, 存 localStorage)
+// 手机上 CSS 已把 fab 缩到 48px 右下 16px, 但用户仍可能需要挪开避免挡视线
+function _stratBindFabDrag(){
+  var fab = document.getElementById('stratFab');
+  if (!fab) return;
+  var DRAG_THRESHOLD = 5;   // 位移 <5px 判定点击
+  var dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  // 恢复上次 FAB 位置(桌面/手机通用; 一份 storage)
+  function _restoreFabPos(){
+    try {
+      var pos = JSON.parse(localStorage.getItem('stratFabPos') || 'null');
+      if (pos && typeof pos.left === 'number' && typeof pos.top === 'number') {
+        var w = fab.offsetWidth || 52, h = fab.offsetHeight || 52;
+        var left = Math.max(4, Math.min(window.innerWidth - w - 4, pos.left));
+        var top = Math.max(4, Math.min(window.innerHeight - h - 4, pos.top));
+        fab.style.left = left + 'px'; fab.style.top = top + 'px';
+        fab.style.right = 'auto'; fab.style.bottom = 'auto';
+      }
+    } catch(e){}
+  }
+  _restoreFabPos();
+  window.addEventListener('resize', _restoreFabPos);   // 屏幕方向/尺寸变化时夹回视口
+  function down(clientX, clientY){
+    dragging = true; moved = false;
+    var rect = fab.getBoundingClientRect();
+    fab.style.left = rect.left + 'px'; fab.style.top = rect.top + 'px';
+    fab.style.right = 'auto'; fab.style.bottom = 'auto';
+    sx = clientX; sy = clientY; ox = rect.left; oy = rect.top;
+    document.body.style.userSelect = 'none';
+  }
+  function move(clientX, clientY){
+    if (!dragging) return;
+    var dx = clientX - sx, dy = clientY - sy;
+    if (!moved && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) moved = true;
+    if (!moved) return;
+    var w = fab.offsetWidth, h = fab.offsetHeight;
+    var nx = Math.max(4, Math.min(window.innerWidth - w - 4, ox + dx));
+    var ny = Math.max(4, Math.min(window.innerHeight - h - 4, oy + dy));
+    fab.style.left = nx + 'px'; fab.style.top = ny + 'px';
+  }
+  function up(){
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+    if (moved) {
+      try { localStorage.setItem('stratFabPos', JSON.stringify({ left: parseInt(fab.style.left,10), top: parseInt(fab.style.top,10) })); } catch(e){}
+    } else {
+      // 未达拖动阈值 -> 视为点击, 打开面板
+      _stratOpen();
+    }
+  }
+  fab.addEventListener('mousedown', function(e){ down(e.clientX, e.clientY); e.preventDefault(); });
+  document.addEventListener('mousemove', function(e){ move(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', up);
+  fab.addEventListener('touchstart', function(e){
+    var t = e.touches[0]; down(t.clientX, t.clientY);
+  }, {passive: true});
+  document.addEventListener('touchmove', function(e){
+    if (!dragging) return; var t = e.touches[0]; move(t.clientX, t.clientY);
+    if (moved) e.preventDefault();   // 拖动中禁页面滚动
+  }, {passive: false});
+  document.addEventListener('touchend', up);
+  fab.addEventListener('touchcancel', up);
+  // 阻断浏览器原生 click(手机上 touchend 后仍会补一次), 由我们自己在 up() 里派发"点击=打开"
+  fab.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); });
 }
 function initStrategyPanel(){
   // 拉取当前内容, 决定入口形态; 失败时保持默认 CTA 可见, 不阻塞用户
@@ -2080,7 +2179,7 @@ function initStrategyPanel(){
     console.warn('[strategy] load failed:', err && err.message);
     _stratRefreshEntry('');   // 兜底: 显示 CTA 按钮, 用户仍可进入编辑并保存
   });
-  document.getElementById('stratFab').addEventListener('click', _stratOpen);
+  _stratBindFabDrag();   // FAB 悬浮按钮可拖动(手机端尤其需要, 避免挡视线)
   document.getElementById('stratSetup').addEventListener('click', function(){
     _stratOpen(); _stratShowEdit(_stratLoaded);
   });
