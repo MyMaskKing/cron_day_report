@@ -377,6 +377,7 @@ body.booting { overflow: hidden; position: fixed; width: 100%; touch-action: non
   background: linear-gradient(135deg, #667eea, #4a6cf7); color: #fff;
   font-size: 24px; cursor: pointer; box-shadow: 0 6px 18px rgba(74,108,247,.4);
   transition: transform .15s ease, box-shadow .15s ease;
+  touch-action: none;
 }
 .strat-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(74,108,247,.5); }
 /* 桌面: 面板本身 resize: both, 右下角可拖拉调尺寸; 位置由 JS 拖动标题栏改 left/top */
@@ -394,6 +395,7 @@ body.booting { overflow: hidden; position: fixed; width: 100%; touch-action: non
   padding: 10px 14px; background: linear-gradient(135deg, #667eea, #4a6cf7);
   color: #fff; cursor: move; user-select: none; flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  touch-action: none;
 }
 .strat-title { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .strat-actions { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }

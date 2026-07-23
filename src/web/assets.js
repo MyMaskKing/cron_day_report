@@ -2090,10 +2090,12 @@ function _stratBindDrag(){
     if (_stratIsMobile()) return;
     if (e.target.closest('button') || e.target.closest('.strat-close')) return;
     var t = e.touches[0]; down(t.clientX, t.clientY);
-  }, {passive: true});
+    if (e.cancelable) e.preventDefault();   // 屏蔽浏览器边缘手势(返回/翻页)
+  }, {passive: false});
   document.addEventListener('touchmove', function(e){
     if (!dragging) return; var t = e.touches[0]; move(t.clientX, t.clientY);
-  }, {passive: true});
+    if (e.cancelable) e.preventDefault();
+  }, {passive: false});
   document.addEventListener('touchend', up);
   // 监听 resize:both 拖角落造成的尺寸变化, 持久化 (ResizeObserver 覆盖桌面主流浏览器)
   if (window.ResizeObserver) {
@@ -2160,10 +2162,12 @@ function _stratBindFabDrag(){
   document.addEventListener('mouseup', up);
   fab.addEventListener('touchstart', function(e){
     var t = e.touches[0]; down(t.clientX, t.clientY);
-  }, {passive: true});
+    // 一按下就 preventDefault, 屏蔽浏览器边缘手势(返回/翻页)与页面滚动
+    if (e.cancelable) e.preventDefault();
+  }, {passive: false});
   document.addEventListener('touchmove', function(e){
     if (!dragging) return; var t = e.touches[0]; move(t.clientX, t.clientY);
-    if (moved) e.preventDefault();   // 拖动中禁页面滚动
+    if (e.cancelable) e.preventDefault();   // 拖动中禁页面滚动 & 手势
   }, {passive: false});
   document.addEventListener('touchend', up);
   fab.addEventListener('touchcancel', up);
