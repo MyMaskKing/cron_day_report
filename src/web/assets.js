@@ -901,8 +901,12 @@ function bindClickBusy(btn, handler) {
   });
 }
 // 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
-// 同步启用全局左滑返回手势(pointer events, 移动端/桌面通用, 从左缘 24px 起手)
-function _initGlobalUX() { initChartFullscreen(); initGlobalSwipeBack(); }
+// 左滑返回手势仅在待办相关页面(/todo, /t/:token, /tr/:token, /tc/:token)启用, 其他页面不劫持横向手势
+function _isTodoPage() {
+  var p = location.pathname;
+  return p === '/todo' || p.indexOf('/t/') === 0 || p.indexOf('/tr/') === 0 || p.indexOf('/tc/') === 0;
+}
+function _initGlobalUX() { initChartFullscreen(); if (_isTodoPage()) initGlobalSwipeBack(); }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _initGlobalUX);
 } else {
