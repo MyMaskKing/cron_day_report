@@ -14,12 +14,10 @@ crons = ["0 * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "cron_db"
-database_id = "3313d853-0aef-48b0-b7a9-6fb6fc5a5048"
 
 # KV 命名空间绑定：已有部署必须保留真实 id（无 ID 部署会自动新建空 namespace）
 [[kv_namespaces]]
 binding = "KV"
-id = "4f5ab7db7ea14d5bb5f7165d25d90ce3"
 
 # ==================== 运行时变量 / 密钥（不写入本文件） ====================
 # 1) STORAGE_DRIVER —— 存储驱动，默认 d1（src/storage/adapter.js 兜底），通常无需配置。
