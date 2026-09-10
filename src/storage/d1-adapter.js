@@ -942,14 +942,21 @@ function createD1Adapter(env) {
       //                   当天逾期:          due<d  且同上
       //   done       —— 当天完成：done=1 且 done_at 为该北京日（含无截止日任务的勾选；
       //                 必须带 done=1，取消勾选的一条路径会在 done=0 时残留 done_at）
-      // 个人口径仅统计非共享任务(shared_cat_id IS NULL)；idList 传入则仅统计这些 id（单清单 /t/:token 子树图）
+      // 可见口径与列表 listVisibleForUser 一致：本人个人任务(user_id=? 且无 shared_cat_id)
+      // 并上「我加入的共享分类」全部任务（我是 owner 或 editor）；共享任务 user_id 恒为分类 owner，
+      // 不能只按 user_id 过滤，否则成员看不到、owner 把任务移入共享后也会从曲线消失。
+      // idList 传入则仅统计这些 id（单清单 /t/:token 子树图）。
       // offsetHours 保留兼容调用签名，此口径下不再使用
       // 返回 { datedTasks: [{due, done, done10}], done: [{d,c}] }
       async chartRaw(userId, offsetHours = 8, idList = null) {
-        let scope = 'user_id=? AND shared_cat_id IS NULL', args = [userId];
+        let scope, args;
         if (idList && idList.length) {
           scope = `id IN (${idList.map(() => '?').join(',')})`;
           args = idList;
+        } else {
+          scope = `((user_id=? AND shared_cat_id IS NULL)
+                    OR shared_cat_id IN (SELECT cat_id FROM todo_shared_cat_members WHERE user_id=?))`;
+          args = [userId, userId];
         }
         const tasksQ = await db.prepare(
           `SELECT due_date AS due, done AS done, substr(done_at, 1, 10) AS done10
