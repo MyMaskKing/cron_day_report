@@ -53,8 +53,8 @@ import { shouldRun, nowCN } from './services/schedule.service.js';
 import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue } from './services/report.service.js';
 import { buildTree, flattenPending } from './services/todo.service.js';
 import {
-  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, deleteCategory, renameCategory, getShareLink as getTodoShareLink, todoChart, reorderTodo,
-  publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicReorder, publicTodoReport, publicTodoChart,
+  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, deleteCategory, renameCategory, getShareLink as getTodoShareLink, todoChart, todoAnalyze, reorderTodo,
+  publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicReorder, publicTodoReport, publicTodoChart, publicTodoAnalyze,
   widgetTodo, widgetTodoAuth,
   publicAllAdd, publicAllToggle, publicAllUpdate, publicAllReorder
 } from './api/todo.api.js';
@@ -213,6 +213,7 @@ router.get('/api/public/asset-report/:token', publicAssetReport);
 router.get('/api/todo/list', listTodos);
 router.get('/api/todo-widget', widgetTodoAuth);
 router.get('/api/todo/chart', todoChart);
+router.get('/api/todo/analyze', todoAnalyze);
 router.put('/api/todo/reorder', reorderTodo);
 router.post('/api/todo', createTodo);
 // 待办共享分类（字面量段须在 /api/todo/:id/* 参数路由前注册）
@@ -239,6 +240,7 @@ router.put('/api/public/todo/:token/:id/done', publicToggleTodo);
 router.put('/api/public/todo/:token/:id', publicUpdateTodo);
 router.get('/api/public/todo-report/:token', publicTodoReport);
 router.get('/api/public/todo-chart/:token', publicTodoChart);
+router.get('/api/public/todo-analyze/:token', publicTodoAnalyze);
 router.get('/api/public/todo-widget/:token', widgetTodo);
 router.post('/api/public/todo-all/:token', publicAllAdd);
 router.put('/api/public/todo-all/:token/reorder', publicAllReorder);

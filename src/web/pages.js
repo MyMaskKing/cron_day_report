@@ -844,7 +844,7 @@ function todoPage(user) {
 
     <div class="card">
       <div class="todo-chart-head">
-        <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（总任务=未完成+当天完成 / 未完成=当天到期+逾期 / 当天完成，含子任务）</span></h2>
+        <h2 style="margin:0;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button> <span class="muted" style="font-size:13px;font-weight:normal;">（总任务=未完成+当天完成 / 未完成=当天到期+逾期 / 当天完成，含子任务）</span></h2>
         <div class="todo-range" id="chartRange">
           <button data-range="month" class="active">当月</button>
           <button data-range="7d">近7天</button>
@@ -979,7 +979,7 @@ function todoReportPage() {
       </div>
       <div class="card">
         <div class="todo-chart-head">
-          <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（总任务 / 未完成 / 当天完成）</span></h2>
+          <h2 style="margin:0;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button> <span class="muted" style="font-size:13px;font-weight:normal;">（总任务 / 未完成 / 当天完成）</span></h2>
           <div class="todo-range" id="chartRange">
             <button data-range="month" class="active">当月</button>
             <button data-range="7d">近7天</button>

@@ -9,7 +9,7 @@ import { requireAuth } from '../auth/middleware.js';
 import { generateToken } from '../auth/password.js';
 import { resolveBaseUrl } from '../config.js';
 import { requireDataContext } from './share.api.js';
-import { countStats, buildWidgetGroups, buildChartSeries, CHART_RANGES } from '../services/todo.service.js';
+import { countStats, buildWidgetGroups, buildChartSeries, buildAnalysis, CHART_RANGES } from '../services/todo.service.js';
 
 /** 取北京时区当天 YYYY-MM-DD */
 function todayCN() {
@@ -431,6 +431,20 @@ async function todoChart({ request, env, url }) {
   return json({ success: true, series });
 }
 
+/** GET /api/todo/analyze?days=  当前用户任务分析：连续达标/完成率/逾期率 + 逐日明细
+ * days ∈ 30|60，默认 30；走 requireDataContext，共享数据源生效
+ */
+async function todoAnalyze({ request, env, url }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'todo', request);
+  if (dc instanceof Response) return dc;
+  const days = url.searchParams.get('days') === '60' ? 60 : 30;
+  const raw = await storage.todo.chartRaw(dc.uid);
+  return json({ success: true, analysis: buildAnalysis(raw, days, todayCN()) });
+}
+
 // ==================== 免密公开 ====================
 
 /** GET /api/public/todo/:token  免密查看某顶层任务子树 */
@@ -619,6 +633,18 @@ async function publicTodoChart({ env, params, url }) {
   }
   const series = buildChartSeries(raw, range, todayCN());
   return json({ success: true, series });
+}
+
+/** GET /api/public/todo-analyze/:token?days=  report_token 免密任务分析
+ * 仅接受用户级 report_token（module=todo，跨全部清单）；不支持单清单 share_token 子树
+ */
+async function publicTodoAnalyze({ env, params, url }) {
+  const storage = getStorage(env);
+  const days = url.searchParams.get('days') === '60' ? 60 : 30;
+  const pushRow = await storage.push.findByReportToken(params.token);
+  if (!pushRow || pushRow.module !== 'todo') return error('链接无效或已失效', 404);
+  const raw = await storage.todo.chartRaw(pushRow.user_id);
+  return json({ success: true, analysis: buildAnalysis(raw, days, todayCN()) });
 }
 
 /** 小组件响应体构造（鉴权方式由调用方决定）。scope/limit 解析与公开/登录两口径一致。
@@ -857,8 +883,8 @@ async function publicAllReorder({ request, env, params }) {
 }
 
 export {
-  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, deleteCategory, renameCategory, getShareLink, todoChart, reorderTodo,
-  publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicReorder, publicTodoReport, publicTodoChart,
+  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, deleteCategory, renameCategory, getShareLink, todoChart, todoAnalyze, reorderTodo,
+  publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicReorder, publicTodoReport, publicTodoChart, publicTodoAnalyze,
   widgetTodo, widgetTodoAuth,
   publicAllAdd, publicAllToggle, publicAllUpdate, publicAllReorder
 };

@@ -693,10 +693,12 @@ function renderMd(md) {
   flushPara();
   return '<div class="md-body">' + out.join('') + '</div>';
 }
-// 通用弹窗
-function openModal(title, bodyHtml) {
+// 通用弹窗；maskClass 可选，给遮罩加临时修饰类（如 'modal-mask--lg' 大弹窗），每次打开先摘除
+function openModal(title, bodyHtml, maskClass) {
   var mask = document.getElementById('modalMask');
   if (!mask) return;
+  mask.classList.remove('modal-mask--lg');
+  if (maskClass) mask.classList.add(maskClass);
   var wasOpen = mask.classList.contains('show');
   document.getElementById('modalTitle').textContent = title || '';
   document.getElementById('modalBody').innerHTML = bodyHtml || '';
@@ -6449,6 +6451,91 @@ function bindTodoRange(fn) {
     fn(btn.getAttribute('data-range'));
   });
 }
+// 任务分析弹窗：连续达标 / 区间完成率 / 逾期率 + 7列日历热力图 + 日完成率曲线
+// buildUrl(days) 由调用页提供：登录态 /api/todo/analyze，公开页 /api/public/todo-analyze/:token
+var _taChartInst = null;
+var _taDays = 30;
+function openTodoAnalysis(buildUrl) {
+  _taDays = 30;
+  var body =
+    '<div class="ta-stats">' +
+      '<div class="ta-stat good"><div class="n"><span id="taStreak">-</span> <small id="taBest"></small></div><div class="l">当前连续达标（天）</div></div>' +
+      '<div class="ta-stat"><div class="n" id="taWinRate">-</div><div class="l">区间完成率（截至今天）</div></div>' +
+      '<div class="ta-stat bad"><div class="n" id="taOverRate">-</div><div class="l">逾期率（不含今天）</div></div>' +
+    '</div>' +
+    '<div class="ta-dow"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>' +
+    '<div class="ta-heat" id="taHeat"></div>' +
+    '<div class="ta-legend"><span><i class="lg-win"></i>达标</span><span><i class="lg-fail"></i>有逾期</span><span><i class="lg-idle"></i>无任务</span><span><i class="lg-pending"></i>今天</span></div>' +
+    '<div class="todo-range" id="taRange" style="margin:14px 0 4px;"><button data-days="30" class="active">近30天</button><button data-days="60">近60天</button></div>' +
+    '<canvas id="taChart" style="max-height:200px;"></canvas>' +
+    '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">口径：当天到期任务日终零新增逾期即「达标」；当天无任务为中性，不断签也不计数；今天尚未收官，不计入连续达标。悬停色块查看当天明细。</p>';
+  openModal('📊 任务分析', body, 'modal-mask--lg');
+
+  function pct(v) { return v == null ? '—' : Math.round(v * 100) + '%'; }
+  // YYYY-MM-DD（北京日期）按 UTC 解析取星期，返回周一起算 0..6
+  function weekdayMon(dateStr) { return (new Date(dateStr + 'T00:00:00Z').getUTCDay() + 6) % 7; }
+
+  function render(a) {
+    document.getElementById('taStreak').textContent = a.currentStreak;
+    document.getElementById('taBest').textContent = a.longestStreak ? '最长 ' + a.longestStreak : '';
+    document.getElementById('taWinRate').textContent = pct(a.winRate);
+    document.getElementById('taOverRate').textContent = pct(a.overdueRate);
+
+    var heat = document.getElementById('taHeat');
+    heat.innerHTML = '';
+    var lead = weekdayMon(a.daily[0].date);
+    for (var i = 0; i < lead; i++) heat.appendChild(document.createElement('span'));
+    a.daily.forEach(function(item){
+      var c = document.createElement('div');
+      c.className = 'ta-cell ' + item.mark;
+      var label = item.date.slice(5).replace('-', '/');
+      if (item.mark === 'idle') c.title = label + ' 无到期任务';
+      else if (item.mark === 'pending') c.title = label + ' 今天未收官：到期 ' + item.planned + ' / 已完成 ' + item.done;
+      else c.title = label + ' 到期 ' + item.planned + ' / 完成 ' + item.done + ' / 新增逾期 ' + item.overdue;
+      heat.appendChild(c);
+    });
+
+    if (typeof Chart !== 'undefined') {
+      if (_taChartInst) { _taChartInst.destroy(); _taChartInst = null; }
+      _taChartInst = new Chart(document.getElementById('taChart'), {
+        type: 'line',
+        data: {
+          labels: a.daily.map(function(x){ return x.date.slice(5); }),
+          datasets: [{
+            label: '日完成率',
+            data: a.daily.map(function(x){ return x.rate == null ? null : Math.round(x.rate * 100); }),
+            borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.10)',
+            fill: true, tension: .3, spanGaps: false, pointRadius: 2
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, max: 100, ticks: { callback: function(v){ return v + '%'; } } },
+            x: { ticks: { maxTicksLimit: 10, autoSkip: true } }
+          }
+        }
+      });
+    }
+  }
+
+  async function load() {
+    try {
+      var d = await api(buildUrl(_taDays));
+      render(d.analysis);
+    } catch(e) { alertModal(e.message, { ok: false }); }
+  }
+
+  document.getElementById('taRange').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-days]');
+    if (!b) return;
+    this.querySelectorAll('button').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active');
+    _taDays = parseInt(b.getAttribute('data-days'), 10);
+    load();
+  });
+  load();
+}
 // 庆祝数量：叶子口径，完成父任务代表整枝结束，其后代不再计入
 // datedOnly=true 时排除无截止日期的备忘录，与主页面/报告页的“未完成”统计一致
 function todoCelebrationCount(trees, datedOnly) {
@@ -6998,6 +7085,10 @@ bindTodoRange(function(r){
   updateStatsHint(_filter, _curRange);
   loadChart();
 });
+// 任务分析弹窗（登录态，随 X-Data-As 数据源切换）
+document.getElementById('todoAnalyzeBtn').addEventListener('click', function(){
+  openTodoAnalysis(function(days){ return '/api/todo/analyze?days=' + days; });
+});
 
 // 推送配置（待办日报）
 var tPushHourPick = null, tPushChannelPick = null;
@@ -7274,6 +7365,13 @@ async function loadChart() {
   try { var c = await api('/api/public/todo-chart/' + _token + '?range=' + _curRange); drawTodoChart('todoChart', c.series); }
   catch(e){ /* 图表失败不阻断 */ }
 }
+// 任务分析弹窗（免密报告页，report_token 用户级口径）
+(function(){
+  var btn = document.getElementById('todoAnalyzeBtn');
+  if (btn) btn.addEventListener('click', function(){
+    openTodoAnalysis(function(days){ return '/api/public/todo-analyze/' + _token + '?days=' + days; });
+  });
+})();
 // 按当前 _filter 过滤后的可见顶层树重算 未完成/已逾期 两项统计(此页无 memo 卡片)
 function renderPendingStats() {
   var trees = _trees.filter(function(n){ return todoRootPassFilter(n, _filter, _today); });

@@ -557,6 +557,8 @@ body.booting { overflow: hidden; position: fixed; width: 100%; touch-action: non
 /* 遮罩自身也要阻止触摸手势: 兜底覆盖 body.no-scroll 未生效的手机浏览器 (如某些微信内核) */
 #globalLoading { touch-action: none; overscroll-behavior: contain; }
 .modal-box { background: var(--surface); border-radius: 10px; width: 100%; max-width: 440px; margin: auto; box-shadow: 0 10px 40px rgba(0,0,0,.2); animation: modalIn .2s ease; }
+/* 大弹窗：分析面板（热力图 + 曲线） */
+.modal-mask--lg .modal-box { max-width: 720px; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 16px; font-weight: 600; }
 #modalClose { cursor: pointer; font-size: 24px; line-height: 1; color: var(--muted); }
 #modalClose:hover { color: var(--text); }
@@ -791,6 +793,36 @@ input[type="date"] { cursor: pointer; }
 .todo-range button.active { background: var(--brand); border-color: var(--brand); color: #fff; }
 /* 筛选 tab：复用 range pill 样式，与列表间留白 */
 .todo-filter { margin: 4px 0 12px; }
+/* 标题行「分析」小按钮：与 h2 文字垂直对齐 */
+.todo-analyze-btn { vertical-align: middle; margin: 0 2px; }
+/* 任务分析弹窗：指标卡 */
+.ta-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+.ta-stat { flex: 1; min-width: 130px; background: var(--surface-3); border-radius: 10px; padding: 12px 14px; text-align: center; }
+.ta-stat .n { font-size: 22px; font-weight: 700; color: var(--text-strong); white-space: nowrap; }
+.ta-stat .n small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 4px; }
+.ta-stat.good .n { color: var(--ok); }
+.ta-stat.bad .n { color: var(--danger); }
+.ta-stat .l { font-size: 12px; color: var(--label); margin-top: 2px; }
+/* 7 列日历热力图（周一起始）；桌面固定 30px 格，窄屏自适应 */
+.ta-dow, .ta-heat { display: grid; grid-template-columns: repeat(7, 30px); gap: 4px; }
+.ta-dow { margin: 14px 0 4px; }
+.ta-dow span { font-size: 11px; color: var(--muted); text-align: center; line-height: 16px; }
+.ta-heat { margin-bottom: 6px; }
+.ta-cell { width: 30px; height: 30px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-2); box-sizing: border-box; cursor: default; }
+.ta-cell.win { background: var(--ok); border-color: transparent; }
+.ta-cell.fail { background: var(--danger); border-color: transparent; }
+.ta-cell.pending { background: var(--surface); border: 1px dashed var(--brand); }
+.ta-cell.idle { background: var(--surface-2); }
+.ta-legend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.ta-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--border); box-sizing: border-box; }
+.ta-legend .lg-win { background: var(--ok); border-color: transparent; }
+.ta-legend .lg-fail { background: var(--danger); border-color: transparent; }
+.ta-legend .lg-idle { background: var(--surface-2); }
+.ta-legend .lg-pending { background: var(--surface); border: 1px dashed var(--brand); }
+@media (max-width: 480px) {
+  .ta-dow, .ta-heat { grid-template-columns: repeat(7, 1fr); }
+  .ta-cell { width: auto; height: auto; aspect-ratio: 1; }
+}
 @media (prefers-reduced-motion: reduce) { .todo-row, .todo-check, .todo-check::after, .todo-caret { transition: none; } }
 /* 子任务长按拖拽：拖动中的节点浮起，拖动期间全局禁选中并显示抓取光标 */
 /* 长按拖起: 整行"浮离"列表 —— 多层阴影(环境投影 + 品牌色晕 + 2px 光环描边, 光环用 shadow 不占布局避免位移),

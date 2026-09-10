@@ -395,6 +395,86 @@ function buildChartSeries(raw, range, today) {
 }
 
 /**
+ * 构造任务分析数据：日完成率、连续达标 streak、区间完成率/逾期率（纯计算，不碰存储）
+ *
+ * 达标口径：当天有到期任务且日终零新增逾期 = win；有新增逾期 = fail；
+ *           当天无到期任务 = idle（中性，不断签也不计天数）；today 当天未收官 = pending（不计入）。
+ * 与 buildChartSeries 同一脏数据约定：done=1 但缺 done10 按「早已完成」处理，不计逾期。
+ *
+ * @param {Object} raw - storage.todo.chartRaw 的返回 { datedTasks, done }
+ * @param {number} days - 窗口天数，窗口含 today
+ * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
+ * @returns {Object} { days, currentStreak, longestStreak, winRate, overdueRate, daily[] }
+ *   winRate/overdueRate 为 0..1 比率（无分母时 null）；
+ *   daily: [{ date:'YYYY-MM-DD', planned, done, overdue, rate: 0..1|null, mark: win|fail|idle|pending }]
+ */
+function buildAnalysis(raw, days, today) {
+  const tasks = (raw.datedTasks || []).filter(t => t && t.due);
+  const DAY = 86400000;
+  const todayMs = dayMs(today);
+
+  // 按到期日聚合：dueCnt=到期数；doneFinalCnt=最终完成数（含逾期补做、缺 done10 的历史完成）；overCnt=日终仍未完成（新增逾期）
+  const dueCnt = {}, doneFinalCnt = {}, overCnt = {};
+  let minMs = null;
+  for (const t of tasks) {
+    dueCnt[t.due] = (dueCnt[t.due] || 0) + 1;
+    if (t.done === 1) doneFinalCnt[t.due] = (doneFinalCnt[t.due] || 0) + 1;
+    const unfinishedAtEnd = t.done !== 1 || (!!t.done10 && t.done10 > t.due);
+    if (unfinishedAtEnd) overCnt[t.due] = (overCnt[t.due] || 0) + 1;
+    const ms = dayMs(t.due);
+    if (minMs === null || ms < minMs) minMs = ms;
+  }
+
+  // d 日标记：today 未收官=pending；无到期=idle；有新增逾期=fail；否则 win
+  const markAt = (d, isToday) => {
+    if (isToday) return 'pending';
+    if (!dueCnt[d]) return 'idle';
+    return overCnt[d] ? 'fail' : 'win';
+  };
+
+  // 当前连续达标：从昨天往回，跳过 idle，遇 fail 止；早于首个到期日后停止
+  let currentStreak = 0;
+  for (let ms = todayMs - DAY; minMs !== null && ms >= minMs; ms -= DAY) {
+    const m = markAt(msDay(ms), false);
+    if (m === 'win') currentStreak++;
+    else if (m === 'fail') break;
+  }
+
+  // 最长连续达标：首个到期日 → 昨天，idle 不断签
+  let longestStreak = 0, run = 0;
+  if (minMs !== null) {
+    for (let ms = minMs; ms < todayMs; ms += DAY) {
+      const m = markAt(msDay(ms), false);
+      if (m === 'win') { run++; if (run > longestStreak) longestStreak = run; }
+      else if (m === 'fail') run = 0;
+    }
+  }
+
+  // 窗口逐日明细（含 today）
+  const daily = [];
+  let winDue = 0, winDone = 0, pastDue = 0, pastOver = 0;
+  for (let i = days - 1; i >= 0; i--) {
+    const d = msDay(todayMs - i * DAY);
+    const isToday = i === 0;
+    const planned = dueCnt[d] || 0;
+    const doneN = doneFinalCnt[d] || 0;
+    const overdue = overCnt[d] || 0;
+    daily.push({ date: d, planned, done: doneN, overdue, rate: planned ? doneN / planned : null, mark: markAt(d, isToday) });
+    winDue += planned; winDone += doneN;
+    if (!isToday) { pastDue += planned; pastOver += overdue; }
+  }
+
+  return {
+    days,
+    currentStreak,
+    longestStreak,
+    winRate: winDue ? winDone / winDue : null,
+    overdueRate: pastDue ? pastOver / pastDue : null,
+    daily
+  };
+}
+
+/**
  * 计算重复任务的下次截止日期
  * 顶层任务勾选完成时用: 从旧 dueDate 推出新一条实例的 dueDate
  * @param {string} dueDate - 旧任务的 YYYY-MM-DD
@@ -552,4 +632,4 @@ function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr, interval, nth, 
   return dueDate;
 }
 
-export { buildTree, flattenPending, countStats, buildWidgetGroups, buildChartSeries, CHART_RANGES, shiftDate, todoDateLabel, todoDateBadge, effDueOf, rootDueOf };
+export { buildTree, flattenPending, countStats, buildWidgetGroups, buildChartSeries, buildAnalysis, CHART_RANGES, shiftDate, todoDateLabel, todoDateBadge, effDueOf, rootDueOf };
