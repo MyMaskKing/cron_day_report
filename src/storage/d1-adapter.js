@@ -964,7 +964,7 @@ function createD1Adapter(env) {
         ).bind(...args).all();
         const doneQ = await db.prepare(
           `SELECT substr(done_at, 1, 10) AS d, COUNT(*) AS c
-           FROM todos WHERE ${scope} AND done=1 AND done_at IS NOT NULL GROUP BY d`
+           FROM todos WHERE ${scope} AND done=1 AND done_at IS NOT NULL AND due_date IS NOT NULL GROUP BY d`
         ).bind(...args).all();
         return { datedTasks: tasksQ.results || [], done: doneQ.results || [] };
       }
