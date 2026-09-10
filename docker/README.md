@@ -130,6 +130,8 @@ Session cookie 目前带 `Secure` 标志。
 
 **Q：升级代码？**
 拉取新代码后 `docker compose up -d --build`，`docker-data/` 保留；新增迁移会自动执行。
+> Tips: 
+> `docker compose up -d --build --force-recreate`强制删容器重建 
 
 **Q：手动进容器？**
 `docker compose exec cron-day-report sh`
