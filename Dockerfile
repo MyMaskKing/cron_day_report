@@ -5,6 +5,7 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY package.json ./
 # 只装运行时需要的 better-sqlite3；不装 wrangler、miniflare 等开发依赖
+RUN npm config set registry https://registry.npmmirror.com
 RUN npm install --omit=dev better-sqlite3@11
 
 # ---------- runtime 阶段 ----------
