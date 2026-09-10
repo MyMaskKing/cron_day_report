@@ -1,6 +1,9 @@
 .**
 !.gitignore
 !.github
+!.dev.vars.example
+!wrangler.toml.example
+wrangler.toml
 !.claude/
 .claude/*
 !.claude/settings.json

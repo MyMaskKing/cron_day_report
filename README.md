@@ -29,80 +29,61 @@ Cloudflare Workers · D1 · KV · 原生 ES Module（无前端框架，服务端
 ## 部署
 
 > [!TIP]
-> 不想用 Cloudflare？本项目支持 **Docker 自部署**（纯 Node + better-sqlite3 模拟 D1/KV，`src/` 业务代码零改动，迁移全自动）。部署步骤、数据存储/Redis 实现原理详见 **[`docker/README.md`](./docker/README.md)**。
+> Cloudflare 完整部署说明见 **[`DEPLOY.md`](./DEPLOY.md)**；不想用 Cloudflare 可用 **Docker 自部署**（纯 Node + better-sqlite3 模拟 D1/KV，`src/` 业务代码零改动，迁移全自动），详见 **[`docker/README.md`](./docker/README.md)**。
 
 ### 前置
 
 - [Cloudflare](https://cloudflare.com) 账户
-- Node.js ≥ 18
-- Wrangler CLI：`npm install -g wrangler`
+- Node.js ≥ 18.20
+- `npm install`（devDependencies 已锁定 Wrangler 4，支持资源自动预置）、`npx wrangler login`
 
-### 1. 登录 Cloudflare
+### 1. 从模板生成 wrangler.toml
 
-```bash
-wrangler login
-```
-
-### 2. 从模板生成 wrangler.toml
-
-仓库只提供脱敏模板 `wrangler.toml.example`（真实 `wrangler.toml` 已被 `.gitignore` 忽略，不入库）。复制一份：
+仓库只提供脱敏模板 `wrangler.toml.example`（真实 `wrangler.toml` 已被 `.gitignore` 忽略，不入库）。复制一份并按需修改 `name`（Worker 名全账户唯一）：
 
 ```bash
 cp wrangler.toml.example wrangler.toml
 ```
 
-### 3. 创建 D1 与 KV，填入 wrangler.toml
+模板里 D1 的 `database_id`、KV 的 `id` **都留空，不要手动建库**。
+
+### 2. 首次部署（自动创建 D1 / KV）
 
 ```bash
-wrangler d1 create cron_db          # 得到 database_id
-wrangler kv namespace create KV     # 得到 id
+npx wrangler deploy
 ```
 
-把返回的 `database_id` 和 KV `id` 填进 `wrangler.toml` 对应绑定处（`[[d1_databases]]` 的 `binding = "DB"`，`[[kv_namespaces]]` 的 `binding = "KV"`），并把 `PUBLIC_BASE_URL` 改成你的 Worker 域名。
+Wrangler 4 会自动创建名为 `cron_db` 的 D1 数据库、名为 `KV` 的命名空间与每小时 Cron 触发器，
+并把生成的资源 ID 回写进本机 `wrangler.toml`。
 
-> 这两个 id 是**部署绑定声明**，wrangler 部署时靠它定位资源，无法挪到控制台；它们不是密钥，但属于个人基础设施信息，故不入库。
-
-### 4. 执行数据库迁移
-
-无自动迁移机制，需按编号**逐个手动执行**（线上加 `--remote`，本地加 `--local`）：
+### 3. 初始化数据库表
 
 ```bash
-wrangler d1 execute cron_db --remote --file=migrations/0001_init.sql
-wrangler d1 execute cron_db --remote --file=migrations/0002_fund_share_token.sql
-# ... 依次执行到最新编号的 migrations/*.sql
+npx wrangler d1 execute cron_db --remote --file=migrations/0001_init.sql
 ```
 
-### 5. 配置变量与密钥
+全新库执行全量脚本一次即可（已包含全部表/列/索引）；之后的 `000N_*.sql` 仅老库升级时按编号执行。
 
-**明文变量**（非敏感）写在 `wrangler.toml` 的 `[vars]` 或 Dashboard → Worker → Settings → Variables：
-
-| 变量 | 必需 | 说明 |
-|------|------|------|
-| `PUBLIC_BASE_URL` | 推荐 | 站点公开地址，用于在推送消息里拼免密链接绝对 URL，如 `https://xxx.workers.dev` |
-| `STORAGE_DRIVER` | 可选 | 存储驱动，默认 `d1` |
-
-**敏感密钥**用 `wrangler secret put` 加密存储，**切勿**写进 `wrangler.toml`：
+### 4. 配置密钥（可选但建议）
 
 ```bash
-wrangler secret put ADMIN_BOOTSTRAP_TOKEN   # 创建首个超管账号时校验
-wrangler secret put CRON_SECRET             # 保护 /cron 手动触发入口（不设则免 key）
+npx wrangler secret put ADMIN_BOOTSTRAP_TOKEN   # 创建首个超管时校验
+npx wrangler secret put CRON_SECRET             # 保护 /cron 手动触发入口（不设则免 key）
 ```
 
-### 6. 部署
+`PUBLIC_BASE_URL`、`STORAGE_DRIVER` 等明文变量可在 Dashboard → Settings → Variables 配置；
+站点公开地址推荐部署后登录超管在「系统设置」页填写（优先级最高、换域名免重新部署）。
 
-```bash
-npm run deploy    # = wrangler deploy
-```
+### 5. 初始化超管
 
-### 7. 初始化超管
-
-部署后访问站点，通过 `POST /api/auth/bootstrap`（携带 `ADMIN_BOOTSTRAP_TOKEN`）创建首个超管，随后登录网页后台使用。
+访问 Worker 域名进入「系统初始化」页创建首个超管（配置了 `ADMIN_BOOTSTRAP_TOKEN` 需填写），
+登录后到系统设置填入站点公开地址即可开始使用。
 
 ## 常用命令
 
 ```bash
-npm run dev       # 本地开发（连远程 D1/KV 加 --remote）
-npm run test      # 纯本地 (wrangler dev --local)
+npm run dev       # 本地开发（本地自动创建 D1/KV，miniflare 持久化）
+npm run serve     # 纯 Node + better-sqlite3 运行（不依赖 Cloudflare）
 npm run deploy    # 部署到 Cloudflare
 npm run tail      # 查看线上实时日志
 ```

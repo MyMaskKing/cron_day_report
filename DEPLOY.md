@@ -1,216 +1,153 @@
-# 快速部署指南
+# 部署指南
 
-## 🚀 一键部署到 Cloudflare Workers
+多用户个人生活面板 + 定时推送服务（网站监控 / 基金 / 体重 / 资产 / 待办五个模块）。
+同一套业务代码支持两种部署：**Cloudflare Workers（推荐）** 与 **Docker 自托管**。
 
-### 前置要求
+---
 
-1. **Cloudflare 账户**：如果没有，请先注册 [Cloudflare](https://cloudflare.com)
-2. **Node.js**：版本 18.0.0 或更高
-3. **Wrangler CLI**：Cloudflare 官方部署工具
+## 一、Cloudflare Workers 部署
 
-### 步骤 1：安装 Wrangler CLI
+### 前置
 
-```bash
-npm install -g wrangler
-```
-
-### 步骤 2：登录 Cloudflare
+- [Cloudflare](https://cloudflare.com) 账户
+- Node.js ≥ 18.20（推荐 20 LTS 或更新；Wrangler 4 的最低要求）
+- 安装依赖并登录：
 
 ```bash
-wrangler login
+npm install
+npx wrangler login
 ```
 
-这会打开浏览器，授权 Wrangler 访问你的 Cloudflare 账户。
-
-### 步骤 3：配置环境变量
-
-在 Cloudflare Dashboard 中设置环境变量：
-
-1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com)
-2. 选择你的账户
-3. 点击 "Workers & Pages"
-4. 找到你的 Worker（部署后会自动创建）
-5. 点击 "Settings" → "Variables"
-6. 添加环境变量，格式如下：
-
-```
-ACCESS_URL1 = https://example1.com
-ACCESS_URL2 = https://example2.com
-ACCESS_MY_SITE = https://mysite.com
-```
-
-### 步骤 4：部署 Worker
+### 1. 生成配置文件
 
 ```bash
-# 在项目目录中执行
-wrangler deploy
+cp wrangler.toml.example wrangler.toml
 ```
 
-部署成功后，你会看到类似这样的输出：
+按需修改 `wrangler.toml` 里的 `name`（Worker 名称，同一 Cloudflare 账户内唯一）。
 
-```
-Deployed to https://cron-send-request.your-subdomain.workers.dev
-```
+模板中 **D1 的 `database_id` 与 KV 的 `id` 均留空**，不需要手动去 Dashboard 建库——
+`wrangler.toml` 已被 `.gitignore` 忽略，不入库；`wrangler.toml.example` 是入库的脱敏模板。
 
-### 步骤 5：验证部署
-
-1. **访问根路径**：查看项目信息
-   ```
-   https://cron-send-request.your-subdomain.workers.dev/
-   ```
-
-2. **手动触发测试**：测试功能是否正常
-   ```
-   https://cron-send-request.your-subdomain.workers.dev/manual
-   ```
-
-3. **检查定时任务**：确认 cron 触发器已设置
-
-## 🔧 配置说明
-
-### 环境变量配置
-
-#### 必需配置
-- **ACCESS_***：必须以 `ACCESS_` 开头
-- 变量名可以自定义，如：`ACCESS_URL1`、`ACCESS_MY_SITE`、`ACCESS_API_HEALTH`
-- 变量值必须是完整的 URL
-
-#### 可选配置
-- **RETURN_TYPE**：返回格式，`text`（纯文本）或 `html`（美观HTML报告）
-- **WEBHOOK_URL**：自定义通知地址，不设置则使用默认微信机器人
-- **NOTIFICATION_TYPE**：通知类型，`wechat`、`webhook`、`email`
-- **NOTIFICATION_ENABLED**：是否启用通知，`true` 或 `false`
-
-#### 超时和并发配置
-- **REQUEST_TIMEOUT**：请求超时时间（毫秒），默认 30000
-- **CONCURRENCY_LIMIT**：并发请求数量限制，默认 5
-- **BATCH_DELAY**：批次间延迟时间（毫秒），默认 1000
-
-### 支持的 URL 格式
-
-```
-✅ 正确格式：
-ACCESS_URL1 = https://example.com
-ACCESS_URL2 = http://localhost:3000
-ACCESS_API = https://api.example.com/health
-
-❌ 错误格式：
-ACCESS_URL1 = example.com          # 缺少协议
-ACCESS_URL2 = https://             # 不完整的 URL
-ACCESS_URL3 = ftp://example.com    # 不支持的协议
-```
-
-### 定时执行设置
-
-默认设置为每天早上 6 点执行，如需修改：
-
-1. 编辑 `wrangler.toml` 文件
-2. 修改 cron 表达式：
-
-```toml
-[triggers]
-crons = ["0 6 * * *"]  # 每天早上6点
-# crons = ["0 */2 * * *"]  # 每2小时执行一次
-# crons = ["0 9,18 * * *"]  # 每天上午9点和下午6点
-```
-
-## 🧪 测试和调试
-
-### 本地测试
+### 2. 首次部署（自动创建 D1 与 KV）
 
 ```bash
-# 启动本地开发服务器
-npm run dev
-
-# 或者使用 wrangler
-wrangler dev
+npx wrangler deploy
 ```
 
-### 查看日志
+首次部署时 Wrangler 会自动完成：
+
+- 创建名为 `cron_db` 的 **D1 数据库**；
+- 创建绑定名为 `KV` 的 **KV 命名空间**（会话存储）；
+- 注册每小时整点触发的 **Cron 触发器**；
+- 把生成的资源 ID **自动回写**进 `wrangler.toml`（之后此文件只在本机保留，勿提交）。
+
+记下输出中的 Worker 地址，如 `https://cron-day-report.<你的子域>.workers.dev`。
+
+> 需要 Wrangler 4 或更新版本（已在 devDependencies 中锁定 `^4`，`npm install` 后用 `npx wrangler` 即为本机版本）。
+
+### 3. 初始化数据库表
+
+全新库只执行一次全量脚本即可（包含全部表、列、索引）：
 
 ```bash
-# 实时查看 Worker 日志
-npm run tail
-
-# 或者使用 wrangler
-wrangler tail
+npx wrangler d1 execute cron_db --remote --file=migrations/0001_init.sql
 ```
 
-### 常见问题排查
+以后版本若新增 `migrations/000N_xxx.sql`，老库升级时按编号逐个执行；全新部署始终只跑 `0001_init.sql`。
 
-1. **Worker 不执行**
-   - 检查 cron 配置是否正确
-   - 确认环境变量已设置
-   - 查看 Worker 日志
-
-2. **环境变量不生效**
-   - 重新部署 Worker
-   - 检查变量名是否以 `ACCESS_` 开头
-   - 确认变量值不为空
-
-3. **微信群收不到消息**
-   - 检查 Webhook URL 是否正确
-   - 确认机器人没有被禁用
-   - 查看发送结果日志
-
-## 📱 企业微信机器人配置
-
-### 获取 Webhook URL
-
-1. 在企业微信群中添加机器人
-2. 获取机器人的 Webhook URL
-3. 确认 URL 格式正确
-
-### 机器人权限
-
-确保机器人有发送消息的权限，且没有被群管理员禁用。
-
-## 🔄 更新和重新部署
-
-### 代码更新后重新部署
+### 4. 配置密钥（可选但建议）
 
 ```bash
-wrangler deploy
+npx wrangler secret put ADMIN_BOOTSTRAP_TOKEN   # 创建首个超管时的引导令牌
+npx wrangler secret put CRON_SECRET             # 保护 /cron?key= 手动触发口
 ```
 
-### 环境变量更新
+值在交互终端输入，加密存储、不入库。也可在 Dashboard → Worker → Settings →
+Variables and Secrets 中管理（类型选 **Secret**）。不配置时：初始化页不校验令牌；
+`/cron` 手动触发口免 key。
 
-在 Cloudflare Dashboard 中修改环境变量后，无需重新部署，Worker 会自动读取新的环境变量。
+### 5. 初始化超管与站点地址
 
-### 配置更新
+1. 浏览器访问 Worker 域名，自动进入「系统初始化」页，按提示创建首个超级管理员
+   （配置了 `ADMIN_BOOTSTRAP_TOKEN` 时需填写该令牌）；
+2. 登录后进入「用户管理 / 系统设置」→ **站点公开地址**，填入实际访问地址
+   （推送内免密链接以此拼接；优先级：系统设置 > 环境变量 > 请求域名）。
 
-修改 `wrangler.toml` 后需要重新部署：
+### 6. 开始使用
+
+在各模块页面录入数据、设置推送时间与通知渠道（企业微信机器人 / 通用 Webhook / 邮件中转）。
+Worker 每小时整点被 Cron 唤醒，按数据库中各用户的推送配置判断此刻是否到点并发送，
+推送时间无需写死。
+
+---
+
+## 二、本地开发
 
 ```bash
-wrangler deploy
+npm install
+cp .dev.vars.example .dev.vars   # 按需填写本地变量（.dev.vars 不入库）
+
+npm run dev      # wrangler dev：本地自动创建 D1/KV（miniflare 持久化）
+npm run test     # wrangler dev --local 的别名（本仓库无自动化测试套件）
+npm run tail     # 查看线上实时日志
+npm run deploy   # 部署到 Cloudflare
 ```
 
-## 📊 监控和维护
+纯 Node 运行（不依赖 Cloudflare，用 better-sqlite3 在本地 SQLite 上模拟 D1/KV）：
 
-### 查看执行状态
+```bash
+npm run serve
+```
 
-- 访问 `/manual` 端点手动触发执行
-- 查看 Worker 日志了解执行情况
-- 检查微信群中的执行报告
+---
 
-### 性能优化
+## 三、Docker 自托管
 
-- 调整并发数量（当前设置为 5）
-- 优化访问间隔时间
-- 监控响应时间和成功率
+不使用 Cloudflare 时可用 Docker 一键部署，业务代码 `src/` 零改动，容器启动时自动执行迁移，
+数据持久化在 `./docker-data/`。详见 **[`docker/README.md`](./docker/README.md)**。
 
-## 🆘 获取帮助
+```bash
+docker compose up -d --build
+```
 
-如果遇到问题：
+Docker 通过容器环境变量注入 `PUBLIC_BASE_URL`、`CRON_SECRET` 等（不读 wrangler.toml）。
 
-1. 查看 Worker 日志
-2. 检查环境变量配置
-3. 验证 URL 可访问性
-4. 确认企业微信机器人状态
+---
 
-## 📝 注意事项
+## 四、配置参考
 
-1. **免费计划限制**：Cloudflare Workers 免费计划有执行次数限制
-2. **网络超时**：Worker 有执行时间限制，避免访问响应过慢的网站
-3. **消息长度**：企业微信机器人有消息长度限制
-4. **访问频率**：避免过于频繁的访问，以免对目标网站造成压力
+### wrangler.toml
+
+| 配置 | 说明 |
+|------|------|
+| `name` | Worker 名称，全账户唯一 |
+| `main` | 入口 `src/index.js`，勿改 |
+| `compatibility_date` | 运行时兼容日期 |
+| `[triggers] crons` | 唤醒频率，默认 `0 * * * *`（每小时整点 UTC）；具体推送时刻由数据库配置决定，一般无需修改 |
+| `[[d1_databases]]` | 绑定 `DB`；ID 首次部署自动回写，勿手填 |
+| `[[kv_namespaces]]` | 绑定 `KV`；ID 首次部署自动回写，勿手填 |
+
+### 运行时变量与密钥
+
+| 名称 | 类型 | 说明 |
+|------|------|------|
+| `PUBLIC_BASE_URL` | 明文变量 | 站点公开地址。推荐改在网页「系统设置」里配置（免重新部署）；也可放 Dashboard Variables |
+| `STORAGE_DRIVER` | 明文变量 | 存储驱动，默认 `d1`（另一取值 `mysql` 为预留桩，不可用），通常无需配置 |
+| `ADMIN_BOOTSTRAP_TOKEN` | Secret | 初始化首个超管的引导令牌 |
+| `CRON_SECRET` | Secret | `GET /cron?key=...` 手动触发全量调度的保护密钥，不设则免 key |
+| `REQUEST_TIMEOUT` / `RESPONSE_TIMEOUT` / `CONCURRENCY_LIMIT` / `BATCH_DELAY` | 明文变量 | 监控请求调优，默认 30000ms / 60000ms / 5 / 1000ms，一般无需配置 |
+
+另有两个全局配置存数据库、在超管「系统设置」页维护：**全局时区**（`tz_offset`，默认 8）、
+**站点公开地址**（优先于环境变量）。
+
+### 常用运维命令
+
+```bash
+npx wrangler deploy                                    # 更新部署
+npx wrangler tail                                      # 线上日志
+npx wrangler secret list                               # 已配置密钥名
+npx wrangler d1 execute cron_db --remote --command "SELECT 1"   # 线上 D1 语句
+```
+
+手动触发一次全量推送（调试用）：浏览器访问 `https://<worker域名>/cron?key=<CRON_SECRET>`。

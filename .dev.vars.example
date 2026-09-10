@@ -1,0 +1,14 @@
+# 复制本文件为 .dev.vars 后按需填写（仅 wrangler dev 本地生效；.dev.vars 不入库）
+# 生产环境请在 Dashboard → Settings → Variables and Secrets 配置（密钥选 Secret 类型）。
+
+# 存储驱动：不填默认 d1（可选 d1 | mysql 预留）
+# STORAGE_DRIVER = "d1"
+
+# 站点公开地址：生产推荐在超管「系统设置 → 站点公开地址」配置；本地调试可用
+# PUBLIC_BASE_URL = "http://localhost:8787"
+
+# 初始超管引导令牌（密钥）
+# ADMIN_BOOTSTRAP_TOKEN = "local-bootstrap-token"
+
+# /cron?key= 手动触发密钥（密钥）；不设则本地 /cron 免 key
+# CRON_SECRET = "local-cron-secret"
