@@ -318,20 +318,24 @@ function msDay(ms) {
 }
 
 /**
- * 构造图表序列：按 range 决定按天/按月，产出连续标签与 新建/完成/未完成存量 三条序列
+ * 构造图表序列：按 range 决定按天/按月，产出连续标签与 新建/完成/到期未完成 三条序列
  * ≤60 天按天，半年/1年/3年按月。
- * 存量（open）反推：以 raw.openNow（今天的未完成任务数）为今天水位，
- *   昨日存量 = 今日存量 − 今日新建 + 今日完成；月格取该月最后一天的水位（当月取 today）。
- * @param {Object} raw - storage.chartRaw 结果 { created:[{d,c}], done:[{d,c}], openNow:number }
+ * 到期未完成（open）：截至当天「已到期仍未完成」的任务数（未来任务、无日期备忘录不计）。
+ *   以 raw.openNow（今天水位）反推：open(d-1) = open(d) − entries(d) + exits(d)
+ *   entries=到期日当天仍未完成（进入存量）；exits=逾期后补做完成（离开存量）；
+ *   到期当天即完成的任务从不进入存量。月格取该月最后一天水位（当月取 today）。
+ * @param {Object} raw - storage.chartRaw 结果 { created, done, entries, exits:[{d,c}], openNow:number }
  * @param {string} range - month|7d|30d|60d|6m|1y|3y
  * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
  * @returns {Object} { range, unit, labels[], created[], done[], open[] }
  */
 function buildChartSeries(raw, range, today) {
   const cfg = CHART_RANGES[range] || CHART_RANGES['7d'];
-  const createdMap = {}, doneMap = {};
+  const createdMap = {}, doneMap = {}, entriesMap = {}, exitsMap = {};
   (raw.created || []).forEach(r => { if (r.d) createdMap[r.d] = r.c; });
   (raw.done || []).forEach(r => { if (r.d) doneMap[r.d] = r.c; });
+  (raw.entries || []).forEach(r => { if (r.d) entriesMap[r.d] = r.c; });
+  (raw.exits || []).forEach(r => { if (r.d) exitsMap[r.d] = r.c; });
   const DAY = 86400000;
   const todayMs = dayMs(today);
 
@@ -341,13 +345,13 @@ function buildChartSeries(raw, range, today) {
     for (let ms = startMs; ms <= todayMs; ms += DAY) out.push(msDay(ms));
     return out;
   };
-  // 由今天水位 openNow 反向递推区间内每天的未完成存量：open(d-1)=open(d)-created(d)+done(d)
+  // 由今天水位 openNow 反向递推每天的到期未完成存量
   const backfillOpen = (days) => {
     const map = {};
     let cur = Number.isFinite(raw.openNow) ? raw.openNow : 0;
     map[days[days.length - 1]] = cur;
     for (let i = days.length - 1; i > 0; i--) {
-      cur = cur - (createdMap[days[i]] || 0) + (doneMap[days[i]] || 0);
+      cur = cur - (entriesMap[days[i]] || 0) + (exitsMap[days[i]] || 0);
       map[days[i - 1]] = cur;
     }
     return map;

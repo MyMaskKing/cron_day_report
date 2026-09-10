@@ -939,16 +939,22 @@ function createD1Adapter(env) {
       //   created —— 当天新建：created_at 是 UTC，+8 小时取北京日
       //   done    —— 当天完成：done=1 且 done_at 为该北京日（必须带 done=1，
       //              取消勾选的一条路径会在 done=0 时残留 done_at）
-      //   openNow —— 当前未完成存量基线（done=0，含备忘录与未来任务），供 service 反推每日存量
+      //   openNow —— 截至今天「已到期仍未完成」基线（done=0 且 due_date<=today）；
+      //              未来任务、无日期备忘录、空容器均不计
+      //   entries —— 进入到期未完成存量：到期日为 d，且当前未完成或完成日晚于到期日
+      //              （到期当天就完成的任务从不进入存量）
+      //   exits   —— 离开存量：逾期后在 d 补做完成（done_at=d 且 due_date<d）
       // 个人口径仅统计非共享任务(shared_cat_id IS NULL)；idList 传入则仅统计这些 id（单清单 /t/:token 子树图）
+      // today 为北京今天 YYYY-MM-DD（不传时用 SQL 的 date('now','+8 hours') 兜底）
       // offsetHours 保留兼容调用签名，此口径下不再使用
-      // 返回 { created: [{d, c}], done: [{d, c}], openNow: number }，d 为 YYYY-MM-DD
-      async chartRaw(userId, offsetHours = 8, idList = null) {
+      // 返回 { created, done, entries, exits: [{d,c}], openNow: number }，d 为 YYYY-MM-DD
+      async chartRaw(userId, offsetHours = 8, idList = null, today = null) {
         let scope = 'user_id=? AND shared_cat_id IS NULL', args = [userId];
         if (idList && idList.length) {
           scope = `id IN (${idList.map(() => '?').join(',')})`;
           args = idList;
         }
+        const todayExpr = today ? '?' : "date('now', '+8 hours')";
         const createdQ = await db.prepare(
           `SELECT date(created_at, '+8 hours') AS d, COUNT(*) AS c
            FROM todos WHERE ${scope} GROUP BY d`
@@ -957,10 +963,30 @@ function createD1Adapter(env) {
           `SELECT substr(done_at, 1, 10) AS d, COUNT(*) AS c
            FROM todos WHERE ${scope} AND done=1 AND done_at IS NOT NULL GROUP BY d`
         ).bind(...args).all();
-        const openQ = await db.prepare(
-          `SELECT COUNT(*) AS c FROM todos WHERE ${scope} AND done=0`
-        ).bind(...args).first();
-        return { created: createdQ.results || [], done: doneQ.results || [], openNow: openQ ? openQ.c : 0 };
+        const entriesQ = await db.prepare(
+          `SELECT due_date AS d, COUNT(*) AS c
+           FROM todos WHERE ${scope} AND due_date IS NOT NULL
+             AND (done=0 OR (done=1 AND done_at IS NOT NULL AND substr(done_at,1,10) > due_date))
+           GROUP BY due_date`
+        ).bind(...args).all();
+        const exitsQ = await db.prepare(
+          `SELECT substr(done_at, 1, 10) AS d, COUNT(*) AS c
+           FROM todos WHERE ${scope} AND done=1 AND done_at IS NOT NULL
+             AND due_date IS NOT NULL AND due_date < substr(done_at, 1, 10)
+           GROUP BY d`
+        ).bind(...args).all();
+        const openStmt = await db.prepare(
+          `SELECT COUNT(*) AS c FROM todos WHERE ${scope} AND done=0
+             AND due_date IS NOT NULL AND due_date <= ${todayExpr}`
+        );
+        const openQ = today ? await openStmt.bind(...args, today).first() : await openStmt.bind(...args).first();
+        return {
+          created: createdQ.results || [],
+          done: doneQ.results || [],
+          entries: entriesQ.results || [],
+          exits: exitsQ.results || [],
+          openNow: openQ ? openQ.c : 0
+        };
       }
     },
 

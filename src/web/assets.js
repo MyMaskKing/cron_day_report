@@ -6420,7 +6420,7 @@ function todoFormRead() {
   return out;
 }
 function todoTodayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
-// 待办活动趋势三线图：新建(created)/完成(done) 为当日流量；未完成(open) 为截至当日的存量水位（橙色虚线，不填充）
+// 待办活动趋势三线图：新建(created)/完成(done) 为当日流量；未完成(open) 为截至当日「已到期仍未完成」水位（橙色虚线，不填充；未来任务与无日期备忘录不计）
 var _todoChartInst = null;
 function drawTodoChart(canvasId, series) {
   var el = document.getElementById(canvasId);

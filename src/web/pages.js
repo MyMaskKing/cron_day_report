@@ -844,7 +844,7 @@ function todoPage(user) {
 
     <div class="card">
       <div class="todo-chart-head">
-        <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（每日新建 / 完成 / 未完成存量，含子任务）</span></h2>
+        <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（每日新建 / 完成 / 到期未完成，含子任务；未来任务不计未完成）</span></h2>
         <div class="todo-range" id="chartRange">
           <button data-range="month" class="active">当月</button>
           <button data-range="7d">近7天</button>
@@ -916,7 +916,7 @@ function publicTodoPage() {
           <div id="todoTree" class="todo-tree"></div>
         </div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
-          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（每日新建 / 完成 / 未完成存量）</span></h2>
+          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（每日新建 / 完成 / 到期未完成；未来任务不计）</span></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
       </div>
@@ -979,7 +979,7 @@ function todoReportPage() {
       </div>
       <div class="card">
         <div class="todo-chart-head">
-          <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（每日新建 / 完成 / 未完成存量）</span></h2>
+          <h2 style="margin:0;">任务趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（每日新建 / 完成 / 到期未完成；未来任务不计）</span></h2>
           <div class="todo-range" id="chartRange">
             <button data-range="month" class="active">当月</button>
             <button data-range="7d">近7天</button>
@@ -1049,7 +1049,7 @@ function todoCollabPage() {
           <div id="todoTree" class="todo-tree"></div>
         </div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
-          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（每日新建 / 完成 / 未完成存量）</span></h2>
+          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <span class="muted" style="font-size:12px;font-weight:normal;">（每日新建 / 完成 / 到期未完成；未来任务不计）</span></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
       </div>
