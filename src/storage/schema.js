@@ -29,25 +29,39 @@ function initStatements() {
     .filter(Boolean);
 }
 
+// 全量基线包含的业务表（由 INIT_SQL 中 CREATE TABLE 名提取，保持与 0001_init.sql 同步）。
+// 不能只查 users：迁移曾出现"逐条执行中途失败"的半库——users 已建而末尾的 app_settings 缺失。
+const REQUIRED_TABLES = [...INIT_SQL.matchAll(/CREATE TABLE IF NOT EXISTS\s+([a-z_]+)/gi)].map(m => m[1]);
+
 let readyPromise = null;
 
 /**
- * 确保数据库已初始化。每个 isolate 仅做一次 sqlite_master 检查（已初始化则后续请求零开销）；
- * users 表存在直接跳过，缺失时剥注释、按 ";" 拆句后用 batch 原子执行全部建表语句
- * （一次往返；D1 与 docker/d1-shim 均支持 batch）。
- * 建表失败时清除缓存，允许下次请求重试。
+ * 确保数据库已初始化。每个 isolate 仅做一次 sqlite_master 检查（已初始化则后续请求零开销）。
+ * 核对全部应有表是否齐全：缺任意一张（空库或半迁移库——逐条迁移中途失败会留下"前半截表")
+ * 就剥注释、按 ";" 拆句后逐条执行：已存在对象跳过，缺的补齐。
+ * 不用 batch 单事务——半库补齐时任一语句不兼容会整批回滚永远补不齐；逐条独立提交、
+ * 仅忽略 "already exists/duplicate column"（与 docker/migrate.mjs 同口径），
+ * 其他错误照常抛出并允许下次请求重试收敛。空库时一次性顺序执行本身等价于完整迁移。
  * @param {Object} env Worker 环境（须含 DB binding）
  */
 export async function ensureSchema(env) {
   if (!env || !env.DB) return;
   if (!readyPromise) {
     readyPromise = (async () => {
+      const placeholders = REQUIRED_TABLES.map(() => '?').join(',');
       const row = await env.DB.prepare(
-        "SELECT COUNT(*) AS c FROM sqlite_master WHERE type='table' AND name='users'"
-      ).first();
-      if (row && row.c > 0) return;
-      const statements = initStatements();
-      await env.DB.batch(statements.map(sql => env.DB.prepare(sql)));
+        `SELECT COUNT(*) AS c FROM sqlite_master WHERE type='table' AND name IN (${placeholders})`
+      ).bind(...REQUIRED_TABLES).first();
+      if (row && row.c >= REQUIRED_TABLES.length) return;
+      for (const sql of initStatements()) {
+        try {
+          await env.DB.prepare(sql).run();
+        } catch (err) {
+          const msg = String((err && err.message) || err);
+          if (/already exists|duplicate column/i.test(msg)) continue;
+          throw err;
+        }
+      }
     })().catch(err => { readyPromise = null; throw err; });
   }
   await readyPromise;
