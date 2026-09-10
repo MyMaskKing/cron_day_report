@@ -46,15 +46,19 @@ npx wrangler deploy
 
 > 需要 Wrangler 4 或更新版本（已在 devDependencies 中锁定 `^4`，`npm install` 后用 `npx wrangler` 即为本机版本）。
 
-### 3. 初始化数据库表
+### 3. 初始化数据库表（自动，无需操作）
 
-全新库只执行一次全量脚本即可（包含全部表、列、索引）：
+首次部署后，**第一次访问 Worker（或首个整点 Cron 唤醒）会自动建出全部表**：
+Worker 检测到空库时自动执行内置的全量建表 SQL（与 `migrations/0001_init.sql` 同源、幂等），
+每个运行实例只检测一次，已初始化的库无额外开销，Docker 部署则由容器启动迁移器完成。
+
+手动建表仅作备用（如要在首次访问前预建）：
 
 ```bash
 npx wrangler d1 execute cron_db --remote --file=migrations/0001_init.sql
 ```
 
-以后版本若新增 `migrations/000N_xxx.sql`，老库升级时按编号逐个执行；全新部署始终只跑 `0001_init.sql`。
+以后版本若新增 `migrations/000N_xxx.sql`，老库升级时仍需按编号手动执行；全新部署无需任何命令。
 
 ### 4. 配置密钥（可选但建议）
 

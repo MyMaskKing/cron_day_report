@@ -56,13 +56,11 @@ npx wrangler deploy
 Wrangler 4 会自动创建名为 `cron_db` 的 D1 数据库、名为 `KV` 的命名空间与每小时 Cron 触发器，
 并把生成的资源 ID 回写进本机 `wrangler.toml`。
 
-### 3. 初始化数据库表
+### 3. 建表（自动）
 
-```bash
-npx wrangler d1 execute cron_db --remote --file=migrations/0001_init.sql
-```
-
-全新库执行全量脚本一次即可（已包含全部表/列/索引）；之后的 `000N_*.sql` 仅老库升级时按编号执行。
+首次部署后第一次访问（或首个整点 Cron）Worker 会检测空库并自动建出全部表，无需手动执行 SQL；
+预建仅备用：`npx wrangler d1 execute cron_db --remote --file=migrations/0001_init.sql`。
+之后新增的 `000N_*.sql` 仅老库升级时按编号手动执行。
 
 ### 4. 配置密钥（可选但建议）
 

@@ -9,6 +9,7 @@
 import { Router, json, html, error } from './router.js';
 import { getTimeoutConfig, resolveBaseUrl, effectiveFormat } from './config.js';
 import { getStorage } from './storage/adapter.js';
+import { ensureSchema } from './storage/schema.js';
 import { getSession, getTokenFromRequest, buildSessionCookie } from './auth/session.js';
 import { generateToken } from './auth/password.js';
 import { batchAccessUrls, formatResults } from './services/monitor.service.js';
@@ -835,6 +836,8 @@ async function getFundProfitDelta(storage, userId) {
 export default {
   async fetch(request, env, ctx) {
     try {
+      // 新部署空库自检建表（users 表缺失时执行内置全量 SQL；已初始化零开销，每个 isolate 仅检查一次）
+      await ensureSchema(env);
       // 平台无关的定时触发入口：GET/POST /cron?key=CRON_SECRET
       // 供非 Cloudflare 平台（Node/crontab 等）每小时调用一次
       const cronUrl = new URL(request.url);
@@ -861,6 +864,9 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(handleScheduled(event.cron, env, ctx));
+    ctx.waitUntil((async () => {
+      await ensureSchema(env);
+      await handleScheduled(event.cron, env, ctx);
+    })());
   }
 };
