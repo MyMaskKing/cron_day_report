@@ -795,33 +795,42 @@ input[type="date"] { cursor: pointer; }
 .todo-filter { margin: 4px 0 12px; }
 /* 标题行「分析」小按钮：与 h2 文字垂直对齐 */
 .todo-analyze-btn { vertical-align: middle; margin: 0 2px; }
+/* 任务分析弹窗：区块标题 */
+.ta-h { font-size: 14px; font-weight: 600; color: var(--label); margin: 18px 0 10px; }
+.ta-h-first { margin-top: 0; }
+.ta-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.ta-head .ta-h { margin: 0; }
 /* 任务分析弹窗：指标卡 */
 .ta-stats { display: flex; gap: 10px; flex-wrap: wrap; }
-.ta-stat { flex: 1; min-width: 130px; background: var(--surface-3); border-radius: 10px; padding: 12px 14px; text-align: center; }
-.ta-stat .n { font-size: 22px; font-weight: 700; color: var(--text-strong); white-space: nowrap; }
-.ta-stat .n small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 4px; }
+.ta-stat { flex: 1; min-width: 120px; background: var(--surface-3); border-radius: 10px; padding: 10px 12px; text-align: center; }
+.ta-stat .n { font-size: 20px; font-weight: 700; color: var(--text-strong); white-space: nowrap; line-height: 1.3; }
+.ta-stat .n small { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+.ta-stat .l { font-size: 13px; color: var(--text); margin-top: 1px; }
+.ta-stat .s { font-size: 11px; color: var(--muted); margin-top: 1px; min-height: 14px; }
 .ta-stat.good .n { color: var(--ok); }
 .ta-stat.bad .n { color: var(--danger); }
-.ta-stat .l { font-size: 12px; color: var(--label); margin-top: 2px; }
-/* 7 列日历热力图（周一起始）；桌面固定 30px 格，窄屏自适应 */
-.ta-dow, .ta-heat { display: grid; grid-template-columns: repeat(7, 30px); gap: 4px; }
-.ta-dow { margin: 14px 0 4px; }
+/* 7 列日历热力图（周一起始）：整块居中，格子等宽方形，格内显示日期 */
+.ta-heat-wrap { max-width: 380px; margin: 0 auto; }
+.ta-dow, .ta-heat { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.ta-dow { margin-bottom: 5px; }
 .ta-dow span { font-size: 11px; color: var(--muted); text-align: center; line-height: 16px; }
-.ta-heat { margin-bottom: 6px; }
-.ta-cell { width: 30px; height: 30px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-2); box-sizing: border-box; cursor: default; }
-.ta-cell.win { background: var(--ok); border-color: transparent; }
-.ta-cell.fail { background: var(--danger); border-color: transparent; }
-.ta-cell.pending { background: var(--surface); border: 1px dashed var(--brand); }
+.ta-cell { aspect-ratio: 1; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-2); box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; cursor: default; transition: transform .12s; }
+.ta-cell:hover { transform: scale(1.12); position: relative; z-index: 1; }
+.ta-cell.win { background: var(--ok); border-color: transparent; color: #fff; }
+.ta-cell.fail { background: var(--danger); border-color: transparent; color: #fff; }
+.ta-cell.pending { background: var(--surface); border: 1px dashed var(--brand); color: var(--brand); }
 .ta-cell.idle { background: var(--surface-2); }
-.ta-legend { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+/* 暗色主题下绿/红底变亮，日期字改用深色保对比 */
+[data-theme="dark"] .ta-cell.win { color: #10230f; }
+[data-theme="dark"] .ta-cell.fail { color: #2c0d0d; }
+.ta-legend { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
 .ta-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--border); box-sizing: border-box; }
 .ta-legend .lg-win { background: var(--ok); border-color: transparent; }
 .ta-legend .lg-fail { background: var(--danger); border-color: transparent; }
 .ta-legend .lg-idle { background: var(--surface-2); }
 .ta-legend .lg-pending { background: var(--surface); border: 1px dashed var(--brand); }
 @media (max-width: 480px) {
-  .ta-dow, .ta-heat { grid-template-columns: repeat(7, 1fr); }
-  .ta-cell { width: auto; height: auto; aspect-ratio: 1; }
+  .ta-heat-wrap { max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) { .todo-row, .todo-check, .todo-check::after, .todo-caret { transition: none; } }
 /* 子任务长按拖拽：拖动中的节点浮起，拖动期间全局禁选中并显示抓取光标 */

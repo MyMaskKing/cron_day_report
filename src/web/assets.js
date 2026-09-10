@@ -6458,15 +6458,21 @@ var _taDays = 30;
 function openTodoAnalysis(buildUrl) {
   _taDays = 30;
   var body =
+    '<h3 class="ta-h ta-h-first">核心指标</h3>' +
     '<div class="ta-stats">' +
-      '<div class="ta-stat good"><div class="n"><span id="taStreak">-</span> <small id="taBest"></small></div><div class="l">当前连续达标（天）</div></div>' +
-      '<div class="ta-stat"><div class="n" id="taWinRate">-</div><div class="l">区间完成率（截至今天）</div></div>' +
-      '<div class="ta-stat bad"><div class="n" id="taOverRate">-</div><div class="l">逾期率（不含今天）</div></div>' +
+      '<div class="ta-stat" id="taStreakCard"><div class="n"><span id="taStreak">-</span><small>天</small></div><div class="l">连续达标</div><div class="s" id="taBest"></div></div>' +
+      '<div class="ta-stat good"><div class="n" id="taWinRate">-</div><div class="l">区间完成率</div><div class="s">截至今天</div></div>' +
+      '<div class="ta-stat" id="taOverCard"><div class="n" id="taOverRate">-</div><div class="l">逾期率</div><div class="s">不含今天</div></div>' +
     '</div>' +
-    '<div class="ta-dow"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>' +
-    '<div class="ta-heat" id="taHeat"></div>' +
+    '<div class="ta-head"><h3 class="ta-h">达标日历</h3>' +
+      '<div class="todo-range" id="taRange"><button data-days="30" class="active">近30天</button><button data-days="60">近60天</button></div>' +
+    '</div>' +
+    '<div class="ta-heat-wrap">' +
+      '<div class="ta-dow"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>' +
+      '<div class="ta-heat" id="taHeat"></div>' +
+    '</div>' +
     '<div class="ta-legend"><span><i class="lg-win"></i>达标</span><span><i class="lg-fail"></i>有逾期</span><span><i class="lg-idle"></i>无任务</span><span><i class="lg-pending"></i>今天</span></div>' +
-    '<div class="todo-range" id="taRange" style="margin:14px 0 4px;"><button data-days="30" class="active">近30天</button><button data-days="60">近60天</button></div>' +
+    '<h3 class="ta-h">每日完成率走势</h3>' +
     '<canvas id="taChart" style="max-height:200px;"></canvas>' +
     '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">口径：当天到期任务日终零新增逾期即「达标」；当天无任务为中性，不断签也不计数；今天尚未收官，不计入连续达标。悬停色块查看当天明细。</p>';
   openModal('📊 任务分析', body, 'modal-mask--lg');
@@ -6477,9 +6483,13 @@ function openTodoAnalysis(buildUrl) {
 
   function render(a) {
     document.getElementById('taStreak').textContent = a.currentStreak;
-    document.getElementById('taBest').textContent = a.longestStreak ? '最长 ' + a.longestStreak : '';
+    document.getElementById('taBest').textContent = a.longestStreak ? '最长 ' + a.longestStreak + ' 天' : '';
     document.getElementById('taWinRate').textContent = pct(a.winRate);
     document.getElementById('taOverRate').textContent = pct(a.overdueRate);
+    // 连续 0 天中性色；逾期率 0 用正向绿，大于 0 用红
+    document.getElementById('taStreakCard').classList.toggle('good', a.currentStreak > 0);
+    document.getElementById('taOverCard').classList.toggle('bad', a.overdueRate > 0);
+    document.getElementById('taOverCard').classList.toggle('good', !(a.overdueRate > 0));
 
     var heat = document.getElementById('taHeat');
     heat.innerHTML = '';
@@ -6492,24 +6502,31 @@ function openTodoAnalysis(buildUrl) {
       if (item.mark === 'idle') c.title = label + ' 无到期任务';
       else if (item.mark === 'pending') c.title = label + ' 今天未收官：到期 ' + item.planned + ' / 已完成 ' + item.done;
       else c.title = label + ' 到期 ' + item.planned + ' / 完成 ' + item.done + ' / 新增逾期 ' + item.overdue;
+      // 有任务日 / 今天格内显示日期（日），无任务日留空
+      if (item.mark !== 'idle') c.textContent = item.date.slice(8);
       heat.appendChild(c);
     });
 
     if (typeof Chart !== 'undefined') {
       if (_taChartInst) { _taChartInst.destroy(); _taChartInst = null; }
+      var rateData = a.daily.map(function(x){ return x.rate == null ? null : Math.round(x.rate * 100); });
+      var avg = a.winRate == null ? null : Math.round(a.winRate * 100);
+      var datasets = [{
+        label: '日完成率',
+        data: rateData,
+        borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.10)',
+        fill: true, tension: .3, spanGaps: false, pointRadius: 2
+      }];
+      if (avg != null) datasets.push({
+        label: '区间均值 ' + avg + '%',
+        data: a.daily.map(function(){ return avg; }),
+        borderColor: '#faad14', borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5, fill: false
+      });
       _taChartInst = new Chart(document.getElementById('taChart'), {
         type: 'line',
-        data: {
-          labels: a.daily.map(function(x){ return x.date.slice(5); }),
-          datasets: [{
-            label: '日完成率',
-            data: a.daily.map(function(x){ return x.rate == null ? null : Math.round(x.rate * 100); }),
-            borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.10)',
-            fill: true, tension: .3, spanGaps: false, pointRadius: 2
-          }]
-        },
+        data: { labels: a.daily.map(function(x){ return x.date.slice(5); }), datasets: datasets },
         options: {
-          plugins: { legend: { display: false } },
+          plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 18, font: { size: 11 } } } },
           scales: {
             y: { beginAtZero: true, max: 100, ticks: { callback: function(v){ return v + '%'; } } },
             x: { ticks: { maxTicksLimit: 10, autoSkip: true } }
