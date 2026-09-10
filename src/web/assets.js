@@ -6555,6 +6555,36 @@ function openTodoAnalysis(buildUrl) {
 }
 // 庆祝数量：叶子口径，完成父任务代表整枝结束，其后代不再计入
 // datedOnly=true 时排除无截止日期的备忘录，与主页面/报告页的“未完成”统计一致
+// child_due 新模式: 统计 node 子树中「带截止日期且未完成」的叶子数(只数后代不含 node 自身;
+// 已完成分支整支跳过)。无日期的备忘录子任务不计入, 与"备忘录不二次提醒"的约定一致。
+function todoPendingDatedLeaves(node) {
+  var n = 0;
+  function walk(x) {
+    if (x.done) return;
+    if (x.children && x.children.length) { x.children.forEach(walk); return; }
+    if (x.due_date) n++;
+  }
+  (node.children || []).forEach(walk);
+  return n;
+}
+// 勾选未完成→完成前的二次提醒: 仅当 node 所在主任务为 child_due 模式(子任务各自设截止时间),
+// 且其下仍有带截止时间的未完成叶子时弹窗; 旧模式(子任务日期继承主任务)/无未完成子任务直接放行。
+// 返回 Promise: true=继续提交, false=用户取消
+function todoConfirmDoneIfPending(node, done) {
+  if (!done) return Promise.resolve(true);
+  var root = node._root || node;
+  if (!root.child_due) return Promise.resolve(true);
+  var pending = todoPendingDatedLeaves(node);
+  if (!pending) return Promise.resolve(true);
+  return new Promise(function(resolve){
+    var msg = '该主任务下还有 ' + pending + ' 个带截止时间的子任务未完成。\\n仍要标记为已完成吗？\\n确认后这些子任务将随主任务一并视为完成。';
+    openModal('确认完成主任务',
+      '<p style="line-height:1.7;word-break:break-all;white-space:pre-line;">' + esc(msg) + '</p>' +
+      '<div style="text-align:right;margin-top:18px;"><button type="button" class="btn gray" id="cdCancel">取消</button> <button type="button" class="btn danger" id="cdConfirm">仍要完成</button></div>');
+    document.getElementById('cdCancel').addEventListener('click', function(){ closeModal(); resolve(false); });
+    bindClickBusy(document.getElementById('cdConfirm'), async function(){ closeModal(); resolve(true); });
+  });
+}
 function todoCelebrationCount(trees, datedOnly) {
   var total = 0, done = 0;
   function walk(node, inheritedDue) {
@@ -6781,6 +6811,7 @@ function drawTree() {
       });
     },
     onToggle: async function(node, done){
+      if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
         await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadTodos(); await loadChart();
@@ -7285,6 +7316,7 @@ function drawTree(trees) {
     onExitDetail: function(){ _todoDetailRootId = null; drawTree(visibleTrees()); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(visibleTrees()); },
     onToggle: async function(node, done){
+      if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
         await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadPublic();
@@ -7440,6 +7472,7 @@ function drawTree() {
       });
     },
     onToggle: async function(node, done){
+      if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
         await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await reloadReport();
@@ -7707,6 +7740,7 @@ function drawTree(trees) {
       });
     },
     onToggle: async function(node, done){
+      if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
         await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadCollab();

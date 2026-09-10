@@ -318,16 +318,42 @@ function msDay(ms) {
 }
 
 /**
+ * 构造"有效完成态"解析器：主任务勾选完成后，其下即使未逐个勾选的子任务也视为已完成
+ * （child_due 新模式下子任务各自带截止日；与列表 countStats / 日报 statsOfReport
+ *   的"已完成祖先剪枝"同口径：主任务完成即整支结束，不论子任务是否逐个勾选）。
+ * 依据 raw.tree（同范围全量行，含无日期的容器主任务）沿 parent 链找最近的已完成祖先，
+ * 取其完成日；缺 raw.tree（旧调用方）时退化为只看任务自身。
+ * @param {Object} raw - storage.chartRaw 结果
+ * @returns {(t:Object)=>{done:boolean, day:string|null}}
+ *   done: 最终是否完成（自身完成 或 存在已完成祖先）；
+ *   day: 最终完成日北京日（自身完成日优先，否则最近已完成祖先的完成日；缺 done_at 的历史完成行为 null=早已完成）
+ */
+function buildEffDoneResolver(raw) {
+  const byId = new Map();
+  (raw.tree || []).forEach(r => { if (r && r.id != null) byId.set(r.id, r); });
+  return function effDone(t) {
+    if (t.done === 1) return { done: true, day: t.done10 || null };
+    let cur = t, guard = 0;
+    while (cur.parent_id != null && byId.has(cur.parent_id) && guard++ < 100) {
+      cur = byId.get(cur.parent_id);
+      if (cur.done === 1) return { done: true, day: cur.done10 || null };
+    }
+    return { done: false, day: null };
+  };
+}
+
+/**
  * 构造图表序列：按 range 决定按天/按月，产出连续标签与 总任务/未完成/完成 三条序列
  * ≤60 天按天，半年/1年/3年按月。
  * 对轴上每一天 d，直接按定义逐任务计数（不做历史反推，结果恒非负）：
- *   open(d)  —— 当天未完成：due<=d 且（当前未完成，或完成日晚于 d）；
+ *   open(d)  —— 当天未完成：due<=d 且（最终未完成，或最终完成日晚于 d）；
  *                即「当天到期未完成 + 历史逾期」，未来任务与无日期备忘录不计
- *   done(d)  —— 当天完成：done=1 且完成日为 d（doneMap 按日聚合，含无日期任务勾选/逾期补做）
+ *   done(d)  —— 当天完成：自身在 d 完成，或未勾选但被 d 当天完成的主任务收编
+ *               （doneMap 在 raw.done 之外补齐收编行；done=1 缺完成日的脏数据不计）
  *   total(d) —— 当天总任务 = open(d) + done(d)（含完成、逾期、未完成全部）
  * 月格：完成数为当月每日之和；未完成取月末水位（当月取 today）；
  *       总任务 = 月末未完成 + 当月完成数。
- * @param {Object} raw - storage.chartRaw 结果 { datedTasks:[{due,done,done10}], done:[{d,c}] }
+ * @param {Object} raw - storage.chartRaw 结果 { datedTasks:[{id,parent_id,due,done,done10}], done:[{d,c}], tree:[...] }
  * @param {string} range - month|7d|30d|60d|6m|1y|3y
  * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
  * @returns {Object} { range, unit, labels[], total[], open[], done[] }
@@ -335,13 +361,29 @@ function msDay(ms) {
 function buildChartSeries(raw, range, today) {
   const cfg = CHART_RANGES[range] || CHART_RANGES['7d'];
   const tasks = (raw.datedTasks || []).filter(t => t && t.due);
+  const effDone = buildEffDoneResolver(raw);
+  // 逐行预算有效完成态（同一行在按天循环里被反复判定）
+  const effMap = new Map();
+  const effOf = (t) => {
+    let e = effMap.get(t.id);
+    if (!e) { e = effDone(t); effMap.set(t.id, e); }
+    return e;
+  };
   const doneMap = {};
   (raw.done || []).forEach(r => { if (r.d) doneMap[r.d] = r.c; });
+  // 收编补计：自身未勾选、但已被完成主任务收编的带日期子任务，在主任务完成日计一次完成
+  tasks.forEach(t => {
+    if (t.done === 1) return;
+    const e = effOf(t);
+    if (e.done && e.day) doneMap[e.day] = (doneMap[e.day] || 0) + 1;
+  });
 
-  // d 日末仍未完成（已到期）：未完成任务全期挂账；已完成任务在完成日次日才消失。
-  // done=1 但缺 done10 的脏数据按"早已完成"处理，不计入任何历史日。
-  const openAt = (t, d) =>
-    t.due <= d && (t.done !== 1 || (!!t.done10 && t.done10 > d));
+  // d 日末仍未完成（已到期）：最终未完成全期挂账；最终完成的在完成日次日才消失。
+  // done 但缺完成日的脏数据按"早已完成"处理，不计入任何历史日。
+  const openAt = (t, d) => {
+    const e = effOf(t);
+    return t.due <= d && (!e.done || (!!e.day && e.day > d));
+  };
 
   // d 日未完成数（当天到期未完成 + 历史逾期）
   const openAtCount = (d) => {
@@ -410,16 +452,19 @@ function buildChartSeries(raw, range, today) {
  */
 function buildAnalysis(raw, days, today) {
   const tasks = (raw.datedTasks || []).filter(t => t && t.due);
+  const effDone = buildEffDoneResolver(raw);
   const DAY = 86400000;
   const todayMs = dayMs(today);
 
-  // 按到期日聚合：dueCnt=到期数；doneFinalCnt=最终完成数（含逾期补做、缺 done10 的历史完成）；overCnt=日终仍未完成（新增逾期）
+  // 按到期日聚合：dueCnt=到期数；doneFinalCnt=最终完成数（含逾期补做、缺 done10 的历史完成、
+  // 被完成主任务收编的子任务）；overCnt=日终仍未完成（新增逾期；收编但收编日晚于到期日算逾期补做）
   const dueCnt = {}, doneFinalCnt = {}, overCnt = {};
   let minMs = null;
   for (const t of tasks) {
+    const e = effDone(t);
     dueCnt[t.due] = (dueCnt[t.due] || 0) + 1;
-    if (t.done === 1) doneFinalCnt[t.due] = (doneFinalCnt[t.due] || 0) + 1;
-    const unfinishedAtEnd = t.done !== 1 || (!!t.done10 && t.done10 > t.due);
+    if (e.done) doneFinalCnt[t.due] = (doneFinalCnt[t.due] || 0) + 1;
+    const unfinishedAtEnd = !e.done || (!!e.day && e.day > t.due);
     if (unfinishedAtEnd) overCnt[t.due] = (overCnt[t.due] || 0) + 1;
     const ms = dayMs(t.due);
     if (minMs === null || ms < minMs) minMs = ms;
