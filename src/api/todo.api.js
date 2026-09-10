@@ -426,7 +426,7 @@ async function todoChart({ request, env, url }) {
   const dc = await requireDataContext(storage, auth, 'todo', request);
   if (dc instanceof Response) return dc;
   const range = CHART_RANGES[url.searchParams.get('range')] ? url.searchParams.get('range') : '7d';
-  const raw = await storage.todo.chartRaw(dc.uid, 8, null, todayCN());
+  const raw = await storage.todo.chartRaw(dc.uid);
   const series = buildChartSeries(raw, range, todayCN());
   return json({ success: true, series });
 }
@@ -610,12 +610,12 @@ async function publicTodoChart({ env, params, url }) {
   let raw = null;
   const pushRow = await storage.push.findByReportToken(params.token);
   if (pushRow && pushRow.module === 'todo') {
-    raw = await storage.todo.chartRaw(pushRow.user_id, 8, null, todayCN());
+    raw = await storage.todo.chartRaw(pushRow.user_id);
   } else {
     const root = await storage.todo.findByShareToken(params.token);
     if (!root) return error('链接无效或已失效', 404);
     const subtree = await storage.todo.listSubtree(root.id);
-    raw = await storage.todo.chartRaw(root.user_id, 8, subtree.map(r => r.id), todayCN());
+    raw = await storage.todo.chartRaw(root.user_id, 8, subtree.map(r => r.id));
   }
   const series = buildChartSeries(raw, range, todayCN());
   return json({ success: true, series });

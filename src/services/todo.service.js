@@ -318,88 +318,80 @@ function msDay(ms) {
 }
 
 /**
- * 构造图表序列：按 range 决定按天/按月，产出连续标签与 新建/完成/到期未完成 三条序列
+ * 构造图表序列：按 range 决定按天/按月，产出连续标签与 总任务/完成/逾期 三条序列
  * ≤60 天按天，半年/1年/3年按月。
- * 到期未完成（open）：截至当天「已到期仍未完成」的任务数（未来任务、无日期备忘录不计）。
- *   以 raw.openNow（今天水位）反推：open(d-1) = open(d) − entries(d) + exits(d)
- *   entries=到期日当天仍未完成（进入存量）；exits=逾期后补做完成（离开存量）；
- *   到期当天即完成的任务从不进入存量。月格取该月最后一天水位（当月取 today）。
- * @param {Object} raw - storage.chartRaw 结果 { created, done, entries, exits:[{d,c}], openNow:number }
+ * 对轴上每一天 d，直接按定义逐任务计数（不做历史反推，结果恒非负）：
+ *   total(d)   —— 当天总任务（未完成）：due<=d 且（当前未完成，或完成日晚于 d）；
+ *                 即「当天到期未完成 + 历史逾期」，未来任务与无日期备忘录不计
+ *   overdue(d) —— 当天逾期：due<d 且同上
+ *   done(d)    —— 当天完成：done=1 且完成日为 d（doneMap 按日聚合）
+ * 月格：完成数为当月每日之和；总任务/逾期取月末水位（当月取 today）。
+ * @param {Object} raw - storage.chartRaw 结果 { datedTasks:[{due,done,done10}], done:[{d,c}] }
  * @param {string} range - month|7d|30d|60d|6m|1y|3y
  * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
- * @returns {Object} { range, unit, labels[], created[], done[], open[] }
+ * @returns {Object} { range, unit, labels[], total[], done[], overdue[] }
  */
 function buildChartSeries(raw, range, today) {
   const cfg = CHART_RANGES[range] || CHART_RANGES['7d'];
-  const createdMap = {}, doneMap = {}, entriesMap = {}, exitsMap = {};
-  (raw.created || []).forEach(r => { if (r.d) createdMap[r.d] = r.c; });
+  const tasks = (raw.datedTasks || []).filter(t => t && t.due);
+  const doneMap = {};
   (raw.done || []).forEach(r => { if (r.d) doneMap[r.d] = r.c; });
-  (raw.entries || []).forEach(r => { if (r.d) entriesMap[r.d] = r.c; });
-  (raw.exits || []).forEach(r => { if (r.d) exitsMap[r.d] = r.c; });
+
+  // d 日末仍未完成（已到期）：未完成任务全期挂账；已完成任务在完成日次日才消失。
+  // done=1 但缺 done10 的脏数据按"早已完成"处理，不计入任何历史日。
+  const openAt = (t, d) =>
+    t.due <= d && (t.done !== 1 || (!!t.done10 && t.done10 > d));
+
+  // 单日总任务/逾期（O(任务数)，调用点仅轴上 ≤60 天/36 月）
+  const countsAt = (d) => {
+    let total = 0, overdue = 0;
+    for (const t of tasks) {
+      if (!openAt(t, d)) continue;
+      total++;
+      if (t.due < d) overdue++;
+    }
+    return { total, overdue };
+  };
+  const sumDone = (ym) => {
+    let dc = 0;
+    for (const k in doneMap) if (k.slice(0, 7) === ym) dc += doneMap[k];
+    return dc;
+  };
+
   const DAY = 86400000;
   const todayMs = dayMs(today);
+  const labels = [], total = [], done = [], overdue = [];
 
-  // 生成 [startMs, today] 连续北京日（YYYY-MM-DD）
-  const dayRange = (startMs) => {
-    const out = [];
-    for (let ms = startMs; ms <= todayMs; ms += DAY) out.push(msDay(ms));
-    return out;
-  };
-  // 由今天水位 openNow 反向递推每天的到期未完成存量
-  const backfillOpen = (days) => {
-    const map = {};
-    let cur = Number.isFinite(raw.openNow) ? raw.openNow : 0;
-    map[days[days.length - 1]] = cur;
-    for (let i = days.length - 1; i > 0; i--) {
-      cur = cur - (entriesMap[days[i]] || 0) + (exitsMap[days[i]] || 0);
-      map[days[i - 1]] = cur;
-    }
-    return map;
+  const pushDay = (day, labelDay) => {
+    const c = countsAt(day);
+    labels.push(labelDay.slice(5)); // MM-DD
+    total.push(c.total);
+    overdue.push(c.overdue);
+    done.push(doneMap[day] || 0);
   };
 
-  const labels = [], created = [], done = [], open = [];
   if (cfg.unit === 'month-current') {
     // 当月: 从 today 所在月 1 号起, 到 today 为止, 每天一格
     const n = +today.slice(8, 10);
-    const days = dayRange(todayMs - (n - 1) * DAY);
-    const openMap = backfillOpen(days);
-    days.forEach(day => {
-      labels.push(day.slice(5)); // MM-DD
-      created.push(createdMap[day] || 0);
-      done.push(doneMap[day] || 0);
-      open.push(openMap[day]);
-    });
+    for (let i = n - 1; i >= 0; i--) pushDay(msDay(todayMs - i * DAY), msDay(todayMs - i * DAY));
   } else if (cfg.unit === 'day') {
-    const days = dayRange(todayMs - (cfg.span - 1) * DAY);
-    const openMap = backfillOpen(days);
-    days.forEach(day => {
-      labels.push(day.slice(5)); // MM-DD
-      created.push(createdMap[day] || 0);
-      done.push(doneMap[day] || 0);
-      open.push(openMap[day]);
-    });
+    for (let i = cfg.span - 1; i >= 0; i--) pushDay(msDay(todayMs - i * DAY), msDay(todayMs - i * DAY));
   } else {
-    // 按月：新建/完成聚合当月每日之和；存量取月内最后一天水位（历史月=月末，当月=today）
+    // 按月：完成数聚合当月之和；总任务/逾期取月末水位（历史月=月末，当月=today）
     const y = +today.slice(0, 4), m = +today.slice(5, 7) - 1;
-    const firstMs = Date.UTC(y, m - (cfg.span - 1), 1);
-    const days = dayRange(firstMs);
-    const openMap = backfillOpen(days);
     for (let i = cfg.span - 1; i >= 0; i--) {
       const monthDate = new Date(Date.UTC(y, m - i, 1));
       const ym = monthDate.toISOString().slice(0, 7); // YYYY-MM
-      labels.push(ym);
-      let cc = 0, dc = 0;
-      for (const k in createdMap) if (k.slice(0, 7) === ym) cc += createdMap[k];
-      for (const k in doneMap) if (k.slice(0, 7) === ym) dc += doneMap[k];
-      created.push(cc);
-      done.push(dc);
-      // 该月最后一个有数据意义的日子：月末与 today 取较早者（当月只走到 today）
       const monthEnd = msDay(Date.UTC(y, m - i + 1, 0));
       const snap = monthEnd > today ? today : monthEnd;
-      open.push(openMap[snap] != null ? openMap[snap] : 0);
+      const c = countsAt(snap);
+      labels.push(ym);
+      total.push(c.total);
+      overdue.push(c.overdue);
+      done.push(sumDone(ym));
     }
   }
-  return { range, unit: cfg.unit, labels, created, done, open };
+  return { range, unit: cfg.unit, labels, total, done, overdue };
 }
 
 /**
