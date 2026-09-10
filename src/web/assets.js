@@ -6421,7 +6421,7 @@ function todoFormRead() {
 }
 function todoTodayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
 // 待办趋势三线图（逐天直接计数，恒非负）：
-//   总任务=当天未完成(当天到期+逾期)；完成=当天勾选完成；逾期=当天结束时仍欠着的过期任务
+//   总任务=未完成+当天完成(含逾期/完成/未完成全部)；未完成=当天到期+历史逾期；完成=当天勾选完成
 var _todoChartInst = null;
 function drawTodoChart(canvasId, series) {
   var el = document.getElementById(canvasId);
@@ -6430,9 +6430,9 @@ function drawTodoChart(canvasId, series) {
   _todoChartInst = new Chart(el, {
     type: 'line',
     data: { labels: series.labels, datasets: [
-      { label: '未完成（当天+逾期）', data: series.total, borderColor: '#4a6cf7', backgroundColor: 'rgba(74,108,247,.12)', fill: true, tension: .3 },
-      { label: '当天完成', data: series.done, borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.10)', fill: false, tension: .3 },
-      { label: '逾期', data: series.overdue, borderColor: '#cf1322', backgroundColor: 'rgba(207,19,34,.10)', fill: false, tension: .3, borderDash: [5, 4] }
+      { label: '总任务（完成+逾期+未完成）', data: series.total, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.10)', fill: false, tension: .3, borderWidth: 2 },
+      { label: '未完成（当天+逾期）', data: series.open, borderColor: '#4a6cf7', backgroundColor: 'rgba(74,108,247,.12)', fill: true, tension: .3 },
+      { label: '当天完成', data: series.done, borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.10)', fill: false, tension: .3 }
     ] },
     options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
   });

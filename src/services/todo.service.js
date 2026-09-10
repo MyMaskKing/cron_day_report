@@ -318,18 +318,19 @@ function msDay(ms) {
 }
 
 /**
- * 构造图表序列：按 range 决定按天/按月，产出连续标签与 总任务/完成/逾期 三条序列
+ * 构造图表序列：按 range 决定按天/按月，产出连续标签与 总任务/未完成/完成 三条序列
  * ≤60 天按天，半年/1年/3年按月。
  * 对轴上每一天 d，直接按定义逐任务计数（不做历史反推，结果恒非负）：
- *   total(d)   —— 当天总任务（未完成）：due<=d 且（当前未完成，或完成日晚于 d）；
- *                 即「当天到期未完成 + 历史逾期」，未来任务与无日期备忘录不计
- *   overdue(d) —— 当天逾期：due<d 且同上
- *   done(d)    —— 当天完成：done=1 且完成日为 d（doneMap 按日聚合）
- * 月格：完成数为当月每日之和；总任务/逾期取月末水位（当月取 today）。
+ *   open(d)  —— 当天未完成：due<=d 且（当前未完成，或完成日晚于 d）；
+ *                即「当天到期未完成 + 历史逾期」，未来任务与无日期备忘录不计
+ *   done(d)  —— 当天完成：done=1 且完成日为 d（doneMap 按日聚合，含无日期任务勾选/逾期补做）
+ *   total(d) —— 当天总任务 = open(d) + done(d)（含完成、逾期、未完成全部）
+ * 月格：完成数为当月每日之和；未完成取月末水位（当月取 today）；
+ *       总任务 = 月末未完成 + 当月完成数。
  * @param {Object} raw - storage.chartRaw 结果 { datedTasks:[{due,done,done10}], done:[{d,c}] }
  * @param {string} range - month|7d|30d|60d|6m|1y|3y
  * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
- * @returns {Object} { range, unit, labels[], total[], done[], overdue[] }
+ * @returns {Object} { range, unit, labels[], total[], open[], done[] }
  */
 function buildChartSeries(raw, range, today) {
   const cfg = CHART_RANGES[range] || CHART_RANGES['7d'];
@@ -342,15 +343,11 @@ function buildChartSeries(raw, range, today) {
   const openAt = (t, d) =>
     t.due <= d && (t.done !== 1 || (!!t.done10 && t.done10 > d));
 
-  // 单日总任务/逾期（O(任务数)，调用点仅轴上 ≤60 天/36 月）
-  const countsAt = (d) => {
-    let total = 0, overdue = 0;
-    for (const t of tasks) {
-      if (!openAt(t, d)) continue;
-      total++;
-      if (t.due < d) overdue++;
-    }
-    return { total, overdue };
+  // d 日未完成数（当天到期未完成 + 历史逾期）
+  const openAtCount = (d) => {
+    let n = 0;
+    for (const t of tasks) if (openAt(t, d)) n++;
+    return n;
   };
   const sumDone = (ym) => {
     let dc = 0;
@@ -360,14 +357,16 @@ function buildChartSeries(raw, range, today) {
 
   const DAY = 86400000;
   const todayMs = dayMs(today);
-  const labels = [], total = [], done = [], overdue = [];
+  const labels = [], total = [], open = [], done = [];
 
+  // 日格：总任务 = 当天未完成 + 当天完成
   const pushDay = (day, labelDay) => {
-    const c = countsAt(day);
+    const dc = doneMap[day] || 0;
+    const oc = openAtCount(day);
     labels.push(labelDay.slice(5)); // MM-DD
-    total.push(c.total);
-    overdue.push(c.overdue);
-    done.push(doneMap[day] || 0);
+    open.push(oc);
+    done.push(dc);
+    total.push(oc + dc);
   };
 
   if (cfg.unit === 'month-current') {
@@ -377,21 +376,22 @@ function buildChartSeries(raw, range, today) {
   } else if (cfg.unit === 'day') {
     for (let i = cfg.span - 1; i >= 0; i--) pushDay(msDay(todayMs - i * DAY), msDay(todayMs - i * DAY));
   } else {
-    // 按月：完成数聚合当月之和；总任务/逾期取月末水位（历史月=月末，当月=today）
+    // 按月：完成数为当月每日之和；未完成取月末水位（历史月=月末，当月=today）；总任务=两者之和
     const y = +today.slice(0, 4), m = +today.slice(5, 7) - 1;
     for (let i = cfg.span - 1; i >= 0; i--) {
       const monthDate = new Date(Date.UTC(y, m - i, 1));
       const ym = monthDate.toISOString().slice(0, 7); // YYYY-MM
       const monthEnd = msDay(Date.UTC(y, m - i + 1, 0));
       const snap = monthEnd > today ? today : monthEnd;
-      const c = countsAt(snap);
+      const oc = openAtCount(snap);
+      const dc = sumDone(ym);
       labels.push(ym);
-      total.push(c.total);
-      overdue.push(c.overdue);
-      done.push(sumDone(ym));
+      open.push(oc);
+      done.push(dc);
+      total.push(oc + dc);
     }
   }
-  return { range, unit: cfg.unit, labels, total, done, overdue };
+  return { range, unit: cfg.unit, labels, total, open, done };
 }
 
 /**
