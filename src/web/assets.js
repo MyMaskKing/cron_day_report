@@ -7259,7 +7259,7 @@ function renderPendingStats() {
 }
 // 视图 3 态循环需要的一对回调: 取当前 rows / 触发树重绘
 function _todoGetRows() { return _rows; }
-// 打开任务编辑弹窗（卡片操作与小组件 ?edit=<id> 深链共用）
+// 打开任务编辑弹窗（任务详情「编辑」按钮与卡片操作入口共用；小组件 ?edit 深链现先进查看视图）
 function openTodoEdit(node) {
   var isChild = node.parent_id != null;
   // 子任务: 按所在主任务的 child_due 模式决定是否可设日期/重复; 重复仅叶子(无子任务)
@@ -7790,8 +7790,9 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
       var _addParent = (_rows || []).filter(function(r){ return String(r.id) === String(_addChildId); })[0];
       openAddForm(Number(_addChildId), _addParent && _addParent.title ? '添加子任务 · ' + _addParent.title : '添加子任务', true);
     }
-    // ?edit: 在详情画面上弹该任务编辑弹窗。必须从 todoBuildTree 树节点取(openTodoEdit 读
-    // node.children/node._root, 扁平 _rows 节点无 children 会抛 undefined.length)
+    // ?edit: 小组件点子任务深链, 与列表点击一致先弹任务详情(查看视图), 详情内「编辑」再进表单。
+    // 必须从 todoBuildTree 树节点取(openTodoEdit 读 node.children/node._root,
+    // 扁平 _rows 节点无 children 会抛 undefined.length)
     var _editId = _q.get('edit');
     if (_editId) {
       history.replaceState(null, '', location.pathname);
@@ -7806,7 +7807,15 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
         })(todoBuildTree(_rows || []));
         return found;
       })();
-      if (_node) openTodoEdit(_node);
+      if (_node) openTodoDetail(_node, {
+        today: todayStr(),
+        editable: true,
+        onEdit: function(n){ openTodoEdit(n); },
+        listAttachments: async function(id){
+          var r = await api('/api/todo/' + id + '/attachments');
+          return r.attachments || [];
+        }
+      });
     }
   }
   catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
@@ -8267,7 +8276,7 @@ async function reloadReport() {
       var _addParent = (_rows || []).filter(function(r){ return String(r.id) === String(_addChildId); })[0];
       openAddForm(Number(_addChildId), _addParent && _addParent.title ? '添加子任务 · ' + _addParent.title : '添加子任务', true);
     }
-    // ?edit: 在详情画面上弹编辑弹窗(须从树节点取, 带 children/_root)
+    // ?edit: 小组件点子任务深链(免密页), 先弹任务详情(查看视图), 「编辑」再进表单(须树节点)
     var _editId = _rq.get('edit');
     if (_editId) {
       history.replaceState(null, '', location.pathname);
@@ -8282,7 +8291,15 @@ async function reloadReport() {
         })(_trees || []);
         return found;
       })();
-      if (_enode) openReportEdit(_enode);
+      if (_enode) openTodoDetail(_enode, {
+        today: _today,
+        editable: true,
+        onEdit: function(n){ openReportEdit(n); },
+        listAttachments: async function(id){
+          var r = await api('/api/public/todo-att/' + _token + '?todo_id=' + id);
+          return r.attachments || [];
+        }
+      });
     }
   } catch(e) { document.body.innerHTML = '<div class="todo-empty" style="margin-top:60px;">' + esc(e.message || '链接无效') + '</div>'; }
 })();

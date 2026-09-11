@@ -91,7 +91,7 @@ private fun rootDetailUrlOf(ctx: Context, baseUrl: String, token: String, rootId
     if (Prefs.isLoggedIn(ctx) || token.isBlank()) "$baseUrl/todo?root=$rootId"
     else "$baseUrl/tr/$token?root=$rootId"
 
-/** 点子任务行：先进所属主任务详情（?root），再在详情上弹该子任务编辑表单（?edit）。 */
+/** 点子任务行：先进所属主任务详情（?root），再在详情上弹该子任务的查看视图（?edit，网页端详情内可再进编辑）。 */
 private fun editUrlOf(ctx: Context, baseUrl: String, token: String, itemId: Long, rootId: Long): String =
     if (Prefs.isLoggedIn(ctx) || token.isBlank()) "$baseUrl/todo?root=$rootId&edit=$itemId"
     else "$baseUrl/tr/$token?root=$rootId&edit=$itemId"
