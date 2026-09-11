@@ -705,6 +705,9 @@ function openModal(title, bodyHtml, maskClass) {
   mask.classList.add('show');
   // 已打开时(如 confirmModal 内部再次 openModal)不重复上锁, 避免引用计数与 close 不匹配
   if (!wasOpen) lockBodyScroll();
+  // 主动通知原生壳禁用下拉刷新(不等 500ms 轮询): 长弹窗(如任务分析)滚到边界继续下拉时,
+  // 不能让原生抢走手势, 否则弹窗无法滚回顶部
+  try { if (window._appShellPullDisable) window._appShellPullDisable(); } catch(e) {}
   // 弹窗内 textarea 支持 data-autogrow：随内容高度自动撑开
   var box = document.getElementById('modalBody');
   var tas = box ? box.querySelectorAll('textarea[data-autogrow]') : [];
@@ -718,6 +721,8 @@ function closeModal() {
   var wasOpen = mask.classList.contains('show');
   mask.classList.remove('show');
   if (wasOpen) unlockBodyScroll();
+  // 弹窗关闭后按当前滚动位置恢复原生下拉刷新开关
+  try { if (window._appShellReport) window._appShellReport(); } catch(e) {}
 }
 // 全局滚动锁: 弹窗(modal + mp-menu)打开时锁, 关闭时恢复.
 // 用引用计数, 因为可能同时打开多个层(如 modal 里再开 confirmModal)
@@ -1210,6 +1215,8 @@ function openChartFullscreen(cv) {
     mask.remove();
     document.removeEventListener('keydown', onKey, true);
     if (locked) { locked = false; unlockBodyScroll(); }
+    // 恢复原生下拉刷新状态(下层可能仍是弹窗, report 会继续判为禁用)
+    try { if (window._appShellReport) window._appShellReport(); } catch(e) {}
   }
   function onKey(e){ if (e.key === 'Escape') shut(); }
   close.addEventListener('click', shut);
@@ -1219,6 +1226,8 @@ function openChartFullscreen(cv) {
   mask.appendChild(close);
   document.body.appendChild(mask);
   lockBodyScroll(); locked = true;
+  // 主动禁用原生下拉刷新, 不等 500ms 轮询
+  try { if (window._appShellPullDisable) window._appShellPullDisable(); } catch(e) {}
   // 用原图的 type/data + options 副本新建；data 深拷贝，避免两实例共享引用导致图例 toggle 互相污染
   var opts = Object.assign({}, src.config.options, { responsive: true, maintainAspectRatio: false });
   var dataCopy;
@@ -6617,7 +6626,7 @@ function taExplain(key) {
       '🟩 绿色：当天到期的任务全部按时做完；\\n' +
       '🟥 红色：有任务到当天结束还没做完（后来补做也仍标红）；\\n' +
       '⬜ 灰色：当天没有到期任务，这种日子不打断连续达标；\\n' +
-      '🟦 蓝色：今天，还没过完。\\n\\n' +
+      '🔲 紫色虚线方框：今天，还没过完，暂时不评定。\\n\\n' +
       '手机上点一下方块（电脑上鼠标悬停）能看到当天到期几件、完成几件。' },
     trend: { t: '每日完成走势怎么看', h:
       '每天一组柱子加一条线：\\n\\n' +
@@ -6670,9 +6679,12 @@ function openTodoAnalysis(buildUrl) {
     '<div class="ta-legend"><span><i class="lg-win"></i>达标</span><span><i class="lg-fail"></i>有逾期</span><span><i class="lg-idle"></i>无任务</span><span><i class="lg-pending"></i>今天</span></div>' +
     '<h3 class="ta-h">每日完成走势 <button type="button" class="ta-help" data-help="trend">?</button></h3>' +
     '<canvas id="taChart" style="max-height:220px;"></canvas>' +
-    '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">怎么看：绿色=当天到期的任务都按时做完了；红色=当天有任务没按时做完（后来补做也仍标红）；灰色=当天没有到期任务，不打断连续；蓝色=今天还没过完。各标题旁的 ？ 里有详细说明；点日历方块或下方柱子能看当天明细。</p>';
+    '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">怎么看：绿色=当天到期的任务都按时做完了；红色=当天有任务没按时做完（后来补做也仍标红）；灰色=当天没有到期任务，不打断连续；紫色虚线方框=今天还没过完。各标题旁的 ？ 里有详细说明；点日历方块或下方柱子能看当天明细。</p>';
   openModal('📊 任务分析', body, 'modal-mask--lg');
-  // 指标卡「?」说明按钮(弹窗 innerHTML 每次重建, 直接绑新元素)
+  // 走势 canvas 是弹窗内动态生成的, 手动挂放大按钮(与主页趋势图同一套横屏全屏);
+  // 必须在首次 new Chart 前包好壳, data-fs-ready 保证 30/60 天切换重绘不重复包裹
+  initChartFullscreen();
+  // 指标卡/标题「?」说明按钮(弹窗 innerHTML 每次重建, 直接绑新元素)
   Array.prototype.forEach.call(document.querySelectorAll('#modalBody .ta-help'), function(btn){
     btn.addEventListener('click', function(){ taExplain(btn.getAttribute('data-help')); });
   });

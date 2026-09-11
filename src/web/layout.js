@@ -1118,6 +1118,8 @@ body { padding-bottom: var(--kb-inset, 0px); }
 }
 .card:hover .chart-fs-btn { opacity: 1; }
 .chart-fs-btn:hover { background: var(--hover-brand); color: var(--brand); }
+/* 弹窗内的图表无 .card:hover 可借(手机也无 hover), 放大按钮常态清晰可见 */
+.modal-mask.show .chart-fs-btn { opacity: .85; }
 /* 全屏遮罩层：半透明底 + 居中舞台。横屏(PC/平板)直接放大；竖屏(手机)旋转 90° 铺满 */
 .chart-fs-mask { position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,.55); overflow: hidden; touch-action: none; }
 .chart-fs-stage {
