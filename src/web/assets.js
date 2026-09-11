@@ -6611,7 +6611,23 @@ function taExplain(key) {
     over: { t: '逾期比例是什么', h:
       '任务到了截止日当天结束时还没做完，就算一次逾期。这个比例 = 逾期任务数 ÷ 到期任务数。\\n\\n' +
       '之后补做了也仍然算逾期（日历上那天还是红色）。\\n\\n' +
-      '今天还没过完，可能还有任务会在今天做完，所以今天不计入。' }
+      '今天还没过完，可能还有任务会在今天做完，所以今天不计入。' },
+    heat: { t: '达标日历怎么看', h:
+      '每个方块代表一天，颜色看当天到期任务的完成情况：\\n\\n' +
+      '🟩 绿色：当天到期的任务全部按时做完；\\n' +
+      '🟥 红色：有任务到当天结束还没做完（后来补做也仍标红）；\\n' +
+      '⬜ 灰色：当天没有到期任务，这种日子不打断连续达标；\\n' +
+      '🟦 蓝色：今天，还没过完。\\n\\n' +
+      '手机上点一下方块（电脑上鼠标悬停）能看到当天到期几件、完成几件。' },
+    trend: { t: '每日完成走势怎么看', h:
+      '每天一组柱子加一条线：\\n\\n' +
+      '• 灰柱＝当天到期几件任务；\\n' +
+      '• 绿柱＝最后做完几件（过期补做也算）；\\n' +
+      '• 蓝线＝完成率（看右边百分比）；\\n' +
+      '• 黄色虚线＝这段时间的平均完成率。\\n\\n' +
+      '没有到期任务的日子柱子为 0、蓝线断开，不是出错——所以只在有任务的日子（比如 9/6）看得到线。\\n' +
+      '点柱子（电脑上悬停）能看到当天明细。\\n\\n' +
+      '例：9月2日到期 1 件、9月9日才补做 → 图上 9月2日灰柱 1、绿柱 1、完成率 100%，但上面日历的 9月2日仍是红色。' }
   };
   var x = T[key];
   if (!x) return;
@@ -6644,7 +6660,7 @@ function openTodoAnalysis(buildUrl) {
       '<div class="ta-stat good"><div class="n" id="taOnTimeRate">-</div><div class="l">按时做完比例 <button type="button" class="ta-help" data-help="ontime">?</button></div><div class="s">补做的不算</div></div>' +
       '<div class="ta-stat" id="taOverCard"><div class="n" id="taOverRate">-</div><div class="l">逾期比例 <button type="button" class="ta-help" data-help="over">?</button></div><div class="s">不含今天</div></div>' +
     '</div>' +
-    '<div class="ta-head"><h3 class="ta-h">达标日历</h3>' +
+    '<div class="ta-head"><h3 class="ta-h">达标日历 <button type="button" class="ta-help" data-help="heat">?</button></h3>' +
       '<div class="todo-range" id="taRange"><button data-days="30" class="active">近30天</button><button data-days="60">近60天</button></div>' +
     '</div>' +
     '<div class="ta-heat-wrap">' +
@@ -6652,9 +6668,9 @@ function openTodoAnalysis(buildUrl) {
       '<div class="ta-heat" id="taHeat"></div>' +
     '</div>' +
     '<div class="ta-legend"><span><i class="lg-win"></i>达标</span><span><i class="lg-fail"></i>有逾期</span><span><i class="lg-idle"></i>无任务</span><span><i class="lg-pending"></i>今天</span></div>' +
-    '<h3 class="ta-h">每日完成率走势</h3>' +
-    '<canvas id="taChart" style="max-height:200px;"></canvas>' +
-    '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">怎么看：绿色=当天到期的任务都按时做完了；红色=当天有任务没按时做完（后来补做也仍标红）；灰色=当天没有到期任务，不打断连续；蓝色=今天还没过完。点上方数字旁的 ？ 可看每个指标的算法。悬停色块查看当天明细。</p>';
+    '<h3 class="ta-h">每日完成走势 <button type="button" class="ta-help" data-help="trend">?</button></h3>' +
+    '<canvas id="taChart" style="max-height:220px;"></canvas>' +
+    '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">怎么看：绿色=当天到期的任务都按时做完了；红色=当天有任务没按时做完（后来补做也仍标红）；灰色=当天没有到期任务，不打断连续；蓝色=今天还没过完。各标题旁的 ？ 里有详细说明；点日历方块或下方柱子能看当天明细。</p>';
   openModal('📊 任务分析', body, 'modal-mask--lg');
   // 指标卡「?」说明按钮(弹窗 innerHTML 每次重建, 直接绑新元素)
   Array.prototype.forEach.call(document.querySelectorAll('#modalBody .ta-help'), function(btn){
@@ -6696,25 +6712,52 @@ function openTodoAnalysis(buildUrl) {
       if (_taChartInst) { _taChartInst.destroy(); _taChartInst = null; }
       var rateData = a.daily.map(function(x){ return x.rate == null ? null : Math.round(x.rate * 100); });
       var avg = a.winRate == null ? null : Math.round(a.winRate * 100);
-      var datasets = [{
-        label: '日完成率',
-        data: rateData,
-        borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.10)',
-        fill: true, tension: .3, spanGaps: false, pointRadius: 2
-      }];
+      // 混合图: 灰柱=当天到期件数, 绿柱=最终完成件数(含逾期补做), 蓝线=完成率(右轴), 黄虚线=区间平均
+      // 无到期任务的日子柱子为 0、蓝线断开(spanGaps), 配合 tooltip 文案避免"只有一个点"的困惑
+      var datasets = [
+        { type: 'bar', label: '到期(件)', data: a.daily.map(function(x){ return x.planned; }),
+          backgroundColor: '#c3ccdb', yAxisID: 'y1', order: 3, barPercentage: .8, categoryPercentage: .9, borderRadius: 2 },
+        { type: 'bar', label: '完成(件)', data: a.daily.map(function(x){ return x.done; }),
+          backgroundColor: '#52c41a', yAxisID: 'y1', order: 2, barPercentage: .8, categoryPercentage: .9, borderRadius: 2 },
+        { type: 'line', label: '完成率', data: rateData,
+          borderColor: '#4a6cf7', backgroundColor: 'rgba(74,108,247,.10)',
+          tension: .3, spanGaps: false, pointRadius: 2, yAxisID: 'y2', order: 1 }
+      ];
       if (avg != null) datasets.push({
-        label: '平均 ' + avg + '%',
-        data: a.daily.map(function(){ return avg; }),
-        borderColor: '#faad14', borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5, fill: false
+        type: 'line', label: '平均 ' + avg + '%', data: a.daily.map(function(){ return avg; }),
+        borderColor: '#faad14', borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5, fill: false, yAxisID: 'y2', order: 1
       });
       _taChartInst = new Chart(document.getElementById('taChart'), {
-        type: 'line',
+        type: 'bar',
         data: { labels: a.daily.map(function(x){ return x.date.slice(5); }), datasets: datasets },
         options: {
-          plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 18, font: { size: 11 } } } },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top', align: 'end', labels: { boxWidth: 14, font: { size: 11 } } },
+            tooltip: {
+              // 平均虚线不进 tooltip
+              filter: function(item){ return item.datasetIndex <= 2; },
+              callbacks: {
+                label: function(item){
+                  var d = a.daily[item.dataIndex];
+                  if (item.datasetIndex === 0) return '到期 ' + d.planned + ' 件';
+                  if (item.datasetIndex === 1) return '完成 ' + d.done + ' 件';
+                  return d.rate == null ? '完成率：当天无到期任务' : '完成率 ' + Math.round(d.rate * 100) + '%';
+                },
+                afterBody: function(items){
+                  var d = a.daily[items[0].dataIndex];
+                  if (d.overdue > 0 && d.mark !== 'pending') return '其中 ' + d.overdue + ' 件没按时完成（日历标红）';
+                  return '';
+                }
+              }
+            }
+          },
           scales: {
-            y: { beginAtZero: true, max: 100, ticks: { callback: function(v){ return v + '%'; } } },
-            x: { ticks: { maxTicksLimit: 10, autoSkip: true } }
+            y1: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: 'rgba(127,127,127,.12)' } },
+            y2: { beginAtZero: true, max: 100, position: 'right',
+              ticks: { callback: function(v){ return v + '%'; }, font: { size: 10 } },
+              grid: { drawOnChartArea: false } },
+            x: { ticks: { maxTicksLimit: 10, autoSkip: true, font: { size: 10 } } }
           }
         }
       });
