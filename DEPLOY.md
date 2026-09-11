@@ -156,9 +156,9 @@ npx wrangler d1 execute cron_db --remote --command "SELECT 1"   # 线上 D1 语�
 
 手动触发一次全量推送（调试用）：浏览器访问 `https://<worker域名>/cron?key=<CRON_SECRET>`。
 
-## R2 文件存储（待办附件）
+## R2 文件存储（待办附件 / 各模块 Markdown 文件）
 
-附件文件本体存 Cloudflare R2（元数据在 D1 `todo_attachments` 表）。R2 bucket 不会随部署自动创建，首次部署前手工执行一次：
+附件文件本体存 Cloudflare R2（元数据在 D1 统一 `files` 表，按 `source` 区分任务附件与各模块 md 文件）。R2 bucket 不会随部署自动创建，首次部署前手工执行一次：
 
 ```bash
 npx wrangler r2 bucket create cron-todo-files
