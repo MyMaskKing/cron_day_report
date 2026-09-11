@@ -354,8 +354,9 @@ function buildEffDoneResolver(raw) {
  * 月格：完成数为当月每日之和；未完成取月末水位（当月取 today）；
  *       总任务 = 月末未完成 + 当月完成数。
  * 每格同时产出 details（与数字同一次遍历，逐条可对账），供折线图点击钻取：
- *   details[i] = { label(日格 YYYY-MM-DD / 月格 YYYY-MM), done:[{id,title,due,adopted,late}], open:[...] }
- *   adopted=1 表示自身未勾选、随已完成主任务收编；late=1 表示逾期补做(完成组)/逾期挂账(未完成组)
+ *   details[i] = { label(日格 YYYY-MM-DD / 月格 YYYY-MM), done:[{id,title,due,path,adopted,late}], open:[...] }
+ *   path=祖先标题(根在前,不含自身,旧模式顶层行为空数组); adopted=1 表示自身未勾选、随已完成主任务收编;
+ *   late=1 表示逾期补做(完成组)/逾期挂账(未完成组)
  * @param {Object} raw - storage.chartRaw 结果 { datedTasks:[{id,parent_id,due,done,done10,title}], tree:[...] }
  * @param {string} range - month|7d|30d|60d|6m|1y|3y
  * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
@@ -379,13 +380,26 @@ function buildChartSeries(raw, range, today) {
     const e = effOf(t);
     return t.due <= d && (!e.done || (!!e.day && e.day > d));
   };
+  // 祖先标题路径（根在前、不含自身）：钻取弹窗据此显示"主任务 / 中间层"面包屑，标明子任务来源。
+  // 旧模式带日期的行全是顶层主任务，path 恒为空；tree 缺行（数据异常/跨范围）时就地终止。
+  const treeById = new Map();
+  (raw.tree || []).forEach(r => { if (r && r.id != null) treeById.set(r.id, r); });
+  const pathOf = (t) => {
+    const path = [];
+    let cur = t, guard = 0;
+    while (cur.parent_id != null && treeById.has(cur.parent_id) && guard++ < 20) {
+      cur = treeById.get(cur.parent_id);
+      path.unshift(cur.title || '');
+    }
+    return path;
+  };
   // 钻取明细项：完成组 late=逾期补做(完成日晚于到期日)；未完成组 late=截至 asOf 已逾期
   const doneItem = (t, e) => ({
-    id: t.id, title: t.title || '', due: t.due,
+    id: t.id, title: t.title || '', due: t.due, path: pathOf(t),
     adopted: t.done !== 1 ? 1 : 0, late: e.day > t.due ? 1 : 0
   });
   const openItem = (t, asOf) => ({
-    id: t.id, title: t.title || '', due: t.due, adopted: 0, late: t.due < asOf ? 1 : 0
+    id: t.id, title: t.title || '', due: t.due, path: pathOf(t), adopted: 0, late: t.due < asOf ? 1 : 0
   });
   // 把全部任务按某一天 d 分成「当天完成 / 当天末仍未完成」两组（互斥，合计即当天总任务）
   const splitByDay = (d) => {

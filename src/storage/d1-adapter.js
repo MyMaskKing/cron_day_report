@@ -941,9 +941,10 @@ function createD1Adapter(env) {
       //                 service 层对轴上每一天 d 直接判定：
       //                   当天总任务(未完成): due<=d 且 (未完成 或 完成日晚于 d)
       //                   当天逾期:          due<d  且同上
-      //   tree       —— 同范围全部任务行(含无截止日的容器主任务) { id, parent_id, done, done10 }，
+      //   tree       —— 同范围全部任务行(含无截止日的容器主任务) { id, parent_id, done, done10, title }，
       //                 供 service 层做"已完成祖先收编"：主任务完成后其下未逐个勾选的带日期
-      //                 子任务也视为在主任务完成日完成（与列表/日报的完成祖先剪枝同口径）
+      //                 子任务也视为在主任务完成日完成（与列表/日报的完成祖先剪枝同口径）；
+      //                 title 同时用于钻取明细的祖先面包屑（标明子任务来自哪个主任务）
       // 完成量不再由 SQL 聚合：service 层逐行按"自身完成日 / 收编祖先完成日"归桶，
       // 数字与钻取明细同源（取消勾选的一条路径会在 done=0 时残留 done_at，逐行判定带 done=1 不受影响）
       // 可见口径与列表 listVisibleForUser 一致：本人个人任务(user_id=? 且无 shared_cat_id)
@@ -951,7 +952,7 @@ function createD1Adapter(env) {
       // 不能只按 user_id 过滤，否则成员看不到、owner 把任务移入共享后也会从曲线消失。
       // idList 传入则仅统计这些 id（单清单 /t/:token 子树图）。
       // offsetHours 保留兼容调用签名，此口径下不再使用
-      // 返回 { datedTasks: [{id,parent_id,due,done,done10,title}], tree: [{id,parent_id,done,done10}] }
+      // 返回 { datedTasks: [{id,parent_id,due,done,done10,title}], tree: [{id,parent_id,done,done10,title}] }
       async chartRaw(userId, offsetHours = 8, idList = null) {
         let scope, args;
         if (idList && idList.length) {
@@ -967,7 +968,7 @@ function createD1Adapter(env) {
            FROM todos WHERE ${scope} AND due_date IS NOT NULL`
         ).bind(...args).all();
         const treeQ = await db.prepare(
-          `SELECT id, parent_id, done AS done, substr(done_at, 1, 10) AS done10
+          `SELECT id, parent_id, done AS done, substr(done_at, 1, 10) AS done10, title
            FROM todos WHERE ${scope}`
         ).bind(...args).all();
         return { datedTasks: tasksQ.results || [], tree: treeQ.results || [] };

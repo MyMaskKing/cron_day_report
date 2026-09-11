@@ -6510,10 +6510,18 @@ function todoShowChartDetail(series, index) {
     var icon = kind === 'done' ? '✅' : (it.late ? '⚠️' : '⏳');
     var titleColor = kind === 'done' ? 'var(--muted)' : 'var(--text)';
     var titleDeco = kind === 'done' ? 'text-decoration:line-through;' : '';
+    // 祖先面包屑(子任务标明来源主任务; 顶层任务无路径不显示), 主任务完成收编时尤其需要它溯源
+    var crumbHtml = '';
+    if (it.path && it.path.length) {
+      crumbHtml = '<div style="font-size:11px;line-height:1.4;margin-bottom:1px;color:var(--faint,var(--muted));word-break:break-all;">📁 ' + esc(it.path.join(' / ')) + '</div>';
+    }
     return '<div style="display:flex;align-items:center;gap:6px;padding:7px 2px;border-bottom:1px solid var(--border);">' +
       '<span style="flex:0 0 auto;">' + icon + '</span>' +
-      '<span style="flex:1;min-width:0;word-break:break-all;' + titleDeco + 'color:' + titleColor + ';">' + esc(it.title) + tags + '</span>' +
-      '<span class="muted" style="flex:0 0 auto;font-size:12px;white-space:nowrap;">📅 ' + esc(dl) + '</span>' +
+      '<span style="flex:1;min-width:0;word-break:break-all;">' +
+        crumbHtml +
+        '<span style="' + titleDeco + 'color:' + titleColor + ';">' + esc(it.title) + tags + '</span>' +
+      '</span>' +
+      '<span class="muted" style="flex:0 0 auto;font-size:12px;white-space:nowrap;align-self:flex-start;">📅 ' + esc(dl) + '</span>' +
     '</div>';
   }
   function group(heading, list, kind) {
