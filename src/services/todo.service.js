@@ -349,14 +349,17 @@ function buildEffDoneResolver(raw) {
  *   open(d)  —— 当天未完成：due<=d 且（最终未完成，或最终完成日晚于 d）；
  *                即「当天到期未完成 + 历史逾期」，未来任务与无日期备忘录不计
  *   done(d)  —— 当天完成：自身在 d 完成，或未勾选但被 d 当天完成的主任务收编
- *               （doneMap 在 raw.done 之外补齐收编行；done=1 缺完成日的脏数据不计）
+ *               （done=1 缺完成日的脏数据不计）
  *   total(d) —— 当天总任务 = open(d) + done(d)（含完成、逾期、未完成全部）
  * 月格：完成数为当月每日之和；未完成取月末水位（当月取 today）；
  *       总任务 = 月末未完成 + 当月完成数。
- * @param {Object} raw - storage.chartRaw 结果 { datedTasks:[{id,parent_id,due,done,done10}], done:[{d,c}], tree:[...] }
+ * 每格同时产出 details（与数字同一次遍历，逐条可对账），供折线图点击钻取：
+ *   details[i] = { label(日格 YYYY-MM-DD / 月格 YYYY-MM), done:[{id,title,due,adopted,late}], open:[...] }
+ *   adopted=1 表示自身未勾选、随已完成主任务收编；late=1 表示逾期补做(完成组)/逾期挂账(未完成组)
+ * @param {Object} raw - storage.chartRaw 结果 { datedTasks:[{id,parent_id,due,done,done10,title}], tree:[...] }
  * @param {string} range - month|7d|30d|60d|6m|1y|3y
  * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
- * @returns {Object} { range, unit, labels[], total[], open[], done[] }
+ * @returns {Object} { range, unit, labels[], total[], open[], done[], details[] }
  */
 function buildChartSeries(raw, range, today) {
   const cfg = CHART_RANGES[range] || CHART_RANGES['7d'];
@@ -369,14 +372,6 @@ function buildChartSeries(raw, range, today) {
     if (!e) { e = effDone(t); effMap.set(t.id, e); }
     return e;
   };
-  const doneMap = {};
-  (raw.done || []).forEach(r => { if (r.d) doneMap[r.d] = r.c; });
-  // 收编补计：自身未勾选、但已被完成主任务收编的带日期子任务，在主任务完成日计一次完成
-  tasks.forEach(t => {
-    if (t.done === 1) return;
-    const e = effOf(t);
-    if (e.done && e.day) doneMap[e.day] = (doneMap[e.day] || 0) + 1;
-  });
 
   // d 日末仍未完成（已到期）：最终未完成全期挂账；最终完成的在完成日次日才消失。
   // done 但缺完成日的脏数据按"早已完成"处理，不计入任何历史日。
@@ -384,56 +379,68 @@ function buildChartSeries(raw, range, today) {
     const e = effOf(t);
     return t.due <= d && (!e.done || (!!e.day && e.day > d));
   };
-
-  // d 日未完成数（当天到期未完成 + 历史逾期）
-  const openAtCount = (d) => {
-    let n = 0;
-    for (const t of tasks) if (openAt(t, d)) n++;
-    return n;
-  };
-  const sumDone = (ym) => {
-    let dc = 0;
-    for (const k in doneMap) if (k.slice(0, 7) === ym) dc += doneMap[k];
-    return dc;
+  // 钻取明细项：完成组 late=逾期补做(完成日晚于到期日)；未完成组 late=截至 asOf 已逾期
+  const doneItem = (t, e) => ({
+    id: t.id, title: t.title || '', due: t.due,
+    adopted: t.done !== 1 ? 1 : 0, late: e.day > t.due ? 1 : 0
+  });
+  const openItem = (t, asOf) => ({
+    id: t.id, title: t.title || '', due: t.due, adopted: 0, late: t.due < asOf ? 1 : 0
+  });
+  // 把全部任务按某一天 d 分成「当天完成 / 当天末仍未完成」两组（互斥，合计即当天总任务）
+  const splitByDay = (d) => {
+    const dn = [], op = [];
+    for (const t of tasks) {
+      const e = effOf(t);
+      if (e.done && e.day === d) dn.push(doneItem(t, e));
+      if (openAt(t, d)) op.push(openItem(t, d));
+    }
+    return { dn, op };
   };
 
   const DAY = 86400000;
   const todayMs = dayMs(today);
-  const labels = [], total = [], open = [], done = [];
-
-  // 日格：总任务 = 当天未完成 + 当天完成
-  const pushDay = (day, labelDay) => {
-    const dc = doneMap[day] || 0;
-    const oc = openAtCount(day);
-    labels.push(labelDay.slice(5)); // MM-DD
-    open.push(oc);
-    done.push(dc);
-    total.push(oc + dc);
+  const labels = [], total = [], open = [], done = [], details = [];
+  const pushBucket = (label, dn, op) => {
+    labels.push(label.length > 7 ? label.slice(5) : label); // 日格 MM-DD；月格保留 YYYY-MM
+    open.push(op.length);
+    done.push(dn.length);
+    total.push(op.length + dn.length);
+    details.push({ label, done: dn, open: op });
   };
 
   if (cfg.unit === 'month-current') {
     // 当月: 从 today 所在月 1 号起, 到 today 为止, 每天一格
     const n = +today.slice(8, 10);
-    for (let i = n - 1; i >= 0; i--) pushDay(msDay(todayMs - i * DAY), msDay(todayMs - i * DAY));
+    for (let i = n - 1; i >= 0; i--) {
+      const day = msDay(todayMs - i * DAY);
+      const g = splitByDay(day);
+      pushBucket(day, g.dn, g.op);
+    }
   } else if (cfg.unit === 'day') {
-    for (let i = cfg.span - 1; i >= 0; i--) pushDay(msDay(todayMs - i * DAY), msDay(todayMs - i * DAY));
+    for (let i = cfg.span - 1; i >= 0; i--) {
+      const day = msDay(todayMs - i * DAY);
+      const g = splitByDay(day);
+      pushBucket(day, g.dn, g.op);
+    }
   } else {
-    // 按月：完成数为当月每日之和；未完成取月末水位（历史月=月末，当月=today）；总任务=两者之和
+    // 按月：完成数为当月完成行；未完成取月末水位（历史月=月末，当月=today）；总任务=两者之和
     const y = +today.slice(0, 4), m = +today.slice(5, 7) - 1;
     for (let i = cfg.span - 1; i >= 0; i--) {
       const monthDate = new Date(Date.UTC(y, m - i, 1));
       const ym = monthDate.toISOString().slice(0, 7); // YYYY-MM
       const monthEnd = msDay(Date.UTC(y, m - i + 1, 0));
       const snap = monthEnd > today ? today : monthEnd;
-      const oc = openAtCount(snap);
-      const dc = sumDone(ym);
-      labels.push(ym);
-      open.push(oc);
-      done.push(dc);
-      total.push(oc + dc);
+      const dn = [], op = [];
+      for (const t of tasks) {
+        const e = effOf(t);
+        if (e.done && e.day && e.day.slice(0, 7) === ym) dn.push(doneItem(t, e));
+        if (openAt(t, snap)) op.push(openItem(t, snap));
+      }
+      pushBucket(ym, dn, op);
     }
   }
-  return { range, unit: cfg.unit, labels, total, open, done };
+  return { range, unit: cfg.unit, labels, total, open, done, details };
 }
 
 /**

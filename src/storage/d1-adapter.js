@@ -936,21 +936,22 @@ function createD1Adapter(env) {
         return results || [];
       },
       // 图表原始数据（按截止日逐天直接计数，不做历史反推，结果不可能为负）：
-      //   datedTasks —— 所有设了截止日的任务行 { id, parent_id, due, done, done10(完成日 YYYY-MM-DD) }，
+      //   datedTasks —— 所有设了截止日的任务行 { id, parent_id, due, done, done10(完成日 YYYY-MM-DD), title }，
+      //                 title 供折线图点击钻取当天任务明细（口径与曲线逐格一致）
       //                 service 层对轴上每一天 d 直接判定：
       //                   当天总任务(未完成): due<=d 且 (未完成 或 完成日晚于 d)
       //                   当天逾期:          due<d  且同上
-      //   done       —— 当天完成：done=1 且 done_at 为该北京日（含无截止日任务的勾选；
-      //                 必须带 done=1，取消勾选的一条路径会在 done=0 时残留 done_at）
       //   tree       —— 同范围全部任务行(含无截止日的容器主任务) { id, parent_id, done, done10 }，
       //                 供 service 层做"已完成祖先收编"：主任务完成后其下未逐个勾选的带日期
       //                 子任务也视为在主任务完成日完成（与列表/日报的完成祖先剪枝同口径）
+      // 完成量不再由 SQL 聚合：service 层逐行按"自身完成日 / 收编祖先完成日"归桶，
+      // 数字与钻取明细同源（取消勾选的一条路径会在 done=0 时残留 done_at，逐行判定带 done=1 不受影响）
       // 可见口径与列表 listVisibleForUser 一致：本人个人任务(user_id=? 且无 shared_cat_id)
       // 并上「我加入的共享分类」全部任务（我是 owner 或 editor）；共享任务 user_id 恒为分类 owner，
       // 不能只按 user_id 过滤，否则成员看不到、owner 把任务移入共享后也会从曲线消失。
       // idList 传入则仅统计这些 id（单清单 /t/:token 子树图）。
       // offsetHours 保留兼容调用签名，此口径下不再使用
-      // 返回 { datedTasks: [{id,parent_id,due,done,done10}], done: [{d,c}], tree: [{id,parent_id,done,done10}] }
+      // 返回 { datedTasks: [{id,parent_id,due,done,done10,title}], tree: [{id,parent_id,done,done10}] }
       async chartRaw(userId, offsetHours = 8, idList = null) {
         let scope, args;
         if (idList && idList.length) {
@@ -962,18 +963,14 @@ function createD1Adapter(env) {
           args = [userId, userId];
         }
         const tasksQ = await db.prepare(
-          `SELECT id, parent_id, due_date AS due, done AS done, substr(done_at, 1, 10) AS done10
+          `SELECT id, parent_id, due_date AS due, done AS done, substr(done_at, 1, 10) AS done10, title
            FROM todos WHERE ${scope} AND due_date IS NOT NULL`
-        ).bind(...args).all();
-        const doneQ = await db.prepare(
-          `SELECT substr(done_at, 1, 10) AS d, COUNT(*) AS c
-           FROM todos WHERE ${scope} AND done=1 AND done_at IS NOT NULL AND due_date IS NOT NULL GROUP BY d`
         ).bind(...args).all();
         const treeQ = await db.prepare(
           `SELECT id, parent_id, done AS done, substr(done_at, 1, 10) AS done10
            FROM todos WHERE ${scope}`
         ).bind(...args).all();
-        return { datedTasks: tasksQ.results || [], done: doneQ.results || [], tree: treeQ.results || [] };
+        return { datedTasks: tasksQ.results || [], tree: treeQ.results || [] };
       }
     },
 

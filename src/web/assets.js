@@ -6429,15 +6429,89 @@ function drawTodoChart(canvasId, series) {
   var el = document.getElementById(canvasId);
   if (!el || typeof Chart === 'undefined') return;
   if (_todoChartInst) { _todoChartInst.destroy(); _todoChartInst = null; }
+  // 手机无 hover: 图下常驻一行点击提示(仅插一次, canvas 复绘不重复插)
+  if (!el.parentNode.querySelector('.todo-chart-hint')) {
+    var hint = document.createElement('div');
+    hint.className = 'todo-chart-hint muted';
+    hint.style.cssText = 'font-size:12px;text-align:center;margin:2px 2px 8px;line-height:1.5;';
+    hint.textContent = '💡 点击图上的数据点，可查看当天（按月查看时为当月）的任务明细';
+    el.parentNode.insertBefore(hint, el.nextSibling);
+  }
   _todoChartInst = new Chart(el, {
     type: 'line',
     data: { labels: series.labels, datasets: [
-      { label: '总任务（完成+逾期+未完成）', data: series.total, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.10)', fill: false, tension: .3, borderWidth: 2 },
-      { label: '未完成（当天+逾期）', data: series.open, borderColor: '#4a6cf7', backgroundColor: 'rgba(74,108,247,.12)', fill: true, tension: .3 },
-      { label: '当天完成', data: series.done, borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.10)', fill: false, tension: .3 }
+      { label: '总任务（完成+逾期+未完成）', data: series.total, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.10)', fill: false, tension: .3, borderWidth: 2, pointHitRadius: 16 },
+      { label: '未完成（当天+逾期）', data: series.open, borderColor: '#4a6cf7', backgroundColor: 'rgba(74,108,247,.12)', fill: true, tension: .3, pointHitRadius: 16 },
+      { label: '当天完成', data: series.done, borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.10)', fill: false, tension: .3, pointHitRadius: 16 }
     ] },
-    options: { plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    options: {
+      // 整列命中: 手指点在某天一竖条附近即可(不必精确点中小圆点), 手机触摸友好
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top' },
+        // 悬停数字点时提示可点击钻取当天(当月)任务明细，明细与曲线数字同口径
+        tooltip: {
+          callbacks: {
+            footer: function(items) {
+              if (!items.length || !series.details) return '';
+              var d = series.details[items[0].index];
+              if (!d) return '';
+              var n = d.done.length + d.open.length;
+              return n ? '🖱️ 点击查看' + (d.label.length === 7 ? '当月' : '当天') + ' ' + n + ' 条任务' : '';
+            }
+          }
+        }
+      },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      onClick: function(evt, elements) {
+        if (!elements.length) return;
+        todoShowChartDetail(series, elements[0].index);
+      }
+    }
   });
+}
+// 折线图钻取弹窗：列出某一格(日/月)计入曲线的任务，分「完成 / 未完成」两组，
+// 与该格 total/open/done 数字逐条对账（收编条目带"随主任务完成"，逾期条目标红）
+function todoShowChartDetail(series, index) {
+  var d = series.details && series.details[index];
+  if (!d) return;
+  var isMonth = d.label.length === 7;
+  var title = isMonth
+    ? (+d.label.slice(0, 4)) + ' 年 ' + (+d.label.slice(5, 7)) + ' 月任务明细'
+    : (+d.label.slice(5, 7)) + ' 月 ' + (+d.label.slice(8, 10)) + ' 日任务明细';
+  var today = todayStr();
+  function pill(text, color, bg) {
+    return '<span style="display:inline-block;border-radius:10px;padding:0 8px;margin-left:6px;font-size:12px;font-weight:600;color:' + color + ';background:' + bg + ';white-space:nowrap;">' + text + '</span>';
+  }
+  function row(it, kind) {
+    var dl = todoDateLabel(it.due, today);
+    var tags = it.adopted ? pill('随主任务完成', '#4a6cf7', '#eef1ff') : '';
+    if (kind === 'done') {
+      if (it.late) tags += pill('逾期补做', '#cf1322', '#fff1f0');
+    } else if (it.late) {
+      tags += pill('已逾期', '#cf1322', '#fff1f0');
+    }
+    var icon = kind === 'done' ? '✅' : (it.late ? '⚠️' : '⏳');
+    var titleColor = kind === 'done' ? 'var(--muted)' : 'var(--text)';
+    var titleDeco = kind === 'done' ? 'text-decoration:line-through;' : '';
+    return '<div style="display:flex;align-items:center;gap:6px;padding:7px 2px;border-bottom:1px solid var(--border);">' +
+      '<span style="flex:0 0 auto;">' + icon + '</span>' +
+      '<span style="flex:1;min-width:0;word-break:break-all;' + titleDeco + 'color:' + titleColor + ';">' + esc(it.title) + tags + '</span>' +
+      '<span class="muted" style="flex:0 0 auto;font-size:12px;white-space:nowrap;">📅 ' + esc(dl) + '</span>' +
+    '</div>';
+  }
+  function group(heading, list, kind) {
+    if (!list.length) return '';
+    var h = '<h4 style="margin:14px 0 6px;font-size:14px;">' + heading + '（' + list.length + '）</h4>';
+    return h + list.map(function(it){ return row(it, kind); }).join('');
+  }
+  var doneWord = isMonth ? '当月完成' : '当天完成';
+  var openWord = isMonth ? '月末仍未完成' : '当天未完成（含历史逾期）';
+  var total = d.done.length + d.open.length;
+  var body = total
+    ? group('✅ ' + doneWord, d.done, 'done') + group('⏳ ' + openWord, d.open, 'open')
+    : '<p class="muted" style="line-height:1.7;">该' + (isMonth ? '月' : '天') + '没有计入曲线的任务。<br>未来到期的任务在到期/完成前不计入任何一格。</p>';
+  openModal(title, body);
 }
 // 共享：区间按钮组绑定，点击回调 fn(range)
 function bindTodoRange(fn) {
