@@ -9,8 +9,9 @@ import { assetUrl } from './static.js';
 
 /**
  * 站点 favicon（SVG 矢量）：白色圆角纸飞机居中，机身就是钟面——
- * 时针朝尾翼、分针沿折痕指向机头（品牌蓝紫），寓意「定时推送、到点即达」。
- * 尖角用同色粗描边 linejoin=round 圆化；图形包围盒中心严格在 32,32。
+ * 短时针指向机头（右上）、长分针指向尾翼（左），约 10:10 钟表造型；
+ * 交叉原点用品牌渐变暖端橙色 #FF7A59 与蓝紫针身区分。
+ * 尖角用同色描边 linejoin=round 圆化；path 包围盒四边对称（9.5/9.5），中心在 32,32。
  * 经 /s/favicon.svg 外链，内容 hash 自动缓存。
  */
 const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
@@ -18,11 +19,11 @@ const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"
 <stop offset="0" stop-color="#4F63E8"/><stop offset=".55" stop-color="#7C5CFF"/><stop offset="1" stop-color="#A855F7"/>
 </linearGradient></defs>
 <rect width="64" height="64" rx="14" fill="url(#g)"/>
-<path d="M54 10.5 L10 31 L29.8 34.5 L37.5 53.5 Z"
-  fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M32 26.5 L27.7 29" stroke="#4F63E8" stroke-width="3.4" stroke-linecap="round"/>
-<path d="M32 26.5 L35.7 22.8" stroke="#4F63E8" stroke-width="3.4" stroke-linecap="round"/>
-<circle cx="32" cy="26.5" r="2.3" fill="#4F63E8"/>
+<path d="M54.5 9.5 L9.5 29.1 L31.4 34.9 L37.2 54.5 Z"
+  fill="#fff" stroke="#fff" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M36.1 28.4 L18.8 28.9" stroke="#4F63E8" stroke-width="3.8" stroke-linecap="round"/>
+<path d="M36.1 28.4 L42 22.3" stroke="#4F63E8" stroke-width="4.8" stroke-linecap="round"/>
+<circle cx="36.1" cy="28.4" r="3" fill="#FF7A59"/>
 </svg>`;
 
 /**
