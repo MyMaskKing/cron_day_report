@@ -227,6 +227,33 @@ async function setTimezone({ request, env }) {
 }
 
 /**
+ * GET /api/admin/settings/todo-attach-max-mb  读取待办附件单文件上限(MB)，默认 5
+ */
+async function getTodoAttachMaxMb({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const raw = parseInt(await storage.settings.get('todo_attach_max_mb'), 10);
+  const mb = (!isNaN(raw) && raw >= 1 && raw <= 50) ? raw : 5;
+  return json({ success: true, max_mb: mb });
+}
+
+/**
+ * PUT /api/admin/settings/todo-attach-max-mb  设置待办附件单文件上限
+ * body: { max_mb }  1 ~ 50
+ */
+async function setTodoAttachMaxMb({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const n = parseInt(body.max_mb, 10);
+  if (isNaN(n) || n < 1 || n > 50) return error('附件上限需为 1–50 之间的整数(MB)', 400);
+  const storage = getStorage(env);
+  await storage.settings.set('todo_attach_max_mb', String(n));
+  return json({ success: true, message: '附件上限已保存', max_mb: n });
+}
+
+/**
  * GET /api/admin/settings/base-url  读取全局站点公开地址（DB 配置值，可能为空）
  */
 async function getBaseUrl({ request, env }) {
@@ -290,6 +317,6 @@ async function setRegisterLimit({ request, env }) {
 export {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
-  getTimezone, setTimezone, getBaseUrl, setBaseUrl,
+  getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
   getRegisterLimit, setRegisterLimit
 };

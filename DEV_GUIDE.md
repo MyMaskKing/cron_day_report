@@ -126,7 +126,10 @@ token 长期有效，缺失时代码自动 `generateToken()` 生成并持久化�
 | `weight_members` / `weight_records` | 体重成员/记录 | share_token；weight(存 kg)、record_date |
 | `wallets` / `wallet_records` / `asset_goals` | 资产钱包/月记录/年目标 | type、balance/principal/profit、month(YYYY-MM) |
 | `push_config` | ★ 统一推送配置 | (user_id,module) 主键、channel_id、format、enabled、hours、days、report_token |
-| `app_settings` | 全局键值 | 目前存 `tz_offset` |
+| `app_settings` | 全局键值 | 存 `tz_offset`、`todo_attach_max_mb`（附件上限 MB，默认 5） |
+| `todo_attachments` | 待办附件元数据 | todo_id、file_token（兼免密下载凭证）、origin_name、mime、size、is_image |
+
+附件文件本体不入库：Cloudflare 走 R2 bucket `cron-todo-files`（绑定名 `FILES`，首次需 `wrangler r2 bucket create`），Docker 走 `DATA_DIR/files/`（`docker/file-shim.mjs`）。业务经 `src/storage/file-store.js` 的 `getFileStore(env)` 取统一接口（put/get/delete）；上传/列表/删除 API 见 `todo.api.js`，下载为免密长期 token 路径 `/todo-file/:fileToken`（图片 inline、其余 attachment，SVG 不算图片防脚本）。任务删除时附件随子树级联清理。
 
 迁移基线是单个全量脚本 `migrations/0001_init.sql`（全部 `CREATE ... IF NOT EXISTS` + `INSERT OR IGNORE`，新库执行一次、可安全重跑）。D1 手动执行、Docker 启动自动跑（`_migrations` 按**文件名**去重，跑过的文件名不再执行）。**以后给老库升级要新建 `migrations/000N_描述.sql`（编号递增，如 0002）**——0001 已部署后改内容不会重跑；新文件里新表/索引用 `CREATE ... IF NOT EXISTS`、新列用 `ALTER TABLE ADD COLUMN`（重跑"列已存在"自动忽略）。可同步把新表/列写进 0001 的 CREATE 方便全新部署。**注释必须独立成行**（不用行内注释）以兼容 D1 控制台逐条执行。
 

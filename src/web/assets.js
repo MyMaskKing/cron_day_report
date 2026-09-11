@@ -201,6 +201,8 @@ const COMMON_JS = `
 var ICONS = {
   plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
   edit:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  view:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  paperclip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.05-9.2 9.2a5.5 5.5 0 0 1-7.78-7.78l9.2-9.2a3.67 3.67 0 0 1 5.19 5.19l-9.2 9.2a1.83 1.83 0 0 1-2.6-2.6l8.5-8.48"/></svg>',
   share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>',
   drag:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>',
@@ -614,6 +616,46 @@ function bindLogout() {
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+// Markdown 备注唯一渲染入口：marked(GFM+换行) → DOMPurify 消毒。
+// 安全策略：img 仅允许自家附件相对路径 /todo-file/<token>（外域/data:/javascript: 一律移除，防追踪与注入）；
+// 链接强制新开页 noopener。所有备注渲染点必须走本函数，禁止散落 marked.parse。
+function renderTodoNote(text) {
+  if (!text) return '';
+  if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') return esc(text);
+  if (!marked._todoConfigured) {
+    marked.setOptions({ gfm: true, breaks: true });
+    DOMPurify.addHook('uponSanitizeAttribute', function(node, data) {
+      if (data.attrName === 'src' && node.tagName === 'IMG') {
+        // 注意：本函数位于模板字符串内，正则不能含未双写的 /；故用前缀 + 字符校验代替 /^\\/todo-file\\/.../
+        var v = data.attrValue || '';
+        var token = v.indexOf('/todo-file/') === 0 ? v.slice(11) : '';
+        if (!/^[A-Za-z0-9_-]{16,}$/.test(token)) data.keepAttr = false;
+      }
+      if (data.attrName === 'href' && node.tagName === 'A') {
+        node.setAttribute('target', '_blank');
+        node.setAttribute('rel', 'noopener noreferrer');
+      }
+    });
+    marked._todoConfigured = true;
+  }
+  return DOMPurify.sanitize(marked.parse(text), { USE_PROFILES: { html: true } });
+}
+// 把渲染后容器里的 GFM 任务复选框转成只读视觉结构（.md-task / .md-tasks 由本函数打类，不依赖 :has()）
+function mdTaskToBoxes(scope) {
+  if (!scope) return;
+  Array.prototype.forEach.call(scope.querySelectorAll('li'), function(li) {
+    var cb = li.querySelector('input[type=checkbox]');
+    if (!cb) return;
+    var box = document.createElement('span');
+    box.className = 'tk ' + (cb.checked ? 'on' : 'off');
+    if (cb.checked) box.textContent = '✓';
+    li.insertBefore(box, li.firstChild);
+    cb.remove();
+    li.classList.add('md-task');
+    if (li.parentNode) li.parentNode.classList.add('md-tasks');
+    if (cb.checked) li.classList.add('done');
   });
 }
 // 数据库时间按配置时区显示: DB 存 UTC(datetime('now') 形如 'YYYY-MM-DD HH:mm:ss'),
@@ -1960,6 +2002,24 @@ if (tzSave) tzSave.addEventListener('click', async function(){
   } catch (err) { showMsg(stMsg, err.message, false); }
 });
 loadTimezone();
+
+// 待办附件大小上限
+(async function(){
+  var inp = document.getElementById('attachMaxMbInput');
+  if (!inp) return;
+  var stMsg = document.getElementById('stMsg');
+  try {
+    var d = await api('/api/admin/settings/todo-attach-max-mb');
+    inp.value = d.max_mb;
+  } catch (err) { inp.value = 5; }
+  var btn = document.getElementById('attachMaxMbSave');
+  if (btn) btn.addEventListener('click', async function(){
+    try {
+      var r = await api('/api/admin/settings/todo-attach-max-mb', { method: 'PUT', body: { max_mb: parseInt(inp.value, 10) } });
+      showMsg(stMsg, r.message || '已保存', true);
+    } catch (err) { showMsg(stMsg, err.message, false); }
+  });
+})();
 
 // 全局站点地址设置
 async function loadBaseUrl() {
@@ -5516,7 +5576,7 @@ function renderTodoTree(container, trees, opts) {
         });
         ops.appendChild(b1);
       }
-      if (opts.onEdit)     { var b2 = mkOp(ICONS.edit,  '编辑',       function(){ opts.onEdit(node); }); ops.appendChild(b2); }
+      if (opts.onDetail || opts.onEdit) { var b2 = mkOp(ICONS.view, '查看详情', function(){ (opts.onDetail || opts.onEdit)(node); }); ops.appendChild(b2); }
       if (opts.onShare && depth === 0) { var b3 = mkOp(ICONS.share, '协作链接', function(){ opts.onShare(node); }); ops.appendChild(b3); }
       if (opts.onDel)      { var b4 = mkOp(ICONS.trash, '删除',       function(){ opts.onDel(node); }, 'danger'); ops.appendChild(b4); }
       if (ops.childNodes.length) row.appendChild(ops);
@@ -5686,7 +5746,7 @@ function renderTodoCards(container, trees, opts) {
           });
           ops.appendChild(addChildBtn);
         }
-        if (opts.onEdit)  ops.appendChild(mkCardOp(ICONS.edit,  '编辑',       function(){ opts.onEdit(root); }));
+        if (opts.onDetail || opts.onEdit) ops.appendChild(mkCardOp(ICONS.view, '查看详情', function(){ (opts.onDetail || opts.onEdit)(root); }));
         if (opts.onShare) ops.appendChild(mkCardOp(ICONS.share, '协作链接',   function(){ opts.onShare(root); }));
         if (opts.onDel)   ops.appendChild(mkCardOp(ICONS.trash, '删除',       function(){ opts.onDel(root); }, 'danger'));
       }
@@ -6916,6 +6976,185 @@ function todoToast(msg, tip) {
     } else { t.remove(); }
   }, 1800);
 }
+// 文件大小格式化
+function fmtSize(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1048576).toFixed(1) + ' MB';
+}
+// 只读任务详情：md 备注渲染 + 附件列表；opts={today,editable,onEdit,listAttachments}
+async function openTodoDetail(node, opts) {
+  opts = opts || {};
+  var today = opts.today || '';
+  var due = node.due_date || '';
+  var meta = [];
+  if (due) meta.push('<span class="td-chip">' + ICONS.calendar + esc(todoDateLabel(due, today)) + '</span>');
+  if (node.recurrence) meta.push('<span class="td-chip">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
+  if (node.category) meta.push('<span class="td-chip">〔' + esc(node.category) + '〕</span>');
+  if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
+  var priName = ['⚪ 低', '🟡 中', '🔴 高'][node.priority == null ? 1 : node.priority];
+  meta.push('<span class="td-chip">⭐ ' + esc(priName) + '</span>');
+  var body =
+    '<div class="td-title">' + esc(node.title) + '</div>' +
+    '<div class="td-meta">' + meta.join('') + '</div>' +
+    (node.note
+      ? '<div class="md-body" id="tdNote">' + renderTodoNote(node.note) + '</div>'
+      : '<p class="muted" style="font-size:13px;margin:4px 0 0;">无备注</p>') +
+    '<div class="td-att-title">附件 <span id="tdAttCount" class="muted"></span></div>' +
+    '<div class="td-att-list" id="tdAttList"><div class="muted" style="font-size:13px;">加载中…</div></div>';
+  var headActions = opts.editable
+    ? '<button type="button" class="btn sm" id="tdEditBtn">' + ICONS.edit + ' 编辑</button>'
+    : '';
+  openModal('📝 任务详情', headActions + body, 'modal-mask--lg');
+  mdTaskToBoxes(document.getElementById('tdNote'));
+  if (opts.editable) {
+    document.getElementById('tdEditBtn').addEventListener('click', function(){
+      closeModal();
+      if (opts.onEdit) opts.onEdit(node);
+    });
+  }
+  var box = document.getElementById('tdAttList');
+  try {
+    var atts = opts.listAttachments ? await opts.listAttachments(node.id) : [];
+    document.getElementById('tdAttCount').textContent = atts.length ? '(' + atts.length + ')' : '';
+    if (!atts.length) { box.innerHTML = '<div class="muted" style="font-size:13px;">暂无附件</div>'; return; }
+    box.innerHTML = atts.map(function(a) {
+      var inner = a.is_image
+        ? '<img class="td-att-img" src="' + esc(a.url) + '" alt="' + esc(a.origin_name) + '" loading="lazy">'
+        : '<span class="td-att-ph">' + ICONS.paperclip + '</span>';
+      return '<a class="td-att" href="' + esc(a.url) + '" target="_blank" rel="noopener noreferrer">' +
+        inner + '<span class="td-att-nm">' + esc(a.origin_name) + '</span><span class="td-att-sz muted">' + fmtSize(a.size) + '</span></a>';
+    }).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="muted" style="font-size:13px;">附件加载失败</div>';
+  }
+}
+// 在已存在的 #tfNote textarea 原地挂载 md 编辑器（写/预览分段 + 工具条 + 附件上传）。
+// 保留原 textarea 的 id 与值，todoFormRead() 取值链路零改动。opts={upload:async(file)=>attachmentJson, maxMb}
+function mountTodoMdEditor(textarea, opts) {
+  opts = opts || {};
+  var maxMb = opts.maxMb || 5;
+  var root = document.createElement('div');
+  root.className = 'mde';
+  root.innerHTML =
+    '<div class="mde-seg"><button type="button" data-m="write" class="on">✏️ 写</button><button type="button" data-m="preview">👁 预览</button></div>' +
+    '<div class="mde-bar">' +
+      '<button type="button" class="mde-btn" data-a="bold" title="加粗 Ctrl+B"><b>B</b></button>' +
+      '<button type="button" class="mde-btn" data-a="italic" title="斜体 Ctrl+I"><i>i</i></button>' +
+      '<button type="button" class="mde-btn" data-a="strike" title="删除线"><s>S</s></button>' +
+      '<span class="mde-sep"></span>' +
+      '<button type="button" class="mde-btn" data-a="quote" title="引用">“</button>' +
+      '<button type="button" class="mde-btn" data-a="ul" title="无序列表">≡</button>' +
+      '<button type="button" class="mde-btn" data-a="task" title="待办项">☑</button>' +
+      '<span class="mde-sep"></span>' +
+      '<button type="button" class="mde-btn" data-a="img" title="上传图片">' +
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L9 20"/></svg></button>' +
+      '<button type="button" class="mde-btn" data-a="file" title="添加附件">📎</button>' +
+      '<input type="file" class="mde-file" hidden>' +
+    '</div>' +
+    '<div class="mde-panes"><div class="mde-write"></div><div class="mde-preview md-body"></div></div>' +
+    '<div class="mde-chips"></div>';
+  textarea.parentNode.insertBefore(root, textarea.nextSibling);
+  var writeWrap = root.querySelector('.mde-write');
+  writeWrap.appendChild(textarea);
+  textarea.classList.add('mde-text');
+  textarea.removeAttribute('data-autogrow');
+  textarea.setAttribute('rows', '7');
+  var pv = root.querySelector('.mde-preview');
+  var fileInput = root.querySelector('.mde-file');
+  var chips = root.querySelector('.mde-chips');
+
+  function renderPv() {
+    pv.innerHTML = renderTodoNote(textarea.value);
+    mdTaskToBoxes(pv);
+  }
+  function setMode(m) {
+    root.dataset.mode = m;
+    Array.prototype.forEach.call(root.querySelectorAll('.mde-seg button'), function(b){ b.classList.toggle('on', b.dataset.m === m); });
+    if (m === 'preview') { textarea.blur(); renderPv(); }
+  }
+  function wrapLine(pre) {
+    var s = textarea.selectionStart, e = textarea.selectionEnd, v = textarea.value, ls = v.lastIndexOf('\\n', s - 1) + 1;
+    var next = v.slice(ls, e).split('\\n').map(function(l){ return pre + l; }).join('\\n');
+    textarea.value = v.slice(0, ls) + next + v.slice(e);
+    textarea.focus(); textarea.selectionStart = ls + pre.length; textarea.selectionEnd = ls + next.length;
+    renderPv();
+  }
+  function wrapSel(pre, post) {
+    var s = textarea.selectionStart, e = textarea.selectionEnd, v = textarea.value, sel = v.slice(s, e) || '文字';
+    textarea.value = v.slice(0, s) + pre + sel + post + v.slice(e);
+    textarea.focus(); textarea.selectionStart = s + pre.length; textarea.selectionEnd = s + pre.length + sel.length;
+    renderPv();
+  }
+  function insert(txt) {
+    var s = textarea.selectionStart;
+    textarea.value = textarea.value.slice(0, s) + txt + textarea.value.slice(textarea.selectionEnd);
+    textarea.focus(); textarea.selectionStart = textarea.selectionEnd = s + txt.length;
+    renderPv();
+  }
+  function addChip(att, uploading) {
+    var c = document.createElement('span');
+    c.className = 'mde-chip' + (uploading ? ' up' : '');
+    c.innerHTML = (att.is_image ? '<img alt="">' : '📎') +
+      '<span class="mde-chip-nm"></span>' +
+      (uploading ? '<span class="mde-chip-st">上传中…</span>' : '<span class="mde-chip-ok">✓</span>');
+    c.querySelector('.mde-chip-nm').textContent = att.origin_name;
+    if (att.is_image && att.url) c.querySelector('img').src = att.url;
+    chips.appendChild(c);
+    return c;
+  }
+  function pickAndUpload(accept) {
+    fileInput.value = '';
+    fileInput.accept = accept;
+    fileInput.click();
+  }
+  fileInput.addEventListener('change', async function() {
+    var file = fileInput.files && fileInput.files[0];
+    if (!file || !opts.upload) return;
+    if (file.size > maxMb * 1048576) { alertModal('文件超过 ' + maxMb + 'MB 上限', { ok: false }); return; }
+    var chip = addChip({ origin_name: file.name, is_image: file.type.indexOf('image/') === 0, url: '' }, true);
+    try {
+      var att = await opts.upload(file);
+      chip.classList.remove('up');
+      var st = chip.querySelector('.mde-chip-st'); if (st) st.remove();
+      if (att.is_image) {
+        var im = chip.querySelector('img'); if (im) im.src = att.url;
+        insert('\\n![' + att.origin_name + '](' + att.url + ')\\n');
+      } else {
+        insert('\\n[' + att.origin_name + '](' + att.url + ')\\n');
+      }
+    } catch (e) {
+      chip.remove();
+      alertModal(e.message || '上传失败', { ok: false });
+    }
+  });
+  Array.prototype.forEach.call(root.querySelectorAll('.mde-btn'), function(b) {
+    b.addEventListener('mousedown', function(e){ e.preventDefault(); });
+    b.addEventListener('click', function() {
+      var a = b.dataset.a;
+      if (a === 'bold') wrapSel('**', '**');
+      else if (a === 'italic') wrapSel('_', '_');
+      else if (a === 'strike') wrapSel('~~', '~~');
+      else if (a === 'quote') wrapLine('> ');
+      else if (a === 'ul') wrapLine('- ');
+      else if (a === 'task') wrapLine('- [ ] ');
+      else if (a === 'img') pickAndUpload('image/*');
+      else if (a === 'file') pickAndUpload('');
+    });
+  });
+  Array.prototype.forEach.call(root.querySelectorAll('.mde-seg button'), function(b) {
+    b.addEventListener('click', function(){ setMode(b.dataset.m); });
+  });
+  textarea.addEventListener('input', renderPv);
+  textarea.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSel('**', '**'); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') { e.preventDefault(); wrapSel('_', '_'); }
+  });
+  root.dataset.mode = 'write';
+  renderPv();
+  return { getValue: function(){ return textarea.value; } };
+}
 `;
 
 // ============ 待办清单页（登录态） ============
@@ -6981,6 +7220,27 @@ function openTodoEdit(node) {
     : '编辑任务';
   openModal(_modalTitle, todoFormHtml(node, false, isChild, fopts) +
     '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  // 仅编辑已有任务挂 markdown 编辑器（新建/新建子任务不挂）；multipart 直连，随数据源带头
+  (async function(){
+    var noteEl = document.getElementById('tfNote');
+    if (!noteEl) return;
+    var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
+    mountTodoMdEditor(noteEl, {
+      maxMb: lim.max_mb || 5,
+      upload: async function(file) {
+        var fd = new FormData();
+        fd.append('todo_id', node.id);
+        fd.append('file', file);
+        var headers = {};
+        var asUid = dataShareGet('todo');
+        if (asUid) headers['X-Data-As'] = asUid;
+        var res = await fetch('/api/todo/attachments', { method: 'POST', headers: headers, body: fd });
+        var d = await res.json().catch(function(){ return {}; });
+        if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
+        return d.attachment;
+      }
+    });
+  })();
   // 编辑时分类归属规则:
   //   个人顶层任务 → 共享分类可选(移入); 共享顶层任务 → 共享选项灰显回显, 选"无分类"/个人分类即移出(仅分类 owner);
   //   非 owner 成员(editor) → 整个分类下拉禁用(别人创建的共享任务不可移入/移出); 子任务 → 归属继承父任务, 共享选项禁用
@@ -7041,6 +7301,17 @@ function drawTree() {
     today: todayStr(), hideDone: hideDone,
     onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
+    onDetail: function(node){
+      openTodoDetail(node, {
+        today: todayStr(),
+        editable: true,
+        onEdit: function(n){ openTodoEdit(n); },
+        listAttachments: async function(id){
+          var r = await api('/api/todo/' + id + '/attachments');
+          return r.attachments || [];
+        }
+      });
+    },
     onToggleRecur: function(node){
       var dueDate = node.due_date || todayStr();
       var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, todayStr(), node.recur_interval, node.recur_nth, node.recur_weekday);
@@ -7497,6 +7768,38 @@ var _token = location.pathname.split('/').filter(Boolean).pop();
 var _rows = [], _rootId = null, _today = '';
 var _curRange = 'month';
 
+// 单清单协作页编辑任务（仅编辑已有任务挂 md 编辑器；附件走清单 share_token）
+function openPublicEdit(node) {
+  var isChild = node.id !== _rootId;
+  var fopts = isChild
+    ? { childDueMode: !!(node._root && node._root.child_due), canRecur: node.children.length === 0 }
+    : { lockChildDue: true, forceChildDue: !!node.child_due };
+  openModal('编辑任务', todoFormHtml(node, false, isChild, fopts) +
+    '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  todoFillCategoryOptions(_rows, node.category || '');
+  (async function(){
+    var noteEl = document.getElementById('tfNote'); if (!noteEl) return;
+    var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
+    mountTodoMdEditor(noteEl, {
+      maxMb: lim.max_mb || 5,
+      upload: async function(file) {
+        var fd = new FormData();
+        fd.append('todo_id', node.id);
+        fd.append('file', file);
+        var res = await fetch('/api/public/todo-att/' + _token, { method: 'POST', body: fd });
+        var d = await res.json().catch(function(){ return {}; });
+        if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
+        return d.attachment;
+      }
+    });
+  })();
+  bindClickBusy(document.getElementById('tfSave'), async function(){
+    var body = todoFormRead();
+    if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
+    await api('/api/public/todo/' + _token + '/' + node.id, { method:'PUT', body: body });
+    closeModal(); await loadPublic();
+  });
+}
 async function loadPublic() {
   var msg = document.getElementById('msg');
   try {
@@ -7572,6 +7875,17 @@ function drawTree(trees) {
     today: _today, hideDone: hideDone,
     onExitDetail: function(){ _todoDetailRootId = null; drawTree(visibleTrees()); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(visibleTrees()); },
+    onDetail: function(node){
+      openTodoDetail(node, {
+        today: _today,
+        editable: true,
+        onEdit: function(n){ openPublicEdit(n); },
+        listAttachments: async function(id){
+          var r = await api('/api/public/todo-att/' + _token + '?todo_id=' + id);
+          return r.attachments || [];
+        }
+      });
+    },
     onToggle: async function(node, done){
       if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
@@ -7585,23 +7899,7 @@ function drawTree(trees) {
       }
       catch(e){ alertModal(e.message, {ok:false}); }
     },
-    onEdit: function(node){
-      var isChild = node.id !== _rootId;
-      // 协作链接不允许切换 child_due 模式: 根任务表单锁定(lockChildDue), 按当前模式呈现;
-      // 子任务按根任务模式决定日期/重复控件, 重复仅叶子
-      var fopts = isChild
-        ? { childDueMode: !!(node._root && node._root.child_due), canRecur: node.children.length === 0 }
-        : { lockChildDue: true, forceChildDue: !!node.child_due };
-      openModal('编辑任务', todoFormHtml(node, false, isChild, fopts) +
-        '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
-      todoFillCategoryOptions(_rows, node.category || '');
-      bindClickBusy(document.getElementById('tfSave'), async function(){
-        var body = todoFormRead();
-        if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
-        await api('/api/public/todo/' + _token + '/' + node.id, { method:'PUT', body: body });
-        closeModal(); await loadPublic();
-      });
-    },
+    onEdit: openPublicEdit,
     onAddChildSubmit: async function(node, payload){
       await api('/api/public/todo/' + _token, { method:'POST', body: payload });
       await loadPublic();
@@ -7706,6 +8004,17 @@ function drawTree() {
     today: _today, hideDone: hideDone,
     onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
+    onDetail: function(node){
+      openTodoDetail(node, {
+        today: _today,
+        editable: true,
+        onEdit: function(n){ openReportEdit(n); },
+        listAttachments: async function(id){
+          var r = await api('/api/public/todo-att/' + _token + '?todo_id=' + id);
+          return r.attachments || [];
+        }
+      });
+    },
     // 顶层重复任务勾选前弹窗选下一日期(与 TODO_COLLAB_JS 同口径)
     onToggleRecur: function(node){
       var dueDate = node.due_date || _today;
@@ -7765,6 +8074,22 @@ function openReportEdit(node) {
     todoFormHtml(node, false, isChild, fopts) +
     '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
   todoFillCategoryOptions(_rows, node.category || '');
+  (async function(){
+    var noteEl = document.getElementById('tfNote'); if (!noteEl) return;
+    var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
+    mountTodoMdEditor(noteEl, {
+      maxMb: lim.max_mb || 5,
+      upload: async function(file) {
+        var fd = new FormData();
+        fd.append('todo_id', node.id);
+        fd.append('file', file);
+        var res = await fetch('/api/public/todo-att/' + _token, { method: 'POST', body: fd });
+        var d = await res.json().catch(function(){ return {}; });
+        if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
+        return d.attachment;
+      }
+    });
+  })();
   bindClickBusy(document.getElementById('tfSave'), async function(){
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
@@ -7920,6 +8245,38 @@ var _curRange = 'month';
 // 汇总协作页时间筛选: 默认 'cur' (今日+逾期, 与日报口径一致); 其它取值与登录态一致
 var _filter = 'cur';
 
+// 汇总协作页编辑任务（仅编辑已有任务挂 md 编辑器；附件走 report_token 用户级口径）
+function openPublicEdit(node) {
+  var isChild = node.parent_id != null;
+  var fopts = isChild
+    ? { childDueMode: !!(node._root && node._root.child_due), canRecur: node.children.length === 0 }
+    : {};
+  openModal('编辑任务', todoFormHtml(node, false, isChild, fopts) +
+    '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+  todoFillCategoryOptions(_rows, node.category || '');
+  (async function(){
+    var noteEl = document.getElementById('tfNote'); if (!noteEl) return;
+    var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
+    mountTodoMdEditor(noteEl, {
+      maxMb: lim.max_mb || 5,
+      upload: async function(file) {
+        var fd = new FormData();
+        fd.append('todo_id', node.id);
+        fd.append('file', file);
+        var res = await fetch('/api/public/todo-att/' + _token, { method: 'POST', body: fd });
+        var d = await res.json().catch(function(){ return {}; });
+        if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
+        return d.attachment;
+      }
+    });
+  })();
+  bindClickBusy(document.getElementById('tfSave'), async function(){
+    var body = todoFormRead();
+    if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
+    await api('/api/public/todo-all/' + _token + '/' + node.id, { method:'PUT', body: body });
+    closeModal(); await loadCollab();
+  });
+}
 async function loadCollab() {
   var msg = document.getElementById('msg');
   try {
@@ -7976,6 +8333,17 @@ function drawTree(trees) {
     today: _today, hideDone: hideDone,
     onExitDetail: function(){ _todoDetailRootId = null; drawTree(visibleTrees()); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(visibleTrees()); },
+    onDetail: function(node){
+      openTodoDetail(node, {
+        today: _today,
+        editable: true,
+        onEdit: function(n){ openPublicEdit(n); },
+        listAttachments: async function(id){
+          var r = await api('/api/public/todo-att/' + _token + '?todo_id=' + id);
+          return r.attachments || [];
+        }
+      });
+    },
     onToggleRecur: function(node){
       var dueDate = node.due_date || _today;
       var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, _today, node.recur_interval, node.recur_nth, node.recur_weekday);
@@ -8012,22 +8380,7 @@ function drawTree(trees) {
       }
       catch(e){ alertModal(e.message, {ok:false}); }
     },
-    onEdit: function(node){
-      var isChild = node.parent_id != null;
-      // 汇总页为所有者本人: 主任务可切换 child_due 模式; 子任务按根任务模式显示日期/重复控件(仅叶子)
-      var fopts = isChild
-        ? { childDueMode: !!(node._root && node._root.child_due), canRecur: node.children.length === 0 }
-        : {};
-      openModal('编辑任务', todoFormHtml(node, false, isChild, fopts) +
-        '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
-      todoFillCategoryOptions(_rows, node.category || '');
-      bindClickBusy(document.getElementById('tfSave'), async function(){
-        var body = todoFormRead();
-        if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
-        await api('/api/public/todo-all/' + _token + '/' + node.id, { method:'PUT', body: body });
-        closeModal(); await loadCollab();
-      });
-    },
+    onEdit: openPublicEdit,
     onAddChildSubmit: async function(node, payload){
       await api('/api/public/todo-all/' + _token, { method:'POST', body: payload });
       await loadCollab();

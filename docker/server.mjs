@@ -17,6 +17,7 @@ import { dirname, resolve, join } from 'node:path';
 
 import { D1DatabaseShim } from './d1-shim.mjs';
 import { KVNamespaceShim } from './kv-shim.mjs';
+import { FileStoreShim } from './file-shim.mjs';
 import { createHttpServer } from './http-adapter.mjs';
 import { runMigrations } from './migrate.mjs';
 
@@ -36,6 +37,7 @@ mkdirSync(DATA_DIR, { recursive: true });
 // ==================== 初始化存储 ====================
 const db = new D1DatabaseShim(join(DATA_DIR, 'd1.sqlite'));
 const kv = new KVNamespaceShim(join(DATA_DIR, 'kv.sqlite'));
+const files = new FileStoreShim(join(DATA_DIR, 'files'));
 
 // ---------- 从 Cloudflare 迁移数据（可选，默认注释关闭）----------
 // 把 wrangler d1 export --remote 生成的 dump.sql 放到 DATA_DIR/dump.sql,
@@ -52,6 +54,7 @@ await runMigrations(db, join(ROOT, 'migrations'));
 const env = {
   DB: db,
   KV: kv,
+  FILES: files,
   STORAGE_DRIVER,
   ...(PUBLIC_BASE_URL ? { PUBLIC_BASE_URL } : {}),
   ...(CRON_SECRET ? { CRON_SECRET } : {}),

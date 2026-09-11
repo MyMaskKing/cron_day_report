@@ -57,6 +57,16 @@ import kotlinx.coroutines.withContext
  */
 class MainActivity : ComponentActivity() {
 
+    // WebView <input type=file> 选择回调（待办附件上传）：网页发起文件选择 → 系统选择器 → 回传 Uri
+    private var filePathCallback: android.webkit.ValueCallback<Array<Uri>>? = null
+
+    private val fileChooserLauncher =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
+            val cb = filePathCallback
+            filePathCallback = null
+            cb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // 保持 targetSdk 35 默认 edge-to-edge：WebView 不随软键盘收缩，visualViewport 如实反映
@@ -274,7 +284,26 @@ private fun AppShell(initialUrl: String?) {
                                 }
                             }
                         }
-                        webChromeClient = WebChromeClient()
+                        webChromeClient = object : WebChromeClient() {
+                            // 待办备注附件：支持网页 input[type=file] 选图片/任意文件（accept 由网页指定）
+                            override fun onShowFileChooser(
+                                webView: WebView?,
+                                callback: android.webkit.ValueCallback<Array<Uri>>?,
+                                params: WebChromeClient.FileChooserParams?
+                            ): Boolean {
+                                filePathCallback?.onReceiveValue(null)
+                                filePathCallback = callback
+                                return try {
+                                    val intent = params?.createIntent()
+                                        ?: Intent(Intent.ACTION_GET_CONTENT).apply { type = "*/*" }
+                                    fileChooserLauncher.launch(intent)
+                                    true
+                                } catch (e: Exception) {
+                                    filePathCallback = null
+                                    false
+                                }
+                            }
+                        }
                         // 待办全屏/弹窗等页面在网页"内部容器"里滚动，WebView 原生 scrollY 恒为 0，
                         // SwipeRefreshLayout 会误判在顶部而拦截向下拖拽（卡片/弹窗卡死无法下滑）。
                         // 网页经 AppShell 桥实时上报"是否在顶部"，据此开关下拉刷新。

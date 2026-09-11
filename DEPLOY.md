@@ -155,3 +155,14 @@ npx wrangler d1 execute cron_db --remote --command "SELECT 1"   # 线上 D1 语�
 ```
 
 手动触发一次全量推送（调试用）：浏览器访问 `https://<worker域名>/cron?key=<CRON_SECRET>`。
+
+## R2 文件存储（待办附件）
+
+附件文件本体存 Cloudflare R2（元数据在 D1 `todo_attachments` 表）。R2 bucket 不会随部署自动创建，首次部署前手工执行一次：
+
+```bash
+npx wrangler r2 bucket create cron-todo-files
+```
+
+未创建/未绑定时，附件上传会返回 503「附件存储未配置」，其他功能不受影响。
+Docker 部署无需任何配置，附件自动落 `./docker-data/files/`。

@@ -14,6 +14,7 @@
  *              findInviteByCode, findInviteById, deleteInviteCascade, purgeRevokedInvitesByOwner,
  *              addMember, listMembersByInvite, findMemberById, deleteMember,
  *              listMyShares, findActiveShare }  // 家庭/团队数据共享（一人一码 + 按模块授权，作废物理删除）
+ *   todoAttachment: { create, listByTodo, listByTodoIds, findByToken, findById, removeByIds }  // 附件元数据（文件本体在 env.FILES）
  *   backup:  { dumpTables, restoreTables }  // 全量导入导出（仅 d1 驱动实现；mysql 桩暂无，api 层判空）
  */
 

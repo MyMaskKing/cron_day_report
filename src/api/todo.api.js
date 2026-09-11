@@ -9,6 +9,7 @@ import { requireAuth } from '../auth/middleware.js';
 import { generateToken } from '../auth/password.js';
 import { resolveBaseUrl } from '../config.js';
 import { requireDataContext } from './share.api.js';
+import { getFileStore } from '../storage/file-store.js';
 import { countStats, buildWidgetGroups, buildChartSeries, buildAnalysis, CHART_RANGES } from '../services/todo.service.js';
 
 /** 取北京时区当天 YYYY-MM-DD */
@@ -51,6 +52,63 @@ function normRecurWeekday(v) {
 }
 /** 重复周期白名单(顶层任务) */
 const REC_LIST = ['daily', 'weekly', 'monthly', 'yearly', 'monthly_nth_weekday'];
+
+// ==================== 附件通用助手 ====================
+// 允许内联渲染的图片类型；SVG 永远不算图片（可内嵌脚本，强制下载）
+const IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const DEFAULT_ATTACH_MAX_MB = 5;
+
+async function attachMaxMb(storage) {
+  const raw = parseInt(await storage.settings.get('todo_attach_max_mb'), 10);
+  return (!isNaN(raw) && raw >= 1 && raw <= 50) ? raw : DEFAULT_ATTACH_MAX_MB;
+}
+
+/** 存储行 → 对外 JSON（url 为长期免密下载地址） */
+function attachmentJson(r) {
+  return {
+    id: r.id, todo_id: r.todo_id, file_token: r.file_token, origin_name: r.origin_name,
+    mime: r.mime, size: r.size, is_image: !!r.is_image, url: '/todo-file/' + r.file_token
+  };
+}
+
+/** 解析 multipart 上传请求 { todo_id, file }；失败返回 { err: Response } */
+async function readAttachmentForm(request) {
+  let form;
+  try { form = await request.formData(); }
+  catch { return { err: error('上传数据格式不正确', 400) }; }
+  const todoId = parseInt(form.get('todo_id'), 10);
+  const file = form.get('file');
+  if (!todoId || isNaN(todoId)) return { err: error('缺少任务 id', 400) };
+  if (!(file instanceof File) || file.size <= 0) return { err: error('缺少上传文件', 400) };
+  return { todoId, file };
+}
+
+/** 统一上传落库：限大小 → 读字节 → FILES.put → 元数据落库 */
+async function saveAttachment({ storage, files, todoId, file, uploaderUid }) {
+  const maxMb = await attachMaxMb(storage);
+  if (file.size > maxMb * 1048576) {
+    return error('文件超过大小上限（' + maxMb + 'MB）', 413);
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const fileToken = generateToken();
+  const isImage = IMAGE_MIME.has(file.type || '');
+  const id = await storage.todoAttachment.create({
+    todo_id: todoId,
+    file_token: fileToken,
+    origin_name: file.name || '未命名文件',
+    mime: file.type || null,
+    size: file.size,
+    is_image: isImage ? 1 : 0,
+    uploader_uid: uploaderUid == null ? null : uploaderUid
+  });
+  await files.put('todo/' + fileToken, bytes, { contentType: file.type || 'application/octet-stream' });
+  const row = await storage.todoAttachment.findById(id);
+  return json({ success: true, attachment: attachmentJson(row) });
+}
+
+function imageExt(mime) {
+  return ({ 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp' })[mime] || '';
+}
 
 /**
  * 校验 dc.uid 对任务行的访问权限（共享分类成员身份实时查 todo_shared_cat_members）。
@@ -359,6 +417,13 @@ async function removeTodo({ request, env, params }) {
     return error('共享分类中仅创建者可删除任务', 403);
   }
   const descendants = await storage.todo.collectDescendantIds(id);
+  // 附件级联：先删文件本体（尽力，失败不阻断），再批量删元数据
+  const atts = await storage.todoAttachment.listByTodoIds([id, ...descendants]);
+  if (atts.length) {
+    const fileStore = getFileStore(env);
+    for (const a of atts) { if (fileStore) { try { await fileStore.delete('todo/' + a.file_token); } catch { /* 忽略 */ } } }
+    await storage.todoAttachment.removeByIds(atts.map(a => a.id));
+  }
   await storage.todo.remove([id, ...descendants]);
   return json({ success: true, message: '任务已删除' });
 }
@@ -443,6 +508,92 @@ async function todoAnalyze({ request, env, url }) {
   const days = url.searchParams.get('days') === '60' ? 60 : 30;
   const raw = await storage.todo.chartRaw(dc.uid);
   return json({ success: true, analysis: buildAnalysis(raw, days, todayCN()) });
+}
+
+/** POST /api/todo/attachments  multipart: todo_id, file（随 X-Data-As 数据源生效） */
+async function todoAttachmentUpload({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'todo', request);
+  if (dc instanceof Response) return dc;
+  const parsed = await readAttachmentForm(request);
+  if (parsed.err) return parsed.err;
+  const t = await storage.todo.findById(parsed.todoId);
+  if (!t) return error('任务不存在', 404);
+  const acc = await todoAccess(storage, dc, t);
+  if (!acc) return error('任务不存在', 404);
+  const files = getFileStore(env);
+  if (!files) return error('附件存储未配置，请联系管理员绑定 R2', 503);
+  return await saveAttachment({
+    storage, files, todoId: t.id, file: parsed.file,
+    uploaderUid: acc.catId != null ? auth.user_id : acc.ownerUid
+  });
+}
+
+/** GET /api/todo/:id/attachments  当前任务附件元数据列表 */
+async function todoAttachmentList({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'todo', request);
+  if (dc instanceof Response) return dc;
+  const id = parseInt(params.id, 10);
+  const t = await storage.todo.findById(id);
+  if (!t) return error('任务不存在', 404);
+  if (!(await todoAccess(storage, dc, t))) return error('任务不存在', 404);
+  const rows = await storage.todoAttachment.listByTodo(id);
+  return json({ success: true, attachments: rows.map(attachmentJson) });
+}
+
+/** DELETE /api/todo/attachments/:attId  可编辑任务者可删附件 */
+async function todoAttachmentRemove({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'todo', request);
+  if (dc instanceof Response) return dc;
+  const att = await storage.todoAttachment.findById(parseInt(params.attId, 10));
+  if (!att) return error('附件不存在', 404);
+  const t = await storage.todo.findById(att.todo_id);
+  if (!t) return error('任务不存在', 404);
+  if (!(await todoAccess(storage, dc, t))) return error('任务不存在', 404);
+  const files = getFileStore(env);
+  if (files) { try { await files.delete('todo/' + att.file_token); } catch { /* 元数据照删 */ } }
+  await storage.todoAttachment.removeByIds([att.id]);
+  return json({ success: true, message: '附件已删除' });
+}
+
+/** GET /todo-file/:fileToken  长期免密下载（markdown img 无法带 cookie，与 /f/:token 同模式） */
+async function todoFileDownload({ env, params }) {
+  const storage = getStorage(env);
+  const att = await storage.todoAttachment.findByToken(params.fileToken);
+  if (!att) return error('文件不存在或已删除', 404);
+  const files = getFileStore(env);
+  if (!files) return error('附件存储未配置', 503);
+  const bytes = await files.get('todo/' + att.file_token);
+  if (!bytes) return error('文件不存在或已删除', 404);
+  const mime = att.mime || 'application/octet-stream';
+  const headers = {
+    'Content-Type': mime,
+    'Cache-Control': 'private, max-age=31536000, immutable',
+    'X-Content-Type-Options': 'nosniff'
+  };
+  if (att.is_image) {
+    headers['Content-Disposition'] = 'inline; filename="' + att.file_token + imageExt(mime) + '"';
+  } else {
+    const safeAscii = (att.origin_name || 'file').replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+    headers['Content-Disposition'] =
+      "attachment; filename=\"" + safeAscii + "\"; filename*=UTF-8''" + encodeURIComponent(att.origin_name || 'file');
+  }
+  return new Response(bytes, { status: 200, headers });
+}
+
+/** GET /api/public/attach-max-mb  附件单文件上限（前端预检用，全局非敏感） */
+async function publicAttachMaxMb({ env }) {
+  const storage = getStorage(env);
+  const mb = await attachMaxMb(storage);
+  return json({ success: true, max_mb: mb });
 }
 
 // ==================== 免密公开 ====================
@@ -699,6 +850,68 @@ async function resolveUserByReportToken(storage, token) {
   return null;
 }
 
+/**
+ * 公开附件操作鉴权：token 先按 report_token 解析（用户级，user_id 匹配即可），
+ * 再按清单 share_token 解析（任务必须在该清单子树内）。
+ * 返回 { ok:true, can(todoId) } 或 { ok:false, response }
+ */
+async function resolvePublicAttachment(storage, token) {
+  const userId = await resolveUserByReportToken(storage, token);
+  if (userId != null) {
+    return {
+      ok: true,
+      can: async (todoId) => {
+        const t = await storage.todo.findById(todoId);
+        return !!(t && t.user_id === userId);
+      }
+    };
+  }
+  const root = await storage.todo.findByShareToken(token);
+  if (root) {
+    const ids = new Set([root.id, ...(await storage.todo.listSubtree(root.id)).map(r => r.id)]);
+    return { ok: true, can: async (todoId) => ids.has(todoId) };
+  }
+  return { ok: false, response: error('链接无效或已失效', 404) };
+}
+
+/** POST /api/public/todo-att/:token  multipart: todo_id, file（report_token 或清单 share_token） */
+async function publicTodoAttachmentUpload({ request, env, params }) {
+  const storage = getStorage(env);
+  const resolved = await resolvePublicAttachment(storage, params.token);
+  if (!resolved.ok) return resolved.response;
+  const parsed = await readAttachmentForm(request);
+  if (parsed.err) return parsed.err;
+  if (!(await resolved.can(parsed.todoId))) return error('任务不存在', 404);
+  const files = getFileStore(env);
+  if (!files) return error('附件存储未配置，请联系管理员', 503);
+  // 公开链接无登录身份，uploader_uid 记 null
+  return await saveAttachment({ storage, files, todoId: parsed.todoId, file: parsed.file, uploaderUid: null });
+}
+
+/** GET /api/public/todo-att/:token?todo_id=  附件列表 */
+async function publicTodoAttachmentList({ env, params, url }) {
+  const storage = getStorage(env);
+  const resolved = await resolvePublicAttachment(storage, params.token);
+  if (!resolved.ok) return resolved.response;
+  const todoId = parseInt(url.searchParams.get('todo_id'), 10);
+  if (!todoId || !(await resolved.can(todoId))) return error('任务不存在', 404);
+  const rows = await storage.todoAttachment.listByTodo(todoId);
+  return json({ success: true, attachments: rows.map(attachmentJson) });
+}
+
+/** DELETE /api/public/todo-att/:token/:attId */
+async function publicTodoAttachmentRemove({ env, params }) {
+  const storage = getStorage(env);
+  const resolved = await resolvePublicAttachment(storage, params.token);
+  if (!resolved.ok) return resolved.response;
+  const att = await storage.todoAttachment.findById(parseInt(params.attId, 10));
+  if (!att || !(await resolved.can(att.todo_id))) return error('附件不存在', 404);
+  const files = getFileStore(env);
+  if (files) { try { await files.delete('todo/' + att.file_token); } catch { /* 元数据照删 */ } }
+  await storage.todoAttachment.removeByIds([att.id]);
+  return json({ success: true, message: '附件已删除' });
+}
+
 /** POST /api/public/todo-all/:token  免密汇总页添加任务
  * body: { title, parent_id?, priority?, due_date?, category?, note?, child_due? }
  * parent_id 缺省则新建顶层清单(旧模式可设 due_date, 或带 child_due 开新模式)；
@@ -884,7 +1097,9 @@ async function publicAllReorder({ request, env, params }) {
 
 export {
   listTodos, createTodo, updateTodo, toggleTodo, removeTodo, deleteCategory, renameCategory, getShareLink, todoChart, todoAnalyze, reorderTodo,
+  todoAttachmentUpload, todoAttachmentList, todoAttachmentRemove, todoFileDownload, publicAttachMaxMb,
   publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicReorder, publicTodoReport, publicTodoChart, publicTodoAnalyze,
+  publicTodoAttachmentUpload, publicTodoAttachmentList, publicTodoAttachmentRemove,
   widgetTodo, widgetTodoAuth,
   publicAllAdd, publicAllToggle, publicAllUpdate, publicAllReorder
 };

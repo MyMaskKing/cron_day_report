@@ -19,6 +19,14 @@ database_name = "cron_db"
 [[kv_namespaces]]
 binding = "KV"
 
+# R2 文件存储：待办附件本体（元数据在 D1 todo_attachments 表）。
+# R2 bucket 不会随部署自动创建，首次部署前手工建一次：
+#   wrangler r2 bucket create cron-todo-files
+# Docker 部署无需配置，文件自动落 DATA_DIR/files（./docker-data/files）。
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "cron-todo-files"
+
 # ==================== 运行时变量 / 密钥（不写入本文件） ====================
 # 1) STORAGE_DRIVER —— 存储驱动，默认 d1（src/storage/adapter.js 兜底），通常无需配置。
 #    生产：Dashboard → 本 Worker → Settings → Variables and Secrets 添加 Variable；

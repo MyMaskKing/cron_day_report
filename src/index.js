@@ -20,7 +20,7 @@ import { register, registerStatus, login, logout, me, bootstrap, setupStatus, ge
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
-  getTimezone, setTimezone, getBaseUrl, setBaseUrl,
+  getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
   getRegisterLimit, setRegisterLimit
 } from './api/users.api.js';
 import { listChannels, createChannel, updateChannel, setChannelStatus, removeChannel } from './api/notify.api.js';
@@ -54,7 +54,9 @@ import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, 
 import { buildTree, flattenPending } from './services/todo.service.js';
 import {
   listTodos, createTodo, updateTodo, toggleTodo, removeTodo, deleteCategory, renameCategory, getShareLink as getTodoShareLink, todoChart, todoAnalyze, reorderTodo,
+  todoAttachmentUpload, todoAttachmentList, todoAttachmentRemove, todoFileDownload, publicAttachMaxMb,
   publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicReorder, publicTodoReport, publicTodoChart, publicTodoAnalyze,
+  publicTodoAttachmentUpload, publicTodoAttachmentList, publicTodoAttachmentRemove,
   widgetTodo, widgetTodoAuth,
   publicAllAdd, publicAllToggle, publicAllUpdate, publicAllReorder
 } from './api/todo.api.js';
@@ -116,6 +118,8 @@ router.post('/api/admin/users/:id/impersonate', impersonateUser);
 // --- 超管全局设置 API ---
 router.get('/api/admin/settings/timezone', getTimezone);
 router.put('/api/admin/settings/timezone', setTimezone);
+router.get('/api/admin/settings/todo-attach-max-mb', getTodoAttachMaxMb);
+router.put('/api/admin/settings/todo-attach-max-mb', setTodoAttachMaxMb);
 router.get('/api/admin/settings/base-url', getBaseUrl);
 router.put('/api/admin/settings/base-url', setBaseUrl);
 router.get('/api/admin/settings/register-limit', getRegisterLimit);
@@ -214,6 +218,11 @@ router.get('/api/todo/list', listTodos);
 router.get('/api/todo-widget', widgetTodoAuth);
 router.get('/api/todo/chart', todoChart);
 router.get('/api/todo/analyze', todoAnalyze);
+router.post('/api/todo/attachments', todoAttachmentUpload);
+router.get('/api/todo/:id/attachments', todoAttachmentList);
+router.delete('/api/todo/attachments/:attId', todoAttachmentRemove);
+router.get('/todo-file/:fileToken', todoFileDownload);
+router.get('/api/public/attach-max-mb', publicAttachMaxMb);
 router.put('/api/todo/reorder', reorderTodo);
 router.post('/api/todo', createTodo);
 // 待办共享分类（字面量段须在 /api/todo/:id/* 参数路由前注册）
@@ -241,6 +250,9 @@ router.put('/api/public/todo/:token/:id', publicUpdateTodo);
 router.get('/api/public/todo-report/:token', publicTodoReport);
 router.get('/api/public/todo-chart/:token', publicTodoChart);
 router.get('/api/public/todo-analyze/:token', publicTodoAnalyze);
+router.post('/api/public/todo-att/:token', publicTodoAttachmentUpload);
+router.get('/api/public/todo-att/:token', publicTodoAttachmentList);
+router.delete('/api/public/todo-att/:token/:attId', publicTodoAttachmentRemove);
 router.get('/api/public/todo-widget/:token', widgetTodo);
 router.post('/api/public/todo-all/:token', publicAllAdd);
 router.put('/api/public/todo-all/:token/reorder', publicAllReorder);

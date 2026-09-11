@@ -151,6 +151,13 @@ function adminPage(user) {
       </div>
       <p class="muted">影响所有推送内容与报告中的时间显示。当前部署在 Cloudflare（UTC），设为 8 即中国时间。</p>
       <div class="row">
+        <div><label>待办附件大小上限（MB，1–50，默认 5）</label>
+          <input id="attachMaxMbInput" type="number" min="1" max="50" step="1">
+        </div>
+        <div style="display:flex;align-items:flex-end;margin-bottom:12px;"><button class="btn" id="attachMaxMbSave">保存上限</button></div>
+      </div>
+      <p class="muted">待办任务单个附件（图片或任意文件）允许的最大体积；超限前端拦截、服务端 413 拒绝。</p>
+      <div class="row">
         <div style="flex:1;"><label>站点公开地址（用于推送内免密链接，如 https://xxx.workers.dev）</label>
           <input id="baseUrlInput" type="text" placeholder="留空则回退配置文件 / 请求来源">
         </div>

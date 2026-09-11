@@ -368,6 +368,21 @@ CREATE TABLE IF NOT EXISTS todo_shared_cat_members (
 CREATE INDEX IF NOT EXISTS idx_tscm_user ON todo_shared_cat_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_tscm_cat ON todo_shared_cat_members(cat_id);
 
+-- ==================== 待办附件（元数据；文件本体在 R2 / Docker files 目录） ====================
+-- file_token 同时是免密下载凭证(GET /todo-file/:fileToken), 32 字符 url-safe 不可猜
+CREATE TABLE IF NOT EXISTS todo_attachments (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  todo_id       INTEGER NOT NULL,
+  file_token    TEXT NOT NULL UNIQUE,
+  origin_name   TEXT NOT NULL,
+  mime          TEXT,
+  size          INTEGER NOT NULL,
+  is_image      INTEGER NOT NULL DEFAULT 0,
+  uploader_uid  INTEGER,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_todo_att_todo ON todo_attachments(todo_id);
+
 -- ==================== 全局应用设置 ====================
 -- 键值对, 存放平台级全局配置
 -- tz_offset: 相对 UTC 的小时偏移, 中国为 8; 影响所有推送/显示时间换算
