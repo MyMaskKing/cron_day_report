@@ -484,7 +484,7 @@ function buildChartSeries(raw, range, today) {
  * @param {Object} raw - storage.todo.chartRaw 的返回 { datedTasks, done }
  * @param {number} days - 窗口天数，窗口含 today
  * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
- * @returns {Object} { days, currentStreak, longestStreak, winRate, overdueRate, daily[] }
+ * @returns {Object} { days, currentStreak, longestStreak, winRate, onTimeRate, overdueRate, daily[] }
  *   winRate/overdueRate 为 0..1 比率（无分母时 null）；
  *   daily: [{ date:'YYYY-MM-DD', planned, done, overdue, rate: 0..1|null, mark: win|fail|idle|pending }]
  */
@@ -495,13 +495,17 @@ function buildAnalysis(raw, days, today) {
   const todayMs = dayMs(today);
 
   // 按到期日聚合：dueCnt=到期数；doneFinalCnt=最终完成数（含逾期补做、缺 done10 的历史完成、
-  // 被完成主任务收编的子任务）；overCnt=日终仍未完成（新增逾期；收编但收编日晚于到期日算逾期补做）
-  const dueCnt = {}, doneFinalCnt = {}, overCnt = {};
+  // 被完成主任务收编的子任务）；overCnt=日终仍未完成（新增逾期；收编但收编日晚于到期日算逾期补做）；
+  // onTimeCnt=按时完成数（最终完成且完成日<=到期日；缺完成日的历史完成按"早已完成"视为按时，与逾期口径对称）
+  const dueCnt = {}, doneFinalCnt = {}, overCnt = {}, onTimeCnt = {};
   let minMs = null;
   for (const t of tasks) {
     const e = effDone(t);
     dueCnt[t.due] = (dueCnt[t.due] || 0) + 1;
-    if (e.done) doneFinalCnt[t.due] = (doneFinalCnt[t.due] || 0) + 1;
+    if (e.done) {
+      doneFinalCnt[t.due] = (doneFinalCnt[t.due] || 0) + 1;
+      if (!(e.day && e.day > t.due)) onTimeCnt[t.due] = (onTimeCnt[t.due] || 0) + 1;
+    }
     const unfinishedAtEnd = !e.done || (!!e.day && e.day > t.due);
     if (unfinishedAtEnd) overCnt[t.due] = (overCnt[t.due] || 0) + 1;
     const ms = dayMs(t.due);
@@ -535,7 +539,7 @@ function buildAnalysis(raw, days, today) {
 
   // 窗口逐日明细（含 today）
   const daily = [];
-  let winDue = 0, winDone = 0, pastDue = 0, pastOver = 0;
+  let winDue = 0, winDone = 0, winOnTime = 0, pastDue = 0, pastOver = 0;
   for (let i = days - 1; i >= 0; i--) {
     const d = msDay(todayMs - i * DAY);
     const isToday = i === 0;
@@ -543,7 +547,7 @@ function buildAnalysis(raw, days, today) {
     const doneN = doneFinalCnt[d] || 0;
     const overdue = overCnt[d] || 0;
     daily.push({ date: d, planned, done: doneN, overdue, rate: planned ? doneN / planned : null, mark: markAt(d, isToday) });
-    winDue += planned; winDone += doneN;
+    winDue += planned; winDone += doneN; winOnTime += (onTimeCnt[d] || 0);
     if (!isToday) { pastDue += planned; pastOver += overdue; }
   }
 
@@ -552,6 +556,8 @@ function buildAnalysis(raw, days, today) {
     currentStreak,
     longestStreak,
     winRate: winDue ? winDone / winDue : null,
+    // 按时完成率: 最终完成且完成日<=到期日 / 到期数（含今天，与 winRate 同窗；逾期补做不算按时）
+    onTimeRate: winDue ? winOnTime / winDue : null,
     overdueRate: pastDue ? pastOver / pastDue : null,
     daily
   };

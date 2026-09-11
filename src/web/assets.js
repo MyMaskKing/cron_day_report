@@ -6602,6 +6602,7 @@ function openTodoAnalysis(buildUrl) {
     '<div class="ta-stats">' +
       '<div class="ta-stat" id="taStreakCard"><div class="n"><span id="taStreak">-</span><small>天</small></div><div class="l">连续达标</div><div class="s" id="taBest"></div></div>' +
       '<div class="ta-stat good"><div class="n" id="taWinRate">-</div><div class="l">区间完成率</div><div class="s">截至今天</div></div>' +
+      '<div class="ta-stat good"><div class="n" id="taOnTimeRate">-</div><div class="l">按时完成率</div><div class="s">不含逾期补做</div></div>' +
       '<div class="ta-stat" id="taOverCard"><div class="n" id="taOverRate">-</div><div class="l">逾期率</div><div class="s">不含今天</div></div>' +
     '</div>' +
     '<div class="ta-head"><h3 class="ta-h">达标日历</h3>' +
@@ -6614,7 +6615,7 @@ function openTodoAnalysis(buildUrl) {
     '<div class="ta-legend"><span><i class="lg-win"></i>达标</span><span><i class="lg-fail"></i>有逾期</span><span><i class="lg-idle"></i>无任务</span><span><i class="lg-pending"></i>今天</span></div>' +
     '<h3 class="ta-h">每日完成率走势</h3>' +
     '<canvas id="taChart" style="max-height:200px;"></canvas>' +
-    '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">口径：当天到期任务日终零新增逾期即「达标」；当天无任务为中性，不断签也不计数；今天尚未收官，不计入连续达标。悬停色块查看当天明细。</p>';
+    '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">口径：当天到期任务日终零新增逾期即「达标」；当天无任务为中性，不断签也不计数；今天尚未收官，不计入连续达标。区间完成率含逾期补做，按时完成率只计完成日不晚于到期日的任务。悬停色块查看当天明细。</p>';
   openModal('📊 任务分析', body, 'modal-mask--lg');
 
   function pct(v) { return v == null ? '—' : Math.round(v * 100) + '%'; }
@@ -6625,6 +6626,7 @@ function openTodoAnalysis(buildUrl) {
     document.getElementById('taStreak').textContent = a.currentStreak;
     document.getElementById('taBest').textContent = a.longestStreak ? '最长 ' + a.longestStreak + ' 天' : '';
     document.getElementById('taWinRate').textContent = pct(a.winRate);
+    document.getElementById('taOnTimeRate').textContent = pct(a.onTimeRate);
     document.getElementById('taOverRate').textContent = pct(a.overdueRate);
     // 连续 0 天中性色；逾期率 0 用正向绿，大于 0 用红
     document.getElementById('taStreakCard').classList.toggle('good', a.currentStreak > 0);
