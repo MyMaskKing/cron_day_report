@@ -676,9 +676,10 @@ input[type="date"] { cursor: pointer; }
 @media (max-width: 640px) {
   .strat-panel {
     left: 8px !important; right: 8px !important;
-    top: auto !important; bottom: 8px !important;
+    top: auto !important; bottom: calc(8px + var(--kb-inset, 0px)) !important;
     width: auto !important; height: 75vh !important;
-    max-height: calc(100vh - 16px); min-width: 0; min-height: 0;
+    /* 键盘弹起(--kb-inset): 面板随底边上抬, max-height 同步压缩, 标题栏不飞出屏顶 */
+    max-height: calc(100vh - 16px - var(--kb-inset, 0px)); min-width: 0; min-height: 0;
     resize: none; border-radius: 14px;
   }
   .strat-head { cursor: default; padding: 12px 14px; }

@@ -2977,83 +2977,11 @@ document.getElementById('scRun').addEventListener('click', async function(){
   initStrategyPanel();
 })();
 
-// ============ 投资策略: 悬浮按钮 + 可拖拽面板 + 简易 Markdown 渲染 ============
+// ============ 投资策略: 悬浮按钮 + 可拖拽面板 ============
 // 已设置(内容非空) -> 显示 📝 圆形悬浮按钮, 点击展开面板; 未设置 -> 显示底部"记录我的投资策略"CTA 按钮.
 // 面板可通过标题栏拖动(桌面 mousedown / 移动 touchstart), 位置存 localStorage, 下次打开复原.
-// Markdown 渲染: 支持 # 标题 / 列表 / **加粗** / *斜体* / \`code\` / [链接](url) / --- 分割线 / > 引用 / \`\`\`代码块\`\`\`.
+// Markdown 查看/编辑统一复用全站 renderTodoNote + mountTodoMdEditor(与待办备注同一套, 无附件上传).
 var _stratLoaded = null;   // 服务端已保存的内容, 用于取消编辑时回退
-function _mdEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function renderMarkdown(src){
-  if (!src) return '<p class="muted">还没有内容, 点右上"编辑"开始记录你的投资策略</p>';
-  var lines = String(src).replace(/\\r\\n/g,'\\n').split('\\n');
-  var out = [], i = 0;
-  function inline(s){
-    // 代码块内不再转义, 其他先转义再替换标记 (转义后 [text](url) 里的 url 仍可用, 因为 & 不影响我们的正则)
-    s = _mdEsc(s);
-    // 行内代码
-    s = s.replace(/\`([^\`]+)\`/g, '<code>$1</code>');
-    // 加粗/斜体 (先双星再单星避免嵌套误判)
-    s = s.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
-    s = s.replace(/\\*([^*]+)\\*/g, '<em>$1</em>');
-    // 链接 [text](url) - url 只允许 http/https/相对路径
-    s = s.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, function(m, t, u){
-      var safe = /^(https?:\\/\\/|\\/|#)/.test(u) ? u : '#';
-      return '<a href="' + safe + '" target="_blank" rel="noopener">' + t + '</a>';
-    });
-    return s;
-  }
-  while (i < lines.length){
-    var line = lines[i];
-    // 代码块 \`\`\`
-    if (/^\`\`\`/.test(line)) {
-      var lang = line.replace(/^\`\`\`\\s*/, '').trim();
-      i++;
-      var buf = [];
-      while (i < lines.length && !/^\`\`\`/.test(lines[i])) { buf.push(lines[i]); i++; }
-      i++;
-      out.push('<pre><code>' + _mdEsc(buf.join('\\n')) + '</code></pre>');
-      continue;
-    }
-    // 分割线
-    if (/^\\s*---+\\s*$/.test(line)) { out.push('<hr>'); i++; continue; }
-    // 标题
-    var mh = line.match(/^(#{1,3})\\s+(.+)$/);
-    if (mh) { var lv = mh[1].length; out.push('<h' + lv + '>' + inline(mh[2]) + '</h' + lv + '>'); i++; continue; }
-    // 引用
-    if (/^>\\s?/.test(line)) {
-      var qb = [];
-      while (i < lines.length && /^>\\s?/.test(lines[i])) { qb.push(lines[i].replace(/^>\\s?/, '')); i++; }
-      out.push('<blockquote>' + inline(qb.join(' ')) + '</blockquote>');
-      continue;
-    }
-    // 无序列表
-    if (/^\\s*[-*+]\\s+/.test(line)) {
-      var lb = [];
-      while (i < lines.length && /^\\s*[-*+]\\s+/.test(lines[i])) { lb.push(lines[i].replace(/^\\s*[-*+]\\s+/, '')); i++; }
-      out.push('<ul>' + lb.map(function(x){ return '<li>' + inline(x) + '</li>'; }).join('') + '</ul>');
-      continue;
-    }
-    // 有序列表
-    if (/^\\s*\\d+\\.\\s+/.test(line)) {
-      var ob = [];
-      while (i < lines.length && /^\\s*\\d+\\.\\s+/.test(lines[i])) { ob.push(lines[i].replace(/^\\s*\\d+\\.\\s+/, '')); i++; }
-      out.push('<ol>' + ob.map(function(x){ return '<li>' + inline(x) + '</li>'; }).join('') + '</ol>');
-      continue;
-    }
-    // 空行 -> 段落分隔
-    if (/^\\s*$/.test(line)) { i++; continue; }
-    // 普通段落 (连续非空行合并)
-    var pb = [];
-    while (i < lines.length && !/^\\s*$/.test(lines[i])
-      && !/^(#{1,3})\\s+/.test(lines[i]) && !/^\\s*[-*+]\\s+/.test(lines[i])
-      && !/^\\s*\\d+\\.\\s+/.test(lines[i]) && !/^>\\s?/.test(lines[i])
-      && !/^\`\`\`/.test(lines[i]) && !/^\\s*---+\\s*$/.test(lines[i])) {
-      pb.push(lines[i]); i++;
-    }
-    out.push('<p>' + inline(pb.join(' ')) + '</p>');
-  }
-  return out.join('');
-}
 function _stratRefreshEntry(content){
   var hasContent = !!(content && content.trim());
   var fab = document.getElementById('stratFab');
@@ -3090,18 +3018,36 @@ function _stratClose(){
   if (panel) panel.style.display = 'none';
 }
 function _stratShowView(content){
-  document.getElementById('stratView').innerHTML = renderMarkdown(content || '');
-  document.getElementById('stratView').style.display = 'block';
-  document.getElementById('stratEditor').style.display = 'none';
+  var view = document.getElementById('stratView');
+  // 与待办备注同一渲染入口(marked + DOMPurify); 空内容保留引导提示
+  view.innerHTML = (content && content.trim())
+    ? renderTodoNote(content)
+    : '<p class="muted">还没有内容, 点右上"编辑"开始记录你的投资策略</p>';
+  mdTaskToBoxes(view);
+  view.style.display = 'block';
+  var ta = document.getElementById('stratEditor');
+  // 已挂载 md 编辑器则整体隐藏 .mde(ta 已被移入其中); 未挂载时隐藏裸 textarea
+  if (ta._mdeRoot) ta._mdeRoot.style.display = 'none';
+  else ta.style.display = 'none';
   document.getElementById('stratEdit').style.display = 'inline-block';
   document.getElementById('stratSave').style.display = 'none';
   document.getElementById('stratCancel').style.display = 'none';
 }
 function _stratShowEdit(content){
   var ta = document.getElementById('stratEditor');
+  // 首次进入懒挂载 md 编辑器(与待办备注同款; 不传 upload, 工具条无图片/附件按钮)。
+  // mountTodoMdEditor 会把 ta 移入新建的 .mde 容器, 并叠加 .mde-text 样式。
+  if (!ta._mdeRoot) {
+    mountTodoMdEditor(ta, {});
+    ta._mdeRoot = ta.closest('.mde');
+    ta.style.display = '';   // 清掉 pages.js 里的内联 display:none, 显隐改由 .mde 根接管
+  }
   ta.value = content || '';
+  ta.dispatchEvent(new Event('input'));   // 同步刷新预览分段
+  var writeBtn = ta._mdeRoot.querySelector('.mde-seg button[data-m="write"]');
+  if (writeBtn) writeBtn.click();         // 每次进入回到"写"分段
   document.getElementById('stratView').style.display = 'none';
-  ta.style.display = 'block';
+  ta._mdeRoot.style.display = 'block';
   document.getElementById('stratEdit').style.display = 'none';
   document.getElementById('stratSave').style.display = 'inline-block';
   document.getElementById('stratCancel').style.display = 'inline-block';
@@ -7096,7 +7042,7 @@ function mountTodoMdEditor(textarea, opts) {
       '<button type="button" class="mde-btn" data-a="quote" title="引用">“</button>' +
       '<button type="button" class="mde-btn" data-a="ul" title="无序列表">≡</button>' +
       '<button type="button" class="mde-btn" data-a="task" title="待办项">☑</button>' +
-      '<span class="mde-sep"></span>' +
+      '<span class="mde-sep mde-sep--upload"></span>' +
       '<button type="button" class="mde-btn" data-a="img" title="上传图片">' +
         '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L9 20"/></svg></button>' +
       '<button type="button" class="mde-btn" data-a="file" title="添加附件">📎</button>' +
@@ -7206,6 +7152,13 @@ function mountTodoMdEditor(textarea, opts) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSel('**', '**'); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') { e.preventDefault(); wrapSel('_', '_'); }
   });
+  // 无上传通道（如基金投资策略）：隐藏图片/文件按钮与其前置分隔线，避免点了无反应
+  if (!opts.upload) {
+    Array.prototype.forEach.call(
+      root.querySelectorAll('.mde-btn[data-a="img"], .mde-btn[data-a="file"], .mde-sep--upload'),
+      function(el){ el.style.display = 'none'; }
+    );
+  }
   root.dataset.mode = 'write';
   renderPv();
   return { getValue: function(){ return textarea.value; } };

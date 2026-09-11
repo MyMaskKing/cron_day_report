@@ -407,7 +407,7 @@ function fundPage(user) {
       </span>
     </div>
     <div class="strat-body">
-      <div id="stratView" class="strat-view"></div>
+      <div id="stratView" class="strat-view md-body"></div>
       <textarea id="stratEditor" class="strat-editor" style="display:none;" placeholder="用 Markdown 记录你的投资策略, 例如:&#10;&#10;## 核心原则&#10;- 长期持有指数基金&#10;- 单只不超过 30%&#10;&#10;## 加/减仓规则&#10;- 跌 10% 分批加仓&#10;- 涨 20% 止盈一半"></textarea>
     </div>
   </div>
