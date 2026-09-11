@@ -1068,6 +1068,9 @@ function initGlobalSwipeBack() {
     if (!target) return;
     var tag = (target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    // canvas 排除: 图表区是横向滑动误触高发区(长按曲线拖动曾被当成右滑返回, 直接跳了首页);
+    // 图表自身只响应轻点钻取, 需要返回手势时从图表外的页面区域起手即可
+    if (tag === 'canvas') return;
     if (target.closest && (target.closest('button') || target.closest('a'))) return;
     if (target.closest && (target.closest('.todo-drag') || target.closest('.mp-menu') || target.closest('input[type=range]'))) return;
     if (insideHorizScroll(target)) return;
@@ -6437,6 +6440,14 @@ function drawTodoChart(canvasId, series) {
     hint.textContent = '💡 点击图上的数据点，可查看当天（按月查看时为当月）的任务明细';
     el.parentNode.insertBefore(hint, el.nextSibling);
   }
+  // 轻点判定: 记录按下位置/时间(只绑一次, 复绘不重复), onClick 中排除长按与滑动
+  if (!el._todoTapBound) {
+    el._todoTapBound = true;
+    el._todoTapDown = null;
+    el.addEventListener('pointerdown', function(e){
+      el._todoTapDown = { x: e.clientX, y: e.clientY, t: Date.now() };
+    }, { passive: true });
+  }
   _todoChartInst = new Chart(el, {
     type: 'line',
     data: { labels: series.labels, datasets: [
@@ -6465,6 +6476,11 @@ function drawTodoChart(canvasId, series) {
       scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
       onClick: function(evt, elements) {
         if (!elements.length) return;
+        // 触摸: 仅"近似轻点"(位移 ≤12px 且时长 ≤600ms)才钻取; 长按/拖动不弹
+        var d0 = el._todoTapDown;
+        var n = evt.native || {};
+        if (d0 && n.clientX != null && (Math.abs(n.clientX - d0.x) > 12 ||
+            Math.abs(n.clientY - d0.y) > 12 || Date.now() - d0.t > 600)) return;
         todoShowChartDetail(series, elements[0].index);
       }
     }
