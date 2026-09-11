@@ -6600,6 +6600,20 @@ function bindTodoRange(fn) {
     fn(btn.getAttribute('data-range'));
   });
 }
+// 共享：趋势图手动刷新按钮，点击调 fn() 重拉图重绘；加载中转 ⏳ 并禁用防重点
+function bindTodoChartRefresh(fn) {
+  Array.prototype.forEach.call(document.querySelectorAll('.todo-chart-refresh'), function(btn){
+    if (btn.__bound) return;
+    btn.__bound = 1;
+    btn.addEventListener('click', async function(){
+      if (btn.disabled) return;
+      btn.disabled = true;
+      var old = btn.textContent;
+      btn.textContent = '⏳';
+      try { await fn(); } finally { btn.disabled = false; btn.textContent = old; }
+    });
+  });
+}
 // 指标卡「?」说明：纯白话，每个都带例子
 function taExplain(key) {
   var T = {
@@ -7373,6 +7387,7 @@ bindTodoRange(function(r){
   updateStatsHint(_filter, _curRange);
   loadChart();
 });
+bindTodoChartRefresh(loadChart);
 // 任务分析弹窗（登录态，随 X-Data-As 数据源切换）
 document.getElementById('todoAnalyzeBtn').addEventListener('click', function(){
   openTodoAnalysis(function(days){ return '/api/todo/analyze?days=' + days; });
@@ -7635,6 +7650,7 @@ document.getElementById('todoDrawerMask').addEventListener('click', function(){
   applyTodoView(_todoGetRows, function(){ loadPublic(); });
 });
 window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, function(){ loadPublic(); }); });
+bindTodoChartRefresh(loadChart);
 // hideDone 复选框: 变化时仅重绘可见树, 不重拉数据
 var _hb = document.getElementById('hideDone');
 if (_hb) _hb.addEventListener('change', function(){ drawTree(visibleTrees()); });
@@ -7785,6 +7801,7 @@ async function reloadReport() {
   document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
   updateStatsHint(_filter, _curRange);
   drawTree();
+  loadChart();
 }
 (async function(){
   try {
@@ -7855,6 +7872,7 @@ async function reloadReport() {
       loadChart();
     });
     await loadChart();
+    bindTodoChartRefresh(loadChart);
     // ?root 已在加载前解析(_todoDetailRootId), 首帧即详情, 不再在此 drawTree
     if (_deepRoot || _rq.get('add') || _rq.get('addChild') || _rq.get('edit')) history.replaceState(null, '', location.pathname);
     // ?add=1 新建主任务(顶层, 不进详情)
@@ -8062,6 +8080,7 @@ document.getElementById('todoDrawerMask').addEventListener('click', function(){
   applyTodoView(_todoGetRows, function(){ loadCollab(); });
 });
 window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, function(){ loadCollab(); }); });
+bindTodoChartRefresh(loadChart);
 // hideDone / 时间筛选 tab: 与登录态 TODO_JS 一致, 变化时仅重绘可见树, 不重拉数据
 var _hb = document.getElementById('hideDone');
 if (_hb) _hb.addEventListener('change', function(){ drawTree(visibleTrees()); });
