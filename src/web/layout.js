@@ -788,6 +788,8 @@ input[type="date"] { cursor: pointer; }
 /* 标题支持换行长文本；备注次级灰字 */
 .todo-title { white-space: pre-wrap; }
 .todo-note { font-size: 13px; color: var(--muted-2); margin-top: 4px; white-space: pre-wrap; line-height: 1.5; }
+/* 详情页子任务列表：备注单行截断（对齐主任务卡片 .todo-card__note），全文进任务详情查看 */
+.todo-note--clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Markdown 备注渲染（任务详情/编辑器预览） */
 .md-body { font-size: 14px; line-height: 1.7; color: var(--text); word-break: break-word; }
 .md-body > *:first-child { margin-top: 0; }

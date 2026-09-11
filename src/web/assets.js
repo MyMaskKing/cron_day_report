@@ -5594,7 +5594,9 @@ function renderTodoTree(container, trees, opts) {
     if (meta.childNodes.length) main.appendChild(meta);
     if (node.note) {
       var noteEl = document.createElement('div');
-      noteEl.className = 'todo-note';
+      // 详情页子任务列表：备注单行省略（与主任务卡片一致），完整内容进任务详情查看；
+      // 完整树视图仍保留 pre-wrap 多行
+      noteEl.className = 'todo-note' + (isDetail ? ' todo-note--clip' : '');
       noteEl.textContent = node.note;
       main.appendChild(noteEl);
     }
