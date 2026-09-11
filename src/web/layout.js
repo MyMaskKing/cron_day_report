@@ -811,6 +811,13 @@ input[type="date"] { cursor: pointer; }
 .md-body hr { border: 0; border-top: 1px solid var(--border); margin: 12px 0; }
 .md-body table { border-collapse: collapse; margin: 8px 0; display: block; overflow-x: auto; }
 .md-body th, .md-body td { border: 1px solid var(--border); padding: 5px 10px; font-size: 13px; }
+/* md 图片与附件缩略图可点击（手机端走灯箱而非新标签） */
+.md-body img, .td-att-img { cursor: zoom-in; }
+/* 图片灯箱：层级高于 modal(10000)，黑底居中，点击任意处关闭 */
+.img-lightbox { display: none; position: fixed; inset: 0; z-index: 20000; background: rgba(0,0,0,.88); padding: 24px; align-items: center; justify-content: center; }
+.img-lightbox.show { display: flex; }
+.img-lightbox .img-lb-pic { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 10px 50px rgba(0,0,0,.5); }
+.img-lightbox .img-lb-x { position: absolute; top: 14px; right: 22px; color: #fff; font-size: 32px; line-height: 1; opacity: .8; cursor: pointer; }
 /* 任务详情弹窗 */
 #tdEditBtn { float: right; margin: 2px 0 8px 10px; }
 #tdEditBtn svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 3px; }

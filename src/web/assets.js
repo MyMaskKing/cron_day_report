@@ -634,8 +634,14 @@ function renderTodoNote(text) {
         if (!/^[A-Za-z0-9_-]{16,}$/.test(token)) data.keepAttr = false;
       }
       if (data.attrName === 'href' && node.tagName === 'A') {
-        node.setAttribute('target', '_blank');
-        node.setAttribute('rel', 'noopener noreferrer');
+        // 同源相对链接（自家附件 /todo-file/..）不新开：当前窗导航触发下载/由 App DownloadListener 接管；
+        // 外站链接才新开页，防 WebView 被 target=_blank 吞掉点击
+        if (data.attrValue.charAt(0) === '/') {
+          node.removeAttribute('target');
+        } else {
+          node.setAttribute('target', '_blank');
+          node.setAttribute('rel', 'noopener noreferrer');
+        }
       }
     });
     marked._todoConfigured = true;
@@ -658,6 +664,46 @@ function mdTaskToBoxes(scope) {
     if (cb.checked) li.classList.add('done');
   });
 }
+// 图片灯箱：md 正文图片与附件缩略图点击全屏查看（App WebView 无多窗口，不能依赖新标签看图）。
+// 事件委托挂一次 document；灯箱 DOM 懒建。阻止图片外层 <a> 的导航（图片服务端是 inline，导航会离开页面）。
+(function(){
+  function box(){ return document.getElementById('imgLightbox'); }
+  function open(src, alt){
+    var lb = box();
+    if (!lb) return;
+    lb.querySelector('.img-lb-pic').src = src;
+    lb.querySelector('.img-lb-pic').alt = alt || '';
+    lb.classList.add('show');
+  }
+  function close(){ var lb = box(); if (lb) lb.classList.remove('show'); }
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if (t && t.tagName === 'IMG' && t.closest('.md-body, .td-att')) {
+      e.preventDefault();
+      e.stopPropagation();
+      open(t.currentSrc || t.src, t.alt);
+    }
+  }, true);
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+  document.addEventListener('DOMContentLoaded', function(){
+    if (box()) return;
+    var lb = document.createElement('div');
+    lb.id = 'imgLightbox';
+    lb.className = 'img-lightbox';
+    lb.innerHTML = '<img class="img-lb-pic" alt=""><span class="img-lb-x">&times;</span>';
+    lb.addEventListener('click', close);
+    document.body.appendChild(lb);
+  });
+  // COMMON_JS 在 DOMContentLoaded 之后才执行（外链脚本），上面监听可能已错过，立即补建
+  if (!box() && document.body) {
+    var lb2 = document.createElement('div');
+    lb2.id = 'imgLightbox';
+    lb2.className = 'img-lightbox';
+    lb2.innerHTML = '<img class="img-lb-pic" alt=""><span class="img-lb-x">&times;</span>';
+    lb2.addEventListener('click', function(){ lb2.classList.remove('show'); });
+    document.body.appendChild(lb2);
+  }
+})();
 // 数据库时间按配置时区显示: DB 存 UTC(datetime('now') 形如 'YYYY-MM-DD HH:mm:ss'),
 // 按顶栏时钟同一配置 window.__TZ_OFFSET__(默认 8)平移到墙钟, 输出 'YYYY-MM-DD HH:mm'。
 // 与时钟口径一致, 保证"录入/更新时间"和网页实时时间对得上; 空/非法串安全兜底。

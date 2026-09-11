@@ -1,7 +1,9 @@
 package xyz.a10023456.todowidget
 
 import android.annotation.SuppressLint
+import android.app.DownloadManager
 import android.content.Intent
+import android.os.Environment
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -18,6 +20,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -56,16 +59,6 @@ import kotlinx.coroutines.withContext
  * 待办/基金/体重/资产 在 WebView 内打开现有网页；「我的」是原生菜单。
  */
 class MainActivity : ComponentActivity() {
-
-    // WebView <input type=file> 选择回调（待办附件上传）：网页发起文件选择 → 系统选择器 → 回传 Uri
-    private var filePathCallback: android.webkit.ValueCallback<Array<Uri>>? = null
-
-    private val fileChooserLauncher =
-        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { result ->
-            val cb = filePathCallback
-            filePathCallback = null
-            cb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
-        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -136,6 +129,16 @@ private fun AppShell(initialUrl: String?) {
     var lastLoadedUrl by remember { mutableStateOf<String?>(null) }
     // WebViewClient 只在 factory 创建一次，用 rememberUpdatedState 让它始终读到最新 baseUrl
     val currentBaseUrl by rememberUpdatedState(baseUrl)
+
+    // WebView <input type=file> 选择回调（待办附件上传）：网页发起文件选择 → 系统选择器 → 回传 Uri
+    var filePathCallback by remember { mutableStateOf<android.webkit.ValueCallback<Array<Uri>>?>(null) }
+    val fileChooserLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val cb = filePathCallback
+        filePathCallback = null
+        cb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
+    }
 
     // 软键盘高度（CSS px）：edge-to-edge 下 WebView 不随键盘收缩，且实测该 WebView 的
     // visualViewport 不反映键盘（vv.height≈innerHeight，网页算不出键盘高）。改由原生
@@ -304,6 +307,33 @@ private fun AppShell(initialUrl: String?) {
                                 }
                             }
                         }
+                        // 待办普通附件：服务端回 Content-Disposition: attachment，WebView 默认不下载，
+                        // 交给系统 DownloadManager（带会话 cookie，完成后通知栏可见，落「下载」目录）
+                        setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+                            try {
+                                val fileName = parseDownloadName(contentDisposition) ?: "todo-attachment"
+                                val req = DownloadManager.Request(Uri.parse(url)).apply {
+                                    setMimeType(if (mimeType.isNullOrBlank()) "*/*" else mimeType)
+                                    addRequestHeader(
+                                        "Cookie",
+                                        CookieManager.getInstance().getCookie(url) ?: ""
+                                    )
+                                    setNotificationVisibility(
+                                        DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+                                    )
+                                    setDestinationInExternalPublicDir(
+                                        Environment.DIRECTORY_DOWNLOADS, fileName
+                                    )
+                                }
+                                val dm = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as DownloadManager
+                                dm.enqueue(req)
+                            } catch (e: Exception) {
+                                // 无下载器等极端情况：退回外部浏览器打开
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                )
+                            }
+                        }
                         // 待办全屏/弹窗等页面在网页"内部容器"里滚动，WebView 原生 scrollY 恒为 0，
                         // SwipeRefreshLayout 会误判在顶部而拦截向下拖拽（卡片/弹窗卡死无法下滑）。
                         // 网页经 AppShell 桥实时上报"是否在顶部"，据此开关下拉刷新。
@@ -448,4 +478,20 @@ private fun AppShell(initialUrl: String?) {
             }
         }
     }
+}
+
+/**
+ * 从 Content-Disposition 取下载文件名：优先 filename*=UTF-8''（服务端对中文名用此编码），
+ * 其次 filename="ascii"；都没有返回 null。结果做一次路径分隔符清洗，防目录穿越。
+ */
+private fun parseDownloadName(disposition: String?): String? {
+    if (disposition.isNullOrBlank()) return null
+    val star = Regex("filename\\*\\s*=\\s*[^']*''([^;]+)", RegexOption.IGNORE_CASE).find(disposition)
+    val raw = if (star != null) {
+        runCatching { java.net.URLDecoder.decode(star.groupValues[1].trim(), "UTF-8") }.getOrNull()
+    } else {
+        val plain = Regex("filename\\s*=\\s*\"?([^\";]+)\"?", RegexOption.IGNORE_CASE).find(disposition)
+        plain?.groupValues?.get(1)?.trim()
+    }
+    return raw?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }
 }
