@@ -801,7 +801,7 @@ input[type="date"] { cursor: pointer; }
 .btn.todo-chart-refresh:hover,
 .btn.todo-chart-refresh:active { background: rgba(74,108,247,.1); box-shadow: none; filter: none; transform: none; }
 .btn.todo-chart-refresh:disabled { opacity: .6; }
-.todo-chart-refresh.loading svg { animation: todo-spin .8s linear infinite; }
+.todo-chart-refresh.loading svg { animation: todo-spin .8s linear infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes todo-spin { to { transform: rotate(360deg); } }
 /* 任务分析弹窗：区块标题 */
 .ta-h { font-size: 14px; font-weight: 600; color: var(--label); margin: 18px 0 10px; }

@@ -6609,7 +6609,10 @@ function bindTodoChartRefresh(fn) {
       if (btn.disabled) return;
       btn.disabled = true;
       btn.classList.add('loading'); // SVG 旋转, 不替换内容(保留图标)
-      try { await fn(); } finally { btn.disabled = false; btn.classList.remove('loading'); }
+      // 最短 500ms 可视时长: 请求太快完成时也能清楚看到"刷新中"
+      var minShown = new Promise(function(r){ setTimeout(r, 500); });
+      try { await Promise.all([fn(), minShown]); }
+      finally { btn.disabled = false; btn.classList.remove('loading'); }
     });
   });
 }
