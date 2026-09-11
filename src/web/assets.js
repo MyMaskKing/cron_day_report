@@ -6996,7 +6996,7 @@ function openTodoEdit(node) {
   }
   var _doSave = async function(body){
     await api('/api/todo/' + node.id, { method:'PUT', body: body });
-    closeModal(); await loadTodos();
+    closeModal(); await loadTodos(); await loadChart();
     // 主任务切到"子任务各自设日期"后自身无日期, 空容器在"今日+逾期"等筛选下会消失 → 自动跳到"全部"
     if (!isChild && body.child_due === 1) switchTodoFilter('all');
   };
@@ -7219,7 +7219,7 @@ function scJoin() {
     if (!code) { alertModal('请输入邀请码', {ok:false}); return; }
     var r = await api('/api/todo/shared-cats/join', { method:'POST', body:{ code: code } });
     closeModal();
-    await loadSharedCats(); await loadTodos();
+    await loadSharedCats(); await loadTodos(); await loadChart();
     todoToast(r.message || '已加入共享分类');
     openSharedCatPanel();
   });
@@ -7276,7 +7276,7 @@ function scLeave(id) {
   confirmModal('退出共享分类', '退出后你将不再看到该分类的待办与日报内容（可凭邀请码重新加入）。确认？', async function(){
     await api('/api/todo/shared-cats/' + id + '/leave', { method:'POST' });
     closeModal();
-    await loadSharedCats(); await loadTodos();
+    await loadSharedCats(); await loadTodos(); await loadChart();
     todoToast('已退出共享分类');
     openSharedCatPanel();
   });
@@ -7285,7 +7285,7 @@ function scDissolve(id) {
   confirmModal('解散共享分类', '解散后分类下的任务保留为你的个人待办（摘掉共享标签），所有成员失去访问权。确认解散？', async function(){
     await api('/api/todo/shared-cats/' + id, { method:'DELETE' });
     closeModal();
-    await loadSharedCats(); await loadTodos();
+    await loadSharedCats(); await loadTodos(); await loadChart();
     todoToast('已解散，任务保留为个人待办');
     openSharedCatPanel();
   });
@@ -7445,7 +7445,7 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
         try {
           var r = await api('/api/todo/shared-cats/join', { method:'POST', body:{ code: _joinCode } });
           await loadSharedCats();
-          await loadTodos();
+          await loadTodos(); await loadChart();
           alertModal(r.message || '已加入');
         } catch(e) { alertModal(e.message, {ok:false}); }
       });
