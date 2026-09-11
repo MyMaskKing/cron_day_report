@@ -838,8 +838,8 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .mde-write, .mde-preview { display: none; }
 .mde[data-mode="write"] .mde-write { display: block; }
 .mde[data-mode="preview"] .mde-preview { display: block; }
-.mde-text { width: 100%; border: 0; outline: none; resize: vertical; padding: 10px 12px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.7; background: var(--surface); color: var(--text); min-height: 150px; }
-.mde-preview { padding: 10px 12px; min-height: 150px; max-height: 340px; overflow-y: auto; background: var(--surface); }
+.mde-text { width: 100%; border: 0; outline: none; resize: vertical; padding: 10px 12px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.7; background: var(--surface); color: var(--text); min-height: 150px; max-height: 46vh; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.mde-preview { padding: 10px 12px; min-height: 150px; max-height: 46vh; overflow-y: auto; background: var(--surface); touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .mde-chips { display: flex; gap: 7px; flex-wrap: wrap; padding: 8px 10px; border-top: 1px solid var(--border); }
 .mde-chips:empty { display: none; padding: 0; }
 .mde-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px 3px 6px; color: var(--label); max-width: 100%; }
