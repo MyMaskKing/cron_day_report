@@ -6591,7 +6591,46 @@ function bindTodoRange(fn) {
     fn(btn.getAttribute('data-range'));
   });
 }
-// 任务分析弹窗：连续达标 / 区间完成率 / 逾期率 + 7列日历热力图 + 日完成率曲线
+// 指标卡「?」说明：纯白话，每个都带例子
+function taExplain(key) {
+  var T = {
+    streak: { t: '连续达标是什么', h:
+      '从昨天开始往前数，连续多少天「当天到期的任务都按时做完了」。\\n\\n' +
+      '• 当天没有到期任务：空一天，不打断连续；\\n' +
+      '• 当天有任务过了当天还没做完：连续中断；\\n' +
+      '• 今天还没过完，不计入。\\n\\n' +
+      '卡片下方的小字是历史上最长的一次连续天数。' },
+    win: { t: '最终做完比例是什么', h:
+      '这段时间（近30/60天）内到期的任务，最后到底做没做完的比例。\\n\\n' +
+      '哪怕过了截止日才补做，也算做完。\\n\\n' +
+      '例：9月2日到期的任务，9月9日才做完 → 这个比例算它做完，但日历里9月2日仍标红（当天没按时做完）。' },
+    ontime: { t: '按时做完比例是什么', h:
+      '在截止日当天或之前就做完的任务，占到期任务的比例。\\n\\n' +
+      '过期后才补做的不算按时；提前把主任务勾完成、连带收掉的未到期子任务算按时。\\n\\n' +
+      '和「最终做完比例」的差别：补做的任务进前者的分子，不进这个的分子。' },
+    over: { t: '逾期比例是什么', h:
+      '任务到了截止日当天结束时还没做完，就算一次逾期。这个比例 = 逾期任务数 ÷ 到期任务数。\\n\\n' +
+      '之后补做了也仍然算逾期（日历上那天还是红色）。\\n\\n' +
+      '今天还没过完，可能还有任务会在今天做完，所以今天不计入。' }
+  };
+  var x = T[key];
+  if (!x) return;
+  // 独立浮层(同 alertModal 模式): 不替换 #modalMask 内容, 关掉说明后分析弹窗仍在
+  var mask = document.createElement('div');
+  mask.className = 'modal-mask show';
+  mask.style.zIndex = '10001';
+  mask.innerHTML =
+    '<div class="modal-box"><div class="modal-head"><span>' + esc(x.t) + '</span></div>' +
+    '<div class="modal-body">' +
+      '<p style="line-height:1.9;white-space:pre-line;word-break:break-all;margin:0;">' + esc(x.h) + '</p>' +
+      '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn ta-explain-ok">知道了</button></div>' +
+    '</div></div>';
+  document.body.appendChild(mask);
+  var close = function(){ mask.remove(); };
+  mask.querySelector('.ta-explain-ok').addEventListener('click', close);
+  mask.addEventListener('click', function(e){ if (e.target === mask) close(); });
+}
+// 任务分析弹窗：连续达标 / 最终做完比例 / 按时做完比例 / 逾期比例 + 7列日历热力图 + 日完成率曲线
 // buildUrl(days) 由调用页提供：登录态 /api/todo/analyze，公开页 /api/public/todo-analyze/:token
 var _taChartInst = null;
 var _taDays = 30;
@@ -6600,10 +6639,10 @@ function openTodoAnalysis(buildUrl) {
   var body =
     '<h3 class="ta-h ta-h-first">核心指标</h3>' +
     '<div class="ta-stats">' +
-      '<div class="ta-stat" id="taStreakCard"><div class="n"><span id="taStreak">-</span><small>天</small></div><div class="l">连续达标</div><div class="s" id="taBest"></div></div>' +
-      '<div class="ta-stat good"><div class="n" id="taWinRate">-</div><div class="l">区间完成率</div><div class="s">截至今天</div></div>' +
-      '<div class="ta-stat good"><div class="n" id="taOnTimeRate">-</div><div class="l">按时完成率</div><div class="s">不含逾期补做</div></div>' +
-      '<div class="ta-stat" id="taOverCard"><div class="n" id="taOverRate">-</div><div class="l">逾期率</div><div class="s">不含今天</div></div>' +
+      '<div class="ta-stat" id="taStreakCard"><div class="n"><span id="taStreak">-</span><small>天</small></div><div class="l">连续达标 <button type="button" class="ta-help" data-help="streak">?</button></div><div class="s" id="taBest"></div></div>' +
+      '<div class="ta-stat good"><div class="n" id="taWinRate">-</div><div class="l">最终做完比例 <button type="button" class="ta-help" data-help="win">?</button></div><div class="s">过期补做也算</div></div>' +
+      '<div class="ta-stat good"><div class="n" id="taOnTimeRate">-</div><div class="l">按时做完比例 <button type="button" class="ta-help" data-help="ontime">?</button></div><div class="s">补做的不算</div></div>' +
+      '<div class="ta-stat" id="taOverCard"><div class="n" id="taOverRate">-</div><div class="l">逾期比例 <button type="button" class="ta-help" data-help="over">?</button></div><div class="s">不含今天</div></div>' +
     '</div>' +
     '<div class="ta-head"><h3 class="ta-h">达标日历</h3>' +
       '<div class="todo-range" id="taRange"><button data-days="30" class="active">近30天</button><button data-days="60">近60天</button></div>' +
@@ -6615,8 +6654,12 @@ function openTodoAnalysis(buildUrl) {
     '<div class="ta-legend"><span><i class="lg-win"></i>达标</span><span><i class="lg-fail"></i>有逾期</span><span><i class="lg-idle"></i>无任务</span><span><i class="lg-pending"></i>今天</span></div>' +
     '<h3 class="ta-h">每日完成率走势</h3>' +
     '<canvas id="taChart" style="max-height:200px;"></canvas>' +
-    '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">口径：当天到期任务日终零新增逾期即「达标」；当天无任务为中性，不断签也不计数；今天尚未收官，不计入连续达标。区间完成率含逾期补做，按时完成率只计完成日不晚于到期日的任务。悬停色块查看当天明细。</p>';
+    '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">怎么看：绿色=当天到期的任务都按时做完了；红色=当天有任务没按时做完（后来补做也仍标红）；灰色=当天没有到期任务，不打断连续；蓝色=今天还没过完。点上方数字旁的 ？ 可看每个指标的算法。悬停色块查看当天明细。</p>';
   openModal('📊 任务分析', body, 'modal-mask--lg');
+  // 指标卡「?」说明按钮(弹窗 innerHTML 每次重建, 直接绑新元素)
+  Array.prototype.forEach.call(document.querySelectorAll('#modalBody .ta-help'), function(btn){
+    btn.addEventListener('click', function(){ taExplain(btn.getAttribute('data-help')); });
+  });
 
   function pct(v) { return v == null ? '—' : Math.round(v * 100) + '%'; }
   // YYYY-MM-DD（北京日期）按 UTC 解析取星期，返回周一起算 0..6
@@ -6660,7 +6703,7 @@ function openTodoAnalysis(buildUrl) {
         fill: true, tension: .3, spanGaps: false, pointRadius: 2
       }];
       if (avg != null) datasets.push({
-        label: '区间均值 ' + avg + '%',
+        label: '平均 ' + avg + '%',
         data: a.daily.map(function(){ return avg; }),
         borderColor: '#faad14', borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5, fill: false
       });

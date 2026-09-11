@@ -809,6 +809,16 @@ input[type="date"] { cursor: pointer; }
 .ta-stat .s { font-size: 11px; color: var(--muted); margin-top: 1px; min-height: 14px; }
 .ta-stat.good .n { color: var(--ok); }
 .ta-stat.bad .n { color: var(--danger); }
+/* 指标卡上的圆形「?」说明按钮：弱描边，不抢数字视觉 */
+.ta-help {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; padding: 0; margin-left: 4px;
+  border: 1px solid var(--muted); border-radius: 50%;
+  background: transparent; color: var(--muted);
+  font-size: 10px; font-weight: 600; line-height: 1; cursor: pointer;
+  vertical-align: middle;
+}
+.ta-help:active { background: var(--surface-3); }
 /* 7 列日历热力图（周一起始）：整块居中，格子等宽方形，格内显示日期 */
 .ta-heat-wrap { max-width: 380px; margin: 0 auto; }
 .ta-dow, .ta-heat { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
