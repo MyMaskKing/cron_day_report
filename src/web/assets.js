@@ -1283,6 +1283,7 @@ function autoGrowTextarea(el) {
   el.__agBound = 1;
   var min = 44;
   function fit() {
+    if (el.__agDisabled) return;   // 被自定义编辑器接管（固定高度内部滚动）
     el.style.height = min + 'px';
     el.style.height = Math.max(min, el.scrollHeight) + 'px';
   }
@@ -7061,6 +7062,12 @@ function mountTodoMdEditor(textarea, opts) {
   textarea.classList.add('mde-text');
   textarea.removeAttribute('data-autogrow');
   textarea.setAttribute('rows', '7');
+  // openModal 的 autoGrowTextarea 可能已绑定并写了内联 overflow/height（会压过 CSS 导致框内不能滚）：
+  // 禁用其后续撑开，并清掉内联样式，改由 .mde-text 的固定高度 + overflow:auto 接管滚动
+  textarea.__agDisabled = 1;
+  textarea.style.overflowY = '';
+  textarea.style.height = '';
+  textarea.style.minHeight = '';
   var pv = root.querySelector('.mde-preview');
   var fileInput = root.querySelector('.mde-file');
   var chips = root.querySelector('.mde-chips');
