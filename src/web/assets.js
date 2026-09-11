@@ -618,13 +618,16 @@ function esc(s) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
   });
 }
-// Markdown 备注唯一渲染入口：marked(GFM+换行) → DOMPurify 消毒。
-// 安全策略：img 仅允许自家附件相对路径 /todo-file/<token>（外域/data:/javascript: 一律移除，防追踪与注入）；
-// 链接强制新开页 noopener。所有备注渲染点必须走本函数，禁止散落 marked.parse。
-function renderTodoNote(text) {
+// ============ 通用 Markdown 组件（全站共用：待办备注、基金投资策略，及以后任何 md 内容） ============
+// 三件套：renderMarkdown() 渲染、mdTaskToBoxes() GFM 任务框视觉化、mountMarkdownEditor() 编辑器（见 COMMON_JS 末尾）。
+// 样式统一用 .md-body / .mde-*（core.css），新模块直接调用，禁止另写 marked.parse 或自造渲染器。
+// Markdown 唯一渲染入口：marked(GFM+换行) → DOMPurify 消毒。
+// 安全策略：img 仅允许自家文件相对路径 /todo-file/<token>（待办附件与用户级文件共用的免密通道；
+// 外域/data:/javascript: 一律移除，防追踪与注入）；同源链接当前窗打开（App 下载靠它），外站新开 noopener。
+function renderMarkdown(text) {
   if (!text) return '';
   if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') return esc(text);
-  if (!marked._todoConfigured) {
+  if (!marked._mdSanitizerReady) {
     marked.setOptions({ gfm: true, breaks: true });
     DOMPurify.addHook('uponSanitizeAttribute', function(node, data) {
       if (data.attrName === 'src' && node.tagName === 'IMG') {
@@ -634,7 +637,7 @@ function renderTodoNote(text) {
         if (!/^[A-Za-z0-9_-]{16,}$/.test(token)) data.keepAttr = false;
       }
       if (data.attrName === 'href' && node.tagName === 'A') {
-        // 同源相对链接（自家附件 /todo-file/..）不新开：当前窗导航触发下载/由 App DownloadListener 接管；
+        // 同源相对链接（自家文件 /todo-file/..）不新开：当前窗导航触发下载/由 App DownloadListener 接管；
         // 外站链接才新开页，防 WebView 被 target=_blank 吞掉点击
         if (data.attrValue.charAt(0) === '/') {
           node.removeAttribute('target');
@@ -644,7 +647,7 @@ function renderTodoNote(text) {
         }
       }
     });
-    marked._todoConfigured = true;
+    marked._mdSanitizerReady = true;
   }
   return DOMPurify.sanitize(marked.parse(text), { USE_PROFILES: { html: true } });
 }
@@ -1548,10 +1551,11 @@ function fmtSign(n, hidePlus) {
 }
 window.fmtMoney = fmtMoney;
 window.fmtSign = fmtSign;
-// 通用 Markdown 编辑器：在已存在的 textarea 原地挂载（写/预览分段 + 工具条，可选附件上传）。
+// 通用 Markdown 编辑器（通用组件三件套之一，定义放 COMMON_JS 末尾仅因篇幅，性质同 renderMarkdown）：
+// 在已存在的 textarea 原地挂载（写/预览分段 + 粗体/斜体/删除线/引用/列表/待办工具条，可选图片/附件上传）。
 // 保留原 textarea 的 id 与值，调用方取值链路零改动；opts={upload:async(file)=>attachmentJson, maxMb}，
-// 不传 upload 时隐藏图片/附件按钮（如基金投资策略）。
-function mountTodoMdEditor(textarea, opts) {
+// 不传 upload 时自动隐藏图片/附件按钮（纯文本 md 场景）；预览统一走 renderMarkdown 消毒。
+function mountMarkdownEditor(textarea, opts) {
   opts = opts || {};
   var maxMb = opts.maxMb || 5;
   var root = document.createElement('div');
@@ -1591,7 +1595,7 @@ function mountTodoMdEditor(textarea, opts) {
   var chips = root.querySelector('.mde-chips');
 
   function renderPv() {
-    pv.innerHTML = renderTodoNote(textarea.value);
+    pv.innerHTML = renderMarkdown(textarea.value);
     mdTaskToBoxes(pv);
   }
   function setMode(m) {
@@ -1676,7 +1680,7 @@ function mountTodoMdEditor(textarea, opts) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSel('**', '**'); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') { e.preventDefault(); wrapSel('_', '_'); }
   });
-  // 无上传通道（如基金投资策略）：隐藏图片/文件按钮与其前置分隔线，避免点了无反应
+  // 未传 upload（纯文本 md 场景）：隐藏图片/文件按钮与其前置分隔线，避免点了无反应
   if (!opts.upload) {
     Array.prototype.forEach.call(
       root.querySelectorAll('.mde-btn[data-a="img"], .mde-btn[data-a="file"], .mde-sep--upload'),
@@ -3119,8 +3123,9 @@ document.getElementById('scRun').addEventListener('click', async function(){
 // ============ 投资策略: 悬浮按钮 + 可拖拽面板 ============
 // 已设置(内容非空) -> 显示 📝 圆形悬浮按钮, 点击展开面板; 未设置 -> 显示底部"记录我的投资策略"CTA 按钮.
 // 面板可通过标题栏拖动(桌面 mousedown / 移动 touchstart), 位置存 localStorage, 下次打开复原.
-// Markdown 查看/编辑统一复用全站 renderTodoNote + mountTodoMdEditor(与待办备注同一套, 无附件上传).
+// Markdown 查看/编辑统一复用全站通用组件 renderMarkdown + mountMarkdownEditor(与待办备注同一套, 含附件上传).
 var _stratLoaded = null;   // 服务端已保存的内容, 用于取消编辑时回退
+var _stratMaxMb = 5;       // 附件单文件上限(全站同一配置, 挂载前拉取, 服务端另有强校验)
 function _stratRefreshEntry(content){
   var hasContent = !!(content && content.trim());
   var fab = document.getElementById('stratFab');
@@ -3160,7 +3165,7 @@ function _stratShowView(content){
   var view = document.getElementById('stratView');
   // 与待办备注同一渲染入口(marked + DOMPurify); 空内容保留引导提示
   view.innerHTML = (content && content.trim())
-    ? renderTodoNote(content)
+    ? renderMarkdown(content)
     : '<p class="muted">还没有内容, 点右上"编辑"开始记录你的投资策略</p>';
   mdTaskToBoxes(view);
   view.style.display = 'block';
@@ -3174,10 +3179,21 @@ function _stratShowView(content){
 }
 function _stratShowEdit(content){
   var ta = document.getElementById('stratEditor');
-  // 首次进入懒挂载 md 编辑器(与待办备注同款; 不传 upload, 工具条无图片/附件按钮)。
-  // mountTodoMdEditor 会把 ta 移入新建的 .mde 容器, 并叠加 .mde-text 样式。
+  // 首次进入懒挂载 md 编辑器(与待办备注同款, 含图片/附件上传; 走用户级文件通道)。
+  // mountMarkdownEditor 会把 ta 移入新建的 .mde 容器, 并叠加 .mde-text 样式。
   if (!ta._mdeRoot) {
-    mountTodoMdEditor(ta, {});
+    mountMarkdownEditor(ta, {
+      maxMb: _stratMaxMb,
+      upload: async function(file){
+        var fd = new FormData();
+        fd.append('file', file);
+        // 裸 fetch 传 FormData(不经 api(): 它固定 JSON 编码); 通用登录态上传, 个人数据不带 X-Data-As
+        var res = await fetch('/api/files/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+        var d = await res.json().catch(function(){ return {}; });
+        if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
+        return d.attachment;
+      }
+    });
     ta._mdeRoot = ta.closest('.mde');
     ta.style.display = '';   // 清掉 pages.js 里的内联 display:none, 显隐改由 .mde 根接管
   }
@@ -3330,6 +3346,10 @@ function _stratBindFabDrag(){
   fab.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); });
 }
 function initStrategyPanel(){
+  // 预取附件大小上限(与待办同一全局配置); 失败保持默认 5, 服务端仍强校验
+  api('/api/public/attach-max-mb').then(function(d){
+    if (d && d.max_mb) _stratMaxMb = d.max_mb;
+  }).catch(function(){});
   // 拉取当前内容, 决定入口形态; 失败时保持默认 CTA 可见, 不阻塞用户
   api('/api/fund/strategy').then(function(d){
     _stratLoaded = d && d.content || '';
@@ -7133,7 +7153,7 @@ async function openTodoDetail(node, opts) {
     '<div class="td-title">' + esc(node.title) + '</div>' +
     '<div class="td-meta">' + meta.join('') + '</div>' +
     (node.note
-      ? '<div class="md-body" id="tdNote">' + renderTodoNote(node.note) + '</div>'
+      ? '<div class="md-body" id="tdNote">' + renderMarkdown(node.note) + '</div>'
       : '<p class="muted" style="font-size:13px;margin:4px 0 0;">无备注</p>') +
     '<div class="td-att-title">附件 <span id="tdAttCount" class="muted"></span></div>' +
     '<div class="td-att-list" id="tdAttList"><div class="muted" style="font-size:13px;">加载中…</div></div>';
@@ -7234,7 +7254,7 @@ function openTodoEdit(node) {
     var noteEl = document.getElementById('tfNote');
     if (!noteEl) return;
     var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
-    mountTodoMdEditor(noteEl, {
+    mountMarkdownEditor(noteEl, {
       maxMb: lim.max_mb || 5,
       upload: async function(file) {
         var fd = new FormData();
@@ -7798,7 +7818,7 @@ function openPublicEdit(node) {
   (async function(){
     var noteEl = document.getElementById('tfNote'); if (!noteEl) return;
     var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
-    mountTodoMdEditor(noteEl, {
+    mountMarkdownEditor(noteEl, {
       maxMb: lim.max_mb || 5,
       upload: async function(file) {
         var fd = new FormData();
@@ -8095,7 +8115,7 @@ function openReportEdit(node) {
   (async function(){
     var noteEl = document.getElementById('tfNote'); if (!noteEl) return;
     var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
-    mountTodoMdEditor(noteEl, {
+    mountMarkdownEditor(noteEl, {
       maxMb: lim.max_mb || 5,
       upload: async function(file) {
         var fd = new FormData();
@@ -8283,7 +8303,7 @@ function openPublicEdit(node) {
   (async function(){
     var noteEl = document.getElementById('tfNote'); if (!noteEl) return;
     var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
-    mountTodoMdEditor(noteEl, {
+    mountMarkdownEditor(noteEl, {
       maxMb: lim.max_mb || 5,
       upload: async function(file) {
         var fd = new FormData();

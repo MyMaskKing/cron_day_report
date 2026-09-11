@@ -368,20 +368,25 @@ CREATE TABLE IF NOT EXISTS todo_shared_cat_members (
 CREATE INDEX IF NOT EXISTS idx_tscm_user ON todo_shared_cat_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_tscm_cat ON todo_shared_cat_members(cat_id);
 
--- ==================== 待办附件（元数据；文件本体在 R2 / Docker files 目录） ====================
+-- ==================== 统一文件表（元数据；本体在 R2 / Docker files 目录） ====================
+-- source='todo' 待办任务附件(todo_id 有值); source='user' 各模块 Markdown 内嵌图片/附件
 -- file_token 同时是免密下载凭证(GET /todo-file/:fileToken), 32 字符 url-safe 不可猜
-CREATE TABLE IF NOT EXISTS todo_attachments (
+-- R2 key 按来源分前缀: todo/<token>、user/<token>
+CREATE TABLE IF NOT EXISTS files (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  todo_id       INTEGER NOT NULL,
+  owner_uid     INTEGER NOT NULL,
+  source        TEXT NOT NULL DEFAULT 'user' CHECK(source IN ('todo','user')),
+  todo_id       INTEGER,
+  uploader_uid  INTEGER,
   file_token    TEXT NOT NULL UNIQUE,
   origin_name   TEXT NOT NULL,
   mime          TEXT,
   size          INTEGER NOT NULL,
   is_image      INTEGER NOT NULL DEFAULT 0,
-  uploader_uid  INTEGER,
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
-CREATE INDEX IF NOT EXISTS idx_todo_att_todo ON todo_attachments(todo_id);
+CREATE INDEX IF NOT EXISTS idx_files_todo ON files(source, todo_id);
+CREATE INDEX IF NOT EXISTS idx_files_owner ON files(source, owner_uid);
 
 -- ==================== 全局应用设置 ====================
 -- 键值对, 存放平台级全局配置

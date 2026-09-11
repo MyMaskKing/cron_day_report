@@ -975,22 +975,39 @@ function createD1Adapter(env) {
       }
     },
 
-    // ==================== Todo 附件（元数据；文件本体在 env.FILES: R2/磁盘） ====================
-    todoAttachment: {
+    // ==================== 统一文件（元数据；本体在 env.FILES: R2/磁盘，key 前缀按 source 分 todo/user） ====================
+    file: {
+      // r: { owner_uid, source('todo'|'user'), todo_id?, uploader_uid?, file_token, origin_name, mime, size, is_image }
       async create(r) {
         const res = await db.prepare(
-          `INSERT INTO todo_attachments (todo_id, file_token, origin_name, mime, size, is_image, uploader_uid)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO files (owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
-          r.todo_id, r.file_token, r.origin_name, r.mime == null ? null : r.mime,
-          r.size, r.is_image ? 1 : 0, r.uploader_uid == null ? null : r.uploader_uid
+          r.owner_uid, r.source || 'user', r.todo_id == null ? null : r.todo_id,
+          r.uploader_uid == null ? null : r.uploader_uid,
+          r.file_token, r.origin_name, r.mime == null ? null : r.mime,
+          r.size, r.is_image ? 1 : 0
         ).run();
         return res.meta && res.meta.last_row_id;
       },
+      // 免密下载只认全局唯一 file_token，不限来源
+      async findByToken(token) {
+        return (await db.prepare(
+          `SELECT id, owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image, created_at
+           FROM files WHERE file_token=?`
+        ).bind(token).first()) || null;
+      },
+      async findById(id) {
+        return (await db.prepare(
+          `SELECT id, owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image, created_at
+           FROM files WHERE id=?`
+        ).bind(id).first()) || null;
+      },
+      // 任务附件查询统一带 source='todo' 过滤，杜绝跨来源串数据
       async listByTodo(id) {
         const q = await db.prepare(
-          `SELECT id, todo_id, file_token, origin_name, mime, size, is_image, uploader_uid, created_at
-           FROM todo_attachments WHERE todo_id=? ORDER BY id`
+          `SELECT id, owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image, created_at
+           FROM files WHERE source='todo' AND todo_id=? ORDER BY id`
         ).bind(id).all();
         return q.results || [];
       },
@@ -998,27 +1015,15 @@ function createD1Adapter(env) {
         if (!ids || !ids.length) return [];
         const ph = ids.map(() => '?').join(',');
         const q = await db.prepare(
-          `SELECT id, todo_id, file_token, origin_name, mime, size, is_image, uploader_uid, created_at
-           FROM todo_attachments WHERE todo_id IN (${ph}) ORDER BY id`
+          `SELECT id, owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image, created_at
+           FROM files WHERE source='todo' AND todo_id IN (${ph}) ORDER BY id`
         ).bind(...ids).all();
         return q.results || [];
-      },
-      async findByToken(token) {
-        return (await db.prepare(
-          `SELECT id, todo_id, file_token, origin_name, mime, size, is_image, uploader_uid, created_at
-           FROM todo_attachments WHERE file_token=?`
-        ).bind(token).first()) || null;
-      },
-      async findById(id) {
-        return (await db.prepare(
-          `SELECT id, todo_id, file_token, origin_name, mime, size, is_image, uploader_uid, created_at
-           FROM todo_attachments WHERE id=?`
-        ).bind(id).first()) || null;
       },
       async removeByIds(ids) {
         if (!ids || !ids.length) return;
         const ph = ids.map(() => '?').join(',');
-        await db.prepare(`DELETE FROM todo_attachments WHERE id IN (${ph})`).bind(...ids).run();
+        await db.prepare(`DELETE FROM files WHERE id IN (${ph})`).bind(...ids).run();
       }
     },
 

@@ -54,12 +54,13 @@ import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, 
 import { buildTree, flattenPending } from './services/todo.service.js';
 import {
   listTodos, createTodo, updateTodo, toggleTodo, removeTodo, deleteCategory, renameCategory, getShareLink as getTodoShareLink, todoChart, todoAnalyze, reorderTodo,
-  todoAttachmentUpload, todoAttachmentList, todoAttachmentRemove, todoFileDownload, publicAttachMaxMb,
+  todoAttachmentUpload, todoAttachmentList, todoAttachmentRemove,
   publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicReorder, publicTodoReport, publicTodoChart, publicTodoAnalyze,
   publicTodoAttachmentUpload, publicTodoAttachmentList, publicTodoAttachmentRemove,
   widgetTodo, widgetTodoAuth,
   publicAllAdd, publicAllToggle, publicAllUpdate, publicAllReorder
 } from './api/todo.api.js';
+import { uploadUserFile, fileDownload, publicAttachMaxMb } from './api/file.api.js';
 import {
   createInvite, listInvites, resetInvite, revokeInvite,
   joinInvite, listMyShares, removeShareMember
@@ -221,7 +222,9 @@ router.get('/api/todo/analyze', todoAnalyze);
 router.post('/api/todo/attachments', todoAttachmentUpload);
 router.get('/api/todo/:id/attachments', todoAttachmentList);
 router.delete('/api/todo/attachments/:attId', todoAttachmentRemove);
-router.get('/todo-file/:fileToken', todoFileDownload);
+// --- 通用文件（登录态上传 + 免密下载，待办附件与各模块 Markdown 内嵌文件共用；handler 在 file.api.js） ---
+router.post('/api/files/upload', uploadUserFile);
+router.get('/todo-file/:fileToken', fileDownload);
 router.get('/api/public/attach-max-mb', publicAttachMaxMb);
 router.put('/api/todo/reorder', reorderTodo);
 router.post('/api/todo', createTodo);
