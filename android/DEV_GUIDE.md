@@ -1,6 +1,6 @@
 # Android App 开发手册（Todo Widget）
 
-待办清单的 Android 配套应用：**原生壳 + 单 WebView**（待办/基金/体重/资产四个 Tab 直接加载后端网页）+ **Glance App Widget**（桌面小组件，原生 Compose 渲染，不依赖 WebView）。
+生活清单（品牌名「定时 Post」）的 Android 配套应用：**原生壳 + 单 WebView**（待办/基金/体重/资产四个 Tab 直接加载后端网页）+ **Glance App Widget**（桌面小组件，原生 Compose 渲染，不依赖 WebView）。
 
 - 包名 / applicationId：`xyz.a10023456.todowidget`
 - minSdk 26（Android 8.0），target/compile 35，JVM 17

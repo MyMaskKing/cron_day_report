@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">待办清单</string>
+    <string name="app_name">生活清单</string>
     <string name="widget_label">待办速览</string>
     <string name="widget_description">在桌面速览今日/逾期待办，可勾选完成与快速新增。</string>
 </resources>

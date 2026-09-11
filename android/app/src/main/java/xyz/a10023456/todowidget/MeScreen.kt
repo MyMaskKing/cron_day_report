@@ -68,7 +68,7 @@ fun MeScreen(
 
         Spacer(Modifier.height(20.dp))
         Text(
-            "待办清单 v1.0 · $baseUrl",
+            "生活清单 v1.0 · $baseUrl",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 20.dp)

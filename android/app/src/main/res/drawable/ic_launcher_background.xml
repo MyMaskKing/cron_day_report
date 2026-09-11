@@ -1,49 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  DIRECTION CONTRACT (seed f7c4ebab, IMPECCABLE'S PICK 拼布被)
-  THESIS: 五个生活模块是五块补丁缝在同一床被子上；「补丁」双关自托管的 patch。拒绝品类默认的"渐变底+白色对勾便签"。
-  OWN-WORLD: 品牌紫四色拼布块的不规则缝缀场 + 奶白补丁 + 明线针脚 + 十字绣勾选；无渐变、无对勾卡。
-  STORY: 用户看到一块缝在紫被子上的白补丁，角翻起、针脚外露——生活被"缝补"而非"管理"。
-  FIRST VIEWPORT: 108dp 拼布背景满铺出血；前景 44dp 奶白补丁居中，右上角翻折露深紫内衬，补丁中央十字绣式勾选（针脚断续），补丁四周一圈明线针脚。
-  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
--->
+<!-- 定时 Post 启动图标背景：品牌渐变（与网站 favicon 同源），满铺出血由系统 mask 裁形 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 拼布底：整床紫被子 -->
-    <path
-        android:fillColor="#A855F7"
-        android:pathData="M0,0h108v108h-108z" />
-    <!-- 拼布块：不规则缝缀的四块补丁，同族异调 -->
-    <path
-        android:fillColor="#9C4AE6"
-        android:pathData="M0,0h60v44h-60z" />
-    <path
-        android:fillColor="#B268EA"
-        android:pathData="M60,0h48v52h-48z" />
-    <path
-        android:fillColor="#8E3BDA"
-        android:pathData="M0,44h48v64h-48z" />
-    <path
-        android:fillColor="#A552E5"
-        android:pathData="M48,52h60v56h-60z" />
-    <path
-        android:fillColor="#A855F7"
-        android:pathData="M48,44h12v8h-12z" />
-    <!-- 缝缝：块与块的接缝线 -->
-    <path
-        android:strokeColor="#7A2CC4"
-        android:strokeWidth="1.2"
-        android:pathData="M60,0v44 M0,44h48 M48,44v64 M48,52h60" />
-    <!-- 缝纫针脚：沿主缝的断续明线 -->
-    <path
-        android:strokeColor="#7327BE"
-        android:strokeWidth="1.6"
-        android:strokeLineCap="round"
-        android:pathData="M8,42v4 M18,42v4 M28,42v4 M38,42v4
-            M46,58h4 M46,70h4 M46,82h4 M46,94h4
-            M58,50v4 M70,50v4 M82,50v4 M94,50v4
-            M58,6v4 M58,18v4 M58,30v4" />
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0" android:startY="0"
+                android:endX="108" android:endY="108">
+                <item android:offset="0" android:color="#FF4F63E8" />
+                <item android:offset="0.55" android:color="#FF7C5CFF" />
+                <item android:offset="1" android:color="#FFA855F7" />
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>

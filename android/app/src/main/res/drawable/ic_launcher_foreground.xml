@@ -1,44 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  DIRECTION CONTRACT (seed f7c4ebab, IMPECCABLE'S PICK 拼布被)
-  THESIS: 五个生活模块是五块补丁缝在同一床被子上；「补丁」双关自托管的 patch。拒绝品类默认的"渐变底+白色对勾便签"。
-  OWN-WORLD: 奶白织物补丁 + 翻折深紫内衬 + 十字绣断续针脚勾选 + 四周明线；全部落在 66dp 安全区内。
-  STORY: 补丁一角翻起、针脚外露——生活被"缝补"而非"管理"；勾选是一针一针绣出来的。
-  FIRST VIEWPORT: 44dp 圆角补丁居中 (32,32)-(76,76)，右上角翻折 (64,32)-(76,44)；十字绣勾选 A(40,58)->B(50,68)->C(68,47)，笔宽 4.5，六段针脚；补丁内缩 2.5dp 一圈明线。
-  FORM: 拼布被（本清单第 1 位，我的 top 候选），seed f7c4ebab。
-  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
--->
+<!-- 生活清单启动图标前景：白色圆角纸飞机即钟面，时针指机头、分针指左尾，橙色原点（与网站 favicon 同设计） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 补丁本体：奶白织物圆角方 (32,32)-(76,76) -->
+    <!-- 纸飞机：白填充 + 同色粗描边圆化尖角 -->
     <path
-        android:fillColor="#FDFCF8"
-        android:pathData="M38,32 H70 Q76,32 76,38 V70 Q76,76 70,76 H38 Q32,76 32,70 V38 Q32,32 38,32 Z" />
-    <!-- 翻角裁切：右上角切掉，露出底下的拼布块（与背景 B2 同色） -->
-    <path
-        android:fillColor="#B268EA"
-        android:pathData="M64,32 L76,44 L76,32 Z" />
-    <!-- 翻折内衬：深紫衬布 -->
-    <path
-        android:fillColor="#6D28D9"
-        android:pathData="M64,32 L64,44 L76,44 Z" />
-    <!-- 十字绣勾选：断续针脚，一针一勾 -->
-    <path
-        android:strokeColor="#A855F7"
-        android:strokeWidth="4.5"
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.9"
+        android:strokeLineJoin="round"
         android:strokeLineCap="round"
-        android:pathData="M40,58 L43,61 M45,63 L50,68
-            M50,68 L52.7,64.8 M55.1,62.1 L57.8,58.9 M60.2,56.1 L62.9,52.9 M65.3,50.2 L68,47.9" />
-    <!-- 补丁明线：内缩一圈的缝纫针脚 -->
+        android:pathData="M79.2,28.8 L28.8,50.8 L53.3,57.2 L59.8,79.2 Z" />
+    <!-- 分针（细长，指左尾尖）先画；时针（短粗，指机头） -->
     <path
-        android:strokeColor="#C9BCED"
-        android:strokeWidth="2"
+        android:strokeColor="#FF4F63E8"
+        android:strokeWidth="4.3"
         android:strokeLineCap="round"
-        android:pathData="M36,35 L41,35 M45,35 L50,35 M54,35 L59,35
-            M73,48 L73,53 M73,57 L73,62 M73,66 L73,71
-            M36,73 L41,73 M45,73 L50,73 M54,73 L59,73 M63,73 L68,73
-            M35,38 L35,43 M35,47 L35,52 M35,56 L35,61 M35,65 L35,70" />
+        android:pathData="M58.6,50 L39.2,50.5" />
+    <path
+        android:strokeColor="#FF4F63E8"
+        android:strokeWidth="5.4"
+        android:strokeLineCap="round"
+        android:pathData="M58.6,50 L65.2,43.1" />
+    <!-- 交叉原点：品牌暖橙，与蓝紫针身区分 -->
+    <path
+        android:fillColor="#FFFF7A59"
+        android:pathData="M58.6,50 m-3.4,0 a3.4,3.4 0 1,0 6.8,0 a3.4,3.4 0 1,0 -6.8,0" />
 </vector>
