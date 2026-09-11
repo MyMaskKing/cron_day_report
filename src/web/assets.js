@@ -6549,7 +6549,6 @@ function todoShowChartDetail(series, index) {
         '<span style="opacity:.55;margin-right:4px;">└</span>' + esc(it.title) +
         '<span style="margin-left:6px;padding:0 7px;border-radius:9px;font-size:11px;font-weight:600;color:#4a6cf7;background:#eef1ff;">本条</span></div>';
       pathHtml = '<div class="todo-dtl-path" style="display:none;margin:0 2px 7px 24px;padding:8px 10px;border-radius:8px;background:rgba(127,127,127,.08);font-size:12px;line-height:1.8;word-break:break-all;">' +
-        '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;">🗂️ 所属层级（主任务在前）</div>' +
         chainHtml + selfHtml +
       '</div>';
     }
