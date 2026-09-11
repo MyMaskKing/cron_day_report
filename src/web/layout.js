@@ -1121,7 +1121,8 @@ body { padding-bottom: var(--kb-inset, 0px); }
 /* 弹窗内的图表无 .card:hover 可借(手机也无 hover), 放大按钮常态清晰可见 */
 .modal-mask.show .chart-fs-btn { opacity: .85; }
 /* 全屏遮罩层：半透明底 + 居中舞台。横屏(PC/平板)直接放大；竖屏(手机)旋转 90° 铺满 */
-.chart-fs-mask { position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,.55); overflow: hidden; touch-action: none; }
+/* z-index 须高于 .modal-mask(10000)/指标说明浮层(10001)/toast(10002): 弹窗内(如任务分析)打开全屏图时要盖在最上; 低于 #globalLoading(10500) */
+.chart-fs-mask { position: fixed; inset: 0; z-index: 10010; background: rgba(0,0,0,.55); overflow: hidden; touch-action: none; }
 .chart-fs-stage {
   position: absolute; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
