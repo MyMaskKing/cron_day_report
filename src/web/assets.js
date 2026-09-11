@@ -6470,8 +6470,8 @@ function drawTodoChart(canvasId, series) {
   _todoChartInst = new Chart(el, {
     type: 'line',
     data: { labels: series.labels, datasets: [
-      { label: '总任务（完成+逾期+未完成）', data: series.total, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.10)', fill: false, tension: .3, borderWidth: 2, pointHitRadius: 16 },
-      { label: '未完成（当天+逾期）', data: series.open, borderColor: '#4a6cf7', backgroundColor: 'rgba(74,108,247,.12)', fill: true, tension: .3, pointHitRadius: 16 },
+      { label: '总任务', data: series.total, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.10)', fill: false, tension: .3, borderWidth: 2, pointHitRadius: 16 },
+      { label: '未完成', data: series.open, borderColor: '#4a6cf7', backgroundColor: 'rgba(74,108,247,.12)', fill: true, tension: .3, pointHitRadius: 16 },
       { label: '当天完成', data: series.done, borderColor: '#52c41a', backgroundColor: 'rgba(82,196,26,.10)', fill: false, tension: .3, pointHitRadius: 16 }
     ] },
     options: {
@@ -6608,9 +6608,8 @@ function bindTodoChartRefresh(fn) {
     btn.addEventListener('click', async function(){
       if (btn.disabled) return;
       btn.disabled = true;
-      var old = btn.textContent;
-      btn.textContent = '⏳';
-      try { await fn(); } finally { btn.disabled = false; btn.textContent = old; }
+      btn.classList.add('loading'); // SVG 旋转, 不替换内容(保留图标)
+      try { await fn(); } finally { btn.disabled = false; btn.classList.remove('loading'); }
     });
   });
 }

@@ -795,6 +795,14 @@ input[type="date"] { cursor: pointer; }
 .todo-filter { margin: 4px 0 12px; }
 /* 标题行「分析」小按钮：与 h2 文字垂直对齐 */
 .todo-analyze-btn { vertical-align: middle; margin: 0 2px; }
+/* 趋势图标题行的刷新按钮: 纯蓝色图标无背景, hover 淡蓝底(压掉 .btn 的渐变/光晕/涟漪) */
+.btn.todo-chart-refresh { background: none; color: #4a6cf7; padding: 5px 9px; line-height: 0; box-shadow: none; }
+.btn.todo-chart-refresh::after { display: none; }
+.btn.todo-chart-refresh:hover,
+.btn.todo-chart-refresh:active { background: rgba(74,108,247,.1); box-shadow: none; filter: none; transform: none; }
+.btn.todo-chart-refresh:disabled { opacity: .6; }
+.todo-chart-refresh.loading svg { animation: todo-spin .8s linear infinite; }
+@keyframes todo-spin { to { transform: rotate(360deg); } }
 /* 任务分析弹窗：区块标题 */
 .ta-h { font-size: 14px; font-weight: 600; color: var(--label); margin: 18px 0 10px; }
 .ta-h-first { margin-top: 0; }

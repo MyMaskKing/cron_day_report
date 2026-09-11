@@ -844,7 +844,7 @@ function todoPage(user) {
 
     <div class="card">
       <div class="todo-chart-head">
-        <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1;min-width:0;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="margin-left:auto;">🔄</button></h2>
+        <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1;min-width:0;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
         <div class="todo-range" id="chartRange">
           <button data-range="month" class="active">当月</button>
           <button data-range="7d">近7天</button>
@@ -916,7 +916,7 @@ function publicTodoPage() {
           <div id="todoTree" class="todo-tree"></div>
         </div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
-          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="float:right;">🔄</button></h2>
+          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="float:right;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
       </div>
@@ -979,7 +979,7 @@ function todoReportPage() {
       </div>
       <div class="card">
         <div class="todo-chart-head">
-          <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1;min-width:0;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="margin-left:auto;">🔄</button></h2>
+          <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1;min-width:0;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
           <div class="todo-range" id="chartRange">
             <button data-range="month" class="active">当月</button>
             <button data-range="7d">近7天</button>
@@ -1049,7 +1049,7 @@ function todoCollabPage() {
           <div id="todoTree" class="todo-tree"></div>
         </div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
-          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="float:right;">🔄</button></h2>
+          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="float:right;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
       </div>
