@@ -1318,7 +1318,11 @@ html { scrollbar-gutter: stable; }
     transform: scale(1.045) rotate(-.8deg);
     box-shadow: 0 22px 44px rgba(31,35,41,.26), 0 8px 18px rgba(168,85,247,.26), 0 0 0 2px rgba(168,85,247,.28);
   }
-  .todo-stat { min-width: 70px; padding: 10px; }
+  /* 概览统计卡强制单行: 4 卡(含备忘录)不再掉到第二行; 去掉最小宽度并收紧字号/内边距 */
+  .todo-stats { flex-wrap: nowrap; gap: 6px; }
+  .todo-stat { min-width: 0; flex: 1 1 0; padding: 10px 4px; }
+  .todo-stat .n { font-size: 20px; }
+  .todo-stat .l { font-size: 11px; }
   /* 卡片视图窄屏收小内边距 */
   .todo-card__body { padding: 12px 14px 8px; }
   .todo-card__title { font-size: 16px; }
