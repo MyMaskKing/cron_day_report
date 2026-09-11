@@ -1548,6 +1548,145 @@ function fmtSign(n, hidePlus) {
 }
 window.fmtMoney = fmtMoney;
 window.fmtSign = fmtSign;
+// 通用 Markdown 编辑器：在已存在的 textarea 原地挂载（写/预览分段 + 工具条，可选附件上传）。
+// 保留原 textarea 的 id 与值，调用方取值链路零改动；opts={upload:async(file)=>attachmentJson, maxMb}，
+// 不传 upload 时隐藏图片/附件按钮（如基金投资策略）。
+function mountTodoMdEditor(textarea, opts) {
+  opts = opts || {};
+  var maxMb = opts.maxMb || 5;
+  var root = document.createElement('div');
+  root.className = 'mde';
+  root.innerHTML =
+    '<div class="mde-seg"><button type="button" data-m="write" class="on">✏️ 写</button><button type="button" data-m="preview">👁 预览</button></div>' +
+    '<div class="mde-bar">' +
+      '<button type="button" class="mde-btn" data-a="bold" title="加粗 Ctrl+B"><b>B</b></button>' +
+      '<button type="button" class="mde-btn" data-a="italic" title="斜体 Ctrl+I"><i>i</i></button>' +
+      '<button type="button" class="mde-btn" data-a="strike" title="删除线"><s>S</s></button>' +
+      '<span class="mde-sep"></span>' +
+      '<button type="button" class="mde-btn" data-a="quote" title="引用">“</button>' +
+      '<button type="button" class="mde-btn" data-a="ul" title="无序列表">≡</button>' +
+      '<button type="button" class="mde-btn" data-a="task" title="待办项">☑</button>' +
+      '<span class="mde-sep mde-sep--upload"></span>' +
+      '<button type="button" class="mde-btn" data-a="img" title="上传图片">' +
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L9 20"/></svg></button>' +
+      '<button type="button" class="mde-btn" data-a="file" title="添加附件">📎</button>' +
+      '<input type="file" class="mde-file" hidden>' +
+    '</div>' +
+    '<div class="mde-panes"><div class="mde-write"></div><div class="mde-preview md-body"></div></div>' +
+    '<div class="mde-chips"></div>';
+  textarea.parentNode.insertBefore(root, textarea.nextSibling);
+  var writeWrap = root.querySelector('.mde-write');
+  writeWrap.appendChild(textarea);
+  textarea.classList.add('mde-text');
+  textarea.removeAttribute('data-autogrow');
+  textarea.setAttribute('rows', '7');
+  // openModal 的 autoGrowTextarea 可能已绑定并写了内联 overflow/height（会压过 CSS 导致框内不能滚）：
+  // 禁用其后续撑开，并清掉内联样式，改由 .mde-text 的固定高度 + overflow:auto 接管滚动
+  textarea.__agDisabled = 1;
+  textarea.style.overflowY = '';
+  textarea.style.height = '';
+  textarea.style.minHeight = '';
+  var pv = root.querySelector('.mde-preview');
+  var fileInput = root.querySelector('.mde-file');
+  var chips = root.querySelector('.mde-chips');
+
+  function renderPv() {
+    pv.innerHTML = renderTodoNote(textarea.value);
+    mdTaskToBoxes(pv);
+  }
+  function setMode(m) {
+    root.dataset.mode = m;
+    Array.prototype.forEach.call(root.querySelectorAll('.mde-seg button'), function(b){ b.classList.toggle('on', b.dataset.m === m); });
+    if (m === 'preview') { textarea.blur(); renderPv(); }
+  }
+  function wrapLine(pre) {
+    var s = textarea.selectionStart, e = textarea.selectionEnd, v = textarea.value, ls = v.lastIndexOf('\\n', s - 1) + 1;
+    var next = v.slice(ls, e).split('\\n').map(function(l){ return pre + l; }).join('\\n');
+    textarea.value = v.slice(0, ls) + next + v.slice(e);
+    textarea.focus(); textarea.selectionStart = ls + pre.length; textarea.selectionEnd = ls + next.length;
+    renderPv();
+  }
+  function wrapSel(pre, post) {
+    var s = textarea.selectionStart, e = textarea.selectionEnd, v = textarea.value, sel = v.slice(s, e) || '文字';
+    textarea.value = v.slice(0, s) + pre + sel + post + v.slice(e);
+    textarea.focus(); textarea.selectionStart = s + pre.length; textarea.selectionEnd = s + pre.length + sel.length;
+    renderPv();
+  }
+  function insert(txt) {
+    var s = textarea.selectionStart;
+    textarea.value = textarea.value.slice(0, s) + txt + textarea.value.slice(textarea.selectionEnd);
+    textarea.focus(); textarea.selectionStart = textarea.selectionEnd = s + txt.length;
+    renderPv();
+  }
+  function addChip(att, uploading) {
+    var c = document.createElement('span');
+    c.className = 'mde-chip' + (uploading ? ' up' : '');
+    c.innerHTML = (att.is_image ? '<img alt="">' : '📎') +
+      '<span class="mde-chip-nm"></span>' +
+      (uploading ? '<span class="mde-chip-st">上传中…</span>' : '<span class="mde-chip-ok">✓</span>');
+    c.querySelector('.mde-chip-nm').textContent = att.origin_name;
+    if (att.is_image && att.url) c.querySelector('img').src = att.url;
+    chips.appendChild(c);
+    return c;
+  }
+  function pickAndUpload(accept) {
+    fileInput.value = '';
+    fileInput.accept = accept;
+    fileInput.click();
+  }
+  fileInput.addEventListener('change', async function() {
+    var file = fileInput.files && fileInput.files[0];
+    if (!file || !opts.upload) return;
+    if (file.size > maxMb * 1048576) { alertModal('文件超过 ' + maxMb + 'MB 上限', { ok: false }); return; }
+    var chip = addChip({ origin_name: file.name, is_image: file.type.indexOf('image/') === 0, url: '' }, true);
+    try {
+      var att = await opts.upload(file);
+      chip.classList.remove('up');
+      var st = chip.querySelector('.mde-chip-st'); if (st) st.remove();
+      if (att.is_image) {
+        var im = chip.querySelector('img'); if (im) im.src = att.url;
+        insert('\\n![' + att.origin_name + '](' + att.url + ')\\n');
+      } else {
+        insert('\\n[' + att.origin_name + '](' + att.url + ')\\n');
+      }
+    } catch (e) {
+      chip.remove();
+      alertModal(e.message || '上传失败', { ok: false });
+    }
+  });
+  Array.prototype.forEach.call(root.querySelectorAll('.mde-btn'), function(b) {
+    b.addEventListener('mousedown', function(e){ e.preventDefault(); });
+    b.addEventListener('click', function() {
+      var a = b.dataset.a;
+      if (a === 'bold') wrapSel('**', '**');
+      else if (a === 'italic') wrapSel('_', '_');
+      else if (a === 'strike') wrapSel('~~', '~~');
+      else if (a === 'quote') wrapLine('> ');
+      else if (a === 'ul') wrapLine('- ');
+      else if (a === 'task') wrapLine('- [ ] ');
+      else if (a === 'img') pickAndUpload('image/*');
+      else if (a === 'file') pickAndUpload('');
+    });
+  });
+  Array.prototype.forEach.call(root.querySelectorAll('.mde-seg button'), function(b) {
+    b.addEventListener('click', function(){ setMode(b.dataset.m); });
+  });
+  textarea.addEventListener('input', renderPv);
+  textarea.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSel('**', '**'); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') { e.preventDefault(); wrapSel('_', '_'); }
+  });
+  // 无上传通道（如基金投资策略）：隐藏图片/文件按钮与其前置分隔线，避免点了无反应
+  if (!opts.upload) {
+    Array.prototype.forEach.call(
+      root.querySelectorAll('.mde-btn[data-a="img"], .mde-btn[data-a="file"], .mde-sep--upload'),
+      function(el){ el.style.display = 'none'; }
+    );
+  }
+  root.dataset.mode = 'write';
+  renderPv();
+  return { getValue: function(){ return textarea.value; } };
+}
 `;
 
 // 登录页 JS
@@ -7024,144 +7163,6 @@ async function openTodoDetail(node, opts) {
   } catch (e) {
     box.innerHTML = '<div class="muted" style="font-size:13px;">附件加载失败</div>';
   }
-}
-// 在已存在的 #tfNote textarea 原地挂载 md 编辑器（写/预览分段 + 工具条 + 附件上传）。
-// 保留原 textarea 的 id 与值，todoFormRead() 取值链路零改动。opts={upload:async(file)=>attachmentJson, maxMb}
-function mountTodoMdEditor(textarea, opts) {
-  opts = opts || {};
-  var maxMb = opts.maxMb || 5;
-  var root = document.createElement('div');
-  root.className = 'mde';
-  root.innerHTML =
-    '<div class="mde-seg"><button type="button" data-m="write" class="on">✏️ 写</button><button type="button" data-m="preview">👁 预览</button></div>' +
-    '<div class="mde-bar">' +
-      '<button type="button" class="mde-btn" data-a="bold" title="加粗 Ctrl+B"><b>B</b></button>' +
-      '<button type="button" class="mde-btn" data-a="italic" title="斜体 Ctrl+I"><i>i</i></button>' +
-      '<button type="button" class="mde-btn" data-a="strike" title="删除线"><s>S</s></button>' +
-      '<span class="mde-sep"></span>' +
-      '<button type="button" class="mde-btn" data-a="quote" title="引用">“</button>' +
-      '<button type="button" class="mde-btn" data-a="ul" title="无序列表">≡</button>' +
-      '<button type="button" class="mde-btn" data-a="task" title="待办项">☑</button>' +
-      '<span class="mde-sep mde-sep--upload"></span>' +
-      '<button type="button" class="mde-btn" data-a="img" title="上传图片">' +
-        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L9 20"/></svg></button>' +
-      '<button type="button" class="mde-btn" data-a="file" title="添加附件">📎</button>' +
-      '<input type="file" class="mde-file" hidden>' +
-    '</div>' +
-    '<div class="mde-panes"><div class="mde-write"></div><div class="mde-preview md-body"></div></div>' +
-    '<div class="mde-chips"></div>';
-  textarea.parentNode.insertBefore(root, textarea.nextSibling);
-  var writeWrap = root.querySelector('.mde-write');
-  writeWrap.appendChild(textarea);
-  textarea.classList.add('mde-text');
-  textarea.removeAttribute('data-autogrow');
-  textarea.setAttribute('rows', '7');
-  // openModal 的 autoGrowTextarea 可能已绑定并写了内联 overflow/height（会压过 CSS 导致框内不能滚）：
-  // 禁用其后续撑开，并清掉内联样式，改由 .mde-text 的固定高度 + overflow:auto 接管滚动
-  textarea.__agDisabled = 1;
-  textarea.style.overflowY = '';
-  textarea.style.height = '';
-  textarea.style.minHeight = '';
-  var pv = root.querySelector('.mde-preview');
-  var fileInput = root.querySelector('.mde-file');
-  var chips = root.querySelector('.mde-chips');
-
-  function renderPv() {
-    pv.innerHTML = renderTodoNote(textarea.value);
-    mdTaskToBoxes(pv);
-  }
-  function setMode(m) {
-    root.dataset.mode = m;
-    Array.prototype.forEach.call(root.querySelectorAll('.mde-seg button'), function(b){ b.classList.toggle('on', b.dataset.m === m); });
-    if (m === 'preview') { textarea.blur(); renderPv(); }
-  }
-  function wrapLine(pre) {
-    var s = textarea.selectionStart, e = textarea.selectionEnd, v = textarea.value, ls = v.lastIndexOf('\\n', s - 1) + 1;
-    var next = v.slice(ls, e).split('\\n').map(function(l){ return pre + l; }).join('\\n');
-    textarea.value = v.slice(0, ls) + next + v.slice(e);
-    textarea.focus(); textarea.selectionStart = ls + pre.length; textarea.selectionEnd = ls + next.length;
-    renderPv();
-  }
-  function wrapSel(pre, post) {
-    var s = textarea.selectionStart, e = textarea.selectionEnd, v = textarea.value, sel = v.slice(s, e) || '文字';
-    textarea.value = v.slice(0, s) + pre + sel + post + v.slice(e);
-    textarea.focus(); textarea.selectionStart = s + pre.length; textarea.selectionEnd = s + pre.length + sel.length;
-    renderPv();
-  }
-  function insert(txt) {
-    var s = textarea.selectionStart;
-    textarea.value = textarea.value.slice(0, s) + txt + textarea.value.slice(textarea.selectionEnd);
-    textarea.focus(); textarea.selectionStart = textarea.selectionEnd = s + txt.length;
-    renderPv();
-  }
-  function addChip(att, uploading) {
-    var c = document.createElement('span');
-    c.className = 'mde-chip' + (uploading ? ' up' : '');
-    c.innerHTML = (att.is_image ? '<img alt="">' : '📎') +
-      '<span class="mde-chip-nm"></span>' +
-      (uploading ? '<span class="mde-chip-st">上传中…</span>' : '<span class="mde-chip-ok">✓</span>');
-    c.querySelector('.mde-chip-nm').textContent = att.origin_name;
-    if (att.is_image && att.url) c.querySelector('img').src = att.url;
-    chips.appendChild(c);
-    return c;
-  }
-  function pickAndUpload(accept) {
-    fileInput.value = '';
-    fileInput.accept = accept;
-    fileInput.click();
-  }
-  fileInput.addEventListener('change', async function() {
-    var file = fileInput.files && fileInput.files[0];
-    if (!file || !opts.upload) return;
-    if (file.size > maxMb * 1048576) { alertModal('文件超过 ' + maxMb + 'MB 上限', { ok: false }); return; }
-    var chip = addChip({ origin_name: file.name, is_image: file.type.indexOf('image/') === 0, url: '' }, true);
-    try {
-      var att = await opts.upload(file);
-      chip.classList.remove('up');
-      var st = chip.querySelector('.mde-chip-st'); if (st) st.remove();
-      if (att.is_image) {
-        var im = chip.querySelector('img'); if (im) im.src = att.url;
-        insert('\\n![' + att.origin_name + '](' + att.url + ')\\n');
-      } else {
-        insert('\\n[' + att.origin_name + '](' + att.url + ')\\n');
-      }
-    } catch (e) {
-      chip.remove();
-      alertModal(e.message || '上传失败', { ok: false });
-    }
-  });
-  Array.prototype.forEach.call(root.querySelectorAll('.mde-btn'), function(b) {
-    b.addEventListener('mousedown', function(e){ e.preventDefault(); });
-    b.addEventListener('click', function() {
-      var a = b.dataset.a;
-      if (a === 'bold') wrapSel('**', '**');
-      else if (a === 'italic') wrapSel('_', '_');
-      else if (a === 'strike') wrapSel('~~', '~~');
-      else if (a === 'quote') wrapLine('> ');
-      else if (a === 'ul') wrapLine('- ');
-      else if (a === 'task') wrapLine('- [ ] ');
-      else if (a === 'img') pickAndUpload('image/*');
-      else if (a === 'file') pickAndUpload('');
-    });
-  });
-  Array.prototype.forEach.call(root.querySelectorAll('.mde-seg button'), function(b) {
-    b.addEventListener('click', function(){ setMode(b.dataset.m); });
-  });
-  textarea.addEventListener('input', renderPv);
-  textarea.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSel('**', '**'); }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') { e.preventDefault(); wrapSel('_', '_'); }
-  });
-  // 无上传通道（如基金投资策略）：隐藏图片/文件按钮与其前置分隔线，避免点了无反应
-  if (!opts.upload) {
-    Array.prototype.forEach.call(
-      root.querySelectorAll('.mde-btn[data-a="img"], .mde-btn[data-a="file"], .mde-sep--upload'),
-      function(el){ el.style.display = 'none'; }
-    );
-  }
-  root.dataset.mode = 'write';
-  renderPv();
-  return { getValue: function(){ return textarea.value; } };
 }
 `;
 
