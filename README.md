@@ -56,13 +56,24 @@ npx wrangler deploy
 Wrangler 4 会自动创建名为 `cron_db` 的 D1 数据库、名为 `KV` 的命名空间与每小时 Cron 触发器，
 并把生成的资源 ID 回写进本机 `wrangler.toml`。
 
-### 3. 建表（自动）
+### 3. 创建 R2 存储桶（待办附件 / Markdown 图片，必须手动）
+
+附件（待办备注、基金投资策略等 Markdown 内嵌的图片/文件）的**文件本体存 R2**，R2 桶不会随 `wrangler deploy` 自动创建，首次使用附件功能前手动执行一次（桶名和绑定名固定，见 `wrangler.toml` 的 `[[r2_buckets]]`）：
+
+```bash
+npx wrangler r2 bucket create cron-files
+```
+
+未创建/未绑定时，上传会返回 503「附件存储未配置」，其余功能不受影响。
+D1 里只存文件元数据（统一 `files` 表）；R2 对象按来源分前缀 `todo/<token>`、`user/<token>`。
+
+### 4. 建表（自动）
 
 首次部署后第一次访问（或首个整点 Cron）Worker 会检测空库并自动建出全部表，无需手动执行 SQL；
 预建仅备用：`npx wrangler d1 execute cron_db --remote --file=migrations/0001_init.sql`。
 之后新增的 `000N_*.sql` 仅老库升级时按编号手动执行。
 
-### 4. 配置密钥（可选但建议）
+### 5. 配置密钥（可选但建议）
 
 ```bash
 npx wrangler secret put ADMIN_BOOTSTRAP_TOKEN   # 创建首个超管时校验
@@ -72,7 +83,7 @@ npx wrangler secret put CRON_SECRET             # 保护 /cron 手动触发入�
 `PUBLIC_BASE_URL`、`STORAGE_DRIVER` 等明文变量可在 Dashboard → Settings → Variables 配置；
 站点公开地址推荐部署后登录超管在「系统设置」页填写（优先级最高、换域名免重新部署）。
 
-### 5. 初始化超管
+### 6. 初始化超管
 
 访问 Worker 域名进入「系统初始化」页创建首个超管（配置了 `ADMIN_BOOTSTRAP_TOKEN` 需填写），
 登录后到系统设置填入站点公开地址即可开始使用。

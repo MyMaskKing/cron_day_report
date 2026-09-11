@@ -38,6 +38,23 @@
   **惰性过期**（读时发现过期立即删并返回 null）+ 每 5 分钟一次全表清理，防止过期键累积。
 - 会话（cookie `sid`）、分享 token、基金净值缓存全走这个 KV shim，语义与 Cloudflare KV 一致。
 
+## 附件 / Markdown 图片如何落盘
+
+- 容器内 `/data/files`（宿主机 **`docker-data/files/`**），目录结构与 R2 对象 key 完全同构：
+  - `docker-data/files/todo/<file_token>`  待办任务附件
+  - `docker-data/files/user/<file_token>`  基金投资策略等 Markdown 内嵌文件
+- **文件名是 32 位随机 token，没有原始文件名、没有扩展名**，所以在宿主机上直接双击通常打不开/不认类型——这是刻意设计：与 Cloudflare R2 的对象 key 一一对应，token 同时是免密下载凭证（`/todo-file/<token>`），原始文件名、MIME、大小等元数据存在 `d1.sqlite` 的 `files` 表里（`origin_name`/`mime` 列）。
+- 正常查看/下载请走网页或 App：下载端点会按元数据带上正确的 `Content-Type`（图片直接显示）和 `Content-Disposition`（其他文件用原始文件名）。
+- 想在宿主机上人工辨认某个文件：查元数据表对应关系后手动加后缀即可，例如：
+
+  ```bash
+  # 在宿主机 SQLite 里按 token 查原始文件名与类型
+  sqlite3 docker-data/d1.sqlite \
+    "SELECT file_token, source, origin_name, mime FROM files ORDER BY id DESC LIMIT 10;"
+  # 然后复制一份再改后缀查看，不要直接改名（改名后应用内链接会 404）
+  cp docker-data/files/user/<token> /tmp/我的图片.png
+  ```
+
 ## Redis / MySQL 呢？
 
 **Docker 部署完全不依赖 Redis 和 MySQL**：
@@ -65,10 +82,11 @@ docker compose logs -f
 ## 数据持久化
 
 容器把 `/data` 挂到宿主机 `./docker-data/`：
-- `docker-data/d1.sqlite`  D1 数据（用户、基金、体重、资产、推送配置、待办）
+- `docker-data/d1.sqlite`  D1 数据（用户、基金、体重、资产、推送配置、待办、文件元数据 `files` 表）
 - `docker-data/kv.sqlite`  KV 数据（会话、分享 token、基金净值缓存）
+- `docker-data/files/`     附件与 Markdown 图片本体（`todo/`、`user/` 两个子目录，见上文）
 
-**备份就把 `docker-data/` 打包**；恢复解压回原位重启即可。
+**备份就把 `docker-data/` 整体打包**（SQLite + `files/` 目录缺一不可，只有元数据没有文件会导致图片裂图/附件 404）；恢复解压回原位重启即可。
 
 ## 环境变量
 
