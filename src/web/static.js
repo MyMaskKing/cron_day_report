@@ -13,7 +13,7 @@
  *
  * 双运行时（Workers / Docker Node）都走 fetch 路由，无需物理静态文件。
  */
-import { BASE_CSS } from './layout.js';
+import { BASE_CSS, FAVICON_SVG } from './layout.js';
 import {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
@@ -28,6 +28,7 @@ const CSS = 'text/css';
 function buildAssets() {
   return {
     'core.css': { body: BASE_CSS, type: CSS },
+    'favicon.svg': { body: FAVICON_SVG, type: 'image/svg+xml' },
     'common.js': { body: COMMON_JS, type: JS },
     'todo-core.js': { body: TODO_TREE_CORE, type: JS },
     'page-login.js': { body: LOGIN_JS, type: JS },

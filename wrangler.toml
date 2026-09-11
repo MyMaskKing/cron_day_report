@@ -10,6 +10,12 @@ compatibility_date = "2024-01-01"
 # Worker 每次唤醒读配置用 shouldRun 判断是否到点，实现画面可配、平台无关。
 crons = ["0 * * * *"]
 
+# 文本模块规则：让 src/ 直接 import migrations/*.sql 拿到 SQL 字符串（构建期内联，
+# Worker 运行时无文件系统）。Node 宿主同语义由 docker/sql-loader.mjs 提供。
+rules = [
+  { type = "Text", globs = ["migrations/**/*.sql"] }
+]
+
 # D1 数据库绑定：已有部署必须保留真实 database_id（无 ID 部署会自动新建空库）
 [[d1_databases]]
 binding = "DB"

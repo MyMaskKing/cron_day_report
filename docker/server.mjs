@@ -12,7 +12,7 @@
  *   └── kv.sqlite          KV 单表存储
  */
 import { mkdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 
 import { D1DatabaseShim } from './d1-shim.mjs';
@@ -20,6 +20,11 @@ import { KVNamespaceShim } from './kv-shim.mjs';
 import { FileStoreShim } from './file-shim.mjs';
 import { createHttpServer } from './http-adapter.mjs';
 import { runMigrations } from './migrate.mjs';
+import { register } from 'node:module';
+
+// 注册 .sql 文本导入：src/storage/schema.js 直接 import migrations/*.sql
+// （Workers 侧由 wrangler Text 模块规则处理）。必须在动态 import src/index.js 之前注册。
+register('./sql-loader.mjs', import.meta.url);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -71,7 +76,9 @@ function createCtx() {
 }
 
 // 动态 import 业务入口（默认导出含 fetch / scheduled）
-const worker = (await import(join(ROOT, 'src', 'index.js').replace(/\\/g, '/'))).default;
+// Windows 下挂了 ESM loader hooks 后必须传 file:// URL（盘符裸路径会被 nextLoad 拒绝），
+// pathToFileURL 在 Linux 容器内行为等价（file:///app/src/index.js）
+const worker = (await import(pathToFileURL(join(ROOT, 'src', 'index.js')).href)).default;
 
 // ==================== 启动 HTTP 服务 ====================
 const server = createHttpServer((req, e, ctx) => worker.fetch(req, e, ctx), env, createCtx);

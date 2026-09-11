@@ -78,7 +78,7 @@ import {
   weightReportPage, assetReportPage, fundReportPage,
   todoPage, publicTodoPage, todoReportPage, todoCollabPage
 } from './web/pages.js';
-import { serveStaticAsset } from './web/static.js';
+import { serveStaticAsset, assetUrl } from './web/static.js';
 
 // ==================== 路由注册 ====================
 const router = new Router();
@@ -88,6 +88,10 @@ router.get('/s/:name', ({ params }) => {
   const res = serveStaticAsset(params.name);
   return res || new Response('not found', { status: 404 });
 });
+// 老浏览器仍按默认路径要 favicon.ico：302 到 SVG 版（现代浏览器走 <link> 声明，不会请求这里）
+router.get('/favicon.ico', ({ request }) =>
+  Response.redirect(new URL(assetUrl('favicon.svg'), request.url).href, 302)
+);
 
 // --- 认证 API ---
 router.post('/api/auth/register', register);

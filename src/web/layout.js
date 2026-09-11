@@ -8,6 +8,24 @@
 import { assetUrl } from './static.js';
 
 /**
+ * 站点 favicon（SVG 矢量）：白色圆角纸飞机居中，机身就是钟面——
+ * 时针朝尾翼、分针沿折痕指向机头（品牌蓝紫），寓意「定时推送、到点即达」。
+ * 尖角用同色粗描边 linejoin=round 圆化；图形包围盒中心严格在 32,32。
+ * 经 /s/favicon.svg 外链，内容 hash 自动缓存。
+ */
+const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#4F63E8"/><stop offset=".55" stop-color="#7C5CFF"/><stop offset="1" stop-color="#A855F7"/>
+</linearGradient></defs>
+<rect width="64" height="64" rx="14" fill="url(#g)"/>
+<path d="M54 10.5 L10 31 L29.8 34.5 L37.5 53.5 Z"
+  fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M32 26.5 L27.7 29" stroke="#4F63E8" stroke-width="3.4" stroke-linecap="round"/>
+<path d="M32 26.5 L35.7 22.8" stroke="#4F63E8" stroke-width="3.4" stroke-linecap="round"/>
+<circle cx="32" cy="26.5" r="2.3" fill="#4F63E8"/>
+</svg>`;
+
+/**
  * 渲染完整 HTML 页面
  * @param {Object} opts - { title, body, scripts?, script? }
  *   scripts: 页特定外链脚本文件名数组（如 ['todo-core.js','page-todo.js']），common.js 恒载
@@ -28,6 +46,7 @@ function renderPage({ title = '控制台', body = '', script = '', scripts = [],
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${title}</title>
+<link rel="icon" type="image/svg+xml" href="${assetUrl('favicon.svg')}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
@@ -1488,4 +1507,4 @@ function renderTopbar(user, active = '') {
   `<script>window.__TZ_OFFSET__=${Number.isFinite(user.tzOffset) ? user.tzOffset : 8};</script>`;
 }
 
-export { renderPage, renderTopbar, BASE_CSS };
+export { renderPage, renderTopbar, BASE_CSS, FAVICON_SVG };
