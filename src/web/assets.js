@@ -6510,19 +6510,27 @@ function todoShowChartDetail(series, index) {
     var icon = kind === 'done' ? '✅' : (it.late ? '⚠️' : '⏳');
     var titleColor = kind === 'done' ? 'var(--muted)' : 'var(--text)';
     var titleDeco = kind === 'done' ? 'text-decoration:line-through;' : '';
-    // 祖先面包屑(子任务标明来源主任务; 顶层任务无路径不显示), 主任务完成收编时尤其需要它溯源
-    var crumbHtml = '';
-    if (it.path && it.path.length) {
-      crumbHtml = '<div style="font-size:11px;line-height:1.4;margin-bottom:1px;color:var(--faint,var(--muted));word-break:break-all;">📁 ' + esc(it.path.join(' / ')) + '</div>';
-    }
-    return '<div style="display:flex;align-items:center;gap:6px;padding:7px 2px;border-bottom:1px solid var(--border);">' +
+    // 默认不展示层级, 仅在有祖先的行尾放「层级」小按钮, 点击在下方展开祖先链(再点收起)
+    var hasPath = !!(it.path && it.path.length);
+    var lvBtn = hasPath
+      ? '<button type="button" class="todo-dtl-lv" style="flex:0 0 auto;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:10px;padding:0 8px;font-size:11px;line-height:1.8;cursor:pointer;">层级</button>'
+      : '';
+    var rowHtml = '<div class="todo-dtl-row" style="display:flex;align-items:center;gap:6px;padding:7px 2px;">' +
       '<span style="flex:0 0 auto;">' + icon + '</span>' +
       '<span style="flex:1;min-width:0;word-break:break-all;">' +
-        crumbHtml +
         '<span style="' + titleDeco + 'color:' + titleColor + ';">' + esc(it.title) + tags + '</span>' +
       '</span>' +
-      '<span class="muted" style="flex:0 0 auto;font-size:12px;white-space:nowrap;align-self:flex-start;">📅 ' + esc(dl) + '</span>' +
+      '<span class="muted" style="flex:0 0 auto;font-size:12px;white-space:nowrap;">📅 ' + esc(dl) + '</span>' +
+      lvBtn +
     '</div>';
+    var pathHtml = '';
+    if (hasPath) {
+      var chain = it.path.map(function(p){ return esc(p); }).join(' <span style="opacity:.55;">/</span> ') +
+        ' <span style="opacity:.55;">/</span> <b style="color:var(--text);font-weight:600;">' + esc(it.title) + '</b>';
+      pathHtml = '<div class="todo-dtl-path" style="display:none;margin:0 2px 7px 24px;padding:5px 9px;border-radius:6px;background:rgba(127,127,127,.08);font-size:12px;line-height:1.6;color:var(--muted);word-break:break-all;">📁 ' + chain + '</div>';
+    }
+    // 行与展开块包在同一 item 内, 分隔线落在整组底部, 展开内容视觉上仍属于本任务
+    return '<div class="todo-dtl-item" style="border-bottom:1px solid var(--border);">' + rowHtml + pathHtml + '</div>';
   }
   function group(heading, list, kind) {
     if (!list.length) return '';
@@ -6536,6 +6544,17 @@ function todoShowChartDetail(series, index) {
     ? group('✅ ' + doneWord, d.done, 'done') + group('⏳ ' + openWord, d.open, 'open')
     : '<p class="muted" style="line-height:1.7;">该' + (isMonth ? '月' : '天') + '没有计入曲线的任务。<br>未来到期的任务在到期/完成前不计入任何一格。</p>';
   openModal(title, body);
+  // 「层级」按钮: 在所属任务下方展开/收起祖先链(弹窗 innerHTML 每次重建, 直接绑新元素)
+  Array.prototype.forEach.call(document.querySelectorAll('#modalBody .todo-dtl-lv'), function(btn){
+    btn.addEventListener('click', function(){
+      var item = btn.closest('.todo-dtl-item');
+      var p = item ? item.querySelector('.todo-dtl-path') : null;
+      if (!p) return;
+      var open = p.style.display !== 'none';
+      p.style.display = open ? 'none' : 'block';
+      btn.textContent = open ? '层级' : '收起';
+    });
+  });
 }
 // 共享：区间按钮组绑定，点击回调 fn(range)
 function bindTodoRange(fn) {
