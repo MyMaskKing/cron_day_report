@@ -401,6 +401,21 @@ function buildChartSeries(raw, range, today) {
   const openItem = (t, asOf) => ({
     id: t.id, title: t.title || '', due: t.due, path: pathOf(t), adopted: 0, late: t.due < asOf ? 1 : 0
   });
+  // 无日期叶子(备忘录式)平时不进曲线; 但被已完成祖先收编时, 在祖先完成日计入一次完成。
+  // 限定: 末端叶子 + 自身未勾选 + 有完成日(祖先 done_at); 自身完成的无日期任务仍不进(沿用历史口径);
+  // 只影响折线完成量, 不影响 buildAnalysis(无到期日不参与达标率)。
+  const datedIds = new Set(tasks.map(t => t.id));
+  const parentIds = new Set();
+  (raw.tree || []).forEach(r => { if (r.parent_id != null) parentIds.add(r.parent_id); });
+  const isLeafInTree = (r) => !parentIds.has(r.id);
+  const adoptedUndated = [];
+  (raw.tree || []).forEach(r => {
+    if (!r || datedIds.has(r.id) || !isLeafInTree(r) || r.done === 1 || r.parent_id == null) return;
+    const e = effOf(r);
+    if (e.done && e.day) {
+      adoptedUndated.push({ day: e.day, item: { id: r.id, title: r.title || '', due: null, path: pathOf(r), adopted: 1, late: 0 } });
+    }
+  });
   // 把全部任务按某一天 d 分成「当天完成 / 当天末仍未完成」两组（互斥，合计即当天总任务）
   const splitByDay = (d) => {
     const dn = [], op = [];
@@ -409,6 +424,7 @@ function buildChartSeries(raw, range, today) {
       if (e.done && e.day === d) dn.push(doneItem(t, e));
       if (openAt(t, d)) op.push(openItem(t, d));
     }
+    adoptedUndated.forEach(u => { if (u.day === d) dn.push(u.item); });
     return { dn, op };
   };
 
@@ -451,6 +467,7 @@ function buildChartSeries(raw, range, today) {
         if (e.done && e.day && e.day.slice(0, 7) === ym) dn.push(doneItem(t, e));
         if (openAt(t, snap)) op.push(openItem(t, snap));
       }
+      adoptedUndated.forEach(u => { if (u.day.slice(0, 7) === ym) dn.push(u.item); });
       pushBucket(ym, dn, op);
     }
   }

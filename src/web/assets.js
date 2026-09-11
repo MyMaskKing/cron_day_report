@@ -4477,10 +4477,14 @@ try { var _d = localStorage.getItem('todoDrawer'); if (_d === '1') _todoDrawerOp
 var _todoCategory = null;
 // 叶子口径计数：只数末端叶子（无子任务的节点），与后端 countStats/statsOfReport 一致
 // 顶层任务若无子任务, 自身不算入进度（返回 {0,0}）
+// 完成祖先剪枝: 已完成的中间节点代表该支已结算, 其下叶子不再计入(整支从进度消失),
+//   与 countStats 的 hasDoneAncestor / flattenPending 的 node.done 剪枝同口径
 function todoLeafCount(node) {
+  if (node.done) return { total: 0, done: 0 }; // 自身已完成: 整支已结算
   var total = 0, done = 0;
   (function walk(n){
     n.children.forEach(function(c){
+      if (c.done && c.children.length > 0) return; // 完成的中间层: 整支剔除
       if (c.children.length === 0) { total++; if (c.done) done++; }
       else walk(c);
     });
@@ -5431,11 +5435,14 @@ function renderTodoTree(container, trees, opts) {
     // 共享分类任务(顶层行且 shared_cat_id 非空)标题前加 👥; 个人任务不显示
     title.textContent = (depth === 0 && node.shared_cat_id != null ? '👥 ' : '') + node.title;
     if (hasChildren) {
-      var cnt = document.createElement('span');
-      cnt.className = 'todo-count';
       var lc = todoLeafCount(node);
-      cnt.textContent = '(' + lc.done + '/' + lc.total + ')';
-      title.appendChild(cnt);
+      // total=0 = 整支已完成结算, 不再显示进度
+      if (lc.total > 0) {
+        var cnt = document.createElement('span');
+        cnt.className = 'todo-count';
+        cnt.textContent = '(' + lc.done + '/' + lc.total + ')';
+        title.appendChild(cnt);
+      }
     }
     main.appendChild(title);
     var meta = document.createElement('div');
@@ -5637,10 +5644,13 @@ function renderTodoCards(container, trees, opts) {
     }
     if (hasChildren) {
       var lc = todoLeafCount(root);
-      var pc = document.createElement('span');
-      pc.className = 'todo-chip todo-card__count' + (lc.total > 0 && lc.done === lc.total ? ' done' : '');
-      pc.textContent = '📋 ' + lc.done + '/' + lc.total;
-      meta.appendChild(pc);
+      // total=0 = 整支已完成结算, 不再显示进度 chip
+      if (lc.total > 0) {
+        var pc = document.createElement('span');
+        pc.className = 'todo-chip todo-card__count' + (lc.done === lc.total ? ' done' : '');
+        pc.textContent = '📋 ' + lc.done + '/' + lc.total;
+        meta.appendChild(pc);
+      }
     }
     if (meta.childNodes.length) body.appendChild(meta);
 
@@ -6515,19 +6525,33 @@ function todoShowChartDetail(series, index) {
     var lvBtn = hasPath
       ? '<button type="button" class="todo-dtl-lv" style="flex:0 0 auto;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:10px;padding:0 8px;font-size:11px;line-height:1.8;cursor:pointer;">层级</button>'
       : '';
+    var dateHtml = it.due
+      ? '📅 ' + esc(dl)
+      : '<span title="未设置截止日期，随主任务完成计入">∅ 无日期</span>';
     var rowHtml = '<div class="todo-dtl-row" style="display:flex;align-items:center;gap:6px;padding:7px 2px;">' +
       '<span style="flex:0 0 auto;">' + icon + '</span>' +
       '<span style="flex:1;min-width:0;word-break:break-all;">' +
         '<span style="' + titleDeco + 'color:' + titleColor + ';">' + esc(it.title) + tags + '</span>' +
       '</span>' +
-      '<span class="muted" style="flex:0 0 auto;font-size:12px;white-space:nowrap;">📅 ' + esc(dl) + '</span>' +
+      '<span class="muted" style="flex:0 0 auto;font-size:12px;white-space:nowrap;">' + dateHtml + '</span>' +
       lvBtn +
     '</div>';
     var pathHtml = '';
     if (hasPath) {
-      var chain = it.path.map(function(p){ return esc(p); }).join(' <span style="opacity:.55;">/</span> ') +
-        ' <span style="opacity:.55;">/</span> <b style="color:var(--text);font-weight:600;">' + esc(it.title) + '</b>';
-      pathHtml = '<div class="todo-dtl-path" style="display:none;margin:0 2px 7px 24px;padding:5px 9px;border-radius:6px;background:rgba(127,127,127,.08);font-size:12px;line-height:1.6;color:var(--muted);word-break:break-all;">📁 ' + chain + '</div>';
+      // 阶梯树: 每层缩进 + └ 连接线, 末行为当前任务(加粗 + "本条"徽章), 层级一目了然
+      var chainHtml = it.path.map(function(p, i){
+        var indent = 10 + i * 14;
+        var branch = i === 0 ? '' : '<span style="opacity:.55;margin-right:4px;">└</span>';
+        return '<div style="padding:1px 0 1px ' + indent + 'px;color:var(--muted);">' + branch + esc(p) + '</div>';
+      }).join('');
+      var selfIndent = 10 + it.path.length * 14;
+      var selfHtml = '<div style="padding:1px 0 1px ' + selfIndent + 'px;color:var(--text);font-weight:600;">' +
+        '<span style="opacity:.55;margin-right:4px;">└</span>' + esc(it.title) +
+        '<span style="margin-left:6px;padding:0 7px;border-radius:9px;font-size:11px;font-weight:600;color:#4a6cf7;background:#eef1ff;">本条</span></div>';
+      pathHtml = '<div class="todo-dtl-path" style="display:none;margin:0 2px 7px 24px;padding:8px 10px;border-radius:8px;background:rgba(127,127,127,.08);font-size:12px;line-height:1.8;word-break:break-all;">' +
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;">🗂️ 所属层级（主任务在前）</div>' +
+        chainHtml + selfHtml +
+      '</div>';
     }
     // 行与展开块包在同一 item 内, 分隔线落在整组底部, 展开内容视觉上仍属于本任务
     return '<div class="todo-dtl-item" style="border-bottom:1px solid var(--border);">' + rowHtml + pathHtml + '</div>';
