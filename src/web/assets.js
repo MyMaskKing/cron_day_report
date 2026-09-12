@@ -6067,6 +6067,9 @@ function todoAttachDoneLinkToTip(container, root, opts) {
 function todoRenderView(container, trees, opts) {
   opts = opts || {};
   var view = opts.view || 'card';
+  // 本次重绘会清空容器, 所有临时添加框 DOM 都被销毁: 作废旧 closer,
+  // 避免恢复链中新框注册时执行僵尸 close() 误清持久草稿(会导致切 App 回来框无法自动展开)
+  _todoAddFormCloser = null;
   var crumb = opts.crumbEl || null;
   // 进程重建后首帧: 持久化的详情任务仍存在则回到详情视图(底部子任务输入框随其挂载并回填草稿)
   var detailRootId = opts.detailRootId;
@@ -6173,6 +6176,15 @@ function todoRegisterAddForm(closeFn) {
 }
 function todoUnregisterAddForm(closeFn) {
   if (_todoAddFormCloser === closeFn) _todoAddFormCloser = null;
+}
+// resize 多由软键盘弹起引起(只变高度): 此时重算视图会触发全量重绘, 销毁正在输入的
+// 临时"添加子任务"框。仅在可视【宽度】变化(旋转/拖窗跨越 640px)时才重算, 与监听本意一致。
+var _todoLastInnerWidth = window.innerWidth;
+function todoApplyViewOnResize(getRowsFn, onDrawTree) {
+  var w = window.innerWidth;
+  if (w === _todoLastInnerWidth) return;
+  _todoLastInnerWidth = w;
+  if (_todoView !== 'default') applyTodoView(getRowsFn, onDrawTree);
 }
 // 内联添加框用的自包含"重复规则"控件(与编辑弹窗 todoFormHtml 同口径, 无 id 避免多实例冲突):
 // 不重复 / 每日 / 每周 / 每月(按日期) / 每月第 N 个星期 X / 每年, 含"每 N 单位"数字框与 nth/星期双下拉
@@ -7841,8 +7853,8 @@ document.getElementById('todoDrawerMask').addEventListener('click', function(){
   try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
   applyTodoView(_todoGetRows, drawTree);
 });
-// 视口尺寸变化时刷新抽屉状态(用户拖窗跨越 640px 边界)
-window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, drawTree); });
+// 视口【宽度】变化时刷新抽屉状态(用户拖窗跨越 640px 边界/旋转); 软键盘只变高度, 不重绘
+window.addEventListener('resize', function(){ todoApplyViewOnResize(_todoGetRows, drawTree); });
 document.getElementById('hideDone').addEventListener('change', drawTree);
 // 筛选 tab：点击切换 active 并重绘
 document.getElementById('todoFilter').addEventListener('click', function(e){
@@ -8181,7 +8193,7 @@ document.getElementById('todoDrawerMask').addEventListener('click', function(){
   try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
   applyTodoView(_todoGetRows, function(){ loadPublic(); });
 });
-window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, function(){ loadPublic(); }); });
+window.addEventListener('resize', function(){ todoApplyViewOnResize(_todoGetRows, function(){ loadPublic(); }); });
 bindTodoChartRefresh(loadChart);
 // hideDone 复选框: 变化时仅重绘可见树, 不重拉数据
 var _hb = document.getElementById('hideDone');
@@ -8408,7 +8420,7 @@ async function reloadReport() {
       try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
       applyTodoView(_todoGetRows, drawTree);
     });
-    window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, drawTree); });
+    window.addEventListener('resize', function(){ todoApplyViewOnResize(_todoGetRows, drawTree); });
     // 首次应用视图状态(会触发 drawTree)
     applyTodoView(_todoGetRows, drawTree);
     // hideDone / 时间筛选 tab: 与登录态同结构
@@ -8686,7 +8698,7 @@ document.getElementById('todoDrawerMask').addEventListener('click', function(){
   try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
   applyTodoView(_todoGetRows, function(){ loadCollab(); });
 });
-window.addEventListener('resize', function(){ if (_todoView !== 'default') applyTodoView(_todoGetRows, function(){ loadCollab(); }); });
+window.addEventListener('resize', function(){ todoApplyViewOnResize(_todoGetRows, function(){ loadCollab(); }); });
 bindTodoChartRefresh(loadChart);
 // hideDone / 时间筛选 tab: 与登录态 TODO_JS 一致, 变化时仅重绘可见树, 不重拉数据
 var _hb = document.getElementById('hideDone');
