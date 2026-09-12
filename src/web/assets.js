@@ -4753,6 +4753,25 @@ function todoMaybeRestoreDetail(trees) {
   } catch (e) {}
   return null;
 }
+// 快捷"添加子任务"内联框(openInlineAddChild)的持久化: 它是临时 DOM, App 切后台进程被杀后
+// 重载就消失。打开即记录父任务 id(空框也要能恢复), 输入实时存标题/备注/日期, 关闭即清。
+var TODO_INLINE_KEY = 'todo_inline_add';
+function todoInlineRec() { try { return JSON.parse(localStorage.getItem(TODO_INLINE_KEY) || 'null'); } catch (e) { return null; } }
+function todoInlineWrite(o) { try { localStorage.setItem(TODO_INLINE_KEY, JSON.stringify(o)); } catch (e) {} }
+function todoInlineClear() { try { localStorage.removeItem(TODO_INLINE_KEY); } catch (e) {} }
+var _todoInlineRestored = false;
+// 重载首帧一次性恢复: 记录的父任务在当前可见树中时, 程序化点击其"添加子任务"按钮重新展开
+function todoRestoreInlineAdd(container) {
+  if (_todoInlineRestored) return;
+  var rec = todoInlineRec();
+  if (!rec || !rec.parent || !container || !container.querySelector) return;
+  if (!container.querySelector('.todo-node')) return; // 数据未就绪的空帧, 等后续渲染再判定
+  _todoInlineRestored = true;
+  var row = container.querySelector('.todo-node[data-id="' + rec.parent + '"]');
+  var btn = row && row.querySelector('[data-addchild]');
+  if (btn) btn.click();
+  else todoInlineClear(); // 父任务已删除/被当前筛选排除: 丢弃残留记录, 不带到后续操作
+}
 // 侧边抽屉开合: null=按视口默认(PC 开/手机收), true/false=用户显式选择
 var _todoDrawerOpen = null;
 try { var _d = localStorage.getItem('todoDrawer'); if (_d === '1') _todoDrawerOpen = true; else if (_d === '0') _todoDrawerOpen = false; } catch(e){}
@@ -5787,6 +5806,7 @@ function renderTodoTree(container, trees, opts) {
         var b1 = mkOp(ICONS.plus, '添加子任务', function(){
           openInlineAddChild(b1, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
         });
+        b1.setAttribute('data-addchild', '1'); // 供重载后 todoRestoreInlineAdd 定位并程序化展开
         ops.appendChild(b1);
       }
       if (opts.onDetail || opts.onEdit) { var b2 = mkOp(ICONS.view, '查看详情', function(){ (opts.onDetail || opts.onEdit)(node); }); ops.appendChild(b2); }
@@ -5829,6 +5849,8 @@ function renderTodoTree(container, trees, opts) {
   // 不能传 todoRootDue(子树最小日期): 否则新模式下无自身日期的子任务会错误继承兄弟的日期
   trees.forEach(function(t){ var el = walk(t, startDepth, opts.forcedRootDue != null ? opts.forcedRootDue : t.due_date); if (el) { container.appendChild(el); any = true; } });
   if (!any) container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
+  // 进程重建首帧: 自动展开切后台前打开的快捷"添加子任务"内联框(openInlineAddChild 内部回填草稿)
+  todoRestoreInlineAdd(container);
 }
 // 卡片视图：只渲染顶层任务, 一个顶层任务=一张卡片, 不展开子任务
 // opts: today / onToggle / onEdit / onDel / onShare / onEnter / readOnly
@@ -6224,6 +6246,9 @@ function openInlineAddChild(btnEl, parentNode, submitFn) {
   }
   // 逐级门控: 能否给新子任务设日期/重复只看【直接父】是否勾选 child_due(与编辑弹窗同口径)
   var childDueMode = !!parentNode.child_due;
+  // 进程重建恢复: 持久记录的父任务正是本任务时, 打开后回填标题/备注/日期且不抢焦点(不弹键盘)
+  var _rec0 = todoInlineRec();
+  var restoring = !!(_rec0 && _rec0.parent === parentNode.id);
   var box = document.createElement('div');
   box.className = 'todo-inline-add';
   var titleEl = document.createElement('textarea');
@@ -6255,13 +6280,35 @@ function openInlineAddChild(btnEl, parentNode, submitFn) {
   // 单例: 注册关闭动作(打开本框会自动关掉画面上其它添加框); 键盘弹起时把输入框抬到可视区
   function onVV() { if (box.isConnected) todoLiftIntoView(box); }
   function close() {
+    todoInlineClear(); // 取消/保存成功/被其它添加框顶替: 清持久记录
     if (box.parentNode) box.parentNode.removeChild(box);
     if (window.visualViewport) window.visualViewport.removeEventListener('resize', onVV);
     todoUnregisterAddForm(close);
   }
-  todoRegisterAddForm(close);
+  todoRegisterAddForm(close); // 可能先关掉旧框(其 close 已清旧记录), 之后再写本框记录
+  function persist() {
+    todoInlineWrite({
+      parent: parentNode.id,
+      title: titleEl.value || '',
+      note: noteEl.value || '',
+      due: dueEl ? dueEl.value : ''
+    });
+  }
+  titleEl.addEventListener('input', persist);
+  noteEl.addEventListener('input', persist);
+  if (dueEl) dueEl.addEventListener('change', persist);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', onVV);
-  setTimeout(function(){ titleEl.focus(); todoLiftIntoView(box); }, 50);
+  if (restoring) {
+    titleEl.value = _rec0.title || '';
+    noteEl.value = _rec0.note || '';
+    if (dueEl && _rec0.due) dueEl.value = _rec0.due;
+    titleEl.dispatchEvent(new Event('input')); // 触发 autoGrow; persist 同步落盘
+    noteEl.dispatchEvent(new Event('input'));
+    // 恢复态不主动 focus/抬升(避免切回 App 就弹键盘); 用户点入即正常输入
+  } else {
+    persist(); // 用户主动打开: 空框也记录, 切后台被杀后整框可恢复
+    setTimeout(function(){ titleEl.focus(); todoLiftIntoView(box); }, 50);
+  }
 
   async function submit() {
     var title = (titleEl.value || '').trim();
