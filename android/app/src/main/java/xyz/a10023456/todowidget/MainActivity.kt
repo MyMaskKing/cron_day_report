@@ -416,8 +416,8 @@ private fun AppShell(
                             false // 不消费, WebView 正常处理并继续派发给网页
                         }
                         // 后台回收后重建: 优先恢复保存的历史栈/页面状态(不重新 loadUrl,
-                        // 避免页面全新加载丢掉状态); 无保存态或恢复失败才正常打开目标 URL
-                        val restored = savedWebState?.let { restoreState(it) } ?: false
+                        // 避免页面全新加载丢掉状态); restoreState 成功返回 RestoreResult、失败返回 null
+                        val restored = savedWebState?.let { restoreState(it) } != null
                         if (!restored) {
                             loadUrl(targetUrl, APP_HEADERS)
                         }
