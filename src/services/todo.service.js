@@ -132,7 +132,8 @@ function rootDueOf(root) {
     const own = node.due_date || inheritedDue;
     // 仅叶子(可完成项)参与显示日期; 中间层父任务的日期只作其下无日期叶子的继承默认值,
     // 不单独代表到期项(与前端 assets.js todoRootDue 同口径)
-    if (node.children.length === 0 && own && (!min || own < min)) min = own;
+    // 勾了 child_due 的空壳(任意层级, 暂无下级)是分组容器, 不用继承来的日期冒充到期叶子
+    if (node.children.length === 0 && !node.child_due && own && (!min || own < min)) min = own;
     for (const c of node.children) walk(c, node.due_date || inheritedDue);
   };
   walk(root, null);
@@ -166,9 +167,9 @@ function countStats(rows, today) {
   for (const r of rows) {
     if (hasChild.has(r.id)) continue; // 非叶子（父任务）跳过
     if (hasDoneAncestor(r)) continue;
-    // 新模式(child_due)空主任务是分组容器(日期由子任务决定), 自身无日期是结构使然,
-    // 不算备忘录/待办/总数; 待其添加子任务后由叶子子任务计入
-    if (r.parent_id == null && r.child_due) continue;
+    // 勾了"子任务各自设日期"的空壳是分组容器(日期由下一级决定), 自身无日期是结构使然,
+    // 任意层级均不算备忘录/待办/总数; 待其添加子任务后由叶子后代计入
+    if (r.child_due) continue;
     total++;
     if (r.done) { done++; continue; }
     const due = effDueOf(r, byId);
@@ -217,7 +218,8 @@ function buildWidgetGroups(rows, today, scope, limit) {
     const walk = (n, ancestors, isRoot, inheritedDue) => {
       if (n.recurrence) hasRecur = true;
       const ownDue = n.due_date || inheritedDue;
-      if (!isRoot && n.children.length === 0 && leafPass(ownDue)) {
+      // child_due 空壳(任意层级)是分组容器, 不作为可勾选叶子下发
+      if (!isRoot && n.children.length === 0 && !n.child_due && leafPass(ownDue)) {
         const over = !!(today && ownDue && ownDue < today);
         out.push({
           id: n.id, title: n.title, path: ancestors,
@@ -343,6 +345,37 @@ function buildEffDoneResolver(raw) {
 }
 
 /**
+ * 从 chartRaw 的全量 tree 派生「计入图表的叶子任务」：
+ * 仅末端叶子参与（与 countStats 叶子口径一致，逐级门控下父与子不会重复计数）；
+ * 勾了 child_due 的空壳跳过；有效截止日 = 自身 due 优先，否则沿 parent 链继承最近祖先 due；
+ * 无任何有效日期的叶子（备忘录）不返回。
+ * @param {Object} raw - storage.chartRaw 结果 { tree: [{id,parent_id,due,child_due,done,done10,title}] }
+ * @returns {Array<{id,parent_id,due,done,done10,title}>}
+ */
+function buildEffLeafTasks(raw) {
+  const byId = new Map();
+  (raw.tree || []).forEach(r => { if (r && r.id != null) byId.set(r.id, r); });
+  const parentIds = new Set();
+  byId.forEach(r => { if (r.parent_id != null) parentIds.add(r.parent_id); });
+  const out = [];
+  byId.forEach(r => {
+    if (parentIds.has(r.id)) return;     // 非叶子（父任务）跳过
+    if (r.child_due) return;            // 独立截止空壳跳过
+    let due = r.due || null, cur = r, guard = 0;
+    if (!due) {
+      // 自身无日期 → 沿链继承最近祖先的日期（与 effDueOf 同口径，tree 缺行时终止）
+      while (cur.parent_id != null && byId.has(cur.parent_id) && guard++ < 100) {
+        cur = byId.get(cur.parent_id);
+        if (cur.due) { due = cur.due; break; }
+      }
+    }
+    if (!due) return;
+    out.push({ id: r.id, parent_id: r.parent_id, due, done: r.done, done10: r.done10, title: r.title });
+  });
+  return out;
+}
+
+/**
  * 构造图表序列：按 range 决定按天/按月，产出连续标签与 总任务/未完成/完成 三条序列
  * ≤60 天按天，半年/1年/3年按月。
  * 对轴上每一天 d，直接按定义逐任务计数（不做历史反推，结果恒非负）：
@@ -357,14 +390,15 @@ function buildEffDoneResolver(raw) {
  *   details[i] = { label(日格 YYYY-MM-DD / 月格 YYYY-MM), done:[{id,title,due,path,adopted,late}], open:[...] }
  *   path=祖先标题(根在前,不含自身,旧模式顶层行为空数组); adopted=1 表示自身未勾选、随已完成主任务收编;
  *   late=1 表示逾期补做(完成组)/逾期挂账(未完成组)
- * @param {Object} raw - storage.chartRaw 结果 { datedTasks:[{id,parent_id,due,done,done10,title}], tree:[...] }
+ * @param {Object} raw - storage.chartRaw 结果 { tree:[{id,parent_id,due,child_due,done,done10,title}] }
  * @param {string} range - month|7d|30d|60d|6m|1y|3y
  * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
  * @returns {Object} { range, unit, labels[], total[], open[], done[], details[] }
  */
 function buildChartSeries(raw, range, today) {
   const cfg = CHART_RANGES[range] || CHART_RANGES['7d'];
-  const tasks = (raw.datedTasks || []).filter(t => t && t.due);
+  // 仅末端叶子 + 有效截止日（自身优先否则继承祖先）; 逐级门控下父/子不重复计数
+  const tasks = buildEffLeafTasks(raw);
   const effDone = buildEffDoneResolver(raw);
   // 逐行预算有效完成态（同一行在按天循环里被反复判定）
   const effMap = new Map();
@@ -481,7 +515,7 @@ function buildChartSeries(raw, range, today) {
  *           当天无到期任务 = idle（中性，不断签也不计天数）；today 当天未收官 = pending（不计入）。
  * 与 buildChartSeries 同一脏数据约定：done=1 但缺 done10 按「早已完成」处理，不计逾期。
  *
- * @param {Object} raw - storage.todo.chartRaw 的返回 { datedTasks, done }
+ * @param {Object} raw - storage.todo.chartRaw 的返回 { tree }
  * @param {number} days - 窗口天数，窗口含 today
  * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
  * @returns {Object} { days, currentStreak, longestStreak, winRate, onTimeRate, overdueRate, daily[] }
@@ -489,7 +523,8 @@ function buildChartSeries(raw, range, today) {
  *   daily: [{ date:'YYYY-MM-DD', planned, done, overdue, rate: 0..1|null, mark: win|fail|idle|pending }]
  */
 function buildAnalysis(raw, days, today) {
-  const tasks = (raw.datedTasks || []).filter(t => t && t.due);
+  // 仅末端叶子 + 有效截止日，与 buildChartSeries / countStats 同口径
+  const tasks = buildEffLeafTasks(raw);
   const effDone = buildEffDoneResolver(raw);
   const DAY = 86400000;
   const todayMs = dayMs(today);

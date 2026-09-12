@@ -637,8 +637,8 @@ function createD1Adapter(env) {
         // monthly_nth_weekday 伴生列: 仅该周期启用时保留, 其它一律 null
         const nth = (rec === 'monthly_nth_weekday' && t.recur_nth != null) ? parseInt(t.recur_nth, 10) : null;
         const wd = (rec === 'monthly_nth_weekday' && t.recur_weekday != null) ? parseInt(t.recur_weekday, 10) : null;
-        // child_due 仅顶层任务有意义; 子任务恒为 0
-        const childDue = (t.parent_id == null && t.child_due) ? 1 : 0;
+        // child_due 逐级门控(合法性由 API 层把关): 1=本任务不设日期, 其直接子任务可各自设日期
+        const childDue = t.child_due ? 1 : 0;
         // sort_order 未显式传入时取同父(同 user_id + 同 parent_id)最大值 +1, 保证新建任务永远
         // 追加到同层末尾(= 创建时间顺序); 否则默认 0 会在拖拽排序(reorder 写 0..n)后把新任务插到序列中间.
         // parent_id IS ? 绑 NULL 即 IS NULL, 绑 id 即等价 = id(SQLite IS 语义).
@@ -678,7 +678,7 @@ function createD1Adapter(env) {
         const wdSrc = t.recur_weekday != null ? t.recur_weekday : (!hasRec ? cur.recur_weekday : null);
         const nth = (rec === 'monthly_nth_weekday' && nthSrc != null) ? parseInt(nthSrc, 10) : null;
         const wd = (rec === 'monthly_nth_weekday' && wdSrc != null) ? parseInt(wdSrc, 10) : null;
-        // child_due 仅顶层任务有意义; 子任务恒写 0 (其值本就为 0)
+        // child_due 逐级有效(任意层均可勾选); 是否允许切换由 API 层按直接父门控
         const childDue = hasChildDue ? (t.child_due ? 1 : 0) : (cur.child_due || 0);
         await db.prepare(
           'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=?, child_due=?, recurrence=?, recur_interval=?, recur_nth=?, recur_weekday=? WHERE id=? AND user_id=?'
@@ -713,13 +713,14 @@ function createD1Adapter(env) {
           'UPDATE todos SET recurrence=NULL, recur_interval=NULL, recur_nth=NULL, recur_weekday=NULL WHERE id=?'
         ).bind(id).run();
       },
-      // 清空某顶层任务全部后代(不含自身)的截止日期与重复设置（child_due 模式 1→0 回退时调用）
+      // 清空某任务全部后代(不含自身)的截止日期/重复/独立截止开关
+      // （任意层 child_due 1→0 回退时调用: 整支后代重新跟随本任务日期）
       async clearSubtreeDates(rootId) {
         const ids = await this.collectDescendantIds(rootId);
         if (!ids || ids.length === 0) return;
         const placeholders = ids.map(() => '?').join(',');
         await db.prepare(
-          `UPDATE todos SET due_date=NULL, recurrence=NULL, recur_interval=NULL, recur_nth=NULL, recur_weekday=NULL WHERE id IN (${placeholders})`
+          `UPDATE todos SET due_date=NULL, child_due=0, recurrence=NULL, recur_interval=NULL, recur_nth=NULL, recur_weekday=NULL WHERE id IN (${placeholders})`
         ).bind(...ids).run();
       },
       // 同级重排：按 orderedIds 顺序批量写 sort_order=0..n
@@ -936,15 +937,11 @@ function createD1Adapter(env) {
         return results || [];
       },
       // 图表原始数据（按截止日逐天直接计数，不做历史反推，结果不可能为负）：
-      //   datedTasks —— 所有设了截止日的任务行 { id, parent_id, due, done, done10(完成日 YYYY-MM-DD), title }，
-      //                 title 供折线图点击钻取当天任务明细（口径与曲线逐格一致）
-      //                 service 层对轴上每一天 d 直接判定：
-      //                   当天总任务(未完成): due<=d 且 (未完成 或 完成日晚于 d)
-      //                   当天逾期:          due<d  且同上
-      //   tree       —— 同范围全部任务行(含无截止日的容器主任务) { id, parent_id, done, done10, title }，
-      //                 供 service 层做"已完成祖先收编"：主任务完成后其下未逐个勾选的带日期
-      //                 子任务也视为在主任务完成日完成（与列表/日报的完成祖先剪枝同口径）；
-      //                 title 同时用于钻取明细的祖先面包屑（标明子任务来自哪个主任务）
+      //   tree       —— 同范围全部任务行 { id, parent_id, due(自身截止日,可空), child_due, done, done10(完成日), title }，
+      //                 service 层只取末端叶子, 有效截止日=自身 due 优先否则沿 parent 链继承最近祖先 due
+      //                 （与清单 countStats / 日报同口径, 逐级门控下父+子不重复计数）；
+      //                 并做"已完成祖先收编"：父任务完成后其下未逐个勾选的叶子也视为在祖先完成日完成
+      //                 （与列表/日报的完成祖先剪枝同口径）；title 同时用于钻取明细的祖先面包屑
       // 完成量不再由 SQL 聚合：service 层逐行按"自身完成日 / 收编祖先完成日"归桶，
       // 数字与钻取明细同源（取消勾选的一条路径会在 done=0 时残留 done_at，逐行判定带 done=1 不受影响）
       // 可见口径与列表 listVisibleForUser 一致：本人个人任务(user_id=? 且无 shared_cat_id)
@@ -952,7 +949,7 @@ function createD1Adapter(env) {
       // 不能只按 user_id 过滤，否则成员看不到、owner 把任务移入共享后也会从曲线消失。
       // idList 传入则仅统计这些 id（单清单 /t/:token 子树图）。
       // offsetHours 保留兼容调用签名，此口径下不再使用
-      // 返回 { datedTasks: [{id,parent_id,due,done,done10,title}], tree: [{id,parent_id,done,done10,title}] }
+      // 返回 { tree: [{id,parent_id,due,child_due,done,done10,title}] }
       async chartRaw(userId, offsetHours = 8, idList = null) {
         let scope, args;
         if (idList && idList.length) {
@@ -963,15 +960,13 @@ function createD1Adapter(env) {
                     OR shared_cat_id IN (SELECT cat_id FROM todo_shared_cat_members WHERE user_id=?))`;
           args = [userId, userId];
         }
-        const tasksQ = await db.prepare(
-          `SELECT id, parent_id, due_date AS due, done AS done, substr(done_at, 1, 10) AS done10, title
-           FROM todos WHERE ${scope} AND due_date IS NOT NULL`
-        ).bind(...args).all();
         const treeQ = await db.prepare(
-          `SELECT id, parent_id, done AS done, substr(done_at, 1, 10) AS done10, title
+          `SELECT id, parent_id, due_date AS due, child_due, done AS done, substr(done_at, 1, 10) AS done10, title
            FROM todos WHERE ${scope}`
         ).bind(...args).all();
-        return { datedTasks: tasksQ.results || [], tree: treeQ.results || [] };
+        // 仅返回全量 tree: 末端叶子 + 有效截止日(自身优先否则继承祖先)由 service 层派生,
+        // 逐级门控下父与子不再各算一条
+        return { tree: treeQ.results || [] };
       }
     },
 
