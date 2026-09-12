@@ -803,8 +803,8 @@ function openModal(title, bodyHtml, maskClass) {
   var box = document.getElementById('modalBody');
   var tas = box ? box.querySelectorAll('textarea[data-autogrow]') : [];
   Array.prototype.forEach.call(tas, function(ta){ autoGrowTextarea(ta); });
-  // 待办表单: 重复下拉 → 联动"每 N 单位"数字框显隐与单位文案
-  if (box && box.querySelector && box.querySelector('#tfRecur')) todoBindRecurUI();
+  // 待办表单: 重复下拉/child_due 勾选框联动(勾选态下无重复块, 但勾选框仍需绑定以便取消勾选)
+  if (box && box.querySelector && (box.querySelector('#tfRecur') || box.querySelector('#tfChildDue'))) todoBindRecurUI();
 }
 function closeModal() {
   var mask = document.getElementById('modalMask');
@@ -5048,19 +5048,20 @@ function todoRecurLabel(recurrence, interval, nth, weekday) {
 // 幂等: __recBound 标记避免重复绑定
 function todoBindRecurUI() {
   var sel = document.getElementById('tfRecur');
-  if (!sel || sel.__recBound) return;
-  sel.__recBound = 1;
-  var box = document.getElementById('tfRecurNBox');
-  var unit = document.getElementById('tfRecurUnit');
-  var nthWrap = document.getElementById('tfNthWrap');
-  var UNITS = { daily:'天', weekly:'周', monthly:'月', monthly_nth_weekday:'月', yearly:'年' };
-  sel.addEventListener('change', function(){
-    var v = sel.value;
-    if (box) box.style.display = v ? 'inline-flex' : 'none';
-    if (unit && v) unit.textContent = UNITS[v] || '天';
-    if (nthWrap) nthWrap.style.display = (v === 'monthly_nth_weekday') ? 'flex' : 'none';
-  });
-  // child_due 勾选框(主任务/自由子任务表单存在): 勾选后隐藏截止日期/重复块与备忘录提示, 显示模式说明
+  if (sel && !sel.__recBound) {
+    sel.__recBound = 1;
+    var box = document.getElementById('tfRecurNBox');
+    var unit = document.getElementById('tfRecurUnit');
+    var nthWrap = document.getElementById('tfNthWrap');
+    var UNITS = { daily:'天', weekly:'周', monthly:'月', monthly_nth_weekday:'月', yearly:'年' };
+    sel.addEventListener('change', function(){
+      var v = sel.value;
+      if (box) box.style.display = v ? 'inline-flex' : 'none';
+      if (unit && v) unit.textContent = UNITS[v] || '天';
+      if (nthWrap) nthWrap.style.display = (v === 'monthly_nth_weekday') ? 'flex' : 'none';
+    });
+  }
+  // child_due 勾选框独立绑定: 勾选态表单没有重复块, 但取消勾选必须立刻重新显示日期/重复块
   var cd = document.getElementById('tfChildDue');
   if (cd && !cd.__cdBound) {
     cd.__cdBound = 1;
@@ -5074,6 +5075,11 @@ function todoBindRecurUI() {
       if (recurWrap) recurWrap.style.display = on ? 'none' : 'block';
       if (memoTip) memoTip.style.display = on ? 'none' : 'block';
       if (cdTip) cdTip.style.display = on ? 'block' : 'none';
+      // 子任务(无 #tfMemoTip 备忘录提示)取消勾选后日期必填: 空框自动给今天, 避免空值保存被拦
+      if (!on && !memoTip) {
+        var dueEl = document.getElementById('tfDue');
+        if (dueEl && !dueEl.value) dueEl.value = todoTodayStr();
+      }
     }
     cd.addEventListener('change', syncChildDue);
     syncChildDue();
@@ -6517,8 +6523,11 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   var lockedChild = isChild && !allowsDate;
   // 自身勾选态: 锁定子任务恒 false; lockMode(/t/ 协作页)按 forceChildDue(调用方显式传入); 其余读 t.child_due
   var childDueOn = !lockedChild && (lockMode ? !!fopts.forceChildDue : !!t.child_due);
-  // 可重复: 主任务=非容器; 自由子任务=非容器且叶子; 容器/锁定态无重复
-  var canRecur = isChild ? (allowsDate && !childDueOn && fopts.canRecur !== false) : !childDueOn;
+  // 重复块是否"可能出现"(不看当前勾选态): 取消勾选时要能即时显示出来, 故勾选态也渲染但隐藏。
+  // 锁定跟随子任务永不出现; /t/ 锁定根(forceChildDue)无勾选框可取消, 勾选态不渲染;
+  // 非叶子子任务即使取消勾选也不能重复(canRecur=false)
+  var recurAvailable = !lockedChild && (!isChild ? (!lockMode || !childDueOn)
+    : (allowsDate && fopts.canRecur !== false));
   var defDue = t.due_date || (isNew ? todoTodayStr() : '');
   // 日期字段: 主任务/自由子任务均可设(统一包 #tfDueWrap 供勾选联动); 锁定子任务只读跟随
   var dueField = '';
@@ -6568,8 +6577,8 @@ function todoFormHtml(t, isNew, isChild, fopts) {
         '</select>' +
       '</div>' +
       '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">' + ICONS.repeat + '完成后自动生成下一条任务；如"每 2 周"、"每月第一个周一"</p>';
-  var recurBlock = canRecur
-    ? '<div id="tfRecurWrap" style="display:block;">' + recurInner + '</div>'
+  var recurBlock = recurAvailable
+    ? '<div id="tfRecurWrap" style="display:' + (childDueOn ? 'none' : 'block') + ';">' + recurInner + '</div>'
     : '';
   // child_due 勾选框: 主任务与自由子任务均可勾选(开关只管一级, 勾选后其直接子任务才能各自设日期);
   // /t/ 协作页根任务(lockMode)与锁定跟随子任务不渲染
