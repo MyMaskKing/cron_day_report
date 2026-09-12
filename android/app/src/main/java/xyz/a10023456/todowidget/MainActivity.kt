@@ -60,6 +60,9 @@ import kotlinx.coroutines.withContext
  */
 class MainActivity : ComponentActivity() {
 
+    // 当前 WebView 实例引用：供 onSaveInstanceState 保存浏览状态（切后台被系统回收后恢复页面栈/表单）
+    private var webViewRef: WebView? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // 保持 targetSdk 35 默认 edge-to-edge：WebView 不随软键盘收缩，visualViewport 如实反映
@@ -67,15 +70,35 @@ class MainActivity : ComponentActivity() {
         // 键盘上方。不能用 setDecorFitsSystemWindows(true)/adjustResize——那会让 WebView 整体收缩、
         // innerHeight 同步变小，visualViewport 算不出键盘高度(kb=0)，网页避让反而失效。
         val deepUrl = intent?.getStringExtra(Keys.Url.name)
+        val savedWebState = savedInstanceState?.getBundle(KEY_WEBVIEW_STATE)
         setContent {
             MaterialTheme(
                 colorScheme = if (isNight()) darkColorScheme() else lightColorScheme()
             ) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AppShell(initialUrl = deepUrl)
+                    AppShell(
+                        initialUrl = deepUrl,
+                        savedWebState = savedWebState,
+                        onWebView = { webViewRef = it }
+                    )
                 }
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // 后台 Activity 被系统回收前回调：序列化 WebView 历史栈与显示状态，
+        // 返回重建时由 AppShell factory 调 restoreState 恢复，而非重新 loadUrl 丢光状态
+        webViewRef?.let { wv ->
+            val b = Bundle()
+            wv.saveState(b)
+            outState.putBundle(KEY_WEBVIEW_STATE, b)
+        }
+    }
+
+    companion object {
+        private const val KEY_WEBVIEW_STATE = "webview_state"
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -117,7 +140,11 @@ private fun tabIndexFor(url: String?): Int {
 
 @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
 @Composable
-private fun AppShell(initialUrl: String?) {
+private fun AppShell(
+    initialUrl: String?,
+    savedWebState: Bundle? = null,
+    onWebView: ((WebView?) -> Unit)? = null
+) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var baseUrl by remember { mutableStateOf(AppConfig.getBaseUrl(context)) }
     var selected by rememberSaveable { mutableStateOf(tabIndexFor(initialUrl)) }
@@ -388,8 +415,14 @@ private fun AppShell(initialUrl: String?) {
                             }
                             false // 不消费, WebView 正常处理并继续派发给网页
                         }
-                        loadUrl(targetUrl, APP_HEADERS)
+                        // 后台回收后重建: 优先恢复保存的历史栈/页面状态(不重新 loadUrl,
+                        // 避免页面全新加载丢掉状态); 无保存态或恢复失败才正常打开目标 URL
+                        val restored = savedWebState?.let { restoreState(it) } ?: false
+                        if (!restored) {
+                            loadUrl(targetUrl, APP_HEADERS)
+                        }
                         lastLoadedUrl = targetUrl
+                        onWebView?.invoke(this)
                     }
                     // 下拉刷新：网页滚到顶部时下拉触发 reload，onPageFinished 收起指示器
                     swipe.addView(

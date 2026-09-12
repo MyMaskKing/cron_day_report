@@ -805,11 +805,15 @@ function openModal(title, bodyHtml, maskClass) {
   Array.prototype.forEach.call(tas, function(ta){ autoGrowTextarea(ta); });
   // 待办表单: 重复下拉/child_due 勾选框联动(勾选态下无重复块, 但勾选框仍需绑定以便取消勾选)
   if (box && box.querySelector && (box.querySelector('#tfRecur') || box.querySelector('#tfChildDue'))) todoBindRecurUI();
+  // 待办表单草稿恢复/暂存(切后台进程被回收后重开表单可恢复标题/备注); 非待办弹窗无此标记, no-op
+  if (box && box.querySelector && box.querySelector('#tfDraftScope') && typeof todoBindFormDraft === 'function') todoBindFormDraft();
 }
 function closeModal() {
   var mask = document.getElementById('modalMask');
   if (!mask) return;
   var wasOpen = mask.classList.contains('show');
+  // 任务表单关闭(保存或取消)即清草稿; 进程被杀不经过这里, 草稿得以保留
+  try { if (typeof window.__todoDraftClose === 'function') window.__todoDraftClose(); } catch (e) {}
   mask.classList.remove('show');
   if (wasOpen) unlockBodyScroll();
   // 弹窗关闭后按当前滚动位置恢复原生下拉刷新开关
@@ -4676,6 +4680,39 @@ bindQuickLogin('asset');
 // onAddChildSubmit(node, payload) → Promise: 由业务侧封装 api + reload; 卡片/树/详情页共用同一 submitFn 通道
 // 用 createElement + addEventListener，规避模板串内引号转义。
 const TODO_TREE_CORE = `
+// ============ 任务表单草稿（防 App 切后台被系统回收进程后丢输入） ============
+// 只暂存标题/备注文字(丢失成本最高); 日期/优先级/重复等选择项不暂存, 避免与勾选联动错位。
+// 正常保存/取消都会走 closeModal → __todoDraftClose 清除; 仅异常退出(进程被杀)才会留下草稿。
+var TODO_DRAFT_KEY = 'todo_form_draft';
+function todoDraftGet(scope) {
+  try {
+    var d = JSON.parse(localStorage.getItem(TODO_DRAFT_KEY) || 'null');
+    return (d && d.scope === scope) ? d : null;
+  } catch (e) { return null; }
+}
+function todoDraftPut(scope, title, note) {
+  try { localStorage.setItem(TODO_DRAFT_KEY, JSON.stringify({ scope: scope, title: title || '', note: note || '' })); } catch (e) {}
+}
+function todoDraftClear() { try { localStorage.removeItem(TODO_DRAFT_KEY); } catch (e) {} }
+// 弹窗含任务表单(#tfDraftScope)时调用: 同 scope 草稿回填, 输入实时保存, 注册关闭清除钩子
+function todoBindFormDraft() {
+  var scopeEl = document.getElementById('tfDraftScope');
+  var titleEl = document.getElementById('tfTitle');
+  if (!scopeEl || !titleEl) return;
+  var scope = scopeEl.value || 'new';
+  var d = todoDraftGet(scope);
+  var noteEl = document.getElementById('tfNote');
+  if (d) {
+    if (d.title) titleEl.value = d.title;
+    if (d.note && noteEl) noteEl.value = d.note;
+    titleEl.dispatchEvent(new Event('input'));
+    if (noteEl) noteEl.dispatchEvent(new Event('input')); // 触发自动增高与 md 编辑器同步
+  }
+  var box = document.getElementById('modalBody');
+  function save() { todoDraftPut(scope, titleEl.value, noteEl ? noteEl.value : ''); }
+  if (box) { box.addEventListener('input', save); box.addEventListener('change', save); }
+  window.__todoDraftClose = function () { window.__todoDraftClose = null; todoDraftClear(); };
+}
 // 视图三态循环: default(带页面 chrome 的默认页) → card(全屏卡片) → tree(全屏完整树) → default
 // 初始化统一进全屏(用户诉求): localStorage 记录 'tree' 时沿用完整树全屏, 其他情况一律 'card' 全屏卡片;
 // 退出全屏产生的 'default' 只在本会话生效, 下次页面加载再次回到全屏
@@ -6602,7 +6639,9 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   } else {
     dueTip = '<p id="tfMemoTip" class="muted" style="margin:-4px 0 10px;font-size:12px;display:' + (childDueOn ? 'none' : 'block') + ';">📌 留空截止日期即作备忘录，不计入日报</p>';
   }
-  return '<label>标题</label>' +
+  // 草稿作用域标记: 编辑按任务 id, 新建统一 'new'(同时只有一份未提交新建草稿), 供 todoBindFormDraft 使用
+  return '<input type="hidden" id="tfDraftScope" value="' + (t.id ? 'edit:' + t.id : 'new') + '">' +
+    '<label>标题</label>' +
     '<textarea id="tfTitle" rows="2" data-autogrow="1" placeholder="要做什么？（支持换行）" style="resize:vertical;">' + esc(t.title || '') + '</textarea>' +
     childDueBox +
     '<div class="row">' +
