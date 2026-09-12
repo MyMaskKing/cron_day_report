@@ -6523,8 +6523,9 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   // 日期字段: 主任务/自由子任务均可设(统一包 #tfDueWrap 供勾选联动); 锁定子任务只读跟随
   var dueField = '';
   if (lockedChild) {
-    dueField = '<div style="padding:6px 10px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);color:var(--muted,#888);font-size:13px;">'
-      + '📅 截止日期跟随上级任务' + (fopts.inheritDue ? '：' + esc(fopts.inheritDue) : '（上级暂未设置日期）') + '</div>';
+    // 独占 .row 整行(flex:0 0 100%), 避免被两列布局挤窄导致冒号后断行; 日期部分 nowrap 不被拆开
+    dueField = '<div style="flex:0 0 100%;width:100%;padding:7px 10px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);color:var(--muted,#888);font-size:13px;line-height:1.5;">'
+      + '📅 截止日期跟随上级任务' + (fopts.inheritDue ? '：<span style="white-space:nowrap;">' + esc(fopts.inheritDue) + '</span>' : '（上级暂未设置日期）') + '</div>';
   } else {
     dueField = '<div id="tfDueWrap" style="display:' + (childDueOn ? 'none' : 'block') + ';"><label>截止日期</label><input id="tfDue" type="date" value="' + defDue + '"></div>';
   }
