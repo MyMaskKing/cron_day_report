@@ -4759,18 +4759,19 @@ var TODO_INLINE_KEY = 'todo_inline_add';
 function todoInlineRec() { try { return JSON.parse(localStorage.getItem(TODO_INLINE_KEY) || 'null'); } catch (e) { return null; } }
 function todoInlineWrite(o) { try { localStorage.setItem(TODO_INLINE_KEY, JSON.stringify(o)); } catch (e) {} }
 function todoInlineClear() { try { localStorage.removeItem(TODO_INLINE_KEY); } catch (e) {} }
-var _todoInlineRestored = false;
-// 重载首帧一次性恢复: 记录的父任务在当前可见树中时, 程序化点击其"添加子任务"按钮重新展开
+// 每次树渲染后尝试恢复: 页面加载存在多次重绘(视图应用一帧 + 异步 loadTodos 重绘一帧),
+// 不能做一次性恢复——程序化展开的框会被后续 innerHTML 重绘冲掉。改为每帧检查:
+// 记录在、父任务在当前树里、其下方还没有展开中的内联框时, 程序化点 ➕ 重新展开(并回填草稿);
+// 用户取消/保存会清记录, 重绘即不再展开。父任务不在当前视图(筛选/数据未就绪)本帧跳过, 等下一帧。
 function todoRestoreInlineAdd(container) {
-  if (_todoInlineRestored) return;
   var rec = todoInlineRec();
   if (!rec || !rec.parent || !container || !container.querySelector) return;
-  if (!container.querySelector('.todo-node')) return; // 数据未就绪的空帧, 等后续渲染再判定
-  _todoInlineRestored = true;
   var row = container.querySelector('.todo-node[data-id="' + rec.parent + '"]');
-  var btn = row && row.querySelector('[data-addchild]');
+  if (!row) return;
+  var nxt = row.nextElementSibling;
+  if (nxt && nxt.classList && nxt.classList.contains('todo-inline-add')) return; // 已展开, 不重复点
+  var btn = row.querySelector('[data-addchild]');
   if (btn) btn.click();
-  else todoInlineClear(); // 父任务已删除/被当前筛选排除: 丢弃残留记录, 不带到后续操作
 }
 // 侧边抽屉开合: null=按视口默认(PC 开/手机收), true/false=用户显式选择
 var _todoDrawerOpen = null;
