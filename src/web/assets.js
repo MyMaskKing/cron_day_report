@@ -6183,6 +6183,15 @@ function todoRegisterAddForm(closeFn) {
 function todoUnregisterAddForm(closeFn) {
   if (_todoAddFormCloser === closeFn) _todoAddFormCloser = null;
 }
+// 退出详情前收口当前打开的添加框(内联框 close / 底部常驻框 collapse, 都会清各自草稿),
+// 并复位连续录入态: 保证"返回再进详情"是折叠的全新状态。
+// 进程被杀不经过这里(直接重载), localStorage 草稿保留, 切 App 恢复不受影响。
+function todoExitDetailCloseAddForm() {
+  var closer = _todoAddFormCloser;
+  _todoAddFormCloser = null;
+  if (closer) { try { closer(); } catch (e) {} }
+  window._todoAdderActive = 0;
+}
 // resize 多由软键盘弹起引起(只变高度): 此时重算视图会触发全量重绘, 销毁正在输入的
 // 临时"添加子任务"框。仅在可视【宽度】变化(旋转/拖窗跨越 640px)时才重算, 与监听本意一致。
 var _todoLastInnerWidth = window.innerWidth;
@@ -6449,21 +6458,37 @@ function mountDetailAdder(container, parentNode, submitFn) {
     titleEl.dispatchEvent(new Event('input')); noteEl.dispatchEvent(new Event('input'));
     wrap.classList.remove('collapsed'); wrap.classList.add('editing');
     todoRegisterAddForm(collapse);
+    bindDocClick();
     if (window.visualViewport) window.visualViewport.addEventListener('resize', onVV);
   } else if (window._todoAdderActive) {
     // 若上次保存后处于连续录入态, 重绘后自动展开(与 expand 同口径: 注册单例 + 抬升)
     wrap.classList.remove('collapsed'); wrap.classList.add('editing');
     todoRegisterAddForm(collapse);
+    bindDocClick();
     if (window.visualViewport) window.visualViewport.addEventListener('resize', onVV);
     setTimeout(function(){ titleEl.focus(); todoLiftIntoView(wrap); }, 50);
   }
 
+  // 点击框外任意位置即收起(与取消/Esc 同语义): 捕获阶段监听, 行内按钮 stopPropagation 也拦得到。
+  // 排除: 框自身(含占位符)、弹窗内部(校验失败 alertModal 点确定要保留输入);
+  // 重绘销毁 wrap 但没走 collapse 时借 isConnected 自清理, 不留僵尸监听。
+  function onDocClick(e) {
+    if (!wrap.isConnected) { document.removeEventListener('click', onDocClick, true); return; }
+    var t = e.target;
+    if (t && t.closest && (t.closest('.todo-detail-adder') || t.closest('.modal-mask'))) return;
+    collapse();
+  }
+  function bindDocClick() {
+    document.removeEventListener('click', onDocClick, true);
+    document.addEventListener('click', onDocClick, true);
+  }
   function expand() {
     wrap.classList.remove('collapsed');
     wrap.classList.add('editing');
     window._todoAdderActive = 1;
     // 单例: 展开本框会自动关掉画面上其它添加框
     todoRegisterAddForm(collapse);
+    bindDocClick();
     if (window.visualViewport) window.visualViewport.addEventListener('resize', onVV);
     setTimeout(function(){ titleEl.focus(); todoLiftIntoView(wrap); }, 50);
   }
@@ -6480,6 +6505,7 @@ function mountDetailAdder(container, parentNode, submitFn) {
     wrap.classList.add('collapsed');
     window._todoAdderActive = 0;
     if (window.visualViewport) window.visualViewport.removeEventListener('resize', onVV);
+    document.removeEventListener('click', onDocClick, true);
     todoUnregisterAddForm(collapse);
   }
   async function submit() {
@@ -7552,7 +7578,7 @@ function drawTree() {
     detailRootId: _todoDetailRootId,
     crumbEl: crumb,
     today: todayStr(), hideDone: hideDone,
-    onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
+    onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
     onDetail: function(node){
       openTodoDetail(node, {
@@ -8143,7 +8169,7 @@ function drawTree(trees) {
     detailRootId: _todoDetailRootId,
     crumbEl: crumb,
     today: _today, hideDone: hideDone,
-    onExitDetail: function(){ _todoDetailRootId = null; drawTree(visibleTrees()); },
+    onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(visibleTrees()); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(visibleTrees()); },
     onDetail: function(node){
       openTodoDetail(node, {
@@ -8275,7 +8301,7 @@ function drawTree() {
     detailRootId: _todoDetailRootId,
     crumbEl: document.getElementById('todoCrumb'),
     today: _today, hideDone: hideDone,
-    onExitDetail: function(){ _todoDetailRootId = null; drawTree(); },
+    onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
     onDetail: function(node){
       openTodoDetail(node, {
@@ -8621,7 +8647,7 @@ function drawTree(trees) {
     detailRootId: _todoDetailRootId,
     crumbEl: document.getElementById('todoCrumb'),
     today: _today, hideDone: hideDone,
-    onExitDetail: function(){ _todoDetailRootId = null; drawTree(visibleTrees()); },
+    onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(visibleTrees()); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(visibleTrees()); },
     onDetail: function(node){
       openTodoDetail(node, {
