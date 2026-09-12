@@ -4755,6 +4755,11 @@ function todoMaybeRestoreDetail(trees) {
 }
 // 快捷"添加子任务"内联框(openInlineAddChild)的持久化: 它是临时 DOM, App 切后台进程被杀后
 // 重载就消失。打开即记录父任务 id(空框也要能恢复), 输入实时存标题/备注/日期, 关闭即清。
+// 恢复锁: 用户点"保存/添加"后, submitFn 内部会先全量重绘再返回, 此时草稿记录尚未清除,
+// 不能把"保存引发的重绘"误判为进程恢复而重新展开输入框。仅内存态, 页面重载即为 false(正常恢复)。
+var _todoAddRestoreLocked = false;
+function todoLockAddRestore() { _todoAddRestoreLocked = true; }
+function todoUnlockAddRestore() { _todoAddRestoreLocked = false; }
 var TODO_INLINE_KEY = 'todo_inline_add';
 function todoInlineRec() { try { return JSON.parse(localStorage.getItem(TODO_INLINE_KEY) || 'null'); } catch (e) { return null; } }
 function todoInlineWrite(o) { try { localStorage.setItem(TODO_INLINE_KEY, JSON.stringify(o)); } catch (e) {} }
@@ -4764,6 +4769,7 @@ function todoInlineClear() { try { localStorage.removeItem(TODO_INLINE_KEY); } c
 // 记录在、父任务在当前树里、其下方还没有展开中的内联框时, 程序化点 ➕ 重新展开(并回填草稿);
 // 用户取消/保存会清记录, 重绘即不再展开。父任务不在当前视图(筛选/数据未就绪)本帧跳过, 等下一帧。
 function todoRestoreInlineAdd(container) {
+  if (_todoAddRestoreLocked) return; // 保存引发的重绘: 不恢复
   var rec = todoInlineRec();
   if (!rec || !rec.parent || !container || !container.querySelector) return;
   var row = container.querySelector('.todo-node[data-id="' + rec.parent + '"]');
@@ -6292,8 +6298,10 @@ function openInlineAddChild(btnEl, parentNode, submitFn) {
   autoGrowTextarea(titleEl); autoGrowTextarea(noteEl);
   // 单例: 注册关闭动作(打开本框会自动关掉画面上其它添加框); 键盘弹起时把输入框抬到可视区
   function onVV() { if (box.isConnected) todoLiftIntoView(box); }
+  var suppress = false; // 本次 close 是否由保存触发(需解除恢复锁)
   function close() {
     todoInlineClear(); // 取消/保存成功/被其它添加框顶替: 清持久记录
+    if (suppress) { suppress = false; todoUnlockAddRestore(); }
     if (box.parentNode) box.parentNode.removeChild(box);
     if (window.visualViewport) window.visualViewport.removeEventListener('resize', onVV);
     todoUnregisterAddForm(close);
@@ -6343,10 +6351,14 @@ function openInlineAddChild(btnEl, parentNode, submitFn) {
         payload.recur_weekday = r.recur_weekday;
       }
     }
+    // 保存引发的重绘不应触发自动恢复(否则刚提交的内容会被重新展开): 上锁, close 后释放
+    suppress = true;
+    todoLockAddRestore();
     try {
       await submitFn(payload);
       close();
     } catch (err) {
+      suppress = false; todoUnlockAddRestore();
       saveBtn.disabled = false; cancelBtn.disabled = false;
       if (typeof alertModal === 'function') alertModal((err && err.message) || '保存失败', {ok:false});
     }
@@ -6420,7 +6432,7 @@ function mountDetailAdder(container, parentNode, submitFn) {
   if (dueEl) dueEl.addEventListener('change', draftSave);
   // 进程重建后重挂载: 有草稿则展开回填(不抢焦点, 避免切回就弹键盘); 无草稿时沿用连续录入态
   var _draft = draftLoad();
-  if (_draft && (_draft.title || _draft.note)) {
+  if (!_todoAddRestoreLocked && _draft && (_draft.title || _draft.note)) {
     titleEl.value = _draft.title || ''; noteEl.value = _draft.note || '';
     if (dueEl && _draft.due) dueEl.value = _draft.due;
     titleEl.dispatchEvent(new Event('input')); noteEl.dispatchEvent(new Event('input'));
@@ -6444,8 +6456,10 @@ function mountDetailAdder(container, parentNode, submitFn) {
     if (window.visualViewport) window.visualViewport.addEventListener('resize', onVV);
     setTimeout(function(){ titleEl.focus(); todoLiftIntoView(wrap); }, 50);
   }
+  var suppress = false; // 本次 collapse 是否由保存触发(需解除恢复锁)
   function collapse() {
     draftClear(); // 收起(取消/Esc/保存成功)即清草稿
+    if (suppress) { suppress = false; todoUnlockAddRestore(); }
     titleEl.value = ''; noteEl.value = '';
     if (dueEl) dueEl.value = todoTodayStr(); // 复位后截止日期仍默认今天
     // 触发一次 input 让 autoGrow 复位
@@ -6481,10 +6495,14 @@ function mountDetailAdder(container, parentNode, submitFn) {
       // 先置 0: submitFn 内部会 loadTodos → 重绘详情, 新挂载的添加框读到 0 即保持折叠(不自动展开).
       // 必须在 await 之前 —— 重绘发生在 submitFn 内部, 晚了新框已按 1 展开.
       window._todoAdderActive = 0;
+      // 保存引发的重绘不触发草稿自动恢复(否则刚提交的内容会被重新展开)
+      suppress = true;
+      todoLockAddRestore();
       await submitFn(payload);
       // 未重绘的极端情况下就地收起(重绘时本闭包持有的是已移除的旧 wrap, 操作无视觉影响)
       collapse();
     } catch (err) {
+      suppress = false; todoUnlockAddRestore();
       saveBtn.disabled = false; cancelBtn.disabled = false;
       if (typeof alertModal === 'function') alertModal((err && err.message) || '保存失败', {ok:false});
     }
