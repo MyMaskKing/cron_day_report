@@ -4728,6 +4728,31 @@ else document.addEventListener('DOMContentLoaded', function(){ document.body.cla
 var _todoEscCtx = { getRows: null, onDraw: null };
 // 卡片模式下打开的顶层任务 id；null 表示卡片列表
 var _todoDetailRootId = null;
+// 详情视图持久化(App 切后台进程被系统回收后, restoreState 只恢复历史栈不恢复 JS 运行时状态,
+// 页面会重新加载回卡片列表 → 打开的详情连同底部子任务输入框一起消失): 按页面路径隔离,
+// 渲染时写入, 退出详情清除, 重载首帧校验该 id 仍是当前树的顶层任务后恢复
+var _todoDetailPersistKey = 'todoDetailRoot:' + location.pathname;
+var _todoDetailRestored = false;
+function todoPersistDetail(id) {
+  try {
+    if (id == null) localStorage.removeItem(_todoDetailPersistKey);
+    else localStorage.setItem(_todoDetailPersistKey, String(id));
+  } catch (e) {}
+}
+// 首帧一次性恢复: 仅在有数据的 card 列表帧调用, 持久 id 仍存在于当前树才回到详情
+function todoMaybeRestoreDetail(trees) {
+  if (_todoDetailRestored) return null;
+  _todoDetailRestored = true;
+  if (!trees || !trees.length) return null; // 数据未就绪, 等后续帧再判定
+  try {
+    var id = parseInt(localStorage.getItem(_todoDetailPersistKey), 10);
+    if (isFinite(id) && trees.some(function (t) { return t.id === id; })) {
+      _todoDetailRootId = id;
+      return id;
+    }
+  } catch (e) {}
+  return null;
+}
 // 侧边抽屉开合: null=按视口默认(PC 开/手机收), true/false=用户显式选择
 var _todoDrawerOpen = null;
 try { var _d = localStorage.getItem('todoDrawer'); if (_d === '1') _todoDrawerOpen = true; else if (_d === '0') _todoDrawerOpen = false; } catch(e){}
@@ -6020,7 +6045,10 @@ function todoRenderView(container, trees, opts) {
   opts = opts || {};
   var view = opts.view || 'card';
   var crumb = opts.crumbEl || null;
-  container.className = view === 'card' && opts.detailRootId == null ? 'todo-cards' : 'todo-tree';
+  // 进程重建后首帧: 持久化的详情任务仍存在则回到详情视图(底部子任务输入框随其挂载并回填草稿)
+  var detailRootId = opts.detailRootId;
+  if (detailRootId == null && view === 'card') detailRootId = todoMaybeRestoreDetail(trees);
+  container.className = view === 'card' && detailRootId == null ? 'todo-cards' : 'todo-tree';
 
   // 每次渲染先清理详情页"完成主任务"文字链, 由详情分支按需重新挂载
   // 命中提示文时按钮挂在 .card 内的 <p> 里(homeBox.parentNode 范围), 兜底时挂在 homeBox 末尾
@@ -6038,10 +6066,11 @@ function todoRenderView(container, trees, opts) {
     renderTodoTree(container, trees, opts);
     return;
   }
-  // view === 'card'
-  if (opts.detailRootId != null) {
+  // view === 'card': 详情 id 持久化(非 null 写入, null 清除); tree 视图在上方已 return 不影响
+  todoPersistDetail(detailRootId);
+  if (detailRootId != null) {
     var root = null;
-    trees.forEach(function(t){ if (t.id === opts.detailRootId) root = t; });
+    trees.forEach(function(t){ if (t.id === detailRootId) root = t; });
     if (!root) {
       // 目标顶层已消失（可能被删除或改日期被筛掉）——退回卡片列表
       if (opts.onExitDetail) opts.onExitDetail();
