@@ -6314,8 +6314,32 @@ function mountDetailAdder(container, parentNode, submitFn) {
   autoGrowTextarea(titleEl); autoGrowTextarea(noteEl);
   // 键盘弹起时把输入框抬到可视区(修复手机上被键盘盖住)
   function onVV() { if (wrap.classList.contains('editing')) todoLiftIntoView(wrap); }
-  // 若上次保存后处于连续录入态, 重绘后自动展开(与 expand 同口径: 注册单例 + 抬升)
-  if (window._todoAdderActive) {
+  // 草稿(按直接父 id 隔离): 防 App 切后台进程被回收后, 详情页未保存的子任务输入丢失。
+  // 只暂存标题/备注/日期; 取消(Esc)、保存成功走 collapse 清除, 仅异常退出保留。
+  var DRAFT_KEY = 'todo_adder_draft_' + parentNode.id;
+  function draftSave() {
+    try {
+      var t = titleEl.value || '', n = noteEl.value || '';
+      if (!t && !n) { localStorage.removeItem(DRAFT_KEY); return; }
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title: t, note: n, due: dueEl ? dueEl.value : '' }));
+    } catch (e) {}
+  }
+  function draftClear() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+  function draftLoad() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return null; } }
+  titleEl.addEventListener('input', draftSave);
+  noteEl.addEventListener('input', draftSave);
+  if (dueEl) dueEl.addEventListener('change', draftSave);
+  // 进程重建后重挂载: 有草稿则展开回填(不抢焦点, 避免切回就弹键盘); 无草稿时沿用连续录入态
+  var _draft = draftLoad();
+  if (_draft && (_draft.title || _draft.note)) {
+    titleEl.value = _draft.title || ''; noteEl.value = _draft.note || '';
+    if (dueEl && _draft.due) dueEl.value = _draft.due;
+    titleEl.dispatchEvent(new Event('input')); noteEl.dispatchEvent(new Event('input'));
+    wrap.classList.remove('collapsed'); wrap.classList.add('editing');
+    todoRegisterAddForm(collapse);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', onVV);
+  } else if (window._todoAdderActive) {
+    // 若上次保存后处于连续录入态, 重绘后自动展开(与 expand 同口径: 注册单例 + 抬升)
     wrap.classList.remove('collapsed'); wrap.classList.add('editing');
     todoRegisterAddForm(collapse);
     if (window.visualViewport) window.visualViewport.addEventListener('resize', onVV);
@@ -6332,6 +6356,7 @@ function mountDetailAdder(container, parentNode, submitFn) {
     setTimeout(function(){ titleEl.focus(); todoLiftIntoView(wrap); }, 50);
   }
   function collapse() {
+    draftClear(); // 收起(取消/Esc/保存成功)即清草稿
     titleEl.value = ''; noteEl.value = '';
     if (dueEl) dueEl.value = todoTodayStr(); // 复位后截止日期仍默认今天
     // 触发一次 input 让 autoGrow 复位
