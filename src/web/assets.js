@@ -6302,10 +6302,21 @@ function openInlineAddChild(btnEl, parentNode, submitFn) {
   function close() {
     todoInlineClear(); // 取消/保存成功/被其它添加框顶替: 清持久记录
     if (suppress) { suppress = false; todoUnlockAddRestore(); }
+    document.removeEventListener('click', onDocClick, true);
     if (box.parentNode) box.parentNode.removeChild(box);
     if (window.visualViewport) window.visualViewport.removeEventListener('resize', onVV);
     todoUnregisterAddForm(close);
   }
+  // 点击框外任意位置即收起(与 Esc/取消同语义): 捕获阶段监听, 行内按钮 stopPropagation 也拦得到。
+  // 排除: 框内部、➕触发按钮(自身 handler 负责打开/聚焦)、弹窗内部(校验失败 alertModal 点确定要保留输入)。
+  // 重绘把 box 销毁但没走 close 时, 借 isConnected 自清理, 不留僵尸监听。
+  function onDocClick(e) {
+    if (!box.isConnected) { document.removeEventListener('click', onDocClick, true); return; }
+    var t = e.target;
+    if (t && t.closest && (t.closest('.todo-inline-add') || t.closest('[data-addchild]') || t.closest('.modal-mask'))) return;
+    close();
+  }
+  document.addEventListener('click', onDocClick, true);
   todoRegisterAddForm(close); // 可能先关掉旧框(其 close 已清旧记录), 之后再写本框记录
   function persist() {
     todoInlineWrite({
