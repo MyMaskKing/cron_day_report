@@ -6584,7 +6584,8 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   // 日期提示行
   var dueTip;
   if (lockedChild) {
-    dueTip = '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">' + ICONS.calendar + '截止日期跟随上级任务；如需调整，请修改上级任务的截止日期</p>';
+    // 与只读块留 6px、与下方分类区留 14px, 避免三段挤在一起
+    dueTip = '<p class="muted" style="margin:8px 2px 14px;font-size:12px;">' + ICONS.calendar + '截止日期跟随上级任务；如需调整，请修改上级任务的截止日期</p>';
   } else if (isChild) {
     // 自由子任务: 未勾选时日期必填(默认今天); 勾选后提示由 tfChildDueTip 承载
     dueTip = childDueOn ? '' :
@@ -7156,9 +7157,24 @@ function fmtSize(n) {
 async function openTodoDetail(node, opts) {
   opts = opts || {};
   var today = opts.today || '';
-  var due = node.due_date || '';
+  // 有效截止日: 自身优先, 否则沿 _parent 链继承最近祖先日期(与列表徽章/统计同口径)
+  var due = node.due_date || '', dueInherited = false;
+  if (!due && node._parent) {
+    var p = node._parent, seen = {};
+    while (p && !seen[p.id]) {
+      seen[p.id] = 1;
+      if (p.due_date) { due = p.due_date; dueInherited = true; break; }
+      p = p._parent || null;
+    }
+  }
   var meta = [];
-  if (due) meta.push('<span class="td-chip">' + ICONS.calendar + esc(todoDateLabel(due, today)) + '</span>');
+  if (due) {
+    var over = !node.done && !!today && due < today;
+    meta.push('<span class="td-chip"' + (dueInherited ? ' title="截止日期跟随上级任务"' : '')
+      + (over ? ' style="color:#cf1322;border-color:#ffccc7;"' : '') + '>'
+      + ICONS.calendar + esc(todoDateLabel(due, today))
+      + (dueInherited ? '<span style="opacity:.65;">·跟随上级</span>' : '') + '</span>');
+  }
   if (node.recurrence) meta.push('<span class="td-chip">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
   if (node.category) meta.push('<span class="td-chip">〔' + esc(node.category) + '〕</span>');
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
