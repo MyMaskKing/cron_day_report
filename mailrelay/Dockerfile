@@ -4,6 +4,7 @@ WORKDIR /app
 
 # 先装依赖（利用层缓存）
 COPY package.json package-lock.json ./
+RUN npm config set registry https://registry.npmmirror.com
 RUN npm ci --omit=dev
 
 # 再拷业务代码
