@@ -2515,9 +2515,10 @@ function renderFmRows() {
       var typeCell = r.isImage ? '<span class="tag ok">图片</span>' : '<span class="tag">文件</span>';
       if (r.mime) typeCell += '<div class="muted" style="font-size:12px;">' + esc(r.mime) + '</div>';
       var srcCell = r.source === 'todo' ? '<span class="tag">任务附件</span>' : '<span class="tag">用户文件</span>';
-      var act = '';
-      if (r.isImage) act += '<button type="button" class="btn sm" data-act="preview" data-token="' + esc(r.fileToken) + '" data-name="' + esc(r.originName) + '">预览</button> ';
+      var act = '<span style="display:inline-flex;gap:6px;align-items:center;white-space:nowrap;">';
+      if (r.isImage) act += '<button type="button" class="btn sm" data-act="preview" data-token="' + esc(r.fileToken) + '" data-name="' + esc(r.originName) + '">预览</button>';
       act += '<a class="btn sm gray" href="' + esc(r.url) + '" download="' + esc(r.originName) + '">下载</a>';
+      act += '</span>';
       return '<tr>'
         + '<td data-label="选择"><input type="checkbox" class="fm-cb" style="width:auto;margin:0;flex:none;" value="' + r.id + '"></td>'
         + '<td data-label="文件名" style="word-break:break-all;">' + esc(r.originName) + '</td>'
