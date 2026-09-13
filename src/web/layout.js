@@ -45,7 +45,7 @@ function renderPage({ title = '控制台', body = '', script = '', scripts = [],
 <html lang="zh-CN" data-theme="${themeAttr}">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>${title}</title>
 <link rel="icon" type="image/svg+xml" href="${assetUrl('favicon.svg')}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -838,9 +838,12 @@ input[type="date"] { cursor: pointer; }
 .md-body img, .td-att-img { cursor: zoom-in; }
 /* 图片灯箱：层级高于 modal(10000)，黑底居中，点击任意处关闭 */
 .img-lightbox { display: none; position: fixed; inset: 0; z-index: 20000; background: rgba(0,0,0,.88); padding: 24px; align-items: center; justify-content: center; }
-.img-lightbox.show { display: flex; }
-.img-lightbox .img-lb-pic { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 10px 50px rgba(0,0,0,.5); }
+/* touch-action:none：灯箱打开期间双指手势全部交给图片缩放，不允许缩放/滚动整个页面 */
+.img-lightbox.show { display: flex; touch-action: none; }
+.img-lightbox .img-lb-pic { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 10px 50px rgba(0,0,0,.5); transform-origin: center center; will-change: transform; user-select: none; -webkit-user-drag: none; }
 .img-lightbox .img-lb-x { position: absolute; top: 14px; right: 22px; color: #fff; font-size: 32px; line-height: 1; opacity: .8; cursor: pointer; }
+/* 附件存储页手机端全选：桌面端用表头 checkbox，此标签仅窄屏显示 */
+.fm-mobile-sel { display: none; align-items: center; gap: 6px; font-size: 13px; color: var(--label); }
 /* 任务详情弹窗 */
 #tdEditBtn { float: right; margin: 2px 0 8px 10px; }
 #tdEditBtn svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 3px; }
@@ -1362,6 +1365,8 @@ html { scrollbar-gutter: stable; }
   .btn.sm { margin-bottom: 4px; }
   /* 汇总统计卡在窄屏两列 */
   .grid-stats { grid-template-columns: repeat(2, 1fr); }
+  /* 表头窄屏隐藏后，全选改在工具栏显示 */
+  .fm-mobile-sel { display: inline-flex; }
   /* 登录/加仓等居中容器留边距 */
   .login-wrap { margin: 40px auto; padding: 0 12px; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */

@@ -273,7 +273,8 @@ function storageAdminPage(user) {
         <button class="btn sm gray" id="fmRefresh" style="float:right;">刷新</button>
       </h2>
       <div id="fmMsg" class="msg"></div>
-      <div style="margin-bottom:10px;">
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label class="fm-mobile-sel"><input type="checkbox" id="fmCheckAllM" style="width:auto;margin:0;flex:none;">全选本页</label>
         <button class="btn sm danger" id="fmBatchDel" disabled>批量删除所选</button>
       </div>
       <div class="table-scroll-mobile">
@@ -297,9 +298,10 @@ function storageAdminPage(user) {
       </h2>
       <div id="opMsg" class="msg"></div>
       <p class="muted">孤儿文件指对象存储（R2 / 本地磁盘）里存在、但数据库已无记录的文件，通常是历史删除失败的残留，可安全清理。</p>
-      <div id="opBar" style="display:none;margin-bottom:10px;">
+      <div id="opBar" style="display:none;margin-bottom:10px;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label class="fm-mobile-sel"><input type="checkbox" id="opCheckAllM" style="width:auto;margin:0;flex:none;">全选</label>
         <span class="muted" id="opSummary"></span>
-        <button class="btn sm danger" id="opBatchDel" style="margin-left:10px;" disabled>删除所选</button>
+        <button class="btn sm danger" id="opBatchDel" disabled>删除所选</button>
       </div>
       <div class="table-scroll-mobile">
         <table>

@@ -669,16 +669,136 @@ function mdTaskToBoxes(scope) {
 }
 // 图片灯箱：md 正文图片与附件缩略图点击全屏查看（App WebView 无多窗口，不能依赖新标签看图）。
 // 事件委托挂一次 document；灯箱 DOM 懒建。阻止图片外层 <a> 的导航（图片服务端是 inline，导航会离开页面）。
+// 自带双指缩放/单指拖拽/双击放大：手势在灯箱内消费（CSS touch-action:none + touchmove preventDefault），
+// 绝不落到浏览器 viewport 上缩放整个页面（否则关图后整页卡在放大态，WebView 无缩放按钮缩不回去）。
 (function(){
-  function box(){ return document.getElementById('imgLightbox'); }
-  function open(src, alt){
-    var lb = box();
-    if (!lb) return;
-    lb.querySelector('.img-lb-pic').src = src;
-    lb.querySelector('.img-lb-pic').alt = alt || '';
-    lb.classList.add('show');
+  var lb = null, pic = null, closeBtn = null;
+  var scale = 1, tx = 0, ty = 0;
+  var mode = null;                  // 'drag' | 'pinch'
+  var startDist = 0, startScale = 1, startMidX = 0, startMidY = 0, startTx = 0, startTy = 0;
+  var drag = null;                 // {x,y,tx,ty,moved,t0}
+  var lastTap = 0, tapTimer = null;
+  var SCALE_MIN = 1, SCALE_MAX = 5, SCALE_DBL = 2.5, TAP_GAP = 8, DBL_WAIT = 300;
+
+  function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
+  function touchDist(t){ var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.sqrt(dx*dx + dy*dy); }
+  function touchMid(t){ return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 }; }
+  function apply(animated){
+    pic.style.transition = animated ? 'transform .18s ease-out' : 'none';
+    pic.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
   }
-  function close(){ var lb = box(); if (lb) lb.classList.remove('show'); }
+  function reset(animated){ scale = 1; tx = 0; ty = 0; apply(animated); }
+  // 平移不超出图片边界（按缩放后的视觉尺寸反推适配态尺寸）
+  function clampPan(){
+    var rect = pic.getBoundingClientRect();
+    var baseW = rect.width / scale, baseH = rect.height / scale;
+    var maxX = Math.max(0, (baseW * scale - baseW) / 2);
+    var maxY = Math.max(0, (baseH * scale - baseH) / 2);
+    tx = clamp(tx, -maxX, maxX);
+    ty = clamp(ty, -maxY, maxY);
+  }
+  function open(src, alt){
+    ensureLb();
+    pic.src = src;
+    pic.alt = alt || '';
+    reset(false);
+    if (!lb.classList.contains('show')) {
+      lb.classList.add('show');
+      lockBodyScroll();
+    }
+  }
+  function close(){
+    if (!lb || !lb.classList.contains('show')) return;
+    lb.classList.remove('show');
+    reset(false);
+    mode = null; drag = null;
+    unlockBodyScroll();
+  }
+  function toggleZoom(){
+    if (scale > 1) { reset(true); } else { scale = SCALE_DBL; tx = 0; ty = 0; apply(true); }
+  }
+
+  function onStart(e){
+    if (e.target === closeBtn) return;  // × 交给 click 关闭
+    if (e.touches.length === 2) {
+      mode = 'pinch';
+      var m = touchMid(e.touches), d = touchDist(e.touches);
+      startDist = d; startScale = scale;
+      startMidX = m.x; startMidY = m.y; startTx = tx; startTy = ty;
+    } else if (e.touches.length === 1) {
+      var t = e.touches[0];
+      mode = 'drag';
+      drag = { x: t.clientX, y: t.clientY, tx: tx, ty: ty, moved: false, t0: Date.now() };
+    }
+  }
+  function onMove(e){
+    if (e.touches.length === 2 && mode === 'pinch') {
+      e.preventDefault();
+      var m = touchMid(e.touches), d = touchDist(e.touches);
+      scale = clamp(startScale * d / startDist, SCALE_MIN, SCALE_MAX);
+      tx = startTx + (m.x - startMidX);
+      ty = startTy + (m.y - startMidY);
+      clampPan(); apply(false);
+    } else if (e.touches.length === 1 && drag) {
+      var t = e.touches[0];
+      if (scale > 1) {
+        e.preventDefault();
+        if (Math.abs(t.clientX - drag.x) > TAP_GAP || Math.abs(t.clientY - drag.y) > TAP_GAP) drag.moved = true;
+        tx = drag.tx + (t.clientX - drag.x);
+        ty = drag.ty + (t.clientY - drag.y);
+        clampPan(); apply(false);
+      }
+    }
+  }
+  function onEnd(e){
+    // pinch 抬起一指：用剩余指续接拖拽，避免松手瞬间跳位；moved 置 true 防误触关闭
+    if (e.touches.length === 1 && mode === 'pinch') {
+      var t = e.touches[0];
+      drag = { x: t.clientX, y: t.clientY, tx: tx, ty: ty, moved: true, t0: Date.now() };
+      mode = 'drag';
+      return;
+    }
+    if (e.touches.length !== 0) return;
+    if (scale < 1.02) reset(true);
+    var wasDrag = drag;
+    mode = null; drag = null;
+    // 点击（未拖动的短触）：等待可能的第二下双击；单击空白/原图态延迟 300ms 关闭
+    if (wasDrag && !wasDrag.moved && Date.now() - wasDrag.t0 < 350) {
+      var now = Date.now();
+      if (now - lastTap < DBL_WAIT) {
+        clearTimeout(tapTimer); lastTap = 0;
+        toggleZoom();
+      } else {
+        lastTap = now;
+        tapTimer = setTimeout(function(){ lastTap = 0; if (scale === 1) close(); }, DBL_WAIT);
+      }
+    }
+  }
+
+  function ensureLb(){
+    if (lb) return;
+    lb = document.getElementById('imgLightbox');
+    if (!lb) {
+      lb = document.createElement('div');
+      lb.id = 'imgLightbox';
+      lb.className = 'img-lightbox';
+      lb.innerHTML = '<img class="img-lb-pic" alt=""><span class="img-lb-x" role="button" aria-label="关闭">&times;</span>';
+      document.body.appendChild(lb);
+    }
+    pic = lb.querySelector('.img-lb-pic');
+    closeBtn = lb.querySelector('.img-lb-x');
+    closeBtn.addEventListener('click', function(e){ e.stopPropagation(); close(); });
+    // 点遮罩空白关闭（点图不关闭；触摸空白处关闭，与 onEnd 的 tap 关闭幂等）
+    lb.addEventListener('click', function(e){ if (e.target === lb) close(); });
+    pic.addEventListener('dblclick', function(e){ e.stopPropagation(); toggleZoom(); });
+    lb.addEventListener('touchstart', onStart, { passive: true });
+    lb.addEventListener('touchmove', onMove, { passive: false });
+    lb.addEventListener('touchend', onEnd);
+    lb.addEventListener('touchcancel', function(){ mode = null; drag = null; if (scale < 1.02) reset(true); });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+  }
+
+  // 点击 md 正文图 / 待办附件缩略图 → 灯箱（捕获阶段阻止 <a target=_blank> 导航）
   document.addEventListener('click', function(e){
     var t = e.target;
     if (t && t.tagName === 'IMG' && t.closest('.md-body, .td-att')) {
@@ -687,25 +807,8 @@ function mdTaskToBoxes(scope) {
       open(t.currentSrc || t.src, t.alt);
     }
   }, true);
-  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
-  document.addEventListener('DOMContentLoaded', function(){
-    if (box()) return;
-    var lb = document.createElement('div');
-    lb.id = 'imgLightbox';
-    lb.className = 'img-lightbox';
-    lb.innerHTML = '<img class="img-lb-pic" alt=""><span class="img-lb-x">&times;</span>';
-    lb.addEventListener('click', close);
-    document.body.appendChild(lb);
-  });
-  // COMMON_JS 在 DOMContentLoaded 之后才执行（外链脚本），上面监听可能已错过，立即补建
-  if (!box() && document.body) {
-    var lb2 = document.createElement('div');
-    lb2.id = 'imgLightbox';
-    lb2.className = 'img-lightbox';
-    lb2.innerHTML = '<img class="img-lb-pic" alt=""><span class="img-lb-x">&times;</span>';
-    lb2.addEventListener('click', function(){ lb2.classList.remove('show'); });
-    document.body.appendChild(lb2);
-  }
+
+  window.openImageLightbox = open;
 })();
 // 数据库时间按配置时区显示: DB 存 UTC(datetime('now') 形如 'YYYY-MM-DD HH:mm:ss'),
 // 按顶栏时钟同一配置 window.__TZ_OFFSET__(默认 8)平移到墙钟, 输出 'YYYY-MM-DD HH:mm'。
@@ -2531,28 +2634,36 @@ function renderFmRows() {
         + '</tr>';
     }).join('');
   }
-  document.getElementById('fmCheckAll').checked = false;
+  syncFmMasters(false, false);
   syncFmBatchBtn();
 }
 
 function selectedFmIds() {
   return Array.prototype.map.call(document.querySelectorAll('.fm-cb:checked'), function(cb) { return parseInt(cb.value, 10); });
 }
+// 桌面表头 / 手机工具栏两个全选框状态同步（含半选态）
+function syncFmMasters(checked, indeterminate) {
+  ['fmCheckAll', 'fmCheckAllM'].forEach(function(id) {
+    var m = document.getElementById(id);
+    if (m) { m.checked = checked; m.indeterminate = indeterminate; }
+  });
+}
 function syncFmBatchBtn() {
+  var all = document.querySelectorAll('.fm-cb');
   var n = document.querySelectorAll('.fm-cb:checked').length;
+  syncFmMasters(n > 0 && n === all.length, n > 0 && n < all.length);
   var btn = document.getElementById('fmBatchDel');
   btn.disabled = n === 0;
   btn.textContent = n ? ('批量删除所选（' + n + '）') : '批量删除所选';
 }
 
 function previewImage(token, name) {
-  var url = '/todo-file/' + encodeURIComponent(token);
-  openModal(name,
-    '<div style="text-align:center;">'
-    + '<img src="' + url + '" style="max-width:100%;border-radius:10px;" alt="' + esc(name) + '">'
-    + '<div style="margin-top:12px;"><a class="btn sm" href="' + url + '" download="' + esc(name) + '">下载原图</a></div>'
-    + '</div>',
-    'modal-mask--lg');
+  // 复用全站图片灯箱（支持双指缩放/拖拽，不缩放页面）；行内已有下载按钮，灯箱内不再重复
+  if (window.openImageLightbox) {
+    window.openImageLightbox('/todo-file/' + encodeURIComponent(token), name);
+  } else {
+    window.open('/todo-file/' + encodeURIComponent(token), '_blank');
+  }
 }
 
 document.getElementById('fmTbody').addEventListener('click', function(e) {
@@ -2562,10 +2673,13 @@ document.getElementById('fmTbody').addEventListener('click', function(e) {
 document.getElementById('fmTbody').addEventListener('change', function(e) {
   if (e.target.classList && e.target.classList.contains('fm-cb')) syncFmBatchBtn();
 });
-document.getElementById('fmCheckAll').addEventListener('change', function() {
-  var on = this.checked;
-  Array.prototype.forEach.call(document.querySelectorAll('.fm-cb'), function(cb) { cb.checked = on; });
-  syncFmBatchBtn();
+['fmCheckAll', 'fmCheckAllM'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('change', function() {
+    var on = this.checked;
+    Array.prototype.forEach.call(document.querySelectorAll('.fm-cb'), function(cb) { cb.checked = on; });
+    syncFmBatchBtn();
+  });
 });
 document.getElementById('fmRefresh').addEventListener('click', function() { loadFmStats(); loadFmFiles(); });
 document.getElementById('fmPrev').addEventListener('click', function() {
@@ -2602,19 +2716,25 @@ document.getElementById('fmBatchDel').addEventListener('click', function() {
 });
 
 // ============ 孤儿文件扫描与清理 ============
+function syncOpMasters(checked, indeterminate) {
+  ['opCheckAll', 'opCheckAllM'].forEach(function(id) {
+    var m = document.getElementById(id);
+    if (m) { m.checked = checked; m.indeterminate = indeterminate; }
+  });
+}
 function renderOrphans(d) {
   opState.orphans = d.orphans || [];
   var body = document.getElementById('opTbody');
   var bar = document.getElementById('opBar');
   var head = document.getElementById('opHead');
-  document.getElementById('opCheckAll').checked = false;
+  syncOpMasters(false, false);
   if (!opState.orphans.length) {
     bar.style.display = 'none';
     head.style.display = 'none';
     body.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;padding:40px;">未发现孤儿文件 🎉</td></tr>';
     return;
   }
-  bar.style.display = '';
+  bar.style.display = 'flex';
   head.style.display = '';
   document.getElementById('opSummary').textContent = '发现 ' + opState.orphans.length + ' 个孤儿文件，共 ' + fmFmtSize(d.totalBytes);
   body.innerHTML = opState.orphans.map(function(o) {
@@ -2631,7 +2751,9 @@ function selectedOpKeys() {
   return Array.prototype.map.call(document.querySelectorAll('.op-cb:checked'), function(cb) { return cb.value; });
 }
 function syncOpBatchBtn() {
+  var all = document.querySelectorAll('.op-cb');
   var n = document.querySelectorAll('.op-cb:checked').length;
+  syncOpMasters(n > 0 && n === all.length, n > 0 && n < all.length);
   var btn = document.getElementById('opBatchDel');
   btn.disabled = n === 0;
   btn.textContent = n ? ('删除所选（' + n + '）') : '删除所选';
@@ -2643,10 +2765,13 @@ bindClickBusy(document.getElementById('opScan'), async function() {
 document.getElementById('opTbody').addEventListener('change', function(e) {
   if (e.target.classList && e.target.classList.contains('op-cb')) syncOpBatchBtn();
 });
-document.getElementById('opCheckAll').addEventListener('change', function() {
-  var on = this.checked;
-  Array.prototype.forEach.call(document.querySelectorAll('.op-cb'), function(cb) { cb.checked = on; });
-  syncOpBatchBtn();
+['opCheckAll', 'opCheckAllM'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('change', function() {
+    var on = this.checked;
+    Array.prototype.forEach.call(document.querySelectorAll('.op-cb'), function(cb) { cb.checked = on; });
+    syncOpBatchBtn();
+  });
 });
 document.getElementById('opBatchDel').addEventListener('click', function() {
   var keys = selectedOpKeys();

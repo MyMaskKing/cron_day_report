@@ -248,6 +248,9 @@ private fun AppShell(
                         settings.cacheMode = WebSettings.LOAD_DEFAULT
                         settings.loadWithOverviewMode = true
                         settings.useWideViewPort = true
+                        // 关闭 WebView 页面级双指缩放：图片预览的缩放由网页灯箱自行接管，
+                        // 否则双指放大的是整个页面，关闭图片后界面会卡在放大态且无缩放按钮可还原
+                        settings.setSupportZoom(false)
                         settings.builtInZoomControls = false
                         settings.displayZoomControls = false
                         settings.mediaPlaybackRequiresUserGesture = false
