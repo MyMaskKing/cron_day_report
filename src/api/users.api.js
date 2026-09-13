@@ -9,6 +9,7 @@ import { requireAdmin, requireAuth } from '../auth/middleware.js';
 import { hashPassword } from '../auth/password.js';
 import { getTokenFromRequest, getSession, impersonate, stopImpersonate } from '../auth/session.js';
 import { parseOffset, DEFAULT_TZ_OFFSET } from '../services/time.service.js';
+import { kvGetAnnRead, kvSetAnnRead } from '../storage/kv-store.js';
 
 const DEFAULT_PASSWORD = '123456';
 
@@ -327,7 +328,23 @@ async function getAnnouncementPublic({ request, env }) {
   const storage = getStorage(env);
   const content = (await storage.settings.get('announcement')) || '';
   const updated_at = (await storage.settings.get('announcement_updated_at')) || '';
-  return json({ success: true, content, updated_at });
+  // 已读状态按账号存 KV（annread:<uid> = 最近确认的版本号），跨设备/浏览器同步
+  const readVersion = await kvGetAnnRead(env.KV, auth.user_id);
+  const read = !!updated_at && readVersion === updated_at;
+  return json({ success: true, content, updated_at, read });
+}
+
+/**
+ * POST /api/announcement/read  当前用户确认已读当前公告
+ * 版本以服务端当前公告为准（不采信前端传值，用户只能写自己的已读标记）；当前无公告则 no-op
+ */
+async function markAnnouncementRead({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const version = (await storage.settings.get('announcement_updated_at')) || '';
+  if (version) await kvSetAnnRead(env.KV, auth.user_id, version);
+  return json({ success: true });
 }
 
 /**
@@ -357,6 +374,8 @@ async function setAnnouncement({ request, env }) {
     const updated_at = String(Date.now());
     await storage.settings.set('announcement', content);
     await storage.settings.set('announcement_updated_at', updated_at);
+    // 发布者本人直接标记已读，避免发布后跳转页面被自己的公告弹窗打断
+    await kvSetAnnRead(env.KV, auth.user_id, updated_at);
     return json({ success: true, message: '公告已发布', content, updated_at });
   }
   await storage.settings.set('announcement', '');
@@ -369,5 +388,5 @@ export {
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
   getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
   getRegisterLimit, setRegisterLimit,
-  getAnnouncementPublic, getAnnouncement, setAnnouncement
+  getAnnouncementPublic, markAnnouncementRead, getAnnouncement, setAnnouncement
 };

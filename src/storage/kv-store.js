@@ -6,6 +6,7 @@
 const SESSION_PREFIX = 'session:';
 const WSHARE_PREFIX = 'wshare:';
 const NAV_PREFIX = 'nav:';
+const ANN_PREFIX = 'annread:';
 
 /**
  * 写入会话
@@ -66,8 +67,23 @@ async function kvGetNav(kv, code) {
   return raw ? JSON.parse(raw) : null;
 }
 
+/**
+ * 写入用户的公告已读版本（值为 announcement_updated_at 毫秒时间戳字符串，永久有效）
+ * @param {number|string} userId
+ * @param {string} version - 当前公告版本号
+ */
+async function kvSetAnnRead(kv, userId, version) {
+  await kv.put(ANN_PREFIX + userId, String(version));
+}
+
+/** 读取用户的公告已读版本；未读任何版本返回 '' */
+async function kvGetAnnRead(kv, userId) {
+  return (await kv.get(ANN_PREFIX + userId)) || '';
+}
+
 export {
   kvSetSession, kvGetSession, kvDeleteSession,
   kvSetShare, kvGetShare, kvDeleteShare,
-  kvSetNav, kvGetNav
+  kvSetNav, kvGetNav,
+  kvSetAnnRead, kvGetAnnRead
 };

@@ -1855,41 +1855,55 @@ function mountMarkdownEditor(textarea, opts) {
 }
 // ============ 全站公告（超管在系统设置发布；登录后页面弹窗强制阅读） ============
 // 每次整页加载静默拉取一次: 直接 fetch(不走 api(), 避免触发全局 loading 遮罩);
-// 401(未登录/免密公开页)或任何异常都静默不提示。以 updated_at 毫秒时间戳为版本:
-// 用户点「我知道了」后写 localStorage, 同一版本不再弹; 超管更新公告(版本号变化)自动重新弹。
-// 弹窗为独立遮罩(仿 alertModal): 无关闭叉、点空白/ESC 不关闭, 只有确认一条出路。
+// 401(未登录/免密公开页)或任何异常都静默不提示。已读状态按账号存服务端 KV
+// (annread:<uid> = 最新确认的 updated_at 版本号), 接口返回 read=true 即不弹, 天然跨设备/浏览器同步;
+// 超管更新公告(版本号变化)后 read 变 false 自动重新弹。
+// 弹窗为独立遮罩(仿 alertModal): 无关闭叉、点空白/ESC 不关闭, 只有确认一条出路;
+// 点「我知道了」POST 已读, 服务端成功后才关弹窗, 失败保留弹窗可重试(否则该账号会永远卡在未确认状态)。
 (function(){
-  var DISMISS_KEY = 'announceDismissed';
-  function show(content, v){
+  function show(content){
     var mask = document.createElement('div');
     mask.className = 'modal-mask show announce-modal';
     mask.innerHTML = '<div class="modal-box">' +
       '<div class="modal-head"><span>📢 站点公告</span></div>' +
       '<div class="modal-body">' +
         '<div class="announce-md md-body">' + renderMarkdown(content) + '</div>' +
+        '<p class="announce-err" style="display:none;margin:10px 0 0;color:var(--danger);font-size:13px;">确认失败，请检查网络后重试。</p>' +
         '<div style="text-align:right;margin-top:18px;"><button type="button" class="btn annOk">我知道了</button></div>' +
       '</div></div>';
     document.body.appendChild(mask);
     lockBodyScroll();
     try { if (window._appShellPullDisable) window._appShellPullDisable(); } catch (e) {}
-    function dismiss(){
-      mask.remove();
-      unlockBodyScroll();
-      try { if (window._appShellReport) window._appShellReport(); } catch (e) {}
-      try { localStorage.setItem(DISMISS_KEY, v); } catch (e) {}
-    }
-    mask.querySelector('.annOk').addEventListener('click', dismiss);
+    var btn = mask.querySelector('.annOk');
+    var err = mask.querySelector('.announce-err');
+    btn.addEventListener('click', function(){
+      if (btn.disabled) return;
+      btn.disabled = true;
+      err.style.display = 'none';
+      var oldText = btn.textContent;
+      btn.textContent = '提交中…';
+      // 版本以服务端当前公告为准, 无需前端传 version
+      fetch('/api/announcement/read', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        mask.remove();
+        unlockBodyScroll();
+        try { if (window._appShellReport) window._appShellReport(); } catch (e) {}
+      }).catch(function(){
+        btn.disabled = false;
+        btn.textContent = oldText;
+        err.style.display = 'block';
+      });
+    });
   }
   function boot(){
     fetch('/api/announcement', { credentials: 'same-origin' })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
-        if (!d || !d.success || !d.content || !d.updated_at) return;
-        var v = String(d.updated_at);
-        var closed = '';
-        try { closed = localStorage.getItem(DISMISS_KEY) || ''; } catch (e) {}
-        if (closed === v) return;
-        show(d.content, v);
+        if (!d || !d.success || !d.content || !d.updated_at || d.read) return;
+        show(d.content);
       })
       .catch(function(){ /* 静默: 公告拉取失败不打扰用户 */ });
   }
