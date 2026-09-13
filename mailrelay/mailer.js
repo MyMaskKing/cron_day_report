@@ -6,6 +6,33 @@ import nodemailer from 'nodemailer';
 let _transport = null;
 let _transportKey = '';
 
+/**
+ * 保守嗅探内容是否为 HTML：命中常见排版标签才算，避免把含 "<3" 之类的纯文本误判
+ * @param {string} s
+ * @returns {boolean}
+ */
+export function looksLikeHtml(s) {
+  return /<(?:html|body|table|thead|tbody|tfoot|tr|td|th|div|p|br|h[1-6]|ul|ol|li|span|b|strong|i|em|a|img|style|section|header|footer|blockquote|hr)\b/i
+    .test(String(s || ''));
+}
+
+/**
+ * HTML 粗转纯文本：作为多部分邮件的 text 备选（部分客户端只显示 text part）
+ * 不追求完美，只求可读：去掉 script/style，块级标签转换行，剥其余标签，解常见实体
+ * @param {string} html
+ * @returns {string}
+ */
+export function htmlToText(html) {
+  let s = String(html || '');
+  s = s.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '');
+  s = s.replace(/<\/(?:p|div|tr|h[1-6]|li|table|thead|tbody|section|header|footer|blockquote)>/gi, '\n');
+  s = s.replace(/<br\s*\/?>(?:\n)?/gi, '\n');
+  s = s.replace(/<[^>]+>/g, '');
+  s = s.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  return s.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** 收件人邮箱的宽松校验（够挡明显的拼写错误，不追求 RFC 完全合规） */
 export function isEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());

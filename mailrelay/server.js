@@ -14,7 +14,7 @@ import {
   hashPassword, verifyPassword, createSession, isValidSession, destroySession,
   loginLockRemaining, loginFail, loginReset
 } from './auth.js';
-import { parseRecipients, sendViaSmtp, verifySmtp, sanitizeSmtpError } from './mailer.js';
+import { parseRecipients, sendViaSmtp, verifySmtp, sanitizeSmtpError, looksLikeHtml, htmlToText } from './mailer.js';
 import { loginPage, adminPage } from './web.js';
 
 const PORT = Number.parseInt(process.env.HTTP_PORT || '8080', 10) || 8080;
@@ -105,6 +105,12 @@ function sessionCookie(req, sid) {
   return c;
 }
 
+/** 按当前请求推导自身对外地址（反代后取 X-Forwarded-Proto），供页面教程拼可复制 URL */
+function selfOrigin(req) {
+  const proto = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+  return `${proto}://${req.headers.host || 'localhost:8080'}`;
+}
+
 function requireAdmin(req, res) {
   const sid = parseCookies(req.headers.cookie).sid;
   if (!isValidSession(sid)) {
@@ -157,9 +163,22 @@ async function handleSend(req, res, url) {
     return;
   }
 
-  const text = typeof body.content === 'string' ? body.content
+  // 内容判定（优先级）：
+  //   1) 显式 html 字段 → 按 HTML；同时若给了 content/text 则其作为纯文本备选 part
+  //   2) 只有 content 且嗅探为 HTML（含 <table>/<div>/<br> 等标签）→ 自动按 HTML 发送，
+  //      并粗转一份 text 备选；纯文本内容（如 "<3"、代码里的尖括号）不会误判
+  //   3) 否则按纯文本发送
+  const content = typeof body.content === 'string' ? body.content
     : (typeof body.text === 'string' ? body.text : '');
-  const html = typeof body.html === 'string' ? body.html : '';
+  const explicitHtml = typeof body.html === 'string' ? body.html : '';
+  let text = content, html = '';
+  if (explicitHtml.trim()) {
+    html = explicitHtml;
+    if (!content.trim()) text = htmlToText(explicitHtml);
+  } else if (looksLikeHtml(content)) {
+    html = content;
+    text = htmlToText(content);
+  }
   if (!text.trim() && !html.trim()) {
     sendJson(res, 400, { success: false, error: 'content（或 html）不能为空' });
     return;
@@ -231,7 +250,8 @@ function handleAdminHome(req, res, url) {
     store.getSmtpPublic(),
     store.listTokens(),
     flashLocation(url.searchParams),
-    store.getAdmin().username
+    store.getAdmin().username,
+    selfOrigin(req)
   ));
 }
 

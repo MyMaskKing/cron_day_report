@@ -67,8 +67,14 @@ code, .mono { font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
 .form-inline { display:inline; }
 .muted { color:var(--muted); font-size:12px; }
 .copy-btn { cursor:pointer; border:1px solid var(--line); background:transparent; color:var(--muted);
-  border-radius:4px; font-size:12px; padding:1px 8px; margin-left:6px; }
+  border-radius:4px; font-size:12px; padding:1px 8px; margin-left:6px; white-space:nowrap; }
+.copy-btn:hover { color:var(--text); border-color:var(--primary); }
 .hint { margin-top:6px; }
+h3.sub { font-size:14px; margin:18px 0 6px; }
+.copy-line { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:6px 0; }
+.copy-line .mono { flex:1; min-width:220px; }
+.guide th { width:110px; white-space:nowrap; }
+.guide td .mono { display:block; }
 `;
 
 const COPY_JS = `
@@ -121,11 +127,22 @@ export function loginPage(error = '') {
  * @param {{type?:string, text?:string}} flash 重定向带回的提示
  * @param {string} adminUsername 当前管理员用户名（回显用）
  */
-export function adminPage(smtp, tokens, flash = {}, adminUsername = '') {
-  const tokenRows = tokens.map(t => `
+export function adminPage(smtp, tokens, flash = {}, adminUsername = '', baseUrl = '') {
+  const t0 = (tokens.find(t => t.enabled) || {}).token || 'mr_xxxx';
+  // 一行「说明 + 可复制值」
+  const copyLine = (value, label = '') => `
+    <div class="copy-line">${label ? `<span class="muted" style="white-space:nowrap;">${esc(label)}</span>` : ''}
+      <span class="mono">${esc(value)}</span><button type="button" class="copy-btn" data-copy="${esc(value)}">复制</button>
+    </div>`;
+  const tokenRows = tokens.map(t => {
+    const directUrl = `${baseUrl}/send?token=${encodeURIComponent(t.token)}`;
+    return `
     <tr>
       <td>${esc(t.name)}</td>
-      <td><span class="mono">${esc(t.token)}</span><button class="copy-btn" data-copy="${esc(t.token)}">复制</button></td>
+      <td><span class="mono">${esc(t.token)}</span><button type="button" class="copy-btn" data-copy="${esc(t.token)}">复制</button>
+        <div class="muted hint" style="margin-top:6px;">URL 直用：</div>
+        <div><span class="mono" style="font-size:11px;">${esc(directUrl)}</span><button type="button" class="copy-btn" data-copy="${esc(directUrl)}">复制</button></div>
+      </td>
       <td>${t.enabled ? '<span class="badge on">启用</span>' : '<span class="badge off">停用</span>'}</td>
       <td class="muted">${esc(fmtTime(t.createdAt))}<br>${esc(fmtTime(t.lastUsedAt))}</td>
       <td style="white-space:nowrap;">
@@ -137,7 +154,8 @@ export function adminPage(smtp, tokens, flash = {}, adminUsername = '') {
           <button class="btn sm danger" type="submit">删除</button>
         </form>
       </td>
-    </tr>`).join('') || `<tr><td colspan="5" class="muted" style="text-align:center;padding:20px;">还没有 token，先在下面生成一个</td></tr>`;
+    </tr>`;
+  }).join('') || `<tr><td colspan="5" class="muted" style="text-align:center;padding:20px;">还没有 token，先在下面生成一个</td></tr>`;
 
   return layout('管理后台 · mailrelay', `
     <div class="topbar">
@@ -192,6 +210,31 @@ export function adminPage(smtp, tokens, flash = {}, adminUsername = '') {
         <div style="flex:2;"><input name="name" placeholder="新 token 名称，如：cron面板、家里NAS" required></div>
         <div style="flex:1;"><button class="btn" type="submit">＋ 生成新 token</button></div>
       </form>
+    </div>
+
+    <div class="card">
+      <h2>使用教程</h2>
+      <p class="muted" style="margin-top:0;">发信统一走 <b>POST</b> 请求，请求体是 JSON：<span class="mono">{"to":"收件邮箱","subject":"标题","content":"正文"}</span>（to 支持多个，用逗号分隔）。下面示例已自动填入你的地址${tokens.find(t => t.enabled) ? '和第一个启用 token' : ''}，复制后按需替换收件邮箱。</p>
+
+      <h3 class="sub">方式一：只填一个 URL 就能用（最简单，推荐给只支持填 URL 的工具）</h3>
+      <p class="muted" style="margin:4px 0;">把 token 直接拼在地址后面，作为该工具的请求 URL（请求方法选 POST）：</p>
+      ${copyLine(`${baseUrl}/send?token=${encodeURIComponent(t0)}`)}
+      <p class="muted hint">注意：这种写法 token 会出现在对方的访问记录/日志里，内网自用没问题；若经公网使用请改用方式二。上方每个 token 也都有各自的“URL 直用”可复制。</p>
+
+      <h3 class="sub">方式二：请求头带 token（更规范，token 不进 URL）</h3>
+      <p class="muted" style="margin:4px 0;">请求头加 <span class="mono">Authorization: Bearer &lt;token&gt;</span>。curl 自测：</p>
+      ${copyLine(`curl -X POST '${baseUrl}/send' -H 'Authorization: Bearer ${t0}' -H 'Content-Type: application/json' -d '{"to":"you@qq.com","subject":"测试","content":"hello"}'`)}
+
+      <h3 class="sub">方式三：接入定时面板 cron_day_report（选“通用 Webhook”渠道）</h3>
+      <table class="guide">
+        <tbody>
+          <tr><th>URL</th><td>${copyLine(`${baseUrl}/send`)}</td></tr>
+          <tr><th>请求头 JSON</th><td>${copyLine(`{"Authorization":"Bearer ${t0}","Content-Type":"application/json"}`)}</td></tr>
+          <tr><th>Body 模板</th><td>${copyLine(`{"to":"you@qq.com","subject":"定时面板推送","content":"{{content}}"}`)}
+            <span class="muted hint">把 you@qq.com 改成你的收件邮箱；{{content}} 原样保留（两侧双引号不能删）。</span></td></tr>
+        </tbody>
+      </table>
+      <p class="muted hint">返回 200 并带 messageId 即发送成功；401=token 错误/停用，400=参数有误，502=SMTP 发送失败（按提示检查授权码）。</p>
     </div>
 
     <div class="card">
