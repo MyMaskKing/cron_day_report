@@ -5998,9 +5998,8 @@ function renderTodoTree(container, trees, opts) {
     if (meta.childNodes.length) main.appendChild(meta);
     if (node.note) {
       var noteEl = document.createElement('div');
-      // 详情页子任务列表：备注单行省略（与主任务卡片一致），完整内容进任务详情查看；
-      // 完整树视图仍保留 pre-wrap 多行
-      noteEl.className = 'todo-note' + (isDetail ? ' todo-note--clip' : '');
+      // 备注一律单行省略（完整树 / 详情子任务列表均同主任务卡片口径），完整内容点进任务详情查看
+      noteEl.className = 'todo-note todo-note--clip';
       noteEl.textContent = node.note;
       main.appendChild(noteEl);
     }
