@@ -1036,11 +1036,19 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-inline-add__hint { font-size: 12px; margin-left: auto; }
 
 /* 详情页底部常驻"+ 添加子任务"行(MS To Do 风格): 折叠时是占位按钮, 展开时是内联输入 */
-.todo-detail-adder { margin-top: 8px; }
+/* 详情页底部目标添加栏: sticky 常驻详情可视区底部, 键盘弹起时借 --kb-inset 浮到键盘上方 */
+.todo-detail-adder {
+  position: sticky; bottom: 0; z-index: 6;
+  margin-top: 8px; margin-bottom: var(--kb-inset, 0px);
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 8px 12px 10px;
+  box-shadow: 0 -6px 18px rgba(20,20,40,.06);
+  transition: margin-bottom .22s ease;
+}
 .todo-detail-adder__placeholder {
   display: flex; align-items: center; gap: 8px;
-  width: 100%; padding: 12px 14px; background: transparent; color: var(--brand);
-  border: 1px dashed var(--brand-border); border-radius: 8px; cursor: pointer;
+  width: 100%; padding: 12px 14px; background: var(--surface-2); color: var(--brand);
+  border: 1px dashed var(--brand-border); border-radius: 10px; cursor: pointer;
   font-size: 14px; text-align: left; transition: background .18s, border-color .18s;
   min-height: 44px;
 }
@@ -1050,10 +1058,21 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-detail-adder__editor { display: none; }
 .todo-detail-adder.editing .todo-detail-adder__editor {
   display: flex; flex-direction: column; gap: 8px;
-  background: var(--surface); border: 1px solid var(--brand); border-radius: 8px;
-  padding: 10px 12px; box-shadow: 0 4px 16px rgba(168,85,247,.08);
   animation: todoInlineAddIn .18s ease-out;
 }
+/* 目标面包屑: 明示当前在给哪个节点添加子任务 */
+.todo-detail-adder__crumb { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted-2); }
+.todo-detail-adder__target { color: var(--brand); font-weight: 600; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-detail-adder__locate { border: 0; background: none; padding: 0; cursor: pointer; color: var(--link-dim); font-size: 12px; text-decoration: underline; }
+.todo-detail-adder__reset {
+  margin-left: auto; flex-shrink: 0; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted-2);
+  border-radius: 999px; font-size: 12px; padding: 1px 10px; line-height: 1.7;
+}
+.todo-detail-adder__reset:hover { border-color: var(--brand); color: var(--brand); }
+.todo-detail-adder__nodate { font-size: 12px; color: var(--muted); }
+/* 选中的添加目标行: 品牌色描边+浅底, 与底部面包屑双重明示 */
+.todo-row.add-target { border-color: var(--brand); background: var(--hover-brand); }
 .todo-detail-adder__title, .todo-detail-adder__note {
   width: 100%; border: 1px solid var(--border); border-radius: 6px;
   padding: 8px 10px; font-size: 14px; font-family: inherit; resize: vertical;

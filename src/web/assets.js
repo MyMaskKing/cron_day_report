@@ -6158,7 +6158,8 @@ function renderTodoTree(container, trees, opts) {
     wrap.style.setProperty('--depth', depth);
 
     var row = document.createElement('div');
-    row.className = 'todo-row pri-' + (node.priority != null ? node.priority : 1) + (node.done ? ' is-done' : '') + (depth === 0 ? ' is-root' : '');
+    row.className = 'todo-row pri-' + (node.priority != null ? node.priority : 1) + (node.done ? ' is-done' : '') + (depth === 0 ? ' is-root' : '')
+      + (opts.isAddTarget && opts.isAddTarget(node) ? ' add-target' : '');
     row.style.setProperty('--depth', depth);
     var hasChildren = node.children.length > 0;
 
@@ -6273,8 +6274,12 @@ function renderTodoTree(container, trees, opts) {
         dragHandle.innerHTML = ICONS.drag;
         ops.appendChild(dragHandle);
       }
-      // 完整树视图内的"添加子任务": 走同一 onAddChildSubmit 通道, 内联在该行下方
-      if (opts.onAddChildSubmit) {
+      // 添加子任务入口:
+      //   详情页(有 onPickAddTarget): 只选中底部添加栏的目标, 不就地展开
+      //   完整树/卡片视图: 就地内联展开(openInlineAddChild)
+      if (opts.onPickAddTarget) {
+        ops.appendChild(mkOp(ICONS.plus, '添加子任务到「' + esc(node.title) + '」', function(){ opts.onPickAddTarget(node); }));
+      } else if (opts.onAddChildSubmit) {
         var b1 = mkOp(ICONS.plus, '添加子任务', function(){
           openInlineAddChild(b1, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
         });
@@ -6603,6 +6608,10 @@ function todoRenderView(container, trees, opts) {
       // "完成主任务"入口不放这里(已由 todoAttachDoneLinkToTip 挂到提示文末尾或独立一行)
       // "添加子任务"入口不再放面包屑, 改为详情页子任务列表底部常驻输入行(MS To Do 风格, 见下面 mountDetailAdder)
     }
+    // 底部目标添加栏控制器(挂载前用空实现占位, 渲染期行加号即可安全引用)
+    var adderApi = {
+      setTarget: function(){}, getTargetId: function(){ return null; }
+    };
     // 详情页只渲染 root 的子任务，避免与面包屑标题重复; 首层子任务视作 depth 0 但截止日期继承 root
     // root 无子任务时也保留底部 "添加子任务" 常驻行, 而不是空态提示
     if (root.children.length === 0) {
@@ -6617,13 +6626,17 @@ function todoRenderView(container, trees, opts) {
       // 详情页首层子任务的继承日期: 顶层自身日期(旧模式=root.due_date; 新模式 root 无日期→null,
       // 无自身日期的子任务即备忘录, 与后端 effDueOf 沿祖先链继承的口径一致)
       childOpts.forcedRootDue = root.due_date;
+      // 行加号 → 选中底部添加栏目标(替代就地展开)
+      childOpts.onPickAddTarget = function(node){ adderApi.setTarget(node); };
+      childOpts.isAddTarget = function(node){ return adderApi.getTargetId() === node.id; };
       renderTodoTree(container, root.children, childOpts);
     }
-    // 底部常驻"+ 添加子任务": 只在支持添加(非只读)时挂载; 追加在子任务列表末尾
+    // 底部目标添加栏: 只在支持添加(非只读)时挂载; sticky 常驻详情底部
     if (opts.onAddChildSubmit) {
-      mountDetailAdder(container, root, function(payload){
+      var ctl = mountDetailAdder(container, root, function(payload){
         return opts.onAddChildSubmit(root, payload);
       });
+      if (ctl) { adderApi.setTarget = ctl.setTarget; adderApi.getTargetId = ctl.getTargetId; }
     }
     return;
   }
@@ -6869,137 +6882,151 @@ function openInlineAddChild(btnEl, parentNode, submitFn) {
   titleEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); close(); } });
   noteEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); close(); } });
 }
-// 详情页底部常驻"+ 添加子任务"行(MS To Do 风格): 追加在子任务列表末尾, 点击占位符展开为输入框
-// 有内容时回车/失焦保存并在同位置继续显示可输入的空行(连续录入); 无内容时 Esc/失焦折回占位符.
-// 用 window._todoAdderActive 标记"上次保存后是否处于连续输入态", 重绘后自动展开新 wrap 保持焦点体验.
-// container: 详情页 #todoTree 容器; parentNode: 当前详情根任务; submitFn(payload)-> Promise
-function mountDetailAdder(container, parentNode, submitFn) {
-  if (!container || !parentNode || typeof submitFn !== 'function') return;
+// 详情页底部"目标添加栏"(原常驻添加行升级, MS To Do 风格):
+//   - sticky 常驻详情底部, 键盘弹起借 --kb-inset 浮到键盘上方; 点占位行=给主任务添加
+//   - 列表任意行的 ＋ 只负责"选中添加目标"(renderTodoTree 的 onPickAddTarget→setTarget), 输入统一在此栏
+//   - 面包屑明示在给谁添加(✕ 回主任务/定位滚回该行); 草稿按目标 id 隔离; 提交后目标保持可连续录入
+//   - 会话内目标存 todo_adder_state_<rootId>(重绘恢复); 草稿沿用 todo_adder_draft_<目标id>; 取消/退出经 collapse 清掉
+// container: 详情页 #todoTree 容器; rootNode: 当前详情根任务(默认目标); submitFn(payload)-> Promise
+// 返回 { setTarget, getTargetId, collapse } 供行内 ＋ 接线; 参数无效返回 null
+function mountDetailAdder(container, rootNode, submitFn) {
+  if (!container || !rootNode || typeof submitFn !== 'function') return null;
   var wrap = document.createElement('div');
-  wrap.className = 'todo-detail-adder collapsed';
+  wrap.className = 'todo-detail-adder';
 
   var placeholder = document.createElement('button');
   placeholder.type = 'button'; placeholder.className = 'todo-detail-adder__placeholder';
   placeholder.innerHTML = '<span class="todo-detail-adder__plus">＋</span><span>添加子任务</span>';
 
-  // 逐级门控: 能否给新子任务设日期/重复只看【直接父】是否勾选 child_due(与编辑弹窗同口径)
-  var childDueMode = !!parentNode.child_due;
   var editor = document.createElement('div'); editor.className = 'todo-detail-adder__editor';
+  var crumb = document.createElement('div'); crumb.className = 'todo-detail-adder__crumb';
+  crumb.appendChild(document.createTextNode('添加到：'));
+  var targetName = document.createElement('b'); targetName.className = 'todo-detail-adder__target';
+  var locateBtn = document.createElement('button');
+  locateBtn.type = 'button'; locateBtn.className = 'todo-detail-adder__locate'; locateBtn.textContent = '定位';
+  var resetBtn = document.createElement('button');
+  resetBtn.type = 'button'; resetBtn.className = 'todo-detail-adder__reset'; resetBtn.textContent = '✕ 主任务';
+  crumb.appendChild(targetName); crumb.appendChild(locateBtn); crumb.appendChild(resetBtn);
+
   var titleEl = document.createElement('textarea');
   titleEl.rows = 1; titleEl.placeholder = '子任务标题(支持换行)'; titleEl.className = 'todo-detail-adder__title';
   var noteEl = document.createElement('textarea');
   noteEl.rows = 1; noteEl.placeholder = '备注(可选)'; noteEl.className = 'todo-detail-adder__note';
-  var dueEl = null, recurCtl = null;
-  if (childDueMode) {
-    var optRow = document.createElement('div');
-    optRow.className = 'todo-detail-adder__opts';
-    optRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0;';
-    dueEl = document.createElement('input');
-    dueEl.type = 'date';
-    dueEl.style.cssText = 'padding:4px 8px;';
-    dueEl.value = todoTodayStr(); // 与编辑弹窗一致: 截止日期默认今天
-    recurCtl = todoBuildRecurControl();
-    optRow.appendChild(dueEl); optRow.appendChild(recurCtl.el);
-    editor.appendChild(optRow);
-  }
+
+  // 日期/重复控件始终创建, 按目标 child_due 显隐(切换目标时无需重建)
+  var optRow = document.createElement('div');
+  optRow.className = 'todo-detail-adder__opts';
+  optRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+  var dueEl = document.createElement('input');
+  dueEl.type = 'date';
+  dueEl.style.cssText = 'padding:4px 8px;';
+  dueEl.value = todoTodayStr(); // 与编辑弹窗一致: 截止日期默认今天
+  var recurCtl = todoBuildRecurControl();
+  var noDateHint = document.createElement('span');
+  noDateHint.className = 'todo-detail-adder__nodate';
+  noDateHint.textContent = '该目标未开启「子任务各自设日期」，新子任务随上级日期';
+  optRow.appendChild(dueEl); optRow.appendChild(recurCtl.el); optRow.appendChild(noDateHint);
+
   var row = document.createElement('div'); row.className = 'todo-detail-adder__row';
   var saveBtn = document.createElement('button'); saveBtn.type = 'button'; saveBtn.className = 'btn sm todo-detail-adder__save'; saveBtn.textContent = '添加';
   var cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'btn sm gray todo-detail-adder__cancel'; cancelBtn.textContent = '取消';
   var hint = document.createElement('span'); hint.className = 'todo-detail-adder__hint muted';
-  hint.textContent = childDueMode ? '可设置截止日期与重复' : '继承上级任务的日期/优先级/分类';
   row.appendChild(saveBtn); row.appendChild(cancelBtn); row.appendChild(hint);
-  editor.insertBefore(titleEl, editor.firstChild); editor.appendChild(noteEl); editor.appendChild(row);
 
+  editor.appendChild(crumb); editor.appendChild(titleEl); editor.appendChild(noteEl); editor.appendChild(optRow); editor.appendChild(row);
   wrap.appendChild(placeholder); wrap.appendChild(editor);
   container.appendChild(wrap);
   autoGrowTextarea(titleEl); autoGrowTextarea(noteEl);
-  // 键盘弹起时把输入框抬到可视区(修复手机上被键盘盖住)
-  function onVV() { if (wrap.classList.contains('editing')) todoLiftIntoView(wrap); }
-  // 草稿(按直接父 id 隔离): 防 App 切后台进程被回收后, 详情页未保存的子任务输入丢失。
-  // 只暂存标题/备注/日期; 取消(Esc)、保存成功走 collapse 清除, 仅异常退出保留。
-  var DRAFT_KEY = 'todo_adder_draft_' + parentNode.id;
+
+  // ===== 目标状态与持久化 =====
+  var STATE_KEY = 'todo_adder_state_' + rootNode.id;
+  var targetNode = rootNode;
+  function findInTree(id, n) {
+    n = n || rootNode;
+    if (n.id === id) return n;
+    for (var i = 0; i < (n.children || []).length; i++) {
+      var hit = findInTree(id, n.children[i]);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  function draftKey(n) { return 'todo_adder_draft_' + n.id; }
   function draftSave() {
     try {
-      var t = titleEl.value || '', n = noteEl.value || '';
-      if (!t && !n) { localStorage.removeItem(DRAFT_KEY); return; }
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title: t, note: n, due: dueEl ? dueEl.value : '' }));
+      var t = titleEl.value || '', nt = noteEl.value || '';
+      if (!t && !nt) { localStorage.removeItem(draftKey(targetNode)); return; }
+      localStorage.setItem(draftKey(targetNode), JSON.stringify({ title: t, note: nt, due: dueEl.value || '' }));
     } catch (e) {}
   }
-  function draftClear() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
-  function draftLoad() { try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) { return null; } }
-  titleEl.addEventListener('input', draftSave);
-  noteEl.addEventListener('input', draftSave);
-  if (dueEl) dueEl.addEventListener('change', draftSave);
-  // 进程重建后重挂载: 有草稿则展开回填(不抢焦点, 避免切回就弹键盘); 无草稿时沿用连续录入态
-  var _draft = draftLoad();
-  if (!_todoAddRestoreLocked && _draft && (_draft.title || _draft.note)) {
-    titleEl.value = _draft.title || ''; noteEl.value = _draft.note || '';
-    if (dueEl && _draft.due) dueEl.value = _draft.due;
+  function draftClear() { try { localStorage.removeItem(draftKey(targetNode)); } catch (e) {} }
+  function draftLoad() { try { return JSON.parse(localStorage.getItem(draftKey(targetNode)) || 'null'); } catch (e) { return null; } }
+  function stateSave() { try { localStorage.setItem(STATE_KEY, JSON.stringify({ target: targetNode.id })); } catch (e) {} }
+  function stateClear() { try { localStorage.removeItem(STATE_KEY); } catch (e) {} }
+  function stateLoad() { try { return JSON.parse(localStorage.getItem(STATE_KEY) || 'null'); } catch (e) { return null; } }
+  // 逐级门控: 能否给新子任务设日期/重复只看【目标节点】是否勾选 child_due(与编辑弹窗同口径)
+  function dateGate() {
+    var can = !!targetNode.child_due;
+    dueEl.style.display = can ? '' : 'none';
+    recurCtl.el.style.display = can ? '' : 'none';
+    noDateHint.style.display = can ? 'none' : '';
+    hint.textContent = can ? '可设置截止日期与重复' : '继承上级任务的日期/优先级/分类';
+  }
+  function paintCrumb() {
+    targetName.textContent = targetNode.title;
+    targetName.title = targetNode.title;
+    resetBtn.style.display = targetNode === rootNode ? 'none' : '';
+  }
+  // 目标行高亮: 直接切 DOM class, 不引发整树重绘(输入焦点不丢); 整树重绘后由恢复分支重画
+  function paintHighlight() {
+    Array.prototype.forEach.call(container.querySelectorAll('.todo-row.add-target'), function(el){ el.classList.remove('add-target'); });
+    if (targetNode !== rootNode) {
+      var nodeWrap = container.querySelector('.todo-node[data-id="' + targetNode.id + '"]');
+      var rr = nodeWrap && nodeWrap.querySelector('.todo-row');
+      if (rr) rr.classList.add('add-target');
+    }
+  }
+  function fillDraft() {
+    var d = draftLoad() || {};
+    titleEl.value = d.title || '';
+    noteEl.value = d.note || '';
+    dueEl.value = d.due || todoTodayStr();
     titleEl.dispatchEvent(new Event('input')); noteEl.dispatchEvent(new Event('input'));
-    wrap.classList.remove('collapsed'); wrap.classList.add('editing');
-    todoRegisterAddForm(collapse);
-    bindDocClick();
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', onVV);
-  } else if (window._todoAdderActive) {
-    // 若上次保存后处于连续录入态, 重绘后自动展开(与 expand 同口径: 注册单例 + 抬升)
-    wrap.classList.remove('collapsed'); wrap.classList.add('editing');
-    todoRegisterAddForm(collapse);
-    bindDocClick();
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', onVV);
-    setTimeout(function(){ titleEl.focus(); todoLiftIntoView(wrap); }, 50);
   }
-
-  // 点击框外任意位置即收起(与取消/Esc 同语义): 捕获阶段监听, 行内按钮 stopPropagation 也拦得到。
-  // 排除: 框自身(含占位符)、弹窗内部(校验失败 alertModal 点确定要保留输入);
-  // 重绘销毁 wrap 但没走 collapse 时借 isConnected 自清理, 不留僵尸监听。
-  function onDocClick(e) {
-    if (!wrap.isConnected) { document.removeEventListener('click', onDocClick, true); return; }
-    var t = e.target;
-    // .dp-pop: 自定义日期选择器弹层挂在 body 下, 点日期不能被判为框外点击
-    if (t && t.closest && (t.closest('.todo-detail-adder') || t.closest('.modal-mask') || t.closest('.dp-pop'))) return;
-    collapse();
-  }
-  function bindDocClick() {
-    document.removeEventListener('click', onDocClick, true);
-    document.addEventListener('click', onDocClick, true);
-  }
-  function expand() {
-    wrap.classList.remove('collapsed');
+  function applyTarget(node, focus) {
+    draftSave(); // 切走前留存旧目标草稿(按目标隔离)
+    targetNode = node;
+    fillDraft();
+    dateGate(); paintCrumb(); paintHighlight();
     wrap.classList.add('editing');
     window._todoAdderActive = 1;
-    // 单例: 展开本框会自动关掉画面上其它添加框
+    stateSave();
     todoRegisterAddForm(collapse);
-    bindDocClick();
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', onVV);
-    setTimeout(function(){ titleEl.focus(); todoLiftIntoView(wrap); }, 50);
+    if (focus) setTimeout(function(){ titleEl.focus(); }, 50);
   }
-  var suppress = false; // 本次 collapse 是否由保存触发(需解除恢复锁)
+
   function collapse() {
-    draftClear(); // 收起(取消/Esc/保存成功)即清草稿
-    if (suppress) { suppress = false; todoUnlockAddRestore(); }
+    draftClear(); stateClear();
     titleEl.value = ''; noteEl.value = '';
-    if (dueEl) dueEl.value = todoTodayStr(); // 复位后截止日期仍默认今天
-    // 触发一次 input 让 autoGrow 复位
+    dueEl.value = todoTodayStr();
     titleEl.dispatchEvent(new Event('input')); noteEl.dispatchEvent(new Event('input'));
-    saveBtn.disabled = false; cancelBtn.disabled = false; // 收起时恢复按钮, 下次展开可再点
+    saveBtn.disabled = false; cancelBtn.disabled = false;
     wrap.classList.remove('editing');
-    wrap.classList.add('collapsed');
     window._todoAdderActive = 0;
-    if (window.visualViewport) window.visualViewport.removeEventListener('resize', onVV);
-    document.removeEventListener('click', onDocClick, true);
+    targetNode = rootNode;
+    dateGate(); paintCrumb(); paintHighlight();
     todoUnregisterAddForm(collapse);
   }
   async function submit() {
     var title = (titleEl.value || '').trim();
     if (!title) { alertModal('请填写子任务标题', { ok: false }); titleEl.focus(); return; }
-    // child_due 模式: 截止日期必填(默认今天, 被清空则拦截)
-    if (childDueMode && dueEl && !dueEl.value) { alertModal('请选择截止日期（默认今天）', { ok: false }); dueEl.focus(); return; }
+    var canDate = !!targetNode.child_due;
+    if (canDate && !dueEl.value) { alertModal('请选择截止日期（默认今天）', { ok: false }); dueEl.focus(); return; }
     if (saveBtn.disabled) return;
     saveBtn.disabled = true; cancelBtn.disabled = true;
-    var payload = { title: title, parent_id: parentNode.id };
+    var payload = { title: title, parent_id: targetNode.id };
     var note = (noteEl.value || '').trim();
     if (note) payload.note = note;
-    if (childDueMode) {
+    if (canDate) {
       payload.due_date = dueEl.value ? dueEl.value : null;
       var r = recurCtl.get();
       if (r.recurrence) {
@@ -7009,28 +7036,62 @@ function mountDetailAdder(container, parentNode, submitFn) {
         payload.recur_weekday = r.recur_weekday;
       }
     }
+    var keepT = titleEl.value, keepN = noteEl.value;
+    // 连续录入: 保持编辑态与目标(submitFn 内 loadTodos 整树重绘, 新栏读 STATE_KEY 恢复并续焦);
+    // 已提交内容的草稿清掉; 未发生重绘的兜底分支就地清空继续录入
+    window._todoAdderActive = 1;
+    draftClear();
+    stateSave();
     try {
-      // 先置 0: submitFn 内部会 loadTodos → 重绘详情, 新挂载的添加框读到 0 即保持折叠(不自动展开).
-      // 必须在 await 之前 —— 重绘发生在 submitFn 内部, 晚了新框已按 1 展开.
-      window._todoAdderActive = 0;
-      // 保存引发的重绘不触发草稿自动恢复(否则刚提交的内容会被重新展开)
-      suppress = true;
-      todoLockAddRestore();
       await submitFn(payload);
-      // 未重绘的极端情况下就地收起(重绘时本闭包持有的是已移除的旧 wrap, 操作无视觉影响)
-      collapse();
+      if (wrap.isConnected) {
+        titleEl.value = ''; noteEl.value = '';
+        titleEl.dispatchEvent(new Event('input')); noteEl.dispatchEvent(new Event('input'));
+        saveBtn.disabled = false; cancelBtn.disabled = false;
+        titleEl.focus();
+      }
     } catch (err) {
-      suppress = false; todoUnlockAddRestore();
       saveBtn.disabled = false; cancelBtn.disabled = false;
-      if (typeof alertModal === 'function') alertModal((err && err.message) || '保存失败', {ok:false});
+      titleEl.value = keepT; noteEl.value = keepN; draftSave();
+      if (typeof alertModal === 'function') alertModal((err && err.message) || '保存失败', { ok: false });
     }
   }
-  placeholder.addEventListener('click', expand);
+
+  placeholder.addEventListener('click', function(){ applyTarget(rootNode, true); });
   saveBtn.addEventListener('click', submit);
   cancelBtn.addEventListener('click', collapse);
-  // Enter 保留 textarea 默认换行行为, 不再拦截提交; Esc 折回占位符(等价点取消)
+  locateBtn.addEventListener('click', function(){
+    if (targetNode === rootNode) { container.scrollIntoView({ block: 'start' }); return; }
+    var nodeWrap = container.querySelector('.todo-node[data-id="' + targetNode.id + '"]');
+    if (nodeWrap) nodeWrap.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+  resetBtn.addEventListener('click', function(){ applyTarget(rootNode, true); });
+  titleEl.addEventListener('input', draftSave);
+  noteEl.addEventListener('input', draftSave);
+  dueEl.addEventListener('change', draftSave);
+  // Esc 折回占位符(等价点取消); Enter 保留 textarea 默认换行, 不拦截提交
   titleEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); collapse(); } });
   noteEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); collapse(); } });
+
+  // ===== 挂载恢复: 保存重绘/进程重建后按 STATE_KEY 恢复编辑态与目标 =====
+  dateGate(); paintCrumb();
+  var st = stateLoad();
+  var restored = (st && st.target != null) ? findInTree(st.target) : null;
+  if (st && !restored) stateClear(); // 目标已被删除/移走: 清掉脏 state, 回占位态
+  if (restored) {
+    targetNode = restored;
+    fillDraft();
+    dateGate(); paintCrumb(); paintHighlight();
+    wrap.classList.add('editing');
+    todoRegisterAddForm(collapse);
+    // 同会话连续录入(内存标记)才抢焦点; 进程重建只回填不弹键盘
+    if (window._todoAdderActive) setTimeout(function(){ titleEl.focus(); }, 50);
+  }
+  return {
+    setTarget: function(node){ applyTarget(node, true); },
+    getTargetId: function(){ return targetNode.id; },
+    collapse: collapse
+  };
 }
 // 子任务拖拽排序（仅同级重排），两个入口共用一套 beginDrag/moveTo/finishDrag:
 //   手机(触摸): 长按整行 ~350ms 进入拖拽 —— 长按期间移动 >10px 判定为滚动/左滑手势, 取消, 绝不抢滚动;
