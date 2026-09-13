@@ -7,7 +7,7 @@ services:
     env_file: .env
     ports:
       # 局域网 HTTP 直连（默认）。只想让同机反代访问时改成 "127.0.0.1:${HTTP_PORT:-8080}:8080"
-      - "${HTTP_PORT:-8080}:8080"
+      - "9005:8080"
     volumes:
       # 容器内固定 /data（entrypoint 以 root 修正属主后降权 node 运行）
       - ./data:/data
