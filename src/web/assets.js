@@ -6897,8 +6897,12 @@ function openInlineAddChild(btnEl, parentNode, submitFn) {
 function mountDetailAdder(container, rootNode, submitFn) {
   if (!container || !rootNode || typeof submitFn !== 'function') return null;
   var wrap = document.createElement('div');
-  // fixed 挂到 body: .card 的 backdrop-filter 会让后代 fixed 相对卡片定位; 全屏态加 --fs 调宽度口径
-  var inFullscreen = !!(container.closest && container.closest('.todo-fs-main'));
+  // 挂载点(关键): 全屏态 #todoFullscreen 是 fixed z-index:1000 的面板, 挂 body 会被它整层盖住(看不见/点不到);
+  //   故全屏时挂到 .todo-fs-main(面板内, fixed 仍相对视口但同处 1000 层叠上下文, 可见可点);
+  //   默认 .card 视图挂 body —— .card 的 backdrop-filter 会让后代 fixed 相对卡片定位, 必须脱离
+  var fsMain = (container.closest && container.closest('.todo-fs-main')) || null;
+  var inFullscreen = !!fsMain;
+  var mountHost = fsMain || document.body;
   wrap.className = 'todo-detail-adder' + (inFullscreen ? ' todo-detail-adder--fs' : '');
 
   var placeholder = document.createElement('button');
@@ -6950,7 +6954,7 @@ function mountDetailAdder(container, rootNode, submitFn) {
   var spacer = document.createElement('div');
   spacer.className = 'todo-detail-adder-spacer';
   container.appendChild(spacer);
-  document.body.appendChild(wrap); // fixed 脱离 .card(backdrop-filter 会改变 fixed 包含块)
+  mountHost.appendChild(wrap); // 见上方挂载点说明: 全屏→.todo-fs-main; 默认→body
   function syncSpacer() { spacer.style.height = wrap.offsetHeight + 'px'; }
   syncSpacer();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(syncSpacer).observe(wrap);
