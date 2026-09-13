@@ -18,7 +18,7 @@ import {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
-  TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS
+  TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS
 } from './assets.js';
 
 const JS = 'application/javascript';
@@ -50,7 +50,8 @@ function buildAssets() {
     'page-todo.js': { body: TODO_JS, type: JS },
     'page-todo-public.js': { body: PUBLIC_TODO_JS, type: JS },
     'page-todo-report.js': { body: TODO_REPORT_JS, type: JS },
-    'page-todo-collab.js': { body: TODO_COLLAB_JS, type: JS }
+    'page-todo-collab.js': { body: TODO_COLLAB_JS, type: JS },
+    'page-storage.js': { body: STORAGE_ADMIN_JS, type: JS }
   };
 }
 

@@ -2460,6 +2460,219 @@ if (plDelBtn) bindClickBusy(plDelBtn, async function(){
 loadPushLogs();
 `;
 
+// ============ 超管附件存储管理 ============
+const STORAGE_ADMIN_JS = `
+bindLogout(); bindModal();
+
+function fmFmtSize(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  if (n < 1073741824) return (n / 1048576).toFixed(2) + ' MB';
+  return (n / 1073741824).toFixed(2) + ' GB';
+}
+
+var fmState = { limit: 50, offset: 0, total: 0, rows: [] };
+var opState = { orphans: [] };
+
+async function loadFmStats() {
+  try {
+    var d = await api('/api/admin/files/stats');
+    document.getElementById('fmStatCount').textContent = d.totalCount;
+    document.getElementById('fmStatBytes').textContent = fmFmtSize(d.totalBytes);
+    document.getElementById('fmStatTodoN').textContent = d.bySource.todo.count;
+    document.getElementById('fmStatTodoL').textContent = '任务附件 · ' + fmFmtSize(d.bySource.todo.bytes);
+    document.getElementById('fmStatUserN').textContent = d.bySource.user.count;
+    document.getElementById('fmStatUserL').textContent = '用户文件 · ' + fmFmtSize(d.bySource.user.bytes);
+    document.getElementById('fmMaxMb').textContent = d.maxMb;
+  } catch (err) { alertModal(err.message, { ok: false }); }
+}
+
+async function loadFmFiles() {
+  var q = new URLSearchParams();
+  q.set('limit', fmState.limit);
+  q.set('offset', fmState.offset);
+  try {
+    var d = await api('/api/admin/files?' + q.toString());
+    fmState.total = d.total || 0;
+    fmState.rows = d.rows || [];
+    renderFmRows();
+    var from = fmState.total === 0 ? 0 : fmState.offset + 1;
+    var to = Math.min(fmState.total, fmState.offset + fmState.limit);
+    document.getElementById('fmPage').textContent = from + '~' + to + ' / 共 ' + fmState.total;
+    document.getElementById('fmPrev').disabled = fmState.offset === 0;
+    document.getElementById('fmNext').disabled = fmState.offset + fmState.limit >= fmState.total;
+  } catch (err) { alertModal(err.message, { ok: false }); }
+}
+
+function renderFmRows() {
+  var body = document.getElementById('fmTbody');
+  var rows = fmState.rows;
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="8" class="muted" style="text-align:center;padding:30px;">暂无文件</td></tr>';
+  } else {
+    body.innerHTML = rows.map(function(r) {
+      var typeCell = r.isImage ? '<span class="tag ok">图片</span>' : '<span class="tag">文件</span>';
+      if (r.mime) typeCell += '<div class="muted" style="font-size:12px;">' + esc(r.mime) + '</div>';
+      var srcCell = r.source === 'todo' ? '<span class="tag">任务附件</span>' : '<span class="tag">用户文件</span>';
+      var act = '';
+      if (r.isImage) act += '<button type="button" class="btn sm" data-act="preview" data-token="' + esc(r.fileToken) + '" data-name="' + esc(r.originName) + '">预览</button> ';
+      act += '<a class="btn sm gray" href="' + esc(r.url) + '" download="' + esc(r.originName) + '">下载</a>';
+      return '<tr>'
+        + '<td data-label="选择"><input type="checkbox" class="fm-cb" style="width:auto;margin:0;flex:none;" value="' + r.id + '"></td>'
+        + '<td data-label="文件名" style="word-break:break-all;">' + esc(r.originName) + '</td>'
+        + '<td data-label="类型">' + typeCell + '</td>'
+        + '<td data-label="来源">' + srcCell + '</td>'
+        + '<td data-label="归属">' + esc(r.ownerName || ('#' + r.ownerUid)) + '</td>'
+        + '<td data-label="大小">' + fmFmtSize(r.size) + '</td>'
+        + '<td data-label="上传时间">' + fmtDbTime(r.createdAt) + '</td>'
+        + '<td data-label="操作" style="white-space:nowrap;">' + act + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+  document.getElementById('fmCheckAll').checked = false;
+  syncFmBatchBtn();
+}
+
+function selectedFmIds() {
+  return Array.prototype.map.call(document.querySelectorAll('.fm-cb:checked'), function(cb) { return parseInt(cb.value, 10); });
+}
+function syncFmBatchBtn() {
+  var n = document.querySelectorAll('.fm-cb:checked').length;
+  var btn = document.getElementById('fmBatchDel');
+  btn.disabled = n === 0;
+  btn.textContent = n ? ('批量删除所选（' + n + '）') : '批量删除所选';
+}
+
+function previewImage(token, name) {
+  var url = '/todo-file/' + encodeURIComponent(token);
+  openModal(name,
+    '<div style="text-align:center;">'
+    + '<img src="' + url + '" style="max-width:100%;border-radius:10px;" alt="' + esc(name) + '">'
+    + '<div style="margin-top:12px;"><a class="btn sm" href="' + url + '" download="' + esc(name) + '">下载原图</a></div>'
+    + '</div>',
+    'modal-mask--lg');
+}
+
+document.getElementById('fmTbody').addEventListener('click', function(e) {
+  var btn = e.target.closest ? e.target.closest('button[data-act="preview"]') : null;
+  if (btn) previewImage(btn.getAttribute('data-token'), btn.getAttribute('data-name'));
+});
+document.getElementById('fmTbody').addEventListener('change', function(e) {
+  if (e.target.classList && e.target.classList.contains('fm-cb')) syncFmBatchBtn();
+});
+document.getElementById('fmCheckAll').addEventListener('change', function() {
+  var on = this.checked;
+  Array.prototype.forEach.call(document.querySelectorAll('.fm-cb'), function(cb) { cb.checked = on; });
+  syncFmBatchBtn();
+});
+document.getElementById('fmRefresh').addEventListener('click', function() { loadFmStats(); loadFmFiles(); });
+document.getElementById('fmPrev').addEventListener('click', function() {
+  if (fmState.offset === 0) return;
+  fmState.offset = Math.max(0, fmState.offset - fmState.limit);
+  loadFmFiles();
+});
+document.getElementById('fmNext').addEventListener('click', function() {
+  if (fmState.offset + fmState.limit >= fmState.total) return;
+  fmState.offset += fmState.limit;
+  loadFmFiles();
+});
+document.getElementById('fmBatchDel').addEventListener('click', function() {
+  var ids = selectedFmIds();
+  if (!ids.length) return;
+  var bytes = 0;
+  fmState.rows.forEach(function(r) { if (ids.indexOf(r.id) >= 0) bytes += Number(r.size) || 0; });
+  confirmModal('批量删除文件',
+    '将永久删除所选 ' + ids.length + ' 个文件（共 ' + fmFmtSize(bytes) + '），对象与数据库记录一并删除且无法恢复。是否继续？',
+    async function() {
+      try {
+        var r = await api('/api/admin/files/delete', { method: 'POST', body: { ids: ids } });
+        var msg = '已删除 ' + r.deletedCount + ' 个文件。';
+        if (r.failed && r.failed.length) msg += '\\n失败 ' + r.failed.length + ' 个：' + r.failed.map(function(f) { return '#' + f.id + ' ' + f.message; }).join('；');
+        alertModal(msg, { ok: !(r.failed && r.failed.length) });
+        // 当前页删空时退回上一页，避免停在空页
+        if (fmState.offset > 0 && fmState.offset >= fmState.total - ids.length) {
+          fmState.offset = Math.max(0, fmState.offset - fmState.limit);
+        }
+        loadFmStats(); loadFmFiles();
+      } catch (err) { alertModal(err.message, { ok: false }); }
+    }
+  );
+});
+
+// ============ 孤儿文件扫描与清理 ============
+function renderOrphans(d) {
+  opState.orphans = d.orphans || [];
+  var body = document.getElementById('opTbody');
+  var bar = document.getElementById('opBar');
+  var head = document.getElementById('opHead');
+  document.getElementById('opCheckAll').checked = false;
+  if (!opState.orphans.length) {
+    bar.style.display = 'none';
+    head.style.display = 'none';
+    body.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;padding:40px;">未发现孤儿文件 🎉</td></tr>';
+    return;
+  }
+  bar.style.display = '';
+  head.style.display = '';
+  document.getElementById('opSummary').textContent = '发现 ' + opState.orphans.length + ' 个孤儿文件，共 ' + fmFmtSize(d.totalBytes);
+  body.innerHTML = opState.orphans.map(function(o) {
+    return '<tr>'
+      + '<td data-label="选择"><input type="checkbox" class="op-cb" style="width:auto;margin:0;flex:none;" value="' + esc(o.key) + '"></td>'
+      + '<td data-label="对象 key" style="word-break:break-all;font-family:monospace;font-size:12px;">' + esc(o.key) + '</td>'
+      + '<td data-label="来源">' + (o.source === 'todo' ? '<span class="tag">任务附件</span>' : '<span class="tag">用户文件</span>') + '</td>'
+      + '<td data-label="大小">' + fmFmtSize(o.size) + '</td>'
+      + '</tr>';
+  }).join('');
+  syncOpBatchBtn();
+}
+function selectedOpKeys() {
+  return Array.prototype.map.call(document.querySelectorAll('.op-cb:checked'), function(cb) { return cb.value; });
+}
+function syncOpBatchBtn() {
+  var n = document.querySelectorAll('.op-cb:checked').length;
+  var btn = document.getElementById('opBatchDel');
+  btn.disabled = n === 0;
+  btn.textContent = n ? ('删除所选（' + n + '）') : '删除所选';
+}
+bindClickBusy(document.getElementById('opScan'), async function() {
+  var d = await api('/api/admin/files/orphans');
+  renderOrphans(d);
+});
+document.getElementById('opTbody').addEventListener('change', function(e) {
+  if (e.target.classList && e.target.classList.contains('op-cb')) syncOpBatchBtn();
+});
+document.getElementById('opCheckAll').addEventListener('change', function() {
+  var on = this.checked;
+  Array.prototype.forEach.call(document.querySelectorAll('.op-cb'), function(cb) { cb.checked = on; });
+  syncOpBatchBtn();
+});
+document.getElementById('opBatchDel').addEventListener('click', function() {
+  var keys = selectedOpKeys();
+  if (!keys.length) return;
+  var bytes = 0;
+  opState.orphans.forEach(function(o) { if (keys.indexOf(o.key) >= 0) bytes += Number(o.size) || 0; });
+  confirmModal('清理孤儿文件',
+    '将永久删除所选 ' + keys.length + ' 个无主对象（共 ' + fmFmtSize(bytes) + '），仅删除对象、不影响数据库，无法恢复。是否继续？',
+    async function() {
+      try {
+        var r = await api('/api/admin/files/orphans/delete', { method: 'POST', body: { keys: keys } });
+        var msg = '已删除 ' + r.deleted.length + ' 个孤儿文件。';
+        if (r.skipped && r.skipped.length) msg += '\\n跳过（删除前复核到已重新登记）' + r.skipped.length + ' 个。';
+        if (r.failed && r.failed.length) msg += '\\n失败 ' + r.failed.length + ' 个：' + r.failed.map(function(f) { return f.key + ' ' + f.message; }).join('；');
+        alertModal(msg, { ok: !(r.failed && r.failed.length) });
+        var d = await api('/api/admin/files/orphans');
+        renderOrphans(d);
+        loadFmStats();
+      } catch (err) { alertModal(err.message, { ok: false }); }
+    }
+  );
+});
+
+loadFmStats();
+loadFmFiles();
+`;
+
 // 定时任务管理 JS
 const MONITOR_JS = `
 bindLogout();
@@ -8779,5 +8992,5 @@ export {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
-  TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS
+  TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS
 };

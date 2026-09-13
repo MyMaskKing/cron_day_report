@@ -1482,7 +1482,10 @@ function renderTopbar(user, active = '') {
     { key: 'asset', href: '/asset', text: '资产报表' },
     { key: 'weight', href: '/weight', text: '体重曲线' }
   ];
-  if (user.role === 'admin') links.push({ key: 'admin', href: '/admin', text: '用户管理' });
+  if (user.role === 'admin') {
+    links.push({ key: 'admin', href: '/admin', text: '用户管理' });
+    links.push({ key: 'storage', href: '/storage', text: '附件存储' });
+  }
 
   // 受限免密会话：导航只保留对应模块，隐藏设置/登出以外的其他入口
   const restricted = !!user.quickloginModule;

@@ -8,7 +8,7 @@ import {
   LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS,
   WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
-  TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS
+  TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS
 } from './assets.js';
 
 // ============ 统一 SVG 图标(currentColor 描边, 替代微信 X5 内核 emoji 失渲染) ============
@@ -253,6 +253,66 @@ function adminPage(user) {
     <div class="card" id="detail" style="display:none;"></div>
   </div>`;
   return renderPage({ title: '用户管理', body, scripts: ['page-admin.js'], theme: user.theme });
+}
+
+/** 超管「附件存储管理」页：占用统计 / 文件管理（预览、下载、批量删除）/ 孤儿扫描清理 */
+function storageAdminPage(user) {
+  const body = renderTopbar(user, 'storage') + `<div class="container">
+    <div class="card">
+      <h2>占用统计</h2>
+      <div class="grid-stats">
+        <div class="stat"><div class="num" id="fmStatCount">-</div><div class="lbl">文件总数</div></div>
+        <div class="stat"><div class="num" id="fmStatBytes">-</div><div class="lbl">总占用</div></div>
+        <div class="stat"><div class="num" id="fmStatTodoN">-</div><div class="lbl" id="fmStatTodoL">任务附件</div></div>
+        <div class="stat"><div class="num" id="fmStatUserN">-</div><div class="lbl" id="fmStatUserL">用户文件</div></div>
+      </div>
+      <p class="muted">单文件大小上限：<span id="fmMaxMb">-</span> MB（在「用户管理」页的系统设置中修改）。</p>
+    </div>
+    <div class="card">
+      <h2>文件管理
+        <button class="btn sm gray" id="fmRefresh" style="float:right;">刷新</button>
+      </h2>
+      <div id="fmMsg" class="msg"></div>
+      <div style="margin-bottom:10px;">
+        <button class="btn sm danger" id="fmBatchDel" disabled>批量删除所选</button>
+      </div>
+      <div class="table-scroll-mobile">
+        <table>
+          <thead><tr>
+            <th style="width:36px;"><input type="checkbox" id="fmCheckAll" style="width:auto;margin:0;flex:none;" aria-label="全选"></th>
+            <th>文件名</th><th>类型</th><th>来源</th><th>归属</th><th>大小</th><th>上传时间</th><th>操作</th>
+          </tr></thead>
+          <tbody id="fmTbody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;text-align:center;">
+        <button class="btn sm gray" id="fmPrev">上一页</button>
+        <span class="muted" id="fmPage" style="margin:0 12px;"></span>
+        <button class="btn sm gray" id="fmNext">下一页</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>孤儿文件
+        <button class="btn sm" id="opScan" style="float:right;">扫描孤儿文件</button>
+      </h2>
+      <div id="opMsg" class="msg"></div>
+      <p class="muted">孤儿文件指对象存储（R2 / 本地磁盘）里存在、但数据库已无记录的文件，通常是历史删除失败的残留，可安全清理。</p>
+      <div id="opBar" style="display:none;margin-bottom:10px;">
+        <span class="muted" id="opSummary"></span>
+        <button class="btn sm danger" id="opBatchDel" style="margin-left:10px;" disabled>删除所选</button>
+      </div>
+      <div class="table-scroll-mobile">
+        <table>
+          <thead id="opHead" style="display:none;"><tr>
+            <th style="width:36px;"><input type="checkbox" id="opCheckAll" style="width:auto;margin:0;flex:none;" aria-label="全选"></th>
+            <th>对象 key</th><th>来源</th><th>大小</th>
+          </tr></thead>
+          <tbody id="opTbody"><tr><td colspan="4" class="muted" style="text-align:center;padding:40px;">尚未扫描</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+  return renderPage({ title: '附件存储', body, scripts: ['page-storage.js'], theme: user.theme });
 }
 
 /** 定时任务管理页 */
@@ -1087,5 +1147,5 @@ export {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
   weightReportPage, assetReportPage, fundReportPage,
-  todoPage, publicTodoPage, todoReportPage, todoCollabPage
+  todoPage, publicTodoPage, todoReportPage, todoCollabPage, storageAdminPage
 };

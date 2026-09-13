@@ -49,6 +49,9 @@ import { buildAssetReportData } from './services/asset.service.js';
 import { getPushConfig, setPushConfig, getMyShareTokens, resetMyModuleShare, adminResetModuleShare } from './api/push.api.js';
 import { listPushLogs, countPushLogs, deletePushLogsRange } from './api/pushLog.api.js';
 import { exportBackup, importBackup } from './api/backup.api.js';
+import {
+  fileStats, listAdminFiles, deleteAdminFiles, scanOrphanFiles, deleteOrphanFiles
+} from './api/admin-file.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
 import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue } from './services/report.service.js';
 import { buildTree, flattenPending } from './services/todo.service.js';
@@ -76,7 +79,7 @@ import {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
   weightReportPage, assetReportPage, fundReportPage,
-  todoPage, publicTodoPage, todoReportPage, todoCollabPage
+  todoPage, publicTodoPage, todoReportPage, todoCollabPage, storageAdminPage
 } from './web/pages.js';
 import { serveStaticAsset, assetUrl } from './web/static.js';
 
@@ -133,6 +136,13 @@ router.put('/api/admin/settings/register-limit', setRegisterLimit);
 // 数据全量备份与恢复（仅超管）
 router.get('/api/admin/backup/export', exportBackup);
 router.post('/api/admin/backup/import', importBackup);
+
+// --- 超管附件存储管理 API（统计/列表/批量删除/孤儿扫描清理）---
+router.get('/api/admin/files/stats', fileStats);
+router.get('/api/admin/files', listAdminFiles);
+router.post('/api/admin/files/delete', deleteAdminFiles);
+router.get('/api/admin/files/orphans', scanOrphanFiles);
+router.post('/api/admin/files/orphans/delete', deleteOrphanFiles);
 
 // --- 超管推送日志 API ---
 router.get('/api/admin/push-log', listPushLogs);
@@ -358,7 +368,8 @@ async function handlePages(request, env) {
     '/weight': 'weight',
     '/todo': 'todo',
     '/settings': 'settings',
-    '/admin': 'admin'
+    '/admin': 'admin',
+    '/storage': 'storage'
   };
   if (path in pageMap) {
     const token = getTokenFromRequest(request);
@@ -410,6 +421,9 @@ async function handlePages(request, env) {
       case 'admin':
         if (user.role !== 'admin') return html(dashboardPage(user));
         return html(adminPage(user));
+      case 'storage':
+        if (user.role !== 'admin') return html(dashboardPage(user));
+        return html(storageAdminPage(user));
     }
   }
   return null;

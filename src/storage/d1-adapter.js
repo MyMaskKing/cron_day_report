@@ -1015,6 +1015,39 @@ function createD1Adapter(env) {
         ).bind(...ids).all();
         return q.results || [];
       },
+      // 超管占用统计：按 source 分组计数/计大小，总数由 api 层汇总
+      async stats() {
+        const q = await db.prepare(
+          `SELECT source, COUNT(*) AS cnt, COALESCE(SUM(size),0) AS bytes
+           FROM files GROUP BY source`
+        ).all();
+        return q.results || [];
+      },
+      // 超管文件列表（倒序分页），LEFT JOIN users 带归属用户名
+      async listForAdmin({ limit = 50, offset = 0 } = {}) {
+        const cols = 'f.id, f.owner_uid, f.source, f.todo_id, f.uploader_uid, f.file_token, f.origin_name, f.mime, f.size, f.is_image, f.created_at';
+        const rowsQ = await db.prepare(
+          `SELECT ${cols}, u.username AS owner_name
+           FROM files f LEFT JOIN users u ON u.id = f.owner_uid
+           ORDER BY f.id DESC LIMIT ? OFFSET ?`
+        ).bind(limit, offset).all();
+        const totalQ = await db.prepare(`SELECT COUNT(*) AS c FROM files`).first();
+        return { rows: rowsQ.results || [], total: totalQ ? totalQ.c : 0 };
+      },
+      // 全量 file_token（孤儿扫描差集用）
+      async allTokens() {
+        const q = await db.prepare(`SELECT file_token FROM files`).all();
+        return (q.results || []).map(r => r.file_token);
+      },
+      async findByIds(ids) {
+        if (!ids || !ids.length) return [];
+        const ph = ids.map(() => '?').join(',');
+        const q = await db.prepare(
+          `SELECT id, owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image, created_at
+           FROM files WHERE id IN (${ph})`
+        ).bind(...ids).all();
+        return q.results || [];
+      },
       async removeByIds(ids) {
         if (!ids || !ids.length) return;
         const ph = ids.map(() => '?').join(',');
