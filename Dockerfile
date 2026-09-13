@@ -1,6 +1,6 @@
 # ---------- deps 阶段 ----------
 # node:20-alpine 极简；better-sqlite3 需要 native 编译，故加临时编译工具链
-FROM node:20-alpine AS deps
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/node:20-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
 COPY package.json ./
@@ -9,7 +9,7 @@ RUN npm config set registry https://registry.npmmirror.com
 RUN npm install --omit=dev better-sqlite3@11
 
 # ---------- runtime 阶段 ----------
-FROM node:20-alpine
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/node:20-alpine
 WORKDIR /app
 
 # su-exec: entrypoint 以 root 修正 /data 属主后，降权到 node 用户运行主进程
