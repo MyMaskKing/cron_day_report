@@ -216,6 +216,14 @@ export function adminPage(smtp, tokens, flash = {}, adminUsername = '', baseUrl 
       <h2>使用教程</h2>
       <p class="muted" style="margin-top:0;">发信统一走 <b>POST</b> 请求，请求体是 JSON：<span class="mono">{"to":"收件邮箱","subject":"标题","content":"正文"}</span>（to 支持多个，用逗号分隔）。下面示例已自动填入你的地址${tokens.find(t => t.enabled) ? '和第一个启用 token' : ''}，复制后按需替换收件邮箱。</p>
 
+      <h3 class="sub">关于纯文本 / HTML 邮件（自动识别，不用额外设置）</h3>
+      <ul class="muted" style="margin:4px 0 4px 18px; line-height:1.9;">
+        <li><span class="mono">content</span> 是普通文字 → 发<b>纯文本</b>邮件；</li>
+        <li><span class="mono">content</span> 里含 HTML 标签（如 <span class="mono">&lt;table&gt; &lt;div&gt; &lt;br&gt;</span>）→ <b>自动按 HTML 排版发送</b>，并附带一份纯文本给不支持 HTML 的客户端；</li>
+        <li>也可以显式用 <span class="mono">"html":"&lt;p&gt;...&lt;/p&gt;"</span> 字段发 HTML（此时 <span class="mono">content</span> 可留作纯文本备选）。</li>
+      </ul>
+      <p class="muted hint">注意：定时面板的“通用 Webhook”渠道目前会把“html 格式”自动降级成纯文本再发（面板侧行为），所以面板经 Webhook 推过来的是纯文本；若要面板直接推 HTML 邮件，需要调整面板代码。其他工具直接 POST HTML 到本服务则可正常渲染。</p>
+
       <h3 class="sub">方式一：只填一个 URL 就能用（最简单，推荐给只支持填 URL 的工具）</h3>
       <p class="muted" style="margin:4px 0;">把 token 直接拼在地址后面，作为该工具的请求 URL（请求方法选 POST）：</p>
       ${copyLine(`${baseUrl}/send?token=${encodeURIComponent(t0)}`)}
