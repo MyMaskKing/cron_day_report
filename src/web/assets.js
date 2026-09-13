@@ -1853,26 +1853,32 @@ function mountMarkdownEditor(textarea, opts) {
   renderPv();
   return { getValue: function(){ return textarea.value; } };
 }
-// ============ 全站公告（超管在系统设置发布；登录后页面顶栏下方展示） ============
+// ============ 全站公告（超管在系统设置发布；登录后页面弹窗强制阅读） ============
 // 每次整页加载静默拉取一次: 直接 fetch(不走 api(), 避免触发全局 loading 遮罩);
 // 401(未登录/免密公开页)或任何异常都静默不提示。以 updated_at 毫秒时间戳为版本:
-// 用户关闭某条后写 localStorage, 同一版本不再出现; 超管更新公告(版本号变化)自动重新展示。
+// 用户点「我知道了」后写 localStorage, 同一版本不再弹; 超管更新公告(版本号变化)自动重新弹。
+// 弹窗为独立遮罩(仿 alertModal): 无关闭叉、点空白/ESC 不关闭, 只有确认一条出路。
 (function(){
   var DISMISS_KEY = 'announceDismissed';
   function show(content, v){
-    var topbar = document.querySelector('.topbar');
-    if (!topbar) return; // 原生 App 壳/无顶栏页面不插入
-    var bar = document.createElement('div');
-    bar.className = 'announce-banner';
-    bar.dataset.v = v;
-    bar.innerHTML = '<span class="announce-ico" aria-hidden="true">📢</span>' +
-      renderMd(content) +
-      '<button type="button" class="announce-x" aria-label="关闭公告">&times;</button>';
-    topbar.insertAdjacentElement('afterend', bar);
-    bar.querySelector('.announce-x').addEventListener('click', function(){
-      bar.remove();
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask show announce-modal';
+    mask.innerHTML = '<div class="modal-box">' +
+      '<div class="modal-head"><span>📢 站点公告</span></div>' +
+      '<div class="modal-body">' +
+        '<div class="announce-md md-body">' + renderMarkdown(content) + '</div>' +
+        '<div style="text-align:right;margin-top:18px;"><button type="button" class="btn annOk">我知道了</button></div>' +
+      '</div></div>';
+    document.body.appendChild(mask);
+    lockBodyScroll();
+    try { if (window._appShellPullDisable) window._appShellPullDisable(); } catch (e) {}
+    function dismiss(){
+      mask.remove();
+      unlockBodyScroll();
+      try { if (window._appShellReport) window._appShellReport(); } catch (e) {}
       try { localStorage.setItem(DISMISS_KEY, v); } catch (e) {}
-    });
+    }
+    mask.querySelector('.annOk').addEventListener('click', dismiss);
   }
   function boot(){
     fetch('/api/announcement', { credentials: 'same-origin' })
@@ -2484,36 +2490,100 @@ if (regLimitMsgBtn) regLimitMsgBtn.addEventListener('click', function(){
 });
 loadRegisterLimit();
 
-// 全站公告（编辑/发布/下线）
-(async function(){
-  var ta = document.getElementById('annInput');
-  if (!ta) return;
+// 全站公告（弹窗内复用通用 Markdown 编辑器，含图片/附件上传）
+var annContent = '', annUpdatedAt = '';
+function annFmtTime(v){
+  var n = parseInt(v, 10);
+  if (!n) return '';
+  var off = (typeof window.__TZ_OFFSET__ === 'number' && isFinite(window.__TZ_OFFSET__)) ? window.__TZ_OFFSET__ : 8;
+  var d = new Date(n + off * 3600 * 1000);
+  var p = function(x){ return (x < 10 ? '0' : '') + x; };
+  return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+}
+function annRefreshMeta(){
   var meta = document.getElementById('annMeta');
-  function fmtMeta(v){
-    var n = parseInt(v, 10);
-    if (!n) return '当前未发布公告。';
-    var off = (typeof window.__TZ_OFFSET__ === 'number' && isFinite(window.__TZ_OFFSET__)) ? window.__TZ_OFFSET__ : 8;
-    var d = new Date(n + off * 3600 * 1000);
-    var p = function(x){ return (x < 10 ? '0' : '') + x; };
-    var s = d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
-    return '当前公告发布于 ' + s + '，所有登录用户可见。';
+  var btn = document.getElementById('annEditBtn');
+  if (!meta) return;
+  if (annUpdatedAt) {
+    meta.textContent = '已发布 · 更新于 ' + annFmtTime(annUpdatedAt) + '，所有登录用户可见。';
+    if (btn) btn.textContent = '编辑公告';
+  } else {
+    meta.textContent = '当前未发布公告。';
+    if (btn) btn.textContent = '发布公告';
   }
+}
+async function loadAnnouncement(){
   try {
     var d = await api('/api/admin/settings/announcement');
-    ta.value = d.content || '';
-    meta.textContent = fmtMeta(d.updated_at);
-  } catch (err) { /* 忽略：保留空框 */ }
-  var btn = document.getElementById('annSave');
-  if (btn) btn.addEventListener('click', async function(){
-    var stMsg = document.getElementById('stMsg');
+    annContent = d.content || '';
+    annUpdatedAt = d.updated_at || '';
+  } catch (err) { /* 忽略：保留未发布状态 */ }
+  annRefreshMeta();
+}
+function annOpenEditor(){
+  var has = !!(annContent && annContent.trim());
+  openModal('全站公告',
+    '<div style="margin-bottom:12px;"><textarea id="annEdText" rows="7" style="width:100%;" placeholder="支持 **粗体**、*斜体*、[文字](链接)、- 列表、# 标题，可上传图片/附件"></textarea></div>' +
+    '<div id="annEdMsg" class="msg"></div>' +
+    '<div style="text-align:right;margin-top:12px;">' +
+      '<button type="button" class="btn gray" id="annEdCancel">取消</button> ' +
+      (has ? '<button type="button" class="btn danger" id="annEdOff">下线</button> ' : '') +
+      '<button type="button" class="btn" id="annEdPublish">保存并发布</button>' +
+    '</div>', 'modal-mask--lg');
+  var ta = document.getElementById('annEdText');
+  // 附件上限复用本页系统设置里的同一项（服务端另有强校验）
+  var mbInput = document.getElementById('attachMaxMbInput');
+  var maxMb = parseInt(mbInput && mbInput.value, 10) || 5;
+  mountMarkdownEditor(ta, {
+    maxMb: maxMb,
+    upload: async function(file){
+      var fd = new FormData();
+      fd.append('file', file);
+      // 裸 fetch 传 FormData（不经 api()：它固定 JSON 编码）；与基金策略编辑器同一上传通道
+      var res = await fetch('/api/files/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+      var d = await res.json().catch(function(){ return {}; });
+      if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
+      return d.attachment;
+    }
+  });
+  ta.value = annContent || '';
+  ta.dispatchEvent(new Event('input'));   // 同步预览分段
+  document.getElementById('annEdCancel').addEventListener('click', closeModal);
+  var offBtn = document.getElementById('annEdOff');
+  if (offBtn) offBtn.addEventListener('click', function(){
+    confirmModal('下线公告', '确定下线当前公告？下线后所有用户将不再看到该公告，之后可以重新发布。', async function(){
+      try {
+        var r = await api('/api/admin/settings/announcement', { method: 'PUT', body: { content: '' } });
+        annContent = r.content || '';
+        annUpdatedAt = r.updated_at || '';
+        annRefreshMeta();
+        showToast(r.message || '公告已下线', true);
+      } catch (e) { showToast(e.message, false); }
+    });
+  });
+  document.getElementById('annEdPublish').addEventListener('click', async function(){
+    var btn = this;
+    if (btn.disabled) return;
+    if (!ta.value.trim()) { showToast('内容为空：请填写公告内容，或点「下线」撤销当前公告', false); return; }
+    btn.disabled = true;
     try {
       var r = await api('/api/admin/settings/announcement', { method: 'PUT', body: { content: ta.value } });
-      ta.value = r.content || '';
-      meta.textContent = fmtMeta(r.updated_at);
-      showMsg(stMsg, r.message || '已保存', true);
-    } catch (err) { showMsg(stMsg, err.message, false); }
+      annContent = r.content || '';
+      annUpdatedAt = r.updated_at || '';
+      closeModal();
+      annRefreshMeta();
+      showToast(r.message || '公告已发布', true);
+    } catch (e) {
+      var em = document.getElementById('annEdMsg');
+      if (em) showMsg(em, e.message, false); else showToast(e.message, false);
+    } finally { btn.disabled = false; }
   });
-})();
+}
+var annEditBtn = document.getElementById('annEditBtn');
+if (annEditBtn) {
+  annEditBtn.addEventListener('click', annOpenEditor);
+  loadAnnouncement();
+}
 
 // ============ 数据备份与恢复（仅超管页）============
 var bkExport = document.getElementById('bkExport');
