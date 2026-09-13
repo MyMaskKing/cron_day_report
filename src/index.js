@@ -21,7 +21,8 @@ import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
   getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
-  getRegisterLimit, setRegisterLimit
+  getRegisterLimit, setRegisterLimit,
+  getAnnouncementPublic, getAnnouncement, setAnnouncement
 } from './api/users.api.js';
 import { listChannels, createChannel, updateChannel, setChannelStatus, removeChannel } from './api/notify.api.js';
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
@@ -132,6 +133,10 @@ router.get('/api/admin/settings/base-url', getBaseUrl);
 router.put('/api/admin/settings/base-url', setBaseUrl);
 router.get('/api/admin/settings/register-limit', getRegisterLimit);
 router.put('/api/admin/settings/register-limit', setRegisterLimit);
+// 全站公告：登录态读取（免密公开页无会话，401 静默）；管理端仅超管
+router.get('/api/announcement', getAnnouncementPublic);
+router.get('/api/admin/settings/announcement', getAnnouncement);
+router.put('/api/admin/settings/announcement', setAnnouncement);
 
 // 数据全量备份与恢复（仅超管）
 router.get('/api/admin/backup/export', exportBackup);

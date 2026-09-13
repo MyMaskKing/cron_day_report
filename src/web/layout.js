@@ -311,6 +311,26 @@ a { color: var(--brand); text-decoration: none; }
 .topbar .user a.act-btn:active { transform: translateY(1px); }
 .impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }
 .impersonate-banner a { color: var(--danger); font-weight: 600; margin-left: 8px; }
+/* 全站公告条：顶栏下方横条，配色走品牌色变量（三主题自适应） */
+.announce-banner {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--hover-brand); border-bottom: 1px solid var(--brand-border);
+  color: var(--text); padding: 9px 18px; font-size: 13.5px; line-height: 1.5;
+}
+.announce-banner .announce-ico { flex: none; font-size: 16px; line-height: 1; }
+.announce-banner .md-body { flex: 1; min-width: 0; font-size: 13.5px; }
+.announce-banner .md-body > :first-child { margin-top: 0; }
+.announce-banner .md-body > :last-child { margin-bottom: 0; }
+.announce-banner .md-body p { margin: 2px 0; }
+.announce-banner .md-body h3, .announce-banner .md-body h4 { margin: 4px 0; font-size: 14px; }
+.announce-banner .md-body ul, .announce-banner .md-body ol { margin: 4px 0 4px 20px; padding: 0; }
+.announce-banner .md-body a { color: var(--brand); text-decoration: underline; }
+.announce-banner .announce-x {
+  flex: none; border: none; background: transparent; color: var(--muted);
+  font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 7px; border-radius: 6px;
+}
+.announce-banner .announce-x:hover { background: var(--hover-bg); color: var(--text); }
+body.todo-fs-on .announce-banner { display: none !important; }
 .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
 /* 液态玻璃卡片: 半透明白 + 20px 磨砂 + 1px 白高光边 + 冷灰阴影 */
 .card {

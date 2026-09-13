@@ -5,7 +5,7 @@
 
 import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
-import { requireAdmin } from '../auth/middleware.js';
+import { requireAdmin, requireAuth } from '../auth/middleware.js';
 import { hashPassword } from '../auth/password.js';
 import { getTokenFromRequest, getSession, impersonate, stopImpersonate } from '../auth/session.js';
 import { parseOffset, DEFAULT_TZ_OFFSET } from '../services/time.service.js';
@@ -314,9 +314,60 @@ async function setRegisterLimit({ request, env }) {
   return json({ success: true, message: '注册限制已保存', limit, msg });
 }
 
+// ============ 全站公告 ============
+// 正文存 app_settings.announcement（markdown，空串=未发布/已下线）；
+// announcement_updated_at 存毫秒时间戳字符串，每次发布刷新，前端兼作版本号（关闭过同一条不再弹）。
+/**
+ * GET /api/announcement  登录态读取当前公告
+ * 仅 requireAuth（非超管专属）；未登录与免密公开页无会话拿到 401，前端静默不展示
+ */
+async function getAnnouncementPublic({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const content = (await storage.settings.get('announcement')) || '';
+  const updated_at = (await storage.settings.get('announcement_updated_at')) || '';
+  return json({ success: true, content, updated_at });
+}
+
+/**
+ * GET /api/admin/settings/announcement  超管读取公告正文与发布时间（编辑回填）
+ */
+async function getAnnouncement({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const content = (await storage.settings.get('announcement')) || '';
+  const updated_at = (await storage.settings.get('announcement_updated_at')) || '';
+  return json({ success: true, content, updated_at });
+}
+
+/**
+ * PUT /api/admin/settings/announcement  发布/更新/下线公告
+ * body: { content: markdown }  trim 后为空 = 下线（清空两个 key）
+ */
+async function setAnnouncement({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const content = typeof body.content === 'string' ? body.content : '';
+  if (content.length > 5000) return error('公告内容最长 5000 字符');
+  const storage = getStorage(env);
+  if (content.trim()) {
+    const updated_at = String(Date.now());
+    await storage.settings.set('announcement', content);
+    await storage.settings.set('announcement_updated_at', updated_at);
+    return json({ success: true, message: '公告已发布', content, updated_at });
+  }
+  await storage.settings.set('announcement', '');
+  await storage.settings.set('announcement_updated_at', '');
+  return json({ success: true, message: '公告已下线', content: '', updated_at: '' });
+}
+
 export {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
   getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
-  getRegisterLimit, setRegisterLimit
+  getRegisterLimit, setRegisterLimit,
+  getAnnouncementPublic, getAnnouncement, setAnnouncement
 };

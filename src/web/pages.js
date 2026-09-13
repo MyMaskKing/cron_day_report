@@ -174,6 +174,14 @@ function adminPage(user) {
         </div>
       </div>
       <p class="muted">达到上限后，登录页隐藏注册入口并向访客展示满员提示词（支持 markdown）。提示词留空则使用默认文案。</p>
+      <div class="row">
+        <div style="flex:1;"><label>全站公告（支持简单 markdown；清空后保存 = 下线）</label>
+          <textarea id="annInput" rows="4" style="width:100%;min-height:96px;padding:8px;resize:vertical;" placeholder="支持 **粗体**、*斜体*、[文字](链接)、- 列表、# 标题；清空后点发布即下线"></textarea>
+          <p class="muted" id="annMeta" style="font-size:12px;margin-top:4px;"></p>
+        </div>
+        <div style="display:flex;align-items:flex-end;margin-bottom:12px;"><button class="btn" id="annSave">保存并发布</button></div>
+      </div>
+      <p class="muted">发布后，所有登录用户在任意页面顶栏下方看到公告；用户关闭后同一条不再出现，再次修改内容会重新展示。登录页与免密公开页不显示。</p>
     </div>
     <div class="card">
       <h2>数据备份与恢复</h2>

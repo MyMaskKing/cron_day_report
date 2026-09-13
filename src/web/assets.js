@@ -1853,6 +1853,43 @@ function mountMarkdownEditor(textarea, opts) {
   renderPv();
   return { getValue: function(){ return textarea.value; } };
 }
+// ============ 全站公告（超管在系统设置发布；登录后页面顶栏下方展示） ============
+// 每次整页加载静默拉取一次: 直接 fetch(不走 api(), 避免触发全局 loading 遮罩);
+// 401(未登录/免密公开页)或任何异常都静默不提示。以 updated_at 毫秒时间戳为版本:
+// 用户关闭某条后写 localStorage, 同一版本不再出现; 超管更新公告(版本号变化)自动重新展示。
+(function(){
+  var DISMISS_KEY = 'announceDismissed';
+  function show(content, v){
+    var topbar = document.querySelector('.topbar');
+    if (!topbar) return; // 原生 App 壳/无顶栏页面不插入
+    var bar = document.createElement('div');
+    bar.className = 'announce-banner';
+    bar.dataset.v = v;
+    bar.innerHTML = '<span class="announce-ico" aria-hidden="true">📢</span>' +
+      renderMd(content) +
+      '<button type="button" class="announce-x" aria-label="关闭公告">&times;</button>';
+    topbar.insertAdjacentElement('afterend', bar);
+    bar.querySelector('.announce-x').addEventListener('click', function(){
+      bar.remove();
+      try { localStorage.setItem(DISMISS_KEY, v); } catch (e) {}
+    });
+  }
+  function boot(){
+    fetch('/api/announcement', { credentials: 'same-origin' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        if (!d || !d.success || !d.content || !d.updated_at) return;
+        var v = String(d.updated_at);
+        var closed = '';
+        try { closed = localStorage.getItem(DISMISS_KEY) || ''; } catch (e) {}
+        if (closed === v) return;
+        show(d.content, v);
+      })
+      .catch(function(){ /* 静默: 公告拉取失败不打扰用户 */ });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
 `;
 
 // 登录页 JS
@@ -2446,6 +2483,37 @@ if (regLimitMsgBtn) regLimitMsgBtn.addEventListener('click', function(){
   });
 });
 loadRegisterLimit();
+
+// 全站公告（编辑/发布/下线）
+(async function(){
+  var ta = document.getElementById('annInput');
+  if (!ta) return;
+  var meta = document.getElementById('annMeta');
+  function fmtMeta(v){
+    var n = parseInt(v, 10);
+    if (!n) return '当前未发布公告。';
+    var off = (typeof window.__TZ_OFFSET__ === 'number' && isFinite(window.__TZ_OFFSET__)) ? window.__TZ_OFFSET__ : 8;
+    var d = new Date(n + off * 3600 * 1000);
+    var p = function(x){ return (x < 10 ? '0' : '') + x; };
+    var s = d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+    return '当前公告发布于 ' + s + '，所有登录用户可见。';
+  }
+  try {
+    var d = await api('/api/admin/settings/announcement');
+    ta.value = d.content || '';
+    meta.textContent = fmtMeta(d.updated_at);
+  } catch (err) { /* 忽略：保留空框 */ }
+  var btn = document.getElementById('annSave');
+  if (btn) btn.addEventListener('click', async function(){
+    var stMsg = document.getElementById('stMsg');
+    try {
+      var r = await api('/api/admin/settings/announcement', { method: 'PUT', body: { content: ta.value } });
+      ta.value = r.content || '';
+      meta.textContent = fmtMeta(r.updated_at);
+      showMsg(stMsg, r.message || '已保存', true);
+    } catch (err) { showMsg(stMsg, err.message, false); }
+  });
+})();
 
 // ============ 数据备份与恢复（仅超管页）============
 var bkExport = document.getElementById('bkExport');
