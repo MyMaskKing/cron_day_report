@@ -5139,6 +5139,19 @@ function todoLeafCount(node) {
   })(node);
   return { total: total, done: done };
 }
+// 子树完成信息(遍历含 node 自身): any=是否存在已完成节点; last=最大的 done_at(无则 null)
+// 用于"已完成"筛选收纳含已完成子任务的 child_due 容器, 及卡片"最近完成"chip
+function todoSubtreeDoneInfo(node) {
+  var any = false, last = null;
+  (function walk(n){
+    if (n.done) {
+      any = true;
+      if (n.done_at && (!last || n.done_at > last)) last = n.done_at;
+    }
+    n.children.forEach(walk);
+  })(node);
+  return { any: any, last: last };
+}
 // 前端镜像后端 todo.service.js 的 effDueOf / rootDueOf, 同口径(唯一事实源在后端):
 //   todoEffDueRow(flatRow, byId): 沿 parent 链找第一个非空 due_date(自身优先; 旧模式=继承顶层日期)
 //   todoRootDue(treeNode): 顶层显示日期 = 自身 due_date 优先, 否则取子树未完成节点有效日期的最小值
@@ -5177,7 +5190,8 @@ function todoRootPassFilter(n, filter, t) {
   if (filter === 'overdue') return !!(d && t && d < t);
   if (filter === 'future')  return !!(d && t && d > t);
   if (filter === 'memo')    return !d && !n.child_due; // child_due 空容器是分组壳, 不算备忘录
-  if (filter === 'done')    return !!n.done;
+  // 已完成: 顶层自身完成, 或子树内存在已完成节点(child_due 容器自身未完成、但已有子任务完成时也收纳)
+  if (filter === 'done')    return !!n.done || todoSubtreeDoneInfo(n).any;
   return true; // all
 }
 // 时间筛选 tab → 图表下拉框默认区间映射:
@@ -5996,9 +6010,32 @@ function todoBuildTree(rows) {
     }
     return (a.sort_order - b.sort_order) || (a.id - b.id);
   });
+  // 子任务排序(顶层卡片排序不受影响, 见上方 roots.sort):
+  //   未完成在前, 按有效截止日期升序(逾期→今天→未来, 无日期沉底; 同日回退手动 sort_order+创建序);
+  //   已完成沉底, 内部按完成时间倒序(刚完成在上), 无完成日期再回退创建序。
+  // 旧模式子任务均无自身日期, effDue 沿父链继承到同一日期, 恒走回退键 = 原创建序, 行为不变。
+  function childCmp(a, b){
+    if (!!a.done !== !!b.done) return a.done ? 1 : -1;
+    if (!a.done) {
+      var ad = todoEffDueRow(a, byId) || '', bd = todoEffDueRow(b, byId) || '';
+      if (ad !== bd) {
+        if (!ad) return 1;
+        if (!bd) return -1;
+        return ad < bd ? -1 : 1;
+      }
+    } else {
+      var aa = a.done_at || '', bb = b.done_at || '';
+      if (aa !== bb) {
+        if (!aa) return 1;
+        if (!bb) return -1;
+        return aa < bb ? 1 : -1;
+      }
+    }
+    return (a.sort_order - b.sort_order) || (a.id - b.id);
+  }
   function sortRec(list){
     list.forEach(function(n){
-      n.children.sort(function(a,b){ return (a.sort_order - b.sort_order) || (a.id - b.id); });
+      n.children.sort(childCmp);
       sortRec(n.children);
     });
   }
@@ -6272,6 +6309,16 @@ function renderTodoCards(container, trees, opts) {
       doneC.className = 'todo-chip done-at';
       doneC.innerHTML = ICONS.check_circle + '完成于 ' + esc(root.done_at);
       meta.appendChild(doneC);
+    }
+    // 未完成容器出现在"已完成"筛选下(子树中有已完成子任务): 标注最近一次完成时间
+    if (!root.done && opts.filter === 'done') {
+      var lastDone = todoSubtreeDoneInfo(root).last;
+      if (lastDone) {
+        var ldChip = document.createElement('span');
+        ldChip.className = 'todo-chip done-at';
+        ldChip.innerHTML = ICONS.check_circle + '最近完成 ' + esc(todoDateLabel(lastDone, today));
+        meta.appendChild(ldChip);
+      }
     }
     // 重复徽章: 主任务自身重复(旧模式)或子树中任一节点重复(新模式叶子重复), 取第一个用于展示
     var recurNode = root.recurrence ? root : null;
@@ -7806,9 +7853,23 @@ function switchTodoFilter(f) {
   if (btn) btn.click();
 }
 // 按筛选归类顶层任务（日期取顶层显示日期 todoRootDue: 旧模式=自身 due_date; 新模式=最早到期子任务）
-function todoFilterTrees(trees) {
-  var t = todayStr();
-  return trees.filter(function(n){ return todoRootPassFilter(n, _filter, t); });
+// 已完成 tab 顶层排序: 按子树最近完成时间倒序(刚完成的清单/任务在最前), 无完成日期沉底
+function todoDoneRootCmp(a, b) {
+  var ad = todoSubtreeDoneInfo(a).last || '';
+  var bd = todoSubtreeDoneInfo(b).last || '';
+  if (ad !== bd) {
+    if (!ad) return 1;
+    if (!bd) return -1;
+    return ad < bd ? 1 : -1;
+  }
+  return (a.sort_order - b.sort_order) || (a.id - b.id);
+}
+function todoFilterTrees(trees, today) {
+  var t = today || todayStr();
+  var out = trees.filter(function(n){ return todoRootPassFilter(n, _filter, t); });
+  // 已完成 tab: 覆盖卡片默认的"显示日期倒序", 改按最近完成时间倒序(刚完成的清单/任务在最前)
+  if (_filter === 'done') out.sort(todoDoneRootCmp);
+  return out;
 }
 // 按当前 _filter 过滤后的可见顶层树重算 未完成/已逾期/备忘录 三项统计
 // 与已完成一栏保持一致的联动风格; 已完成节点(整枝)不计入
@@ -7915,7 +7976,7 @@ function drawTree() {
     view: _todoView === 'default' ? 'card' : _todoView,
     detailRootId: _todoDetailRootId,
     crumbEl: crumb,
-    today: todayStr(), hideDone: hideDone,
+    today: todayStr(), hideDone: hideDone, filter: _filter,
     onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
     onDetail: function(node){
@@ -8622,14 +8683,13 @@ function renderPendingStats() {
   document.getElementById('stOverdue').textContent = s.overdue;
 }
 function drawTree() {
-  // 时间筛选 tab: 与登录态 TODO_JS 逻辑一致(顶层显示日期 todoRootDue 口径)
-  var filtered = _trees.filter(function(n){ return todoRootPassFilter(n, _filter, _today); });
+  // 时间筛选 tab: 与登录态 TODO_JS 逻辑一致(顶层显示日期 todoRootDue 口径; done tab 收纳含已完成子任务的容器)
+  var trees = todoFilterTrees(_trees, _today);
   // 全屏态下按抽屉选中的分类过滤扁平 rows 重新建树
-  var trees = filtered;
   if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
     var byCat = todoBuildTree(todoRowsByCategory(_rows));
     // 分类过滤后再按当前 filter 过滤一次(保持两者协同)
-    trees = byCat.filter(function(n){ return todoRootPassFilter(n, _filter, _today); });
+    trees = todoFilterTrees(byCat, _today);
   }
   // 已完成 tab 下强制显示完成项, 否则遵从复选框
   var hideBox = document.getElementById('hideDone');
@@ -8638,7 +8698,7 @@ function drawTree() {
     view: _todoView === 'default' ? 'card' : _todoView,
     detailRootId: _todoDetailRootId,
     crumbEl: document.getElementById('todoCrumb'),
-    today: _today, hideDone: hideDone,
+    today: _today, hideDone: hideDone, filter: _filter,
     onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
     onDetail: function(node){
@@ -8973,9 +9033,11 @@ function _todoGetRows() { return _rows; }
 function drawTree(trees) {
   // 全屏态下按抽屉选中的分类过滤扁平 rows 重新建可见树(遵从 _filter, 顶层显示日期口径)
   var effectiveTrees = trees;
+  // done tab: 默认/全屏两口径都按最近完成时间倒序(与登录页/报告页一致)
+  if (_filter === 'done') effectiveTrees = effectiveTrees.slice().sort(todoDoneRootCmp);
   if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
     var byCat = todoBuildTree(todoRowsByCategory(_rows));
-    effectiveTrees = byCat.filter(function(n){ return todoRootPassFilter(n, _filter, _today); });
+    effectiveTrees = todoFilterTrees(byCat, _today);
   }
   // 已完成 tab 强制显示, 其它遵从复选框
   var hideBox = document.getElementById('hideDone');
@@ -8984,7 +9046,7 @@ function drawTree(trees) {
     view: _todoView === 'default' ? 'card' : _todoView,
     detailRootId: _todoDetailRootId,
     crumbEl: document.getElementById('todoCrumb'),
-    today: _today, hideDone: hideDone,
+    today: _today, hideDone: hideDone, filter: _filter,
     onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(visibleTrees()); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(visibleTrees()); },
     onDetail: function(node){
