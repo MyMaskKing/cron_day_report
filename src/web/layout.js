@@ -1036,27 +1036,12 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-inline-add__hint { font-size: 12px; margin-left: auto; }
 
 /* 详情页底部常驻"+ 添加子任务"行(MS To Do 风格): 折叠时是占位按钮, 展开时是内联输入 */
-/* 详情页底部目标添加栏: fixed 始终贴视口底部(不随列表滚动/不悬浮在内容中),
-   键盘弹起借 --kb-inset 上浮; max-height 随键盘压缩、超高内部滚动, 标题输入框不飞出屏顶
-   (与 .mp-menu 底部面板同一避让模式)。栏不占文档流, JS 侧挂等高 spacer 防列表末行被盖 */
-.todo-detail-adder {
-  position: fixed; left: 0; right: 0; bottom: var(--kb-inset, 0px); z-index: 50;
-  background: var(--surface); border-top: 1px solid var(--border);
-  box-shadow: 0 -6px 18px rgba(20,20,40,.08);
-  padding: 8px 12px 10px;
-  max-height: calc(100vh - var(--kb-inset, 0px) - 8px);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  transition: bottom .22s ease;
-}
-/* 水平对齐: 普通页与 .container(1000px) 内容对齐; 全屏态(JS 挂 --fs 修饰类)全宽 */
-.todo-detail-adder__inner { max-width: 968px; margin: 0 auto; }
-.todo-detail-adder--fs { padding-left: 16px; padding-right: 16px; }
-.todo-detail-adder--fs .todo-detail-adder__inner { max-width: none; }
+/* 详情页底部常驻"+ 添加子任务"占位行: 点击就地展开为紫边小卡片(在内容流中, 非悬浮) */
+.todo-detail-adder { margin-top: 8px; }
 .todo-detail-adder__placeholder {
   display: flex; align-items: center; gap: 8px;
-  width: 100%; padding: 12px 14px; background: var(--surface-2); color: var(--brand);
-  border: 1px dashed var(--brand-border); border-radius: 10px; cursor: pointer;
+  width: 100%; padding: 12px 14px; background: transparent; color: var(--brand);
+  border: 1px dashed var(--brand-border); border-radius: 8px; cursor: pointer;
   font-size: 14px; text-align: left; transition: background .18s, border-color .18s;
   min-height: 44px;
 }
@@ -1066,21 +1051,22 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-detail-adder__editor { display: none; }
 .todo-detail-adder.editing .todo-detail-adder__editor {
   display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface); border: 1px solid var(--brand); border-radius: 8px;
+  padding: 10px 12px; box-shadow: 0 4px 16px rgba(168,85,247,.08);
   animation: todoInlineAddIn .18s ease-out;
 }
-/* 目标面包屑: 明示当前在给哪个节点添加子任务 */
-.todo-detail-adder__crumb { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted-2); }
-.todo-detail-adder__target { color: var(--brand); font-weight: 600; max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.todo-detail-adder__locate { border: 0; background: none; padding: 0; cursor: pointer; color: var(--link-dim); font-size: 12px; text-decoration: underline; }
-.todo-detail-adder__reset {
+/* "添加到：xxx"面包屑: 行内卡片(.todo-inline-add)与主任务底部卡片(.todo-detail-adder)共用 */
+.todo-add-crumb {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 12.5px; color: var(--muted-2);
+}
+.todo-add-crumb b { color: var(--brand); font-weight: 600; max-width: 56%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-add-crumb__reset {
   margin-left: auto; flex-shrink: 0; cursor: pointer;
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted-2);
   border-radius: 999px; font-size: 12px; padding: 1px 10px; line-height: 1.7;
 }
-.todo-detail-adder__reset:hover { border-color: var(--brand); color: var(--brand); }
-.todo-detail-adder__nodate { font-size: 12px; color: var(--muted); }
-/* 选中的添加目标行: 品牌色描边+浅底, 与底部面包屑双重明示 */
-.todo-row.add-target { border-color: var(--brand); background: var(--hover-brand); }
+.todo-add-crumb__reset:hover { border-color: var(--brand); color: var(--brand); }
 .todo-detail-adder__title, .todo-detail-adder__note {
   width: 100%; border: 1px solid var(--border); border-radius: 6px;
   padding: 8px 10px; font-size: 14px; font-family: inherit; resize: vertical;
