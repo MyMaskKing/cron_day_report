@@ -6555,6 +6555,11 @@ function todoAttachDoneLinkToTip(container, root, opts) {
 function todoRenderView(container, trees, opts) {
   opts = opts || {};
   var view = opts.view || 'card';
+  // 底部目标添加栏挂在 body 下(fixed 脱离 .card 堆叠上下文), 容器 innerHTML 清不到:
+  // 每次渲染先移除旧栏, 详情分支需要时由 mountDetailAdder 重新挂载(状态靠 localStorage 恢复)
+  Array.prototype.forEach.call(document.body.querySelectorAll('.todo-detail-adder'), function(el){
+    if (el.parentNode) el.parentNode.removeChild(el);
+  });
   // 本次重绘会清空容器, 所有临时添加框 DOM 都被销毁: 作废旧 closer,
   // 避免恢复链中新框注册时执行僵尸 close() 误清持久草稿(会导致切 App 回来框无法自动展开)
   _todoAddFormCloser = null;
@@ -6892,7 +6897,9 @@ function openInlineAddChild(btnEl, parentNode, submitFn) {
 function mountDetailAdder(container, rootNode, submitFn) {
   if (!container || !rootNode || typeof submitFn !== 'function') return null;
   var wrap = document.createElement('div');
-  wrap.className = 'todo-detail-adder';
+  // fixed 挂到 body: .card 的 backdrop-filter 会让后代 fixed 相对卡片定位; 全屏态加 --fs 调宽度口径
+  var inFullscreen = !!(container.closest && container.closest('.todo-fs-main'));
+  wrap.className = 'todo-detail-adder' + (inFullscreen ? ' todo-detail-adder--fs' : '');
 
   var placeholder = document.createElement('button');
   placeholder.type = 'button'; placeholder.className = 'todo-detail-adder__placeholder';
@@ -6934,8 +6941,20 @@ function mountDetailAdder(container, rootNode, submitFn) {
   row.appendChild(saveBtn); row.appendChild(cancelBtn); row.appendChild(hint);
 
   editor.appendChild(crumb); editor.appendChild(titleEl); editor.appendChild(noteEl); editor.appendChild(optRow); editor.appendChild(row);
-  wrap.appendChild(placeholder); wrap.appendChild(editor);
-  container.appendChild(wrap);
+  // inner 负责水平限宽对齐(普通页与 .container 对齐, 全屏态全宽); fixed 栏本身全宽
+  var inner = document.createElement('div');
+  inner.className = 'todo-detail-adder__inner';
+  inner.appendChild(placeholder); inner.appendChild(editor);
+  wrap.appendChild(inner);
+  // fixed 栏不占文档流: 末尾挂等高 spacer, 保证列表最后一行能滚到栏上方不被盖
+  var spacer = document.createElement('div');
+  spacer.className = 'todo-detail-adder-spacer';
+  container.appendChild(spacer);
+  document.body.appendChild(wrap); // fixed 脱离 .card(backdrop-filter 会改变 fixed 包含块)
+  function syncSpacer() { spacer.style.height = wrap.offsetHeight + 'px'; }
+  syncSpacer();
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(syncSpacer).observe(wrap);
+  else window.addEventListener('resize', syncSpacer);
   autoGrowTextarea(titleEl); autoGrowTextarea(noteEl);
 
   // ===== 目标状态与持久化 =====
@@ -7001,7 +7020,7 @@ function mountDetailAdder(container, rootNode, submitFn) {
     window._todoAdderActive = 1;
     stateSave();
     todoRegisterAddForm(collapse);
-    if (focus) setTimeout(function(){ titleEl.focus(); }, 50);
+    if (focus) setTimeout(function(){ wrap.scrollTop = 0; titleEl.focus(); }, 50);
   }
 
   function collapse() {
@@ -7048,7 +7067,7 @@ function mountDetailAdder(container, rootNode, submitFn) {
         titleEl.value = ''; noteEl.value = '';
         titleEl.dispatchEvent(new Event('input')); noteEl.dispatchEvent(new Event('input'));
         saveBtn.disabled = false; cancelBtn.disabled = false;
-        titleEl.focus();
+        wrap.scrollTop = 0; titleEl.focus();
       }
     } catch (err) {
       saveBtn.disabled = false; cancelBtn.disabled = false;

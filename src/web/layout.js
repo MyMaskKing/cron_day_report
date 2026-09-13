@@ -1036,15 +1036,23 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-inline-add__hint { font-size: 12px; margin-left: auto; }
 
 /* 详情页底部常驻"+ 添加子任务"行(MS To Do 风格): 折叠时是占位按钮, 展开时是内联输入 */
-/* 详情页底部目标添加栏: sticky 常驻详情可视区底部, 键盘弹起时借 --kb-inset 浮到键盘上方 */
+/* 详情页底部目标添加栏: fixed 始终贴视口底部(不随列表滚动/不悬浮在内容中),
+   键盘弹起借 --kb-inset 上浮; max-height 随键盘压缩、超高内部滚动, 标题输入框不飞出屏顶
+   (与 .mp-menu 底部面板同一避让模式)。栏不占文档流, JS 侧挂等高 spacer 防列表末行被盖 */
 .todo-detail-adder {
-  position: sticky; bottom: 0; z-index: 6;
-  margin-top: 8px; margin-bottom: var(--kb-inset, 0px);
+  position: fixed; left: 0; right: 0; bottom: var(--kb-inset, 0px); z-index: 50;
   background: var(--surface); border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 18px rgba(20,20,40,.08);
   padding: 8px 12px 10px;
-  box-shadow: 0 -6px 18px rgba(20,20,40,.06);
-  transition: margin-bottom .22s ease;
+  max-height: calc(100vh - var(--kb-inset, 0px) - 8px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  transition: bottom .22s ease;
 }
+/* 水平对齐: 普通页与 .container(1000px) 内容对齐; 全屏态(JS 挂 --fs 修饰类)全宽 */
+.todo-detail-adder__inner { max-width: 968px; margin: 0 auto; }
+.todo-detail-adder--fs { padding-left: 16px; padding-right: 16px; }
+.todo-detail-adder--fs .todo-detail-adder__inner { max-width: none; }
 .todo-detail-adder__placeholder {
   display: flex; align-items: center; gap: 8px;
   width: 100%; padding: 12px 14px; background: var(--surface-2); color: var(--brand);
