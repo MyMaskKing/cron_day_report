@@ -5268,6 +5268,26 @@ function todoRootPassFilter(n, filter, t) {
   if (filter === 'done')    return !!n.done || todoSubtreeDoneInfo(n).any;
   return true; // all
 }
+// 已完成 tab 顶层排序: 按子树最近完成时间倒序(刚完成的清单/任务在最前), 无完成日期沉底
+function todoDoneRootCmp(a, b) {
+  var ad = todoSubtreeDoneInfo(a).last || '';
+  var bd = todoSubtreeDoneInfo(b).last || '';
+  if (ad !== bd) {
+    if (!ad) return 1;
+    if (!bd) return -1;
+    return ad < bd ? 1 : -1;
+  }
+  return (a.sort_order - b.sort_order) || (a.id - b.id);
+}
+// 按筛选归类顶层任务（日期取顶层显示日期 todoRootDue: 旧模式=自身 due_date; 新模式=最早到期子任务）
+// 各待办页面(登录态/公开报告/协作)共用, 依赖各页面自有的全局 _filter
+function todoFilterTrees(trees, today) {
+  var t = today || todayStr();
+  var out = trees.filter(function(n){ return todoRootPassFilter(n, _filter, t); });
+  // 已完成 tab: 覆盖卡片默认的"显示日期倒序", 改按最近完成时间倒序(刚完成的清单/任务在最前)
+  if (_filter === 'done') out.sort(todoDoneRootCmp);
+  return out;
+}
 // 时间筛选 tab → 图表下拉框默认区间映射:
 //   today  → 7d  (今天筛选就看近 7 天趋势)
 //   其它筛选(all/overdue/future/memo/done/cur) → month (当月, 与统计口径一致)
@@ -7978,25 +7998,6 @@ function switchTodoFilter(f) {
   if (_filter === f) return;
   var btn = document.querySelector('#todoFilter button[data-filter="' + f + '"]');
   if (btn) btn.click();
-}
-// 按筛选归类顶层任务（日期取顶层显示日期 todoRootDue: 旧模式=自身 due_date; 新模式=最早到期子任务）
-// 已完成 tab 顶层排序: 按子树最近完成时间倒序(刚完成的清单/任务在最前), 无完成日期沉底
-function todoDoneRootCmp(a, b) {
-  var ad = todoSubtreeDoneInfo(a).last || '';
-  var bd = todoSubtreeDoneInfo(b).last || '';
-  if (ad !== bd) {
-    if (!ad) return 1;
-    if (!bd) return -1;
-    return ad < bd ? 1 : -1;
-  }
-  return (a.sort_order - b.sort_order) || (a.id - b.id);
-}
-function todoFilterTrees(trees, today) {
-  var t = today || todayStr();
-  var out = trees.filter(function(n){ return todoRootPassFilter(n, _filter, t); });
-  // 已完成 tab: 覆盖卡片默认的"显示日期倒序", 改按最近完成时间倒序(刚完成的清单/任务在最前)
-  if (_filter === 'done') out.sort(todoDoneRootCmp);
-  return out;
 }
 // 按当前 _filter 过滤后的可见顶层树重算 未完成/已逾期/备忘录 三项统计
 // 与已完成一栏保持一致的联动风格; 已完成节点(整枝)不计入

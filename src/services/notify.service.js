@@ -163,7 +163,14 @@ async function sendToEmail(message, channel, subject = '') {
     const errorText = await response.text();
     return { success: false, message: `邮件服务响应错误: ${response.status}`, details: errorText };
   } catch (err) {
-    return { success: false, message: `邮件发送异常: ${err.message}` };
+    // Node(undici) 网络层失败(DNS 解析失败/连接拒绝/TLS 证书/超时)时 err.message 只有 "fetch failed",
+    // 真正原因在 err.cause; 一并带出便于定位邮件 webhook 连通性问题
+    let cause = '';
+    if (err && err.cause) {
+      const c = err.cause;
+      cause = ` [${c.code || c.name || 'cause'}: ${c.message || c}]`;
+    }
+    return { success: false, message: `邮件发送异常: ${err.message}${cause}` };
   }
 }
 
