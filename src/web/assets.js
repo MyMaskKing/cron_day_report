@@ -2612,7 +2612,7 @@ function renderFmRows() {
   var body = document.getElementById('fmTbody');
   var rows = fmState.rows;
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="8" class="muted" style="text-align:center;padding:30px;">暂无文件</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="muted cell-empty" style="text-align:center;padding:30px;">暂无文件</td></tr>';
   } else {
     body.innerHTML = rows.map(function(r) {
       var typeCell = r.isImage ? '<span class="tag ok">图片</span>' : '<span class="tag">文件</span>';
@@ -2731,7 +2731,7 @@ function renderOrphans(d) {
   if (!opState.orphans.length) {
     bar.style.display = 'none';
     head.style.display = 'none';
-    body.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;padding:40px;">未发现孤儿文件 🎉</td></tr>';
+    body.innerHTML = '<tr><td colspan="4" class="muted cell-empty" style="text-align:center;padding:40px;">未发现孤儿文件 🎉</td></tr>';
     return;
   }
   bar.style.display = 'flex';

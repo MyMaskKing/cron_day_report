@@ -1367,6 +1367,8 @@ html { scrollbar-gutter: stable; }
   .grid-stats { grid-template-columns: repeat(2, 1fr); }
   /* 表头窄屏隐藏后，全选改在工具栏显示 */
   .fm-mobile-sel { display: inline-flex; }
+  /* 空态单元格窄屏 flex 布局下保持居中（默认 space-between 会把无 data-label 的文本顶到左侧） */
+  table td.cell-empty { justify-content: center; text-align: center; }
   /* 登录/加仓等居中容器留边距 */
   .login-wrap { margin: 40px auto; padding: 0 12px; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */

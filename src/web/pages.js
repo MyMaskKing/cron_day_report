@@ -309,7 +309,7 @@ function storageAdminPage(user) {
             <th style="width:36px;"><input type="checkbox" id="opCheckAll" style="width:auto;margin:0;flex:none;" aria-label="全选"></th>
             <th>对象 key</th><th>来源</th><th>大小</th>
           </tr></thead>
-          <tbody id="opTbody"><tr><td colspan="4" class="muted" style="text-align:center;padding:40px;">尚未扫描</td></tr></tbody>
+          <tbody id="opTbody"><tr><td colspan="4" class="muted cell-empty" style="text-align:center;padding:40px;">尚未扫描</td></tr></tbody>
         </table>
       </div>
     </div>
