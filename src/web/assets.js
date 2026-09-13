@@ -5999,14 +5999,27 @@ function todoBuildTree(rows) {
     n.children.forEach(function(c){ tag(c, root, n); });
   }
   roots.forEach(function(r){ tag(r, r, null); });
-  // 顶层按显示截止日期倒序（有日期的越晚越靠前，无日期排最后）；同日期或子任务按 sort_order+id
+  // 顶层排序: 未完成在前, 已完成(自身 done)沉底——重复任务勾出的旧周期实例不该夹在未完成任务中间。
+  //   未完成组保持看板习惯按显示日期倒序(越晚越靠前, 无日期排最后);
+  //   已完成组按完成时间倒序(刚完成在上); 同序再按 sort_order+id。
+  // 注意: 未完成的 child_due 容器即使含已完成子任务仍属活跃清单, 不沉底(整清单自身勾选完成才沉)。
   // 显示日期取 todoRootDue: 旧模式=自身 due_date; 新模式=最早到期的未完成子任务
   roots.sort(function(a, b){
-    var ad = todoRootDue(a) || '', bd = todoRootDue(b) || '';
-    if (ad !== bd) {
-      if (!ad) return 1;
-      if (!bd) return -1;
-      return ad < bd ? 1 : -1;
+    if (!!a.done !== !!b.done) return a.done ? 1 : -1;
+    if (a.done) {
+      var aa = a.done_at || '', bb = b.done_at || '';
+      if (aa !== bb) {
+        if (!aa) return 1;
+        if (!bb) return -1;
+        return aa < bb ? 1 : -1;
+      }
+    } else {
+      var ad = todoRootDue(a) || '', bd = todoRootDue(b) || '';
+      if (ad !== bd) {
+        if (!ad) return 1;
+        if (!bd) return -1;
+        return ad < bd ? 1 : -1;
+      }
     }
     return (a.sort_order - b.sort_order) || (a.id - b.id);
   });
@@ -6055,6 +6068,9 @@ function renderTodoTree(container, trees, opts) {
   // opts.forcedRootDue: 显式指定的顶层截止日期(供 startDepth>0 用, 因为首层不再是根节点)
   function walk(node, depth, rootDue) {
     if (opts.hideDone && !todoSubtreePending(node)) return null;
+    // onlyDone(从"已完成"筛选进入详情): 只保留已完成节点;
+    // 未完成节点仅当其后代表现过已完成项时保留为分组容器, 否则整枝隐藏
+    if (opts.onlyDone && !node.done && !todoSubtreeDoneInfo(node).any) return null;
     // 有效截止日期：自身 due_date 优先，否则继承祖先（rootDue）。
     // 旧模式子任务自身无日期 → 继承顶层；新模式(child_due)子任务有自身日期 → 显示自身。
     // 详情页（显式传 forcedRootDue）首层是 root 的直接子任务，rootDue 由 forcedRootDue 兜底，
@@ -6230,7 +6246,9 @@ function renderTodoTree(container, trees, opts) {
   // 顶层任务的继承日期: 优先 opts.forcedRootDue(详情页明确传入); 否则用顶层自身 due_date
   // 不能传 todoRootDue(子树最小日期): 否则新模式下无自身日期的子任务会错误继承兄弟的日期
   trees.forEach(function(t){ var el = walk(t, startDepth, opts.forcedRootDue != null ? opts.forcedRootDue : t.due_date); if (el) { container.appendChild(el); any = true; } });
-  if (!any) container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
+  if (!any) container.innerHTML = opts.onlyDone
+    ? '<div class="todo-empty">暂无已完成子任务</div>'
+    : '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
   // 进程重建首帧: 自动展开切后台前打开的快捷"添加子任务"内联框(openInlineAddChild 内部回填草稿)
   todoRestoreInlineAdd(container);
 }
@@ -6520,6 +6538,8 @@ function todoRenderView(container, trees, opts) {
       var childOpts = {};
       for (var k in opts) if (Object.prototype.hasOwnProperty.call(opts, k)) childOpts[k] = opts[k];
       childOpts.startDepth = 0;
+      // 已完成筛选进详情: 只列已完成子任务, 隐藏未完成项(done tab 的卡片正是为此入口)
+      childOpts.onlyDone = opts.filter === 'done';
       // 详情页首层子任务的继承日期: 顶层自身日期(旧模式=root.due_date; 新模式 root 无日期→null,
       // 无自身日期的子任务即备忘录, 与后端 effDueOf 沿祖先链继承的口径一致)
       childOpts.forcedRootDue = root.due_date;
@@ -6707,7 +6727,8 @@ function openInlineAddChild(btnEl, parentNode, submitFn) {
   function onDocClick(e) {
     if (!box.isConnected) { document.removeEventListener('click', onDocClick, true); return; }
     var t = e.target;
-    if (t && t.closest && (t.closest('.todo-inline-add') || t.closest('[data-addchild]') || t.closest('.modal-mask'))) return;
+    // .dp-pop: 自定义日期选择器弹层挂在 body 下, 点日期不能被判为框外点击
+    if (t && t.closest && (t.closest('.todo-inline-add') || t.closest('[data-addchild]') || t.closest('.modal-mask') || t.closest('.dp-pop'))) return;
     close();
   }
   document.addEventListener('click', onDocClick, true);
@@ -6860,7 +6881,8 @@ function mountDetailAdder(container, parentNode, submitFn) {
   function onDocClick(e) {
     if (!wrap.isConnected) { document.removeEventListener('click', onDocClick, true); return; }
     var t = e.target;
-    if (t && t.closest && (t.closest('.todo-detail-adder') || t.closest('.modal-mask'))) return;
+    // .dp-pop: 自定义日期选择器弹层挂在 body 下, 点日期不能被判为框外点击
+    if (t && t.closest && (t.closest('.todo-detail-adder') || t.closest('.modal-mask') || t.closest('.dp-pop'))) return;
     collapse();
   }
   function bindDocClick() {
