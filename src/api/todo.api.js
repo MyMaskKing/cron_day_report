@@ -304,6 +304,8 @@ async function toggleTodo({ request, env, params }) {
   const body = await request.json().catch(() => ({}));
   const done = !!body.done;
   const jumpToCurrent = !!body.jumpToCurrent;
+  // 周期任务整树克隆的子任务复制方式: 'pending'=仅复制未完成; 其它/缺省=全量复制并重置
+  const cloneMode = body.cloneMode === 'pending' ? 'pending' : 'all';
 
   const storage = getStorage(env);
   const dc = await requireDataContext(storage, auth, 'todo', request);
@@ -315,7 +317,7 @@ async function toggleTodo({ request, env, params }) {
   if (!acc) return error('任务不存在', 404);
   // done_by: 共享分类记真实操作人(auth.user_id); 个人任务置 null
   const doneBy = acc.catId != null ? auth.user_id : null;
-  const r = await storage.todo.markDoneWithRecur(id, acc.ownerUid, done, jumpToCurrent, todayCN(), doneBy);
+  const r = await storage.todo.markDoneWithRecur(id, acc.ownerUid, done, jumpToCurrent, todayCN(), doneBy, cloneMode);
   // 偏好开启时(偏好跟随数据 owner):
   //   勾选 → 全部兄弟子任务均完成则逐级自动完成父任务;
   //   取消 → 沿父链把已完成的祖先恢复为未完成(父完成⇒子任务应全完成的不变量被破坏)

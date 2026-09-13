@@ -752,7 +752,9 @@ function createD1Adapter(env) {
       //   2. 叶子重复任务(无子女): 单行克隆, parent_id 保持同级
       // userId 双校验用：目标不属该用户视为无效，cloned=false 且不写任何数据
       // doneBy: 本次完成操作人 uid(共享分类记真实成员; 个人/免密匿名传 null, 克隆行沿用原实例 created_by)
-      async markDoneWithRecur(id, userId, done, jumpToCurrent, todayStr, doneBy) {
+      // cloneMode: 整树克隆时的子任务复制方式, 'all'(默认)=全部复制并重置为未完成;
+      //   'pending'=只复制未完成节点, 已完成节点整枝(含其下后代)不复制; 叶子单行克隆不受影响
+      async markDoneWithRecur(id, userId, done, jumpToCurrent, todayStr, doneBy, cloneMode) {
         const self = await db.prepare('SELECT * FROM todos WHERE id=? AND user_id=?').bind(id, userId).first();
         if (!self) return { cloned: false };
         await this.setDone(id, !!done, todayStr, doneBy);
@@ -764,7 +766,8 @@ function createD1Adapter(env) {
         // 任何层级的重复任务只要有子女都走整树克隆(新根保持原 parent_id); 无子女的叶子单行克隆
         const hasKids = !!(await db.prepare('SELECT 1 AS x FROM todos WHERE parent_id=? LIMIT 1').bind(id).first());
         if (hasKids) {
-          const newRootId = await this._cloneSubtreeForRecur(self, nextDue, userId, todayStr, doneBy);
+          const mode = cloneMode === 'pending' ? 'pending' : 'all';
+          const newRootId = await this._cloneSubtreeForRecur(self, nextDue, userId, todayStr, doneBy, mode);
           return { cloned: true, next_id: newRootId, next_due: nextDue };
         }
         // 单行克隆(叶子重复任务): 继承 shared_cat_id; created_by 取本次操作人, 匿名/个人场景沿用原实例
@@ -829,7 +832,8 @@ function createD1Adapter(env) {
       // 新根 parent_id 沿用 rootOld.parent_id(顶层为 NULL, 中层仍挂原父任务下)
       // rootOld 是完整行对象(含 recurrence 等), 需 SELECT * 后再传入
       // doneBy: 触发克隆的操作人(共享分类记真实成员); null 时新根沿用原实例 created_by
-      async _cloneSubtreeForRecur(rootOld, nextDue, userId, todayStr, doneBy) {
+      // cloneMode: 'all'(默认)复制全部子孙并重置未完成; 'pending' 跳过已完成节点整枝(含其下后代)
+      async _cloneSubtreeForRecur(rootOld, nextDue, userId, todayStr, doneBy, cloneMode) {
         // 1. 插入新 root; 保留 recurrence/recur_interval/recur_nth/recur_weekday, 保证下次循环仍按同规则
         //    parent_id 沿用原层级; 继承 shared_cat_id(共享分类内克隆不脱离分类); created_by 取操作人, 匿名/个人沿用原实例
         const rootCreatedBy = doneBy != null ? doneBy : (rootOld.created_by != null ? rootOld.created_by : null);
@@ -857,12 +861,18 @@ function createD1Adapter(env) {
         // idMap: 旧 id -> 新 id
         const idMap = new Map();
         idMap.set(rootOld.id, newRootId);
+        // pending 模式: 已完成节点整枝跳过(skipIds 含其全部后代, 在拓扑循环中向下传播)
+        const onlyPending = cloneMode === 'pending';
+        const skipIds = new Set();
         // 保证父在前(listSubtree 返回按 sort_order+id, 但可能同级子在祖先前, 需要拓扑保证)
         // 简单做法: 用 while 循环, 只有父已映射的行才处理; 循环直到全部完成
         let remaining = others.slice();
         while (remaining.length) {
           const next = [];
           for (const r of remaining) {
+            if (onlyPending) {
+              if (r.done || skipIds.has(r.parent_id)) { skipIds.add(r.id); continue; }
+            }
             const newParent = idMap.get(r.parent_id);
             if (newParent == null) { next.push(r); continue; }
             const res = await db.prepare(

@@ -5207,6 +5207,25 @@ function todoSubtreeDoneInfo(node) {
   })(node);
   return { any: any, last: last };
 }
+// 周期任务整树克隆预览: 遍历 node 的全部子孙, 给出 all/pending 两种复制模式的计划
+// 返回 { rows:[{title,done,skipInPending}], total, doneCount, pendingCount, hasDone }
+// pending 模式下已完成节点整枝跳过(其下后代即使自身未完成也 skipInPending=true), 与存储层拓扑跳过同口径
+function todoRecurClonePlan(node) {
+  var rows = [];
+  (function walk(n, ancestorDone){
+    n.children.forEach(function(c){
+      var skip = ancestorDone || !!c.done;
+      rows.push({ title: c.title, done: !!c.done, skipInPending: skip });
+      walk(c, skip);
+    });
+  })(node, false);
+  var doneCount = 0, pendingCount = 0;
+  rows.forEach(function(r){
+    if (r.done) doneCount++;
+    if (!r.skipInPending) pendingCount++;
+  });
+  return { rows: rows, total: rows.length, doneCount: doneCount, pendingCount: pendingCount, hasDone: doneCount > 0 };
+}
 // 前端镜像后端 todo.service.js 的 effDueOf / rootDueOf, 同口径(唯一事实源在后端):
 //   todoEffDueRow(flatRow, byId): 沿 parent 链找第一个非空 due_date(自身优先; 旧模式=继承顶层日期)
 //   todoRootDue(treeNode): 顶层显示日期 = 自身 due_date 优先, 否则取子树未完成节点有效日期的最小值
@@ -8073,6 +8092,16 @@ function drawTree() {
       var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, todayStr(), node.recur_interval, node.recur_nth, node.recur_weekday);
       var sameDate = defaultNext === jumpNext;
       var _t = todayStr();
+      // 子任务中存在已完成项时, 让用户选下一周期的复制方式; 全部未完成则不显示(恒为全量复制)
+      var plan = todoRecurClonePlan(node);
+      var modeSec = '';
+      if (plan.hasDone) {
+        modeSec =
+          '<p style="margin:14px 0 6px;font-weight:600;">下一周期的子任务 <span class="muted" style="font-weight:400;">· 本周期有 ' + plan.doneCount + ' 项已完成</span></p>' +
+          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rmode" value="all" checked style="width:auto;margin-right:8px;"> 全量复制并重置（默认）<br><span class="muted" style="margin-left:26px;">复制全部 ' + plan.total + ' 项，已完成的 ' + plan.doneCount + ' 项重置为未完成</span></label>' +
+          '<label style="display:block;padding:8px 4px;"><input type="radio" name="rmode" value="pending" style="width:auto;margin-right:8px;"> 仅复制未完成<br><span class="muted" style="margin-left:26px;">只带走 ' + plan.pendingCount + ' 项没做完的，已完成事项不再重复</span></label>' +
+          '<div id="rrPlanPreview" style="margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);font-size:13px;"></div>';
+      }
       var html =
         '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday) + '）</p>' +
         '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(todoDateLabel(dueDate, _t)) + ' <span style="color:var(--faint);">(' + dueDate + ')</span></p>' +
@@ -8080,12 +8109,39 @@ function drawTree() {
         '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + todoDateLabel(defaultNext, _t) + ' <span style="color:var(--faint);font-size:12px;">(' + defaultNext + ')</span>（下一周期，默认）</label>' +
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _t) + ' <span style="color:var(--faint);font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
+        modeSec +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
       openModal('✅ 完成重复任务', html);
+      // 复制模式预览: 随选项实时重绘下一周期清单
+      function renderRrPlan(){
+        var box = document.getElementById('rrPlanPreview');
+        if (!box) return;
+        var rmEl = document.querySelector('input[name="rmode"]:checked');
+        var mode = rmEl ? rmEl.value : 'all';
+        var lines = plan.rows.map(function(r){
+          var t = esc(r.title);
+          if (mode === 'pending' && r.skipInPending) {
+            return '<div style="padding:2px 0;color:var(--muted);"><span style="display:inline-block;width:16px;">○</span><span style="text-decoration:line-through;">' + t + '</span> <span style="font-size:12px;">不复制</span></div>';
+          }
+          if (mode === 'all' && r.done) {
+            return '<div style="padding:2px 0;"><span style="display:inline-block;width:16px;">○</span>' + t + ' <span style="font-size:12px;color:var(--ok);">↺ 重置为未完成</span></div>';
+          }
+          return '<div style="padding:2px 0;"><span style="display:inline-block;width:16px;">○</span>' + t + '</div>';
+        }).join('');
+        box.innerHTML = '<div class="muted" style="margin-bottom:6px;">下一周期将创建：</div>' + lines;
+      }
+      if (plan.hasDone) {
+        Array.prototype.forEach.call(document.querySelectorAll('input[name="rmode"]'), function(el){
+          el.addEventListener('change', renderRrPlan);
+        });
+        renderRrPlan();
+      }
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');
-        await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent } });
+        var rm = document.querySelector('input[name="rmode"]:checked');
+        var cloneMode = rm ? rm.value : 'all';
+        await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent, cloneMode: cloneMode } });
         closeModal();
         await loadTodos(); await loadChart();
         var cc = todoCelebrationCount(todoBuildTree(_rows), true);
