@@ -77,19 +77,44 @@ const COMMON_JS = `
   function addDays(s,n){ var p=parse(s); return new Date(Date.UTC(p.y,p.mo-1,p.d)+n*86400000).toISOString().slice(0,10); }
   function wdOf(s){ var p=parse(s); return WD[new Date(Date.UTC(p.y,p.mo-1,p.d)).getUTCDay()]; }
   var pop=null, cur=null, vY=0, vMo=0, view='day';
-  function close(){ if(pop){ pop.remove(); pop=null; cur=null; } }
+  function close(){ if(pop){ pop.remove(); pop=null; cur=null; openSeq++; } }
   function disabled(ds, input){
     var mn=parse(input.min), mx=parse(input.max);
     return (mn && ds < pStr(mn)) || (mx && ds > pStr(mx));
   }
+  // 当前可视布局视口: 优先 visualViewport(键盘弹起/收起时给出真正可见区域与偏移), 桌面回退 window
+  function vvBox(){
+    var vv = window.visualViewport;
+    if (vv) return { left: vv.offsetLeft || 0, top: vv.offsetTop || 0, width: vv.width, height: vv.height };
+    return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+  }
+  // 纯函数: 输入框矩形 r + 可视区 box + 弹层尺寸 → 弹层 left/top
+  // 优先放输入框下方; 下方放不下翻上方; 都放不下则夹进可视区(留 8px 边距)
+  function clampPos(r, box, pw, ph){
+    var left = Math.min(Math.max(box.left + 8, r.left), box.left + box.width - pw - 8);
+    var top;
+    if (r.bottom + 6 + ph <= box.top + box.height) top = r.bottom + 6;
+    else if (r.top - 6 - ph >= box.top + 8) top = r.top - 6 - ph;
+    else top = Math.max(box.top + 8, Math.min(r.bottom + 6, box.top + box.height - ph - 8));
+    return { left: left, top: top };
+  }
   function position(){
     if(!pop||!cur) return;
-    var r = cur.getBoundingClientRect();
-    var pw = pop.offsetWidth || 300, ph = pop.offsetHeight || 320;
-    var left = Math.min(Math.max(8, r.left), window.innerWidth - pw - 8);
-    var top = (r.bottom + 6 + ph <= window.innerHeight) ? r.bottom + 6 : Math.max(8, r.top - ph - 6);
-    pop.style.left = left + 'px'; pop.style.top = top + 'px';
+    var p = clampPos(cur.getBoundingClientRect(), vvBox(), pop.offsetWidth || 300, pop.offsetHeight || 320);
+    pop.style.left = p.left + 'px'; pop.style.top = p.top + 'px';
   }
+  // rAF 节流重定位(键盘动画/视口变化期间会连续触发)
+  var rafId = 0;
+  function rafPos(){
+    if (!pop || pop.style.display !== 'block') return;
+    if (rafId) return;
+    rafId = (window.requestAnimationFrame || function(fn){ return setTimeout(function(){ fn(); }, 50); })(function(){ rafId = 0; position(); });
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', rafPos);
+    window.visualViewport.addEventListener('scroll', rafPos);
+  }
+  window.addEventListener('resize', rafPos);
   function navBar(title, goto){
     return '<div class="dp-nav"><button type="button" class="dp-navb" data-dir="-1">‹</button>' +
       '<span class="dp-ym"' + (goto ? ' data-goto="'+goto+'"' : '') + '>'+title+'</span>' +
@@ -146,9 +171,37 @@ const COMMON_JS = `
     pop.innerHTML = view==='month' ? renderMonth(today) : view==='year' ? renderYear(today) : renderDay(today, sel);
     position();
   }
-  function open(input){
+  // 键盘是否开启: visualViewport 推算高度 与 原生注入 --kb-native(App WebView 的 vv 不反映键盘)取大;
+  // 口径与 COMMON_JS 的 curKb 一致
+  function kbOpen(){
+    var vv = window.visualViewport;
+    var vvKb = vv ? Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0)) : 0;
+    var nativeKb = 0;
+    try { nativeKb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb-native')) || 0; } catch (e) {}
+    return Math.max(vvKb, nativeKb) > 80;
+  }
+  var openSeq = 0;
+  // 让当前聚焦框失焦以收起键盘, 并等键盘真正收起(命中可视高度恢复即继续; App 无 vv 事件时 320ms 保底);
+  // 桌面/无键盘立即返回。选完日期不主动还焦, 继续输入需用户再点输入框(与主流待办 App 一致)
+  function dismissKeyboard(curInput){
+    var ae = document.activeElement;
+    if (ae && ae !== curInput && typeof ae.blur === 'function') ae.blur();
+    if (!kbOpen()) return Promise.resolve();
+    return new Promise(function(resolve){
+      var vv = window.visualViewport, finished = false, t;
+      function finish(){ if (finished) return; finished = true; if (vv) vv.removeEventListener('resize', onR); clearTimeout(t); resolve(); }
+      t = setTimeout(finish, 320);
+      function onR(){ if (!kbOpen()) finish(); }
+      if (vv) vv.addEventListener('resize', onR);
+    });
+  }
+  async function open(input){
+    var seq = ++openSeq;
     cur = input;
     input.readOnly = true;
+    await dismissKeyboard(input);
+    // 等待键盘期间弹层被关闭/又打开了别的日期框: 本次作废
+    if (seq !== openSeq || cur !== input) return;
     var base = parse(input.value) || parse(bjToday());
     vY = base.y; vMo = base.mo; view = 'day';
     if (!pop){
@@ -193,8 +246,10 @@ const COMMON_JS = `
     if (isDate(t) && (e.key==='Enter' || e.key===' ')){ e.preventDefault(); open(t); }
     if (e.key==='Escape') close();
   }, true);
-  window.addEventListener('scroll', function(){ close(); }, true);
-  window.addEventListener('resize', function(){ close(); });
+  // 滚动/视口变化一律重定位(弹层随输入框走), 不关闭: 键盘收起在部分 Android 上会伴随页面滚动,
+  // 若在此关闭会把刚弹出的日历误关; 关闭只保留 点框外 / Esc / 选完日期 三个途径
+  window.addEventListener('scroll', rafPos, true);
+  // window/visualViewport resize 同样走 rafPos 重定位——键盘收起动画触发的 resize 不能关掉等待中的日历
 })();
 // ============ 统一 SVG 图标(24x24, stroke: currentColor, 与 topbar 风格一致) ============
 // 移动端 emoji 在浅底色行上易被吞噬(尤其 ✏️/🔗/🗑️), 全部换成矢量描边图标; 颜色由 .todo-op 决定
