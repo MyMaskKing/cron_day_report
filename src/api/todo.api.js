@@ -192,8 +192,9 @@ async function createTodo({ request, env }) {
     shared_cat_id: catId,
     created_by: catId != null ? auth.user_id : dc.uid
   });
-  // 给带重复的自由叶子添加首个子任务: 它从此是中间层, 清掉其重复(仅直接父允许自设日期的枝内)
-  if (allowsOwnDate && parentWasLeaf && parentRow && parentRow.recurrence) {
+  // 非顶层重复叶子获得首个子女即变成中间层(不变量: 重复任务只允许是叶子, 旧模式顶层除外), 清掉其重复;
+  // 顶层旧模式例外: 顶层周期任务允许带无日期子女, 完成时整树克隆到下一周期
+  if (parentWasLeaf && parentRow && parentRow.recurrence && parentRow.parent_id != null) {
     await storage.todo.clearRecur(parentId);
   }
   return json({ success: true, message: '任务已添加', id });
@@ -586,7 +587,8 @@ async function publicAddTodo({ request, env, params }) {
     shared_cat_id: root.shared_cat_id != null ? root.shared_cat_id : null,
     created_by: null
   });
-  if (allowsOwnDate && parentWasLeaf && parentRow && parentRow.recurrence) {
+  // 非顶层重复叶子获得首个子女即清其重复(旧模式顶层周期任务可带无日期子女, 例外保留)
+  if (parentWasLeaf && parentRow && parentRow.recurrence && parentRow.parent_id != null) {
     await storage.todo.clearRecur(parentId);
   }
   return json({ success: true, message: '已添加', id });
@@ -887,7 +889,8 @@ async function publicAllAdd({ request, env, params }) {
     shared_cat_id: null,
     created_by: null
   });
-  if (allowsOwnDate && parentWasLeaf && parentRow && parentRow.recurrence) {
+  // 非顶层重复叶子获得首个子女即清其重复(旧模式顶层周期任务可带无日期子女, 例外保留)
+  if (parentWasLeaf && parentRow && parentRow.recurrence && parentRow.parent_id != null) {
     await storage.todo.clearRecur(parentId);
   }
   return json({ success: true, message: '已添加', id });

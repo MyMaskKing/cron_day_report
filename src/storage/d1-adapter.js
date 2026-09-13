@@ -748,8 +748,8 @@ function createD1Adapter(env) {
       // 返回 { cloned: boolean, next_id?, next_due? }
       // 新周期实例重置为未完成，原任务及其子树状态保持不变
       // 两种克隆形态:
-      //   1. 旧模式顶层重复任务且有子任务: 整棵子树克隆(子任务日期原样, 旧模式下本就为空)
-      //   2. 叶子重复任务(新模式子任务 / 无子女顶层): 单行克隆, parent_id 保持同级
+      //   1. 带子女的重复任务(旧模式顶层 / 中层重复任务): 整棵子树克隆, 新根 parent_id 保持原层级(子任务日期原样, 本模式下恒为空)
+      //   2. 叶子重复任务(无子女): 单行克隆, parent_id 保持同级
       // userId 双校验用：目标不属该用户视为无效，cloned=false 且不写任何数据
       // doneBy: 本次完成操作人 uid(共享分类记真实成员; 个人/免密匿名传 null, 克隆行沿用原实例 created_by)
       async markDoneWithRecur(id, userId, done, jumpToCurrent, todayStr, doneBy) {
@@ -761,9 +761,8 @@ function createD1Adapter(env) {
         if (!self.recurrence) return { cloned: false };
         if (!self.due_date) return { cloned: false };
         const nextDue = shiftDate(self.due_date, self.recurrence, !!jumpToCurrent, todayStr, self.recur_interval, self.recur_nth, self.recur_weekday);
-        // 仅旧模式顶层重复任务可能带子女, 走整树克隆; 其余(叶子)单行克隆
-        const hasKids = self.parent_id == null &&
-          !!(await db.prepare('SELECT 1 AS x FROM todos WHERE parent_id=? LIMIT 1').bind(id).first());
+        // 任何层级的重复任务只要有子女都走整树克隆(新根保持原 parent_id); 无子女的叶子单行克隆
+        const hasKids = !!(await db.prepare('SELECT 1 AS x FROM todos WHERE parent_id=? LIMIT 1').bind(id).first());
         if (hasKids) {
           const newRootId = await this._cloneSubtreeForRecur(self, nextDue, userId, todayStr, doneBy);
           return { cloned: true, next_id: newRootId, next_due: nextDue };
@@ -827,16 +826,17 @@ function createD1Adapter(env) {
       },
       // 内部: 递归克隆 rootOld 及其全部后代, 返回新 root id
       // 新任务全部 done=0, done_at=null, share_token=null, recur_from_id 指向原 id
+      // 新根 parent_id 沿用 rootOld.parent_id(顶层为 NULL, 中层仍挂原父任务下)
       // rootOld 是完整行对象(含 recurrence 等), 需 SELECT * 后再传入
       // doneBy: 触发克隆的操作人(共享分类记真实成员); null 时新根沿用原实例 created_by
       async _cloneSubtreeForRecur(rootOld, nextDue, userId, todayStr, doneBy) {
         // 1. 插入新 root; 保留 recurrence/recur_interval/recur_nth/recur_weekday, 保证下次循环仍按同规则
-        //    继承 shared_cat_id(共享分类内克隆不脱离分类); created_by 取操作人, 匿名/个人沿用原实例
+        //    parent_id 沿用原层级; 继承 shared_cat_id(共享分类内克隆不脱离分类); created_by 取操作人, 匿名/个人沿用原实例
         const rootCreatedBy = doneBy != null ? doneBy : (rootOld.created_by != null ? rootOld.created_by : null);
         const rootRes = await db.prepare(
-          'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by) VALUES (?, NULL, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by) VALUES (?, ?, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
-          userId, rootOld.title,
+          userId, rootOld.parent_id != null ? rootOld.parent_id : null, rootOld.title,
           rootOld.priority != null ? rootOld.priority : 1,
           nextDue,
           rootOld.category || null,
