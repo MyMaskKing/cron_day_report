@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  /* og-card 图源：用 Chrome 截成 og-card.png
+     chrome --headless=new --window-size=1200,630 --screenshot=og-card.png og-card.html */
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #efeaff;
+    background:
+      radial-gradient(620px 420px at 88% -10%, rgba(168,85,247,.42), transparent 62%),
+      radial-gradient(500px 360px at 0% 110%, rgba(124,58,237,.28), transparent 60%),
+      linear-gradient(150deg, #221a44 0%, #1a1538 48%, #120e28 100%);
+    padding: 72px 76px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+  body::after {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: radial-gradient(700px 500px at 85% 0%, #000, transparent 75%);
+    mask-image: radial-gradient(700px 500px at 85% 0%, #000, transparent 75%);
+    pointer-events: none;
+  }
+  .mark {
+    width: 76px; height: 76px; border-radius: 22px;
+    background: linear-gradient(135deg, #a855f7, #9333ea);
+    display: grid; place-items: center;
+    box-shadow: 0 18px 44px -12px rgba(168,85,247,.7);
+    margin-bottom: 30px;
+  }
+  .mark svg { width: 42px; height: 42px; }
+  h1 {
+    font-size: 78px; font-weight: 800; letter-spacing: -.03em; line-height: 1.12;
+  }
+  h1 .g {
+    background: linear-gradient(135deg, #d8b4fe, #c084fc);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  p.sub {
+    margin-top: 22px;
+    font-size: 27px; color: #b8b0d8; line-height: 1.55; max-width: 760px;
+  }
+  .chips { margin-top: 34px; display: flex; gap: 12px; }
+  .chips span {
+    padding: 9px 20px; border-radius: 999px;
+    border: 1px solid rgba(192,132,252,.35);
+    background: rgba(168,85,247,.12);
+    font-size: 20px; color: #e2d8ff;
+  }
+  .foot {
+    position: absolute; left: 76px; bottom: 66px;
+    font-size: 20px; color: #8f88b4;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .foot b { color: #c084fc; font-weight: 600; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: #6d6596; }
+</style>
+</head>
+<body>
+  <div class="mark">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+  </div>
+  <h1>生活的<span class="g">缝缝补补</span>，<br>一个面板全搞定</h1>
+  <p class="sub">网站监控 · 基金持仓 · 体重记录 · 资产月报 · 待办清单，到点自动推送到企业微信 / Webhook / 邮件</p>
+  <div class="chips"><span>开源免费</span><span>数据自有</span><span>Cloudflare / Docker</span><span>Android 小组件</span></div>
+  <div class="foot"><b>缝补生活</b><span class="dot"></span><span>cron.10023456.xyz</span><span class="dot"></span><span>自托管个人生活面板</span></div>
+</body>
+</html>

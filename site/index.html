@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>缝补生活 · 多模块个人生活面板与定时推送</title>
+<meta name="description" content="网站监控、基金持仓、体重记录、资产月报、待办清单——按你设定的时间自动推送到企业微信、Webhook 或邮件。开源免费、数据自有的自托管生活面板，配套 Android 桌面小组件。">
+<meta property="og:title" content="缝补生活 · 多模块个人生活面板与定时推送">
+<meta property="og:description" content="把生活里零散需要打理的小事，收集、提醒、补齐。一个自托管面板 + Android 桌面小组件。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://cron.10023456.xyz">
+<meta property="og:image" content="assets/og-card.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1260">
+<meta property="og:image:alt" content="缝补生活：生活的缝缝补补，一个面板全搞定">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="assets/og-card.png">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<!--
+THESIS: 不是又一个待办工具的落地页，而是「自托管全家生活操作系统」的门面：面板里五个生活模块同时在工作，推送与家人协作是本品类没有的机制。拒绝标准 icon+标题+文字等大卡排排站。
+OWN-WORLD: 品牌承诺紫 #A855F7/#9333EA（与 App、服务端登录页同族）；近黑紫蓝深色世界；1.8 描边线性图标；柔和分层阴影 + 紫色辉光；系统字体栈、紧凑负字距标题。
+STORY: 访客在首屏看懂「五个模块 + 到点自动推送 + 家人免密协作」，相信它是真的（看到界面在工作），然后点「立即体验」或「Docker 部署」/下载 APK。
+FIRST VIEWPORT: 左 55% 大标题「生活的缝缝补补，一个面板全搞定」（缝缝补补为品牌渐变）、副标、双 CTA、信任小字；右 45% 浏览器框内为仿真面板（五模块侧栏 + 基金/体重/待办真实示意行），右下叠 Android 待办小组件卡并轻柔漂浮。主操作在左下、首屏内。
+FORM: code-led；established-world 内新 surface（PRODUCT.md 品牌紫 + src/web/layout.js 视觉）；用户 pinned 亮色 SaaS + 自动暗色，未跑 concept-seed。
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->
+
+<!-- ===== 导航 ===== -->
+<header class="nav" id="top">
+  <div class="container nav__inner">
+    <a class="brand" href="#top" aria-label="缝补生活 首页">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+      </span>
+      <span class="brand__name">缝补生活</span>
+    </a>
+    <nav class="nav__links" aria-label="主导航">
+      <a href="#features">功能特性</a>
+      <a href="#android">Android</a>
+      <a href="#self-host">自托管</a>
+      <a href="#faq">常见问题</a>
+      <a class="nav__github" href="https://github.com/MyMaskKing/cron_day_report" target="_blank" rel="noopener" aria-label="GitHub 仓库（新窗口打开）">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.42-2.69 5.39-5.26 5.68.41.36.78 1.06.78 2.14 0 1.55-.01 2.8-.01 3.18 0 .3.2.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+      </a>
+      <a class="btn btn--primary btn--sm" href="https://cron.10023456.xyz" target="_blank" rel="noopener">立即体验</a>
+    </nav>
+    <details class="nav__details">
+      <summary class="nav__toggle" aria-label="打开或关闭导航菜单">
+        <span></span><span></span><span></span>
+      </summary>
+      <div class="nav__mobile" id="mobileMenu">
+        <a href="#features">功能特性</a>
+        <a href="#android">Android</a>
+        <a href="#self-host">自托管</a>
+        <a href="#faq">常见问题</a>
+        <a href="https://github.com/MyMaskKing/cron_day_report" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn btn--primary" href="https://cron.10023456.xyz" target="_blank" rel="noopener">立即体验</a>
+      </div>
+    </details>
+  </div>
+</header>
+
+<main>
+<!-- ===== Hero ===== -->
+<section class="hero">
+  <div class="hero__glow" aria-hidden="true"></div>
+  <div class="container hero__grid">
+    <div class="hero__copy">
+      <h1>生活的<span class="text-gradient">缝缝补补</span>，<br>一个面板全搞定</h1>
+      <p class="hero__sub">网站监控、基金持仓、体重记录、资产月报、待办清单——按你设定的时间，自动推送到企业微信、Webhook 或邮件。</p>
+      <div class="hero__cta">
+        <a class="btn btn--primary btn--lg" href="https://cron.10023456.xyz" target="_blank" rel="noopener">
+          立即体验
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn btn--ghost btn--lg" href="#self-host">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+          Docker 一键部署
+        </a>
+      </div>
+      <p class="hero__trust">开源免费 · 数据自有 · Cloudflare Workers / Docker 双运行时</p>
+    </div>
+
+    <div class="hero__stage" aria-hidden="true">
+      <!-- 仿真浏览器：面板 -->
+      <div class="browser">
+        <div class="browser__bar">
+          <span class="browser__dot browser__dot--r"></span>
+          <span class="browser__dot browser__dot--y"></span>
+          <span class="browser__dot browser__dot--g"></span>
+          <span class="browser__url">cron.10023456.xyz</span>
+        </div>
+        <div class="browser__body">
+          <aside class="mock-side">
+            <span class="mock-side__item is-active">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>
+            </span>
+            <span class="mock-side__item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+            </span>
+            <span class="mock-side__item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1.5 12h-15z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>
+            </span>
+            <span class="mock-side__item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18M16 15h2"/></svg>
+            </span>
+            <span class="mock-side__item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M4 12h10M4 18h7"/><path d="M18 15l2 2 3.5-4"/></svg>
+            </span>
+          </aside>
+          <div class="mock-main">
+            <div class="mock-main__head">
+              <div>
+                <p class="mock-main__hello">早上好</p>
+                <p class="mock-main__date">9 月 13 日 · 周日</p>
+              </div>
+              <span class="mock-main__pill">已推送 09:00</span>
+            </div>
+            <div class="mock-row mock-row--fund">
+              <div class="mock-row__txt">
+                <strong>基金持仓</strong>
+                <small>昨日收益 +¥128.40&nbsp;&nbsp;+0.83%</small>
+              </div>
+              <svg class="mock-spark" viewBox="0 0 120 40" aria-hidden="true">
+                <path d="M0 32 L15 28 L30 30 L45 22 L60 24 L75 15 L90 18 L105 9 L120 6" fill="none" stroke="url(#gFund)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <defs><linearGradient id="gFund" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#10b981"/></linearGradient></defs>
+              </svg>
+            </div>
+            <div class="mock-row mock-row--weight">
+              <div class="mock-row__txt">
+                <strong>体重 · 小林</strong>
+                <small>62.4 kg&nbsp;&nbsp;较上周 -0.3</small>
+              </div>
+              <svg class="mock-spark" viewBox="0 0 120 40" aria-hidden="true">
+                <path d="M0 10 L15 13 L30 12 L45 17 L60 19 L75 22 L90 24 L105 27 L120 28" fill="none" stroke="#fb7185" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <ul class="mock-todo">
+              <li><span class="mock-check is-done"></span><span class="is-done">给爸妈订周日午餐</span></li>
+              <li><span class="mock-check is-done"></span><span class="is-done">基金定投扣款</span></li>
+              <li><span class="mock-check"></span><span>晚 8 点提醒缴房租</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- 叠放：Android 桌面待办小组件 -->
+      <div class="phone">
+        <div class="phone__widget">
+          <div class="phone__widget-head">
+            <strong>待办速览</strong>
+            <span class="phone__count">3</span>
+          </div>
+          <ul>
+            <li><span class="wcheck is-done"></span><span class="is-done">买猫粮</span></li>
+            <li><span class="wcheck"></span><span>取快递</span></li>
+            <li><span class="wcheck"></span><span>记录今天体重</span></li>
+          </ul>
+          <p class="phone__add">＋ 新增待办</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 功能特性 ===== -->
+<section class="section" id="features">
+  <div class="container">
+    <h2 class="section__title">五个模块，各管一摊生活小事</h2>
+    <p class="section__sub">每一项都能独立配置推送时间与渠道；到点自动汇总，不用你打开任何 App。</p>
+
+    <div class="bento">
+      <!-- 大卡：待办 -->
+      <article class="fcard fcard--todo reveal">
+        <div class="fcard__icon fcard__icon--violet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M4 12h10M4 18h7"/><path d="M18 15l2 2 3.5-4"/></svg>
+        </div>
+        <h3>待办清单</h3>
+        <p>树形子任务、重复周期、附件与图表分析；桌面小组件随手勾选，完成即同步。</p>
+        <div class="fcard--todo__mock" aria-hidden="true">
+          <div class="ttree">
+            <p><span class="mock-check"></span>周末家庭日</p>
+            <p class="ttree__sub is-done"><span class="mock-check is-done"></span>订餐厅</p>
+            <p class="ttree__sub is-done"><span class="mock-check is-done"></span>通知爸妈</p>
+            <p class="ttree__sub"><span class="mock-check"></span>买水果<span class="ttree__repeat">每天</span></p>
+            <p class="ttree__gap"><span class="mock-check"></span>月度资产复盘</p>
+            <p class="ttree__sub"><span class="mock-check"></span>更新各钱包余额</p>
+          </div>
+        </div>
+      </article>
+
+      <!-- 基金 -->
+      <article class="fcard reveal">
+        <div class="fcard__icon fcard__icon--emerald">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+        </div>
+        <h3>基金持仓</h3>
+        <p>自动追踪净值、计算收益并生成持仓日报；免密链接随时加仓，不用登录。</p>
+        <svg class="fcard__chart" viewBox="0 0 220 56" aria-hidden="true">
+          <path d="M0 46 L25 40 L50 43 L75 30 L100 33 L125 22 L150 26 L175 14 L200 10 L220 4" fill="none" stroke="url(#gFund2)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs><linearGradient id="gFund2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#10b981"/></linearGradient></defs>
+        </svg>
+      </article>
+
+      <!-- 体重 -->
+      <article class="fcard reveal">
+        <div class="fcard__icon fcard__icon--rose">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1.5 12h-15z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>
+        </div>
+        <h3>体重记录</h3>
+        <p>多成员曲线与趋势日报；家人打开专属链接就能记录，账号都不用注册。</p>
+        <div class="mini-bars" aria-hidden="true">
+          <span style="height:70%"></span><span style="height:82%"></span><span style="height:64%"></span>
+          <span style="height:74%"></span><span style="height:56%"></span><span style="height:60%"></span>
+          <span style="height:46%"></span><span style="height:40%"></span>
+        </div>
+      </article>
+
+      <!-- 资产 -->
+      <article class="fcard reveal">
+        <div class="fcard__icon fcard__icon--amber">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M3 11h18M16 15h2"/></svg>
+        </div>
+        <h3>资产月报</h3>
+        <p>多钱包净资产自动聚合，年度目标进度一目了然，按月准时送达邮箱或群聊。</p>
+        <div class="goal" aria-hidden="true">
+          <div class="goal__track"><span style="width:68%"></span></div>
+          <small>年度目标 ¥300,000 · 已达成 68%</small>
+        </div>
+      </article>
+
+      <!-- 监控 -->
+      <article class="fcard reveal">
+        <div class="fcard__icon fcard__icon--sky">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>
+        </div>
+        <h3>网站监控</h3>
+        <p>定时批量访问网址，汇报状态码与响应时间，网站异常第一时间推送给你。</p>
+        <ul class="mon-list" aria-hidden="true">
+          <li><i class="dot dot--ok"></i>blog.example.com<code>200 · 142ms</code></li>
+          <li><i class="dot dot--ok"></i>api.service.dev<code>200 · 308ms</code></li>
+          <li><i class="dot dot--warn"></i>staging.demo.io<code>503 · 超时</code></li>
+        </ul>
+      </article>
+    </div>
+
+    <!-- 三条能力：编辑式横排，非卡片 -->
+    <div class="powers">
+      <div class="power reveal">
+        <span class="power__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+        </span>
+        <h3>定时推送，多渠道可达</h3>
+        <p>每小时自动检查配置，按小时、按日期到点即发；支持企业微信机器人、自定义 Webhook（method / headers / body 可配）与邮件，格式自动降级。</p>
+      </div>
+      <div class="power reveal">
+        <span class="power__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="5"/><path d="M13 12h8M17.5 8.5L21 12l-3.5 3.5"/></svg>
+        </span>
+        <h3>家人免密协作</h3>
+        <p>长期有效的专属链接，免登录填体重、加仓、录资产、看待办；也可用邀请码按模块共享，或建立待办共享分类一起打理家庭事务。</p>
+      </div>
+      <div class="power reveal">
+        <span class="power__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.2 7.6-8 9-4.8-1.4-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        </span>
+        <h3>多用户，数据自有</h3>
+        <p>注册登录、超管管理与身份切换；支持全量 JSON 备份恢复，Cloudflare 与 Docker 实例之间可以互导迁移。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 使用流程 ===== -->
+<section class="section section--soft" id="how">
+  <div class="container">
+    <h2 class="section__title">三步，让生活小事自己找上门</h2>
+    <ol class="steps">
+      <li class="step reveal">
+        <span class="step__no">1</span>
+        <h3>部署或注册</h3>
+        <p>一条 Docker 命令完成自托管，或直接使用在线实例，30 秒开始。</p>
+      </li>
+      <li class="step reveal">
+        <span class="step__no">2</span>
+        <h3>配置模块与时间</h3>
+        <p>添加基金、钱包与监控任务，给每个模块设定推送时刻和通知渠道。</p>
+      </li>
+      <li class="step reveal">
+        <span class="step__no">3</span>
+        <h3>到点自动送达</h3>
+        <p>日报月报准时出现在群聊或邮箱；家人用免密链接协作，无需账号。</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ===== Android ===== -->
+<section class="android" id="android">
+  <div class="container android__grid">
+    <div class="android__visual reveal" aria-hidden="true">
+      <div class="wall">
+        <p class="wall__clock">9:41</p>
+        <div class="wall__w">
+          <div class="wall__w-head">
+            <strong>待办速览</strong>
+            <span>4</span>
+          </div>
+          <ul>
+            <li><i class="wcheck is-done"></i><em class="is-done">买猫粮</em></li>
+            <li><i class="wcheck is-done"></i><em class="is-done">取快递</em></li>
+            <li><i class="wcheck"></i><em>记录今天体重</em></li>
+            <li><i class="wcheck"></i><em>晚 8 点缴房租</em></li>
+          </ul>
+          <p class="wall__w-add">＋ 新增待办</p>
+        </div>
+        <div class="wall__dock" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+    <div class="android__copy">
+      <h2>待办放上桌面，<br>一眼看到今天要缝补的事</h2>
+      <p class="android__sub">配套 Android App 用 Glance 实现的桌面小组件：不用打开应用，勾选完成、快速新增、折叠子任务都在桌面上完成，登录态自动与服务器同步。</p>
+      <ul class="android__points">
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+          勾选 / 新增 / 折叠，桌面直接操作
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+          登录态自动同步，支持免密 report token
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+          minSdk 26 · 浅色 / 深色 / 护眼三套主题
+        </li>
+      </ul>
+      <div class="android__cta">
+        <a class="btn btn--light btn--lg" href="https://github.com/MyMaskKing/cron_day_report/releases" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          下载 Android APK
+        </a>
+        <p class="android__note">版本发布在 GitHub Releases，可自行从源码构建</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 自托管 ===== -->
+<section class="section" id="self-host">
+  <div class="container">
+    <h2 class="section__title">想自己掌控？两种部署任选</h2>
+    <p class="section__sub">同一份业务代码跑在两种宿主，不用改一行业务代码即可互相迁移，备份文件可互导。</p>
+
+    <div class="hosts">
+      <article class="host reveal">
+        <div class="host__head">
+          <span class="host__icon host__icon--orange">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16l-4-4h3a7 7 0 1 0-2 6"/><path d="M18 16v-4M18 16h-4"/></svg>
+          </span>
+          <div>
+            <h3>Cloudflare Workers</h3>
+            <p>D1 · KV · R2 · Cron，全球边缘运行</p>
+          </div>
+        </div>
+        <p class="host__desc">首次 <code>wrangler deploy</code> 自动创建 D1 / KV 与每小时定时触发，数据库结构启动时自动迁移；附件用的 R2 存储桶需先手工创建一次。</p>
+        <pre class="term"><code><span class="term__p">$</span> cp wrangler.toml.example wrangler.toml
+<span class="term__p">$</span> npx wrangler r2 bucket create cron-files
+<span class="term__p">$</span> npx wrangler deploy</code></pre>
+        <a class="host__link" href="https://github.com/MyMaskKing/cron_day_report/blob/main/DEPLOY.md" target="_blank" rel="noopener">查看 Cloudflare 部署文档
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>
+        </a>
+      </article>
+
+      <article class="host reveal">
+        <div class="host__head">
+          <span class="host__icon host__icon--blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+          </span>
+          <div>
+            <h3>Docker 自部署</h3>
+            <p>纯 Node + better-sqlite3，数据落本地目录</p>
+          </div>
+        </div>
+        <p class="host__desc">不依赖 Cloudflare，SQLite 模拟 D1/KV/R2，容器启动自动迁移；支持局域网与自有服务器。</p>
+        <pre class="term"><code><span class="term__p">$</span> docker compose up -d --build
+<span class="term__ok">✓</span> 数据落 ./docker-data/</code></pre>
+        <a class="host__link" href="https://github.com/MyMaskKing/cron_day_report/blob/main/docker/README.md" target="_blank" rel="noopener">查看 Docker 部署文档
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>
+        </a>
+      </article>
+    </div>
+
+    <ul class="stack" aria-label="技术栈">
+      <li>Cloudflare Workers</li><li>D1</li><li>KV</li><li>R2</li>
+      <li>原生 ES Module</li><li>better-sqlite3</li><li>Docker</li><li>QuickChart.io</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===== FAQ ===== -->
+<section class="section section--soft" id="faq">
+  <div class="container container--narrow">
+    <h2 class="section__title">常见问题</h2>
+    <div class="faq">
+      <details class="faq__item reveal">
+        <summary>收费吗？</summary>
+        <p>完全开源免费（MIT 协议）。自托管没有许可证费用：Cloudflare 免费额度即可运行，也可以用 Docker 部署在自己的服务器上。</p>
+      </details>
+      <details class="faq__item reveal">
+        <summary>我的数据存在哪？</summary>
+        <p>数据始终在你自己手里：Cloudflare 部署时在你账号下的 D1 数据库与 R2 存储桶；Docker 部署时在本地数据目录。超管可随时全量导出 JSON，也能在不同实例之间导入迁移。</p>
+      </details>
+      <details class="faq__item reveal">
+        <summary>家人需要注册账号吗？</summary>
+        <p>不需要。把专属免密链接发给家人，打开就能记录体重、加仓或录入资产；需要长期深度协作时，家人也可凭 8 位邀请码加入，仅访问你授权的模块。</p>
+      </details>
+      <details class="faq__item reveal">
+        <summary>定时推送是怎么实现的？</summary>
+        <p>服务每小时唤醒一次，读取数据库中每个模块的推送配置，用平台无关的纯函数判断「此刻是否到点」。推送时刻在网页上随时可改，不用碰 cron 表达式或重新部署。</p>
+      </details>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ===== 页脚 ===== -->
+<footer class="footer">
+  <div class="container footer__inner">
+    <div class="footer__brand">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>
+      </span>
+      <div>
+        <p class="footer__name">缝补生活</p>
+        <p class="footer__slogan">把生活里零散的小事，收集、提醒、补齐。</p>
+      </div>
+    </div>
+    <nav class="footer__links" aria-label="页脚导航">
+      <a href="https://cron.10023456.xyz" target="_blank" rel="noopener">在线实例</a>
+      <a href="https://github.com/MyMaskKing/cron_day_report" target="_blank" rel="noopener">GitHub 仓库</a>
+      <a href="https://github.com/MyMaskKing/cron_day_report/releases" target="_blank" rel="noopener">APK 下载</a>
+      <a href="https://github.com/MyMaskKing/cron_day_report/blob/main/DEPLOY.md" target="_blank" rel="noopener">部署文档</a>
+      <a href="https://github.com/MyMaskKing/cron_day_report/blob/main/DEV_GUIDE.md" target="_blank" rel="noopener">开发向导</a>
+    </nav>
+  </div>
+  <div class="container footer__legal">
+    <span>© <span id="year">2026</span> cron_day_report · MIT License</span>
+  </div>
+</footer>
+
+<script src="assets/site.js" defer></script>
+</body>
+</html>
