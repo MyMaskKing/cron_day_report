@@ -41,6 +41,8 @@ const COMMON_JS = `
   function syncKb(){
     var kb = curKb();
     document.documentElement.style.setProperty('--kb-inset', kb + 'px');
+    // body.kb-on: 手机端底部 Tab/FAB 在软键盘弹起时下沉隐藏(见 layout.js)
+    document.body.classList.toggle('kb-on', kb > 80);
     // 键盘弹出时给打开的弹窗遮罩加 .kb-on(靠顶对齐, 见 layout.js); 不做遮罩几何压缩以免弹窗被顶起重排
     var masks = document.querySelectorAll('.modal-mask');
     Array.prototype.forEach.call(masks, function(mask){
@@ -1974,11 +1976,61 @@ applyRegLimit();
 // 仪表盘 JS
 const DASHBOARD_JS = `
 bindLogout();
-(async function() {
-  try {
-    var me = await api('/api/auth/me');
-    document.getElementById('welcome').textContent = '欢迎，' + (me.user.nickname || me.user.username);
-  } catch (err) { navTo('/login'); }
+(function() {
+  function pad2(n){ return (n < 10 ? '0' : '') + n; }
+  var now = new Date();
+  var today = now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate());
+  var week = ['周日','周一','周二','周三','周四','周五','周六'][now.getDay()];
+  var dateEl = document.getElementById('dashDate');
+  if (dateEl) dateEl.textContent = (now.getMonth() + 1) + '月' + now.getDate() + '日 ' + week;
+
+  api('/api/auth/me').then(function(me){
+    var el = document.getElementById('welcome');
+    if (el && me.user) el.textContent = '欢迎，' + (me.user.nickname || me.user.username);
+  }).catch(function(){});
+
+  // 待办: KPI 直接用后端 stats 口径; 列表取今日到期+逾期的叶子任务前 5
+  api('/api/todo/list').then(function(d){
+    var s = d.stats || {};
+    document.getElementById('kpiToday').textContent = s.today || 0;
+    document.getElementById('kpiOverdue').textContent = s.overdue || 0;
+    var rows = (d.todos || []).filter(function(r){
+      return !r.done && r.due_date && r.due_date <= today && !r.child_due && r.parent_id == null;
+    }).sort(function(a, b){ return a.due_date < b.due_date ? -1 : 1; }).slice(0, 5);
+    var box = document.getElementById('dashTodo');
+    if (!box) return;
+    if (!rows.length) { box.innerHTML = '<p class="muted" style="margin:0;">今天没有到期任务。</p>'; return; }
+    box.innerHTML = rows.map(function(r){
+      var od = r.due_date < today;
+      var label = od ? (Number(r.due_date.slice(5, 7)) + '月' + Number(r.due_date.slice(8, 10)) + '日') : '今天';
+      return '<div class="dash-row"><span class="d-dot' + (od ? ' od' : '') + '"></span>'
+        + '<a href="/todo">' + esc(r.title) + '</a>'
+        + '<span class="d-tag' + (od ? ' od' : '') + '">' + label + '</span></div>';
+    }).join('');
+  }).catch(function(){});
+
+  // 体重: 取第一位成员(通常是本人)的最新一条记录, 库内 kg 按用户单位换算
+  api('/api/weight/chart').then(function(d){
+    var el = document.getElementById('kpiWeight');
+    var members = d.members || [], records = d.records || [];
+    if (!members.length || !records.length) { el.textContent = '—'; el.title = '暂无体重记录'; return; }
+    var m = members[0];
+    var last = null;
+    for (var i = records.length - 1; i >= 0; i--) {
+      if (records[i].member_id === m.id) { last = records[i]; break; }
+    }
+    if (!last) { el.textContent = '—'; return; }
+    var w = d.weight_unit === 'kg' ? last.weight : Math.round(last.weight * 2 * 10) / 10;
+    el.textContent = w + (d.weight_unit === 'kg' ? ' kg' : ' 斤');
+  }).catch(function(){});
+
+  // 资产: 最新月度快照净资产
+  api('/api/asset/report').then(function(d){
+    var el = document.getElementById('kpiAsset');
+    var nw = d.report && d.report.latest ? d.report.latest.netWorth : 0;
+    if (!(d.records && d.records.length) && !nw) { el.textContent = '—'; el.title = '暂无资产记录'; return; }
+    el.textContent = '¥' + fmtMoney(nw);
+  }).catch(function(){});
 })();
 `;
 
@@ -2109,7 +2161,7 @@ async function loadDataShare(){
   h += '</div>';
   h += '<div class="row" style="align-items:center;"><input id="dsNote" placeholder="备注（可选，如：咱家账本）" style="flex:1;"> <button class="btn sm" id="dsCreate">生成共享码</button></div>';
   invites.forEach(function(inv){
-    h += '<div style="margin-top:10px;padding:8px;border:1px solid #eee;border-radius:6px;' + (inv.revoked ? 'opacity:.55;' : '') + '">';
+    h += '<div style="margin-top:10px;padding:8px;border:1px solid var(--border);border-radius:6px;' + (inv.revoked ? 'opacity:.55;' : '') + '">';
     h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
     h += '<code style="font-size:15px;font-weight:700;letter-spacing:1px;">' + esc(inv.code) + '</code>';
     h += '<span class="muted" style="font-size:12px;">' + esc(dsModNames(inv.modules)) + (inv.note ? ' · ' + esc(inv.note) : '') + (inv.revoked ? ' · 已撤销' : '') + '</span>';
@@ -2476,7 +2528,7 @@ if (regLimitMsgBtn) regLimitMsgBtn.addEventListener('click', function(){
     '<div style="margin-bottom:10px;"><label>提示词内容（留空则使用默认文案）</label>' +
     '<textarea id="rlmText" data-autogrow style="width:100%;min-height:160px;padding:8px;" placeholder="支持 **粗体**、*斜体*、[文字](链接)、- 列表、# 标题"></textarea></div>' +
     '<div style="margin-bottom:10px;"><label>预览</label>' +
-    '<div id="rlmPreview" style="border:1px solid #E4E1D8;border-radius:8px;padding:10px 12px;min-height:60px;background:var(--surface-2);"></div></div>' +
+    '<div id="rlmPreview" style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-height:60px;background:var(--surface-2);"></div></div>' +
     '<div style="text-align:right;"><button class="btn gray" id="rlmCancel">取消</button> ' +
     '<button class="btn" id="rlmSave">保存提示词</button></div>');
   var ta = document.getElementById('rlmText');
@@ -2695,7 +2747,7 @@ async function loadPushLogs() {
     plState.total = d.total || 0;
     var body = document.getElementById('plTbody');
     body.innerHTML = (d.rows || []).map(function(r){
-      var errCell = r.success ? '<span class="muted">—</span>' : ('<span style="color:#B42318;">' + esc(r.error || '') + '</span>');
+      var errCell = r.success ? '<span class="muted">—</span>' : ('<span style="color:var(--danger);">' + esc(r.error || '') + '</span>');
       return '<tr>' +
         '<td data-label="时间">' + fmtUTC2CN(r.created_at) + '</td>' +
         '<td data-label="用户">' + esc(r.username || ('#' + r.user_id)) + '</td>' +
@@ -3185,7 +3237,7 @@ async function loadChannels() {
 }
 function chModal(c) {
   c = c || {};
-  var help = '<div id="chHelp" style="background:var(--surface-3);border:1px solid #e6e8f0;border-radius:6px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.7;"></div>';
+  var help = '<div id="chHelp" style="background:var(--surface-3);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.7;"></div>';
   openModal(c.id ? '编辑渠道' : '新建渠道',
     '<input type="hidden" id="chId" value="' + (c.id||'') + '">' +
     '<label>渠道名称</label><input id="chName" value="' + esc(c.name||'') + '">' +
@@ -3588,7 +3640,7 @@ document.getElementById('rcSend').addEventListener('click', async function(){
 });
 
 // ---------- 持仓分析 ----------
-var SIGNAL_COLOR = { danger:'#cf1322', warn:'#d46b08', success:'#389e0d', info:'#666' };
+var SIGNAL_COLOR = { danger:'var(--danger)', warn:'#d46b08', success:'var(--ok)', info:'var(--label)' };
 document.getElementById('anRun').addEventListener('click', async function(){
   var q = '?stopLoss=' + encodeURIComponent(document.getElementById('anStopLoss').value) +
     '&takeProfit=' + encodeURIComponent(document.getElementById('anTakeProfit').value) +
@@ -3599,13 +3651,13 @@ document.getElementById('anRun').addEventListener('click', async function(){
     if (!d.items || !d.items.length) { box.innerHTML = '<p class="muted">' + esc(d.disclaimer||'暂无持仓') + '</p>'; return; }
     var html = '';
     if (d.summary && d.summary.length) {
-      html += '<div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:6px;padding:10px;margin-bottom:12px;">' +
+      html += '<div style="background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;padding:10px;margin-bottom:12px;">' +
         '<b>组合提示</b><ul style="margin:6px 0 0 18px;">' +
         d.summary.map(function(s){ return '<li>' + esc(s) + '</li>'; }).join('') + '</ul></div>';
     }
     html += d.items.map(function(it){
       var sig = it.signals.map(function(s){
-        return '<div style="color:' + (SIGNAL_COLOR[s.level]||'#666') + ';font-size:14px;">• ' + esc(s.text) + '</div>';
+        return '<div style="color:' + (SIGNAL_COLOR[s.level]||'var(--label)') + ';font-size:14px;">• ' + esc(s.text) + '</div>';
       }).join('');
       return '<div style="background:var(--surface-2);border-radius:6px;padding:12px;margin-bottom:10px;">' +
         '<div><b>' + esc(it.name) + ' (' + it.code + ')</b> · 占比 ' + it.weight + '%</div>' +
@@ -4079,7 +4131,7 @@ function updateUnitLabels() {
 function renderMembers(list) {
   var box = document.getElementById('memberList');
   box.innerHTML = list.map(function(m){
-    var sharedTag = m.shared ? ' <span class="tag" style="background:#F5EBFE;color:#A855F7;padding:0 6px;border-radius:8px;font-size:11px;">共享</span>' : '';
+    var sharedTag = m.shared ? ' <span class="tag user" style="padding:0 6px;border-radius:8px;font-size:11px;">共享</span>' : '';
     var offTag = m.disabled ? ' <span class="tag" style="background:var(--surface-2);color:var(--muted);padding:0 6px;border-radius:8px;font-size:11px;">已停用</span>' : '';
     var nameStyle = m.disabled ? 'color:var(--muted);text-decoration:line-through;' : 'color:inherit;';
     return '<span class="tag user" style="margin:2px 4px;padding:4px 10px;' + (m.disabled ? 'opacity:.75;' : '') + '">' +
@@ -4507,9 +4559,9 @@ function renderMood(records, today){
   if (last.record_date !== today) { box.textContent = ''; return; }
   var delta = last.weight - prev.weight;
   var v = pDisplay(Math.abs(delta));
-  if (delta < 0) { box.style.color = '#389e0d'; box.textContent = '😄 较上次 -' + v + ' ' + pLabel() + '，继续加油！'; }
+  if (delta < 0) { box.style.color = 'var(--ok)'; box.textContent = '😄 较上次 -' + v + ' ' + pLabel() + '，继续加油！'; }
   else if (delta > 0) { box.style.color = '#d46b08'; box.textContent = '💪 较上次 +' + v + ' ' + pLabel() + '，明天会更好！'; }
-  else { box.style.color = '#888'; box.textContent = '😐 与上次持平，稳住！'; }
+  else { box.style.color = 'var(--muted)'; box.textContent = '😐 与上次持平，稳住！'; }
 }
 // 五彩纸屑：从页面顶部中间喷洒，短暂飘落后自动清除
 function confetti(){
@@ -7641,11 +7693,11 @@ function todoShowChartDetail(series, index) {
   }
   function row(it, kind) {
     var dl = todoDateLabel(it.due, today);
-    var tags = it.adopted ? pill('随主任务完成', '#4a6cf7', '#eef1ff') : '';
+    var tags = it.adopted ? pill('随主任务完成', 'var(--brand)', 'var(--hover-brand)') : '';
     if (kind === 'done') {
-      if (it.late) tags += pill('逾期补做', '#cf1322', '#fff1f0');
+      if (it.late) tags += pill('逾期补做', 'var(--danger)', 'var(--danger-bg)');
     } else if (it.late) {
-      tags += pill('已逾期', '#cf1322', '#fff1f0');
+      tags += pill('已逾期', 'var(--danger)', 'var(--danger-bg)');
     }
     var icon = kind === 'done' ? '✅' : (it.late ? '⚠️' : '⏳');
     var titleColor = kind === 'done' ? 'var(--muted)' : 'var(--text)';
@@ -7677,8 +7729,8 @@ function todoShowChartDetail(series, index) {
       var selfIndent = 10 + it.path.length * 14;
       var selfHtml = '<div style="padding:1px 0 1px ' + selfIndent + 'px;color:var(--text);font-weight:600;">' +
         '<span style="opacity:.55;margin-right:4px;">└</span>' + esc(it.title) +
-        '<span style="margin-left:6px;padding:0 7px;border-radius:9px;font-size:11px;font-weight:600;color:#4a6cf7;background:#eef1ff;">本条</span></div>';
-      pathHtml = '<div class="todo-dtl-path" style="display:none;margin:0 2px 7px 24px;padding:8px 10px;border-radius:8px;background:rgba(127,127,127,.08);font-size:12px;line-height:1.8;word-break:break-all;">' +
+        '<span style="margin-left:6px;padding:0 7px;border-radius:9px;font-size:11px;font-weight:600;color:var(--brand);background:var(--hover-brand);">本条</span></div>';
+      pathHtml = '<div class="todo-dtl-path" style="display:none;margin:0 2px 7px 24px;padding:8px 10px;border-radius:8px;background:var(--code-bg);font-size:12px;line-height:1.8;word-break:break-all;">' +
         chainHtml + selfHtml +
       '</div>';
     }
@@ -8072,7 +8124,7 @@ async function openTodoDetail(node, opts) {
   if (due) {
     var over = !node.done && !!today && due < today;
     meta.push('<span class="td-chip"' + (dueInherited ? ' title="截止日期跟随上级任务"' : '')
-      + (over ? ' style="color:#cf1322;border-color:#ffccc7;"' : '') + '>'
+      + (over ? ' style="color:var(--danger);border-color:var(--danger);"' : '') + '>'
       + ICONS.calendar + esc(todoDateLabel(due, today))
       + (dueInherited ? '<span style="opacity:.65;">·跟随上级</span>' : '') + '</span>');
   }
@@ -8452,7 +8504,7 @@ function openSharedCatPanel() {
       } else {
         ops = '<button class="btn sm danger" onclick="scLeave(' + c.cat_id + ')">退出</button>';
       }
-      return '<div style="padding:10px 0;border-bottom:1px solid #eef0f4;">'
+      return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
         + '<div style="font-weight:600;margin-bottom:6px;">👥 ' + esc(c.name) + ' ' + roleTag
         + '<span class="muted" style="font-size:12px;font-weight:normal;">' + (c.role === 'owner' ? '' : '来自 ' + esc(c.owner_name) + ' · ') + c.member_count + ' 人</span></div>'
         + '<div style="text-align:right;">' + ops + '</div>'
@@ -8470,7 +8522,7 @@ function openSharedCatPanel() {
 function scCreate() {
   openModal('新建共享分类',
     '<p class="muted" style="margin:0 0 8px;">创建一个共享分类（如「家庭」），家人凭邀请码加入后，分类下的待办对大家可见可协作，也会出现在每位成员的日报中。</p>' +
-    '<input id="scNewName" placeholder="分类名称，如：家庭" style="width:100%;padding:8px;border:1px solid #d4d8e0;border-radius:6px;box-sizing:border-box;">' +
+    '<input id="scNewName" placeholder="分类名称，如：家庭" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:6px;box-sizing:border-box;">' +
     '<div style="text-align:right;margin-top:14px;"><button class="btn gray" onclick="closeModal()">取消</button> <button class="btn" id="scCreateOk">创建</button></div>');
   bindClickBusy(document.getElementById('scCreateOk'), async function(){
     var name = (document.getElementById('scNewName').value || '').trim();
@@ -8484,7 +8536,7 @@ function scCreate() {
 function scJoin() {
   openModal('加入共享分类',
     '<p class="muted" style="margin:0 0 8px;">输入家人分享的 8 位邀请码（或直接打开家人发的邀请链接）。</p>' +
-    '<input id="scJoinCode" placeholder="邀请码" style="width:100%;padding:8px;border:1px solid #d4d8e0;border-radius:6px;box-sizing:border-box;letter-spacing:2px;">' +
+    '<input id="scJoinCode" placeholder="邀请码" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:6px;box-sizing:border-box;letter-spacing:2px;">' +
     '<div style="text-align:right;margin-top:14px;"><button class="btn gray" onclick="closeModal()">取消</button> <button class="btn" id="scJoinOk">加入</button></div>');
   bindClickBusy(document.getElementById('scJoinOk'), async function(){
     var code = (document.getElementById('scJoinCode').value || '').trim();
@@ -8506,7 +8558,7 @@ async function openCatInvite(id, code, link, justCreated) {
     '<p style="margin:0 0 8px;">把邀请链接发给家人，家人登录后打开链接即可加入；也可在「加入分类」中手动输入 8 位邀请码。</p>' +
     '<div style="background:var(--surface-2);border-radius:6px;padding:10px;margin-bottom:10px;">' +
       '<div style="font-size:22px;font-weight:700;letter-spacing:3px;text-align:center;">' + esc(code) + '</div></div>' +
-    '<input readonly value="' + esc(link || '') + '" onfocus="this.select()" style="width:100%;padding:8px;border:1px solid #d4d8e0;border-radius:6px;box-sizing:border-box;margin-bottom:10px;">' +
+    '<input readonly value="' + esc(link || '') + '" onfocus="this.select()" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:6px;box-sizing:border-box;margin-bottom:10px;">' +
     '<div style="text-align:right;"><button class="btn gray" id="scInvReset">重置邀请码</button> <button class="btn gray" id="scInvCopy">复制链接</button> <button class="btn" onclick="closeModal()">完成</button></div>');
   document.getElementById('scInvCopy').addEventListener('click', function(){ scCopy(link); });
   document.getElementById('scInvReset').addEventListener('click', function(){
@@ -8528,7 +8580,7 @@ function scMembers(id) {
         : '<span class="todo-chip" style="background:var(--surface-2);color:var(--muted);">成员</span>';
       var kick = (m.role !== 'owner')
         ? ' <button class="btn sm gray" onclick="scKick(' + id + ',' + m.user_id + ')">移出</button>' : '';
-      return '<div style="padding:8px 0;border-bottom:1px solid #eef0f4;display:flex;justify-content:space-between;align-items:center;">'
+      return '<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'
         + '<span>👤 ' + esc(m.nickname) + ' ' + tag + '</span>' + kick + '</div>';
     }).join('');
     openModal('成员管理 · ' + d.name,
@@ -8579,7 +8631,7 @@ function onTodoDeleteCat(name) {
 function onTodoRenameCat(name) {
   openModal('重命名分类',
     '<p class="muted" style="margin:0 0 8px;">输入新的分类名称，该分类下所有任务将同步改挂新名称。</p>' +
-    '<input id="catRenameInput" value="' + esc(name) + '" placeholder="分类名称" style="width:100%;padding:8px;border:1px solid #d4d8e0;border-radius:6px;box-sizing:border-box;">' +
+    '<input id="catRenameInput" value="' + esc(name) + '" placeholder="分类名称" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:6px;box-sizing:border-box;">' +
     '<div style="text-align:right;margin-top:14px;"><button class="btn gray" onclick="closeModal()">取消</button> <button class="btn" id="catRenameOk">保存</button></div>');
   var input = document.getElementById('catRenameInput');
   if (input) {

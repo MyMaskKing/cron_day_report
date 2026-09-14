@@ -82,7 +82,7 @@ function loginPage() {
       <button id="tabLogin" class="btn">登录</button>
       <button id="tabReg" class="btn gray">注册</button>
     </div>
-    <div id="regLimitMsg" style="display:none;margin:12px 0;padding:10px 12px;border:1px solid #ffe58f;background:#fffbe6;border-radius:8px;"></div>
+    <div id="regLimitMsg" style="display:none;margin:12px 0;padding:10px 12px;border:1px solid var(--border-strong);background:var(--surface-2);border-radius:8px;"></div>
     <form id="loginForm">
       <label>用户名</label>
       <input id="lu" autocomplete="username" required>
@@ -105,10 +105,9 @@ function loginPage() {
   return renderPage({ title: '登录', body, scripts: ['page-login.js'] });
 }
 
-/** 仪表盘 */
+/** 仪表盘：今日概览（KPI 数据由 page-dashboard.js 聚合现有只读接口） */
 function dashboardPage(user) {
-  // 仪表盘 6 个入口图标: 用内联 SVG (24x24, currentColor stroke), 避免微信/QQ 内置浏览器
-  // 老旧 emoji 字体导致的"⚖️/⏰变灰或缺失"问题; 颜色跟随各卡片 accent 色由 CSS 控制
+  // 入口图标: 内联 SVG (24x24, currentColor stroke), 避免内置浏览器老旧 emoji 字体缺字
   const NAV_ICONS = {
     monitor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>',
     fund:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>',
@@ -120,8 +119,21 @@ function dashboardPage(user) {
   const body = renderTopbar(user, 'dashboard') + `<div class="container">
     <div class="card">
       <h2 id="welcome">仪表盘</h2>
-      <p class="muted">选择上方导航进入各功能模块。</p>
+      <p class="muted" id="dashDate" style="margin:0;"></p>
     </div>
+
+    <div class="grid-stats">
+      <div class="stat"><div class="num" id="kpiToday">-</div><div class="lbl">今日到期</div></div>
+      <div class="stat"><div class="num" id="kpiOverdue">-</div><div class="lbl">已逾期</div></div>
+      <div class="stat"><div class="num" id="kpiWeight">-</div><div class="lbl">最新体重</div></div>
+      <div class="stat"><div class="num" id="kpiAsset" style="font-size:22px;">-</div><div class="lbl">最新净资产</div></div>
+    </div>
+
+    <div class="card">
+      <h2>今日待办 <a href="/todo" style="float:right;font-size:13px;font-weight:500;">查看全部 →</a></h2>
+      <div id="dashTodo" class="dash-todo"><p class="muted" style="margin:0;">加载中…</p></div>
+    </div>
+
     <div class="card">
       <h2>功能入口</h2>
       <div class="grid-stats stat-nav">
@@ -192,7 +204,7 @@ function adminPage(user) {
           <button class="btn" id="bkExport">导出全量数据</button>
         </div>
       </div>
-      <hr style="margin:14px 0;border:none;border-top:1px solid #E4E1D8;">
+      <hr style="margin:14px 0;border:none;border-top:1px solid var(--border);">
       <p style="color:var(--danger);font-size:13px;margin-bottom:10px;">⚠ 导入将<strong>清空当前全部数据</strong>并替换为备份内容，操作不可撤销；完成后需重新登录。</p>
       <div class="row">
         <div style="flex:1;">
@@ -200,7 +212,7 @@ function adminPage(user) {
           <input id="bkFile" type="file" accept="application/json,.json">
         </div>
         <div style="display:flex;align-items:flex-end;margin-bottom:12px;">
-          <button class="btn" id="bkImport" style="background:#CF1322;color:#fff;border-color:#CF1322;">导入并覆盖</button>
+          <button class="btn danger" id="bkImport">导入并覆盖</button>
         </div>
       </div>
     </div>
@@ -238,7 +250,7 @@ function adminPage(user) {
           </select>
         </div>
       </div>
-      <div class="row" style="border-top:1px dashed #E4E1D8;padding-top:10px;">
+      <div class="row" style="border-top:1px dashed var(--border);padding-top:10px;">
         <div><label>删除区间 · 起始时间</label><input id="plFrom" type="datetime-local"></div>
         <div><label>删除区间 · 结束时间</label><input id="plTo" type="datetime-local"></div>
         <div style="display:flex;align-items:flex-end;margin-bottom:12px;">
@@ -339,14 +351,16 @@ function monitorPage(user) {
       </table>
     </div>
 
-    <div class="card">
-      <h2>定时执行</h2>
+    <details class="card push-card">
+      <summary><span class="push-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>定时执行<svg class="push-card__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+      <div class="push-card__body">
       <div class="row">
         <div><label>每天执行时间</label><div id="mpHour" class="multi-pick"></div></div>
       </div>
       <label><input type="checkbox" id="mpEn" style="width:auto;"> 启用每天自动执行（到点自动跑所有启用任务并按渠道发送）</label>
       <div style="margin-top:12px;"><button class="btn" id="mpSave">保存定时配置</button> <button class="btn gray" id="mpSend">立即执行并推送</button></div>
-    </div>
+      </div>
+    </details>
 
     <p class="muted">通知渠道请在 <a href="/channels">通知渠道</a> 页统一管理。</p>
 
@@ -421,8 +435,9 @@ function fundPage(user) {
       <p class="muted" style="margin-top:8px;">现价为天天基金估算净值，交易时段为实时估值，收盘后为当日净值。</p>
     </div>
 
-    <div class="card">
-      <h2>每日报告推送</h2>
+    <details class="card push-card">
+      <summary><span class="push-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>每日报告推送<svg class="push-card__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+      <div class="push-card__body">
       <div class="row">
         <div><label>通知渠道（可多选）</label><div id="rcChannel" class="multi-pick"></div></div>
         <div><label>报告格式</label>
@@ -435,7 +450,8 @@ function fundPage(user) {
         <button class="btn" id="rcSave">保存配置</button>
         <button class="btn gray" id="rcSend">立即发送日报</button>
       </div>
-    </div>
+      </div>
+    </details>
 
     <div class="card">
       <h2>持仓分析 <span class="muted" style="font-size:12px;font-weight:normal;">（规则化提示，非投资建议）</span></h2>
@@ -560,8 +576,9 @@ function weightPage(user) {
       <canvas id="weightChart" style="max-height:340px;"></canvas>
     </div>
 
-    <div class="card">
-      <h2>每日推送</h2>
+    <details class="card push-card">
+      <summary><span class="push-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>每日推送<svg class="push-card__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+      <div class="push-card__body">
       <div class="row">
         <div><label>通知渠道（可多选）</label><div id="pushCh" class="multi-pick"></div></div>
         <div><label>格式</label>
@@ -571,7 +588,8 @@ function weightPage(user) {
       </div>
       <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送</label>
       <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button> <button class="btn gray" id="pushSend">立即推送</button></div>
-    </div>
+      </div>
+    </details>
 
     <div class="card">
       <h2>历史记录</h2>
@@ -614,7 +632,7 @@ function publicWeightPage() {
     .wk-cal-head{font-size:11px;color:var(--muted);text-align:center;padding:2px 0;}
     .wk-cal-cell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:6px;color:var(--muted);background:var(--surface-2);}
     .wk-cal-done{background:var(--ok-bg);color:var(--ok);font-weight:700;}
-    .wk-cal-today{outline:2px solid #A855F7;color:var(--brand);}
+    .wk-cal-today{outline:2px solid var(--brand);color:var(--brand);}
     .wk-cal-pop{animation:wkPop .5s ease;}
   </style>
   <div class="login-wrap" style="max-width:420px;">
@@ -645,7 +663,16 @@ function publicWeightPage() {
 
 /** 个人设置页 */
 function settingsPage(user) {
-  const body = renderTopbar(user, '') + `<div class="container">
+  const body = renderTopbar(user, 'settings') + `<div class="container">
+    <div class="card m-only">
+      <h2>功能入口</h2>
+      <div class="m-entry">
+        <a href="/monitor"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>定时任务</a>
+        <a href="/channels"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>通知渠道</a>
+        ${user.role === 'admin' ? `<a href="/admin"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>用户管理</a>
+        <a href="/storage"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>附件存储</a>` : ''}
+      </div>
+    </div>
     <div class="card" style="max-width:480px;margin:0 auto;">
       <h2>个人设置</h2>
       <div id="msg" class="msg"></div>
@@ -656,7 +683,7 @@ function settingsPage(user) {
         <input id="pfNick" maxlength="32">
         <button class="btn" type="submit">保存昵称</button>
       </form>
-      <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <form id="pwdForm">
         <h2 style="font-size:15px;">修改密码</h2>
         <label>原密码</label>
@@ -665,23 +692,23 @@ function settingsPage(user) {
         <input id="pwNew" type="password" autocomplete="new-password">
         <button class="btn" type="submit">修改密码</button>
       </form>
-      <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <h2 style="font-size:15px;">免密登录安全</h2>
       <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
         <input type="checkbox" id="qlRestrict" style="width:auto;margin:0;"> 免密链接「用本人账号登录」后仅能访问对应模块页
       </label>
       <p class="muted" style="font-size:12px;">开启后，从免密页登录只能看到对应模块，其他页面不可访问；关闭则为完整登录。</p>
-      <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <h2 style="font-size:15px;">待办偏好</h2>
       <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
         <input type="checkbox" id="todoAutoParent" style="width:auto;margin:0;"> 子任务全部完成后，自动完成父任务
       </label>
       <p class="muted" style="font-size:12px;">开启后（默认），当一个任务的所有子任务都勾选完成时，其父任务会自动标记完成并逐级向上；反之取消勾选某个子任务时，已完成的父任务会自动恢复为未完成。关闭则父子勾选完全独立，互不影响。</p>
-      <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <h2 style="font-size:15px;">免密 Token</h2>
       <p class="muted" style="font-size:12px;">每个模块一个 report_token，用于公开报告页链接与 Android 桌面小组件；点「复制」即可取用。从未生成过的会在打开本页时自动创建。</p>
       <div id="shareTokenBox" style="margin-top:8px;"><p class="muted" style="font-size:12px;">加载中…</p></div>
-      <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <h2 style="font-size:15px;">重置免密链接</h2>
       <p class="muted" style="font-size:12px;">重置后该模块下全部旧免密链接（含报告链接与小组件 token）立即失效，需用上方新 token 重新配置。</p>
       <div id="shareResetBox" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
@@ -690,7 +717,7 @@ function settingsPage(user) {
         <button class="btn sm gray" onclick="resetShare('asset')">重置资产链接</button>
         <button class="btn sm gray" onclick="resetShare('todo')">重置待办链接</button>
       </div>
-      <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <h2 style="font-size:15px;">家庭数据共享</h2>
       <p class="muted" style="font-size:12px;">生成共享码并勾选模块，把码发给家人；家人在自己账号的本页输入码加入后，即可在对应模块顶部切换数据源，共同查看/录入同一套数据（数据仍归你所有）。</p>
       <div id="dataShareBox" style="margin-top:10px;"><p class="muted" style="font-size:12px;">加载中…</p></div>
@@ -743,8 +770,9 @@ function assetPage(user) {
       <canvas id="consumeChart" style="max-height:300px;"></canvas>
     </div>
 
-    <div class="card">
-      <h2>每月推送</h2>
+    <details class="card push-card">
+      <summary><span class="push-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>每月推送<svg class="push-card__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+      <div class="push-card__body">
       <div class="row">
         <div><label>通知渠道（可多选）</label><div id="pushCh" class="multi-pick"></div></div>
         <div><label>格式</label>
@@ -757,7 +785,8 @@ function assetPage(user) {
       </div>
       <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每月自动推送</label>
       <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button> <button class="btn gray" id="pushSend">立即推送</button></div>
-    </div>
+      </div>
+    </details>
 
     <div class="card">
       <h2>钱包 <span id="walletMonthTag" class="muted" style="font-size:13px;font-weight:normal;"></span> <button class="btn sm" id="walletAdd" style="float:right;">+ 新建钱包</button></h2>
@@ -935,8 +964,9 @@ function todoPage(user) {
       <canvas id="todoChart" style="max-height:300px;"></canvas>
     </div>
 
-    <div class="card">
-      <h2>每日推送</h2>
+    <details class="card push-card">
+      <summary><span class="push-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>每日推送<svg class="push-card__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+      <div class="push-card__body">
       <div class="row">
         <div><label>通知渠道（可多选）</label><div id="pushCh" class="multi-pick"></div></div>
         <div><label>格式</label>
@@ -946,7 +976,8 @@ function todoPage(user) {
       </div>
       <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送（仅推送未完成待办，逾期优先）</label>
       <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button> <button class="btn gray" id="pushSend">立即推送</button></div>
-    </div>
+      </div>
+    </details>
   </div>
   <div id="todoFullscreen" class="todo-fullscreen">
     <div id="todoDrawerMask" class="todo-drawer-mask"></div>
@@ -992,7 +1023,7 @@ function publicTodoPage() {
           <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
           <div id="todoTree" class="todo-tree"></div>
         </div>
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
           <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="float:right;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
@@ -1125,7 +1156,7 @@ function todoCollabPage() {
           <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
           <div id="todoTree" class="todo-tree"></div>
         </div>
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #eee;">
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
           <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="float:right;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
