@@ -6832,16 +6832,19 @@ function todoRenderView(container, trees, opts) {
 
   if (view === 'tree') {
     if (crumb) crumb.style.display = 'none';
+    document.body.classList.remove('todo-detail'); // 树视图无详情概念, 恢复悬浮新建钮
     renderTodoTree(container, trees, opts);
     return;
   }
   // view === 'card': 详情 id 持久化(非 null 写入, null 清除); tree 视图在上方已 return 不影响
   todoPersistDetail(detailRootId);
   if (detailRootId != null) {
+    document.body.classList.add('todo-detail'); // 详情态隐藏悬浮"新建主任务"钮
     var root = null;
     trees.forEach(function(t){ if (t.id === detailRootId) root = t; });
     if (!root) {
       // 目标顶层已消失（可能被删除或改日期被筛掉）——退回卡片列表
+      document.body.classList.remove('todo-detail');
       if (opts.onExitDetail) opts.onExitDetail();
       return;
     }
@@ -6893,6 +6896,7 @@ function todoRenderView(container, trees, opts) {
     return;
   }
   // 卡片列表
+  document.body.classList.remove('todo-detail');
   if (crumb) crumb.style.display = 'none';
   renderTodoCards(container, trees, opts);
 }

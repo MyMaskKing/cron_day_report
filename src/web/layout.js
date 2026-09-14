@@ -312,23 +312,24 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
   }
   .m-tabbar svg { width: 21px; height: 21px; }
   body:has(.m-tabbar) .container { padding-bottom: 80px; }
-  /* 新建任务 FAB: 仅待办页(renderTopbar 按 active 输出), 全屏态/键盘弹起时隐藏 */
+  /* 新建任务 FAB: 仅待办页(renderTopbar 按 active 输出); 默认态代理 #tAdd, 全屏态代理 #tAddFs
+     (renderTopbar 的内联脚本按 body.todo-fs-on 自动选择)。App 壳无 .m-tabbar 时贴底 20px。 */
   .m-fab {
-    position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 190;
-    width: 52px; height: 52px; border-radius: 17px; border: none; cursor: pointer;
+    position: fixed; right: 16px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 1003;
+    width: 54px; height: 54px; border-radius: 18px; border: none; cursor: pointer;
     background: var(--brand-grad); color: #fff;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 10px 26px rgba(124, 58, 237, .42), 0 2px 6px rgba(124, 58, 237, .3);
-    transition: transform .22s ease;
+    box-shadow: 0 12px 28px rgba(124, 58, 237, .45), 0 3px 8px rgba(124, 58, 237, .32);
+    transition: transform .22s ease, opacity .2s ease;
   }
+  body:has(.m-tabbar) .m-fab { bottom: calc(82px + env(safe-area-inset-bottom, 0px)); }
   .m-fab:active { transform: scale(.94); }
-  .m-fab svg { width: 24px; height: 24px; }
-  /* 待办全屏态: FAB 隐藏(全屏顶栏有 tAddFs); 底部 Tab 仍常驻以保留模块切换出口
-     (App 壳不渲染 .m-tabbar, 这里只影响浏览器; 提层到全屏容器 1000/抽屉 1001 之上,
-     modal 10000/图表全屏 10010 仍能盖住它) */
-  body.todo-fs-on .m-fab { display: none; }
+  .m-fab svg { width: 26px; height: 26px; }
   .m-tabbar { z-index: 1002; }
-  /* 键盘弹起: 底栏/FAB 彻底下沉隐藏(不透明、不拦触摸), 全屏容器底部只留键盘高度 */
+  /* FAB 隐藏场景: 卡片详情态(添加走子任务入口) / 抽屉打开 / 弹窗打开 / 键盘弹起 */
+  body.todo-detail .m-fab,
+  body:has(.todo-drawer.open) .m-fab,
+  body:has(#modalMask.show) .m-fab { transform: scale(.4); opacity: 0; pointer-events: none; }
   body.kb-on .m-tabbar, body.kb-on .m-fab {
     transform: translateY(130%); opacity: 0; pointer-events: none;
   }
@@ -1226,13 +1227,10 @@ body { padding-bottom: var(--kb-inset, 0px); }
   background: var(--surface);
   transition: transform .22s ease, opacity .22s ease;
 }
-.todo-fs-title { flex: 1; font-size: 16.5px; font-weight: 800; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
-.todo-fs-hide { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--label); font-weight: normal; cursor: pointer; white-space: nowrap; margin-left: auto; }
+.todo-fs-title { flex: 1; min-width: 0; font-size: 16px; font-weight: 800; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+/* 全屏顶栏一行: 目录 / 视图切换 / 隐藏已完成 / 退出（公开页在目录后多一个 ＋ 图标钮） */
+.todo-fs-hide { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--label); font-weight: normal; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 .todo-fs-hide input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--brand); }
-/* 全屏顶栏两行: 上行 菜单/标题/新建, 下行 视图切换/隐藏已完成/退出（id 与绑定不变） */
-.todo-fs-top { flex-direction: column; align-items: stretch; gap: 0; }
-.todo-fs-top__row { display: flex; align-items: center; gap: 9px; }
-.todo-fs-top__sub { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
 .fs-iconbtn {
   width: 38px; height: 38px; flex-shrink: 0; padding: 0;
   border: 1px solid var(--border); border-radius: 11px;
@@ -1240,23 +1238,16 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .fs-iconbtn svg { width: 18px; height: 18px; }
-.fs-addbtn {
-  height: 38px; flex-shrink: 0; padding: 0 14px; border: none; border-radius: 11px;
-  background: var(--brand-grad); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700;
-  box-shadow: 0 3px 10px rgba(124,58,237,.3); cursor: pointer;
-  display: inline-flex; align-items: center; gap: 4px;
-}
-.fs-addbtn svg { width: 16px; height: 16px; }
 .fs-segbtn {
-  height: 34px; padding: 0 13px; flex-shrink: 0;
+  height: 36px; padding: 0 12px; flex-shrink: 0; flex: 1; min-width: 0;
   border: 1px solid var(--border); border-radius: 10px;
   background: var(--surface-2); color: var(--label);
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-  display: inline-flex; align-items: center; white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; gap: 3px;
 }
 .fs-segbtn svg { width: 15px; height: 15px; }
 .fs-exitbtn {
-  height: 34px; padding: 0 13px; flex-shrink: 0;
+  height: 36px; padding: 0 12px; flex-shrink: 0;
   border: 1px solid var(--danger); border-radius: 10px;
   background: var(--surface); color: var(--danger);
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
@@ -1578,9 +1569,9 @@ html { scrollbar-gutter: stable; }
   /* 手机端全屏顶栏 sticky + 滚动方向隐藏/显示; PC 端不生效 */
   /* 把 fs-main 的 padding-top 移到 fs-top 自身, 让 sticky 到 top:0 时无空隙;
      底部给常驻 Tab(60px)留位, 键盘弹起时随 --kb-inset 上抬 */
-  /* 默认贴底(含 App 壳); 浏览器有网页底栏时预留 60px */
-  .todo-fs-main { padding: 0 12px calc(14px + var(--kb-inset, 0px)); }
-  body:has(.m-tabbar) .todo-fs-main { padding-bottom: calc(74px + var(--kb-inset, 0px)); }
+  /* 底部统一留 74px: 浏览器给网页底栏(60px)、App 壳给悬浮 FAB(bottom20+54)让位;
+     键盘弹起由 kb-on 规则收紧为 12px + 键盘高度(底栏/FAB 此时已隐藏) */
+  .todo-fs-main { padding: 0 12px calc(74px + var(--kb-inset, 0px)); }
   .todo-fs-top {
     position: sticky; top: 0; z-index: 5;
     padding-top: 12px; margin-left: -12px; margin-right: -12px;
@@ -1622,7 +1613,17 @@ function renderTopbar(user, active = '') {
   // 原生 App 壳内（X-App-Shell 头 / app_shell cookie）：导航交给底部原生 Tab, 网页外壳不渲染。
   // 保留超管 impersonate 黄条（重要提示），并收紧内容区顶部留白。
   if (user.appShell) {
-    return `<style>.container{margin-top:0 !important;}</style>` + (user.impersonating ? `<div class="impersonate-banner">
+    // App 壳: 不渲染侧栏/网页底栏(原生 Tab 提供导航), 但待办页仍渲染悬浮新建钮(全屏态由它代理 #tAddFs)
+    const appFab = active === 'todo'
+      ? `<button type="button" class="m-fab" aria-label="新建任务">${SIDE_ICONS.plus}</button>`
+      : '';
+    return `<style>.container{margin-top:0 !important;}</style>` + appFab +
+      `<script>document.addEventListener('click',function(e){
+  var fab=e.target.closest&&e.target.closest('.m-fab');
+  if(fab){var id=document.body.classList.contains('todo-fs-on')?'tAddFs':'tAdd';
+    var t=document.getElementById(id);if(t)t.click();}
+});<\/script>` +
+      (user.impersonating ? `<div class="impersonate-banner">
       ⚠️ 你（超管 ${user.admin_username || ''}）正在以 <b>${user.username}</b> 的身份浏览
       <a href="#" id="stopImpersonateBtn">点此退出</a>
     </div>` : '');
@@ -1681,7 +1682,7 @@ function renderTopbar(user, active = '') {
 
   const displayName = user.nickname || user.username;
   const fabHtml = active === 'todo'
-    ? `<button type="button" class="m-fab" data-fab="tAdd" aria-label="新建任务">${SIDE_ICONS.plus}</button>`
+    ? `<button type="button" class="m-fab" aria-label="新建任务">${SIDE_ICONS.plus}</button>`
     : '';
 
   return `<aside class="app-side">
@@ -1709,8 +1710,12 @@ function renderTopbar(user, active = '') {
   // 时钟按配置时区(app_settings.tz_offset)显示; FAB/移动登出为视觉代理, 委托到页内真实按钮
   `<script>window.__TZ_OFFSET__=${Number.isFinite(user.tzOffset) ? user.tzOffset : 8};
 document.addEventListener('click', function(e){
-  var fab = e.target.closest && e.target.closest('[data-fab]');
-  if (fab) { var t = document.getElementById(fab.getAttribute('data-fab')); if (t) t.click(); }
+  var fab = e.target.closest && e.target.closest('.m-fab');
+  // 全屏态代理全屏顶栏 #tAddFs, 默认态代理卡片头 #tAdd（App 壳同此逻辑）
+  if (fab) {
+    var id = document.body.classList.contains('todo-fs-on') ? 'tAddFs' : 'tAdd';
+    var t = document.getElementById(id); if (t) t.click();
+  }
   var lo = e.target.closest && e.target.closest('[data-logout]');
   if (lo) { var b = document.getElementById('logoutBtn'); if (b) b.click(); }
 });</script>`;

@@ -988,16 +988,10 @@ function todoPage(user) {
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <div class="todo-fs-top__row">
-          <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
-          <span class="todo-fs-title">待办清单</span>
-          <button class="fs-addbtn" id="tAddFs">＋ 新建任务</button>
-        </div>
-        <div class="todo-fs-top__sub">
-          <button class="fs-segbtn" id="viewToggleFs">${ICO_TREE}完整树</button>
-          <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
-          <button class="fs-exitbtn" id="exitFullscreen">退出</button>
-        </div>
+        <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
+        <button class="fs-segbtn" id="viewToggleFs">${ICO_TREE}完整树</button>
+        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
+        <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
     </div>
   </div>`;
@@ -1043,16 +1037,11 @@ function publicTodoPage() {
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <div class="todo-fs-top__row">
-          <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
-          <span class="todo-fs-title">待办协作</span>
-          <button class="fs-addbtn" id="tAddFs">＋ 添加任务</button>
-        </div>
-        <div class="todo-fs-top__sub">
-          <button class="fs-segbtn" id="viewToggleFs">${ICO_TREE}完整树</button>
-          <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
-          <button class="fs-exitbtn" id="exitFullscreen">退出</button>
-        </div>
+        <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
+        <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
+        <button class="fs-segbtn" id="viewToggleFs">${ICO_TREE}完整树</button>
+        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
+        <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
     </div>
   </div>`;
@@ -1119,16 +1108,11 @@ function todoReportPage() {
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <div class="todo-fs-top__row">
-          <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
-          <span class="todo-fs-title">全部待办</span>
-          <button class="fs-addbtn" id="tAddFs">＋ 添加任务</button>
-        </div>
-        <div class="todo-fs-top__sub">
-          <button class="fs-segbtn" id="viewToggleFs">${ICO_TREE}完整树</button>
-          <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
-          <button class="fs-exitbtn" id="exitFullscreen">退出</button>
-        </div>
+        <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
+        <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
+        <button class="fs-segbtn" id="viewToggleFs">${ICO_TREE}完整树</button>
+        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
+        <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
     </div>
   </div>`;
@@ -1184,16 +1168,11 @@ function todoCollabPage() {
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <div class="todo-fs-top__row">
-          <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
-          <span class="todo-fs-title">待办协作</span>
-          <button class="fs-addbtn" id="tAddFs">＋ 添加任务</button>
-        </div>
-        <div class="todo-fs-top__sub">
-          <button class="fs-segbtn" id="viewToggleFs">${ICO_TREE}完整树</button>
-          <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
-          <button class="fs-exitbtn" id="exitFullscreen">退出</button>
-        </div>
+        <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
+        <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
+        <button class="fs-segbtn" id="viewToggleFs">${ICO_TREE}完整树</button>
+        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
+        <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
     </div>
   </div>`;
