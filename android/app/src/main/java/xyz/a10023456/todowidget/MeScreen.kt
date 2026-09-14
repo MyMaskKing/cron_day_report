@@ -48,7 +48,7 @@ fun MeScreen(
     onLogout: () -> Unit
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
-    var pendingUrl by remember { baseUrl }
+    var pendingUrl by remember { mutableStateOf(baseUrl) }
     val scheme = MaterialTheme.colorScheme
 
     Column(
