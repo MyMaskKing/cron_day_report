@@ -743,7 +743,7 @@ function assetPage(user) {
         <div style="flex:none;width:100%;">
           <label>设置当年目标净资产(元)</label>
           <div style="display:flex;gap:12px;align-items:center;">
-            <input id="goalInput" type="number" step="0.01" style="flex:1;min-width:140px;">
+            <input id="goalInput" type="number" step="0.01" style="flex:1;min-width:140px;margin-bottom:0;">
             <button class="btn" id="goalSave" style="flex:none;">保存目标</button>
           </div>
         </div>
