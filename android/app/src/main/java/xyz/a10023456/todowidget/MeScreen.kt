@@ -1,7 +1,10 @@
 package xyz.a10023456.todowidget
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,12 +12,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,12 +29,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** 「我的」原生菜单：其余模块入口、地址设置、在浏览器打开、退出登录。 */
+/** 「我的」原生菜单：与网页侧栏底部同一套图标与中性卡片语言。 */
 @Composable
 fun MeScreen(
     baseUrl: String,
@@ -39,39 +48,53 @@ fun MeScreen(
     onLogout: () -> Unit
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
-    var pendingUrl by remember { mutableStateOf(baseUrl) }
+    var pendingUrl by remember { baseUrl }
+    val scheme = MaterialTheme.colorScheme
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(scheme.background)
             .verticalScroll(rememberScrollState())
-            .padding(vertical = 8.dp)
+            .padding(horizontal = 16.dp)
+            .padding(top = 8.dp, bottom = 24.dp)
     ) {
         Text(
             "我的",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+            color = scheme.onBackground,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp)
         )
-        MeItem("🖥️", "网站监控", "查看定时任务与访问记录") { onOpenPath("/monitor") }
-        MeItem("🔔", "通知渠道", "企业微信 / Webhook / 邮件") { onOpenPath("/channels") }
-        MeItem("⚙️", "推送与设置", "日报推送、账号与系统设置") { onOpenPath("/settings") }
-        MeItem("👑", "用户管理", "管理员可用，切换身份/管理用户") { onOpenPath("/admin") }
-        HorizontalDivider()
-        MeItem("🎨", "主题外观", "浅色 / 暗色 / 护眼，随账号同步") { onThemeClick() }
-        MeItem("🌐", "在浏览器中打开", "用系统浏览器查看当前页面") { onOpenInBrowser() }
-        MeItem("🔗", "服务器地址", baseUrl) {
-            pendingUrl = baseUrl
-            showUrlDialog = true
-        }
-        MeItem("🚪", "退出登录", "清除本机登录态") { onLogout() }
 
-        Spacer(Modifier.height(20.dp))
+        MeGroup {
+            MeItem(R.drawable.ic_me_monitor, "网站监控", "查看定时任务与访问记录") { onOpenPath("/monitor") }
+            MeItem(R.drawable.ic_me_channels, "通知渠道", "企业微信 / Webhook / 邮件", divider = true) { onOpenPath("/channels") }
+            MeItem(R.drawable.ic_me_settings, "推送与设置", "日报推送、账号与系统设置", divider = true) { onOpenPath("/settings") }
+            MeItem(R.drawable.ic_me_users, "用户管理", "管理员可用，切换身份/管理用户") { onOpenPath("/admin") }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        MeGroup {
+            MeItem(R.drawable.ic_me_theme, "主题外观", "浅色 / 暗色 / 护眼，随账号同步") { onThemeClick() }
+            MeItem(R.drawable.ic_me_browser, "在浏览器中打开", "用系统浏览器查看当前页面", divider = true) { onOpenInBrowser() }
+            MeItem(R.drawable.ic_me_server, "服务器地址", baseUrl, divider = true) {
+                pendingUrl = baseUrl
+                showUrlDialog = true
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        MeGroup {
+            MeItem(R.drawable.ic_me_logout, "退出登录", "清除本机登录态", tint = scheme.error) { onLogout() }
+        }
+
+        Spacer(Modifier.height(16.dp))
         Text(
             "生活清单 v1.0 · $baseUrl",
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 20.dp)
+            color = scheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp)
         )
     }
 
@@ -104,23 +127,70 @@ fun MeScreen(
     }
 }
 
+/** 白/暗色表面的分组卡片 + 1px 描边，对齐网页 .card。 */
 @Composable
-private fun MeItem(emoji: String, title: String, subtitle: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+private fun MeGroup(content: @Composable () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(14.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Text(emoji, fontSize = 20.sp)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                subtitle,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        Column { content() }
+    }
+}
+
+@Composable
+private fun MeItem(
+    @DrawableRes iconRes: Int,
+    title: String,
+    subtitle: String,
+    divider: Boolean = false,
+    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+    onClick: () -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 14.dp, vertical = 13.dp),
+            horizontalArrangement = Arrangement.spacedBy(13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(iconRes),
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    subtitle,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (divider) {
+            Box(
+                Modifier
+                    .padding(start = 59.dp)
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
             )
         }
     }

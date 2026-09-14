@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
@@ -34,8 +33,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -88,7 +86,7 @@ class ConfigActivity : ComponentActivity() {
         val sid = Prefs.getSid(this)
 
         setContent {
-            MaterialTheme(colorScheme = if (isNight()) darkColorScheme() else lightColorScheme()) {
+            AppTheme(themeKey = Prefs.getTheme(applicationContext)) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -203,10 +201,6 @@ class ConfigActivity : ComponentActivity() {
         }
     }
 
-    private fun isNight(): Boolean =
-        resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
-            android.content.res.Configuration.UI_MODE_NIGHT_YES
-
     private fun testConnection(token: String) {
         val sid = Prefs.getSid(this)
         if (sid.isBlank() && token.isBlank()) {
@@ -319,7 +313,7 @@ private fun ConfigSheet(
         "all" to "全部未完成"
     )
     val fontLabels = listOf("小", "中", "大")
-    val brand = Color(0xFFA855F7)
+    val brand = Color(0xFF7C3AED)
 
     Column(
         modifier = Modifier

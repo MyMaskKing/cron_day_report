@@ -57,14 +57,14 @@ private val WLight = WColors(
     overdue = ColorProvider(Color(0xFFCF1322)),
     // 今日（进行中）：蓝，与逾期红组成状态色；浅 chip 底上用偏深蓝保证对比
     today = ColorProvider(Color(0xFF2563EB)),
-    brand = ColorProvider(Color(0xFFA855F7))
+    brand = ColorProvider(Color(0xFF7C3AED))
 )
 private val WDark = WColors(
     text = ColorProvider(Color(0xFFF2F1F7)),
     sub = ColorProvider(Color(0xFFB6B0CC)),
     overdue = ColorProvider(Color(0xFFFF6B6B)),
     today = ColorProvider(Color(0xFF60A5FA)),
-    brand = ColorProvider(Color(0xFFA855F7))
+    brand = ColorProvider(Color(0xFFB97BFF))
 )
 
 /** 按小组件主题取配色（dark=true 深色）。 */

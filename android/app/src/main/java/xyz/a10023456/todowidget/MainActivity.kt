@@ -25,21 +25,24 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,7 +50,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
 import androidx.glance.appwidget.updateAll
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import kotlinx.coroutines.Dispatchers
@@ -72,14 +77,25 @@ class MainActivity : ComponentActivity() {
         val deepUrl = intent?.getStringExtra(Keys.Url.name)
         val savedWebState = savedInstanceState?.getBundle(KEY_WEBVIEW_STATE)
         setContent {
-            MaterialTheme(
-                colorScheme = if (isNight()) darkColorScheme() else lightColorScheme()
-            ) {
+            // 原生主题跟随账号主题（light/dark/eye，与网页 data-theme 同源），MeScreen 切换即时重组
+            var appTheme by remember {
+                mutableStateOf(Prefs.getTheme(this@MainActivity))
+            }
+            AppTheme(themeKey = appTheme) {
+                // edge-to-edge: 状态栏透明, 图标明暗按主题（light/eye 深图标，dark 浅图标）
+                val darkIcons = appTheme != "dark"
+                SideEffect {
+                    WindowCompat.getInsetsController(
+                        this@MainActivity.window,
+                        this@MainActivity.window.decorView
+                    ).isAppearanceLightStatusBars = darkIcons
+                }
                 Surface(modifier = Modifier.fillMaxSize()) {
                     AppShell(
                         initialUrl = deepUrl,
                         savedWebState = savedWebState,
-                        onWebView = { webViewRef = it }
+                        onWebView = { webViewRef = it },
+                        onThemeSelected = { appTheme = it }
                     )
                 }
             }
@@ -107,9 +123,6 @@ class MainActivity : ComponentActivity() {
         intent.getStringExtra(Keys.Url.name)?.let { DeepLinkBus.emit(it) }
     }
 
-    private fun isNight(): Boolean =
-        resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
-            android.content.res.Configuration.UI_MODE_NIGHT_YES
 }
 
 /** 跨 onNewIntent 的简单深链总线。 */
@@ -118,14 +131,14 @@ object DeepLinkBus {
     fun emit(url: String) { listener?.invoke(url) }
 }
 
-private data class Tab(val label: String, val emoji: String, val path: String?)
+private data class Tab(val label: String, val iconRes: Int, val path: String?)
 
 private val TABS = listOf(
-    Tab("待办", "📝", "/todo"),
-    Tab("基金", "📈", "/fund"),
-    Tab("体重", "⚖️", "/weight"),
-    Tab("资产", "💰", "/asset"),
-    Tab("我的", "👤", null)
+    Tab("待办", R.drawable.ic_tab_todo, "/todo"),
+    Tab("基金", R.drawable.ic_tab_fund, "/fund"),
+    Tab("体重", R.drawable.ic_tab_weight, "/weight"),
+    Tab("资产", R.drawable.ic_tab_asset, "/asset"),
+    Tab("我的", R.drawable.ic_tab_me, null)
 )
 
 // 标记原生壳：每次 loadUrl 都带此头，服务端据此隐藏顶部网站导航（cookie 因 setCookie 异步有竞态，用头保证当次请求立即生效）
@@ -143,7 +156,8 @@ private fun tabIndexFor(url: String?): Int {
 private fun AppShell(
     initialUrl: String?,
     savedWebState: Bundle? = null,
-    onWebView: ((WebView?) -> Unit)? = null
+    onWebView: ((WebView?) -> Unit)? = null,
+    onThemeSelected: (String) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var baseUrl by remember { mutableStateOf(AppConfig.getBaseUrl(context)) }
@@ -176,7 +190,7 @@ private fun AppShell(
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     LaunchedEffect(imeBottomPx) {
         kbCss = imeBottomPx / density.density
-        // 注入键盘高度并通知网页：切换 .kb-on（弹窗靠顶）+ 把当前聚焦框滚到键盘上方
+        // 注入键盘高度并通知网页：弹窗贴键盘上沿（.kb-on）+ 把当前聚焦框滚到键盘上方
         webViewRef?.evaluateJavascript(
             "document.documentElement.style.setProperty('--kb-native','${kbCss}px');" +
                 "window.__onKb&&window.__onKb();",
@@ -216,7 +230,19 @@ private fun AppShell(
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            // 与网页底部 Tab 同族：中性表面 + 顶部 1px 描边，选中品牌紫、浅紫药丸指示器
+            val navBarBorderColor = MaterialTheme.colorScheme.outlineVariant
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 0.dp,
+                modifier = Modifier.drawBehind {
+                    drawRect(
+                        color = navBarBorderColor,
+                        topLeft = androidx.compose.ui.geometry.Offset.Zero,
+                        size = androidx.compose.ui.geometry.Size(size.width, 1.dp.toPx())
+                    )
+                }
+            ) {
                 TABS.forEachIndexed { i, tab ->
                     NavigationBarItem(
                         selected = if (tab.path == null) showMe else (!showMe && selected == i),
@@ -228,8 +254,20 @@ private fun AppShell(
                                 openPath(tab.path)
                             }
                         },
-                        icon = { Text(tab.emoji) },
-                        label = { Text(tab.label) }
+                        icon = {
+                            Icon(
+                                painter = painterResource(tab.iconRes),
+                                contentDescription = tab.label
+                            )
+                        },
+                        label = { Text(tab.label) },
+                        colors = NavigationBarItemDefaults.colors(
+                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }
@@ -435,7 +473,7 @@ private fun AppShell(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                     )
-                    swipe.setColorSchemeColors(0xFFA855F7.toInt())
+                    swipe.setColorSchemeColors(0xFF7C3AED.toInt())
                     swipe.setOnRefreshListener { wv.reload() }
                     webViewRef = wv
                     swipe
@@ -494,6 +532,8 @@ private fun AppShell(
                             .setSingleChoiceItems(labels, checked) { dlg, which ->
                                 val t = keys[which]
                                 Prefs.setTheme(context, t)
+                                // 同步驱动原生壳换肤（底栏/我的页/状态栏）+ 网页 data-theme
+                                onThemeSelected(t)
                                 webViewRef?.evaluateJavascript(
                                     "window.__applyTheme && window.__applyTheme('$t', true);", null
                                 )

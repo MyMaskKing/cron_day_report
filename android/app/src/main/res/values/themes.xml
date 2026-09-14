@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- 状态栏透明：edge-to-edge 下网页内容铺到顶，图标明暗由 MainActivity 按主题动态设置 -->
     <style name="Theme.TodoWidget" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:statusBarColor">@color/brand</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
     </style>
 
     <!-- 小组件配置页：透明 Activity + 底部圆角弹窗（拖动透明度/字号时背后真实小组件可见，实时预览） -->
