@@ -268,10 +268,11 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
 .app-side__who { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
 .app-side__who b { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .app-side__who .tag { align-self: flex-start; margin-top: 1px; }
-/* 内容区给侧栏让位: 1100px 以上全宽侧栏, 容器在右侧剩余空间收窄 */
+/* 内容区给侧栏让位: body 左 padding 留出侧栏宽度(fixed 元素不受影响),
+   .container 在右侧工作区内 margin:auto 居中, 宽屏下左右留白对称 */
 @media (min-width: 1100px) {
-  body:has(.app-side) .container { max-width: min(1120px, calc(100vw - 232px - 48px)); margin-left: 248px; margin-right: 24px; }
-  body:has(.app-side) .impersonate-banner { padding-left: 248px; }
+  body:has(.app-side) { padding-left: 232px; }
+  body:has(.app-side) .container { max-width: 1180px; margin: 24px auto; }
 }
 /* 641–1099px: 侧栏收成 64px 图标栏 */
 @media (min-width: 641px) and (max-width: 1099px) {
@@ -286,8 +287,8 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
   .app-side__foot .app-side__item { justify-content: center; }
   .app-side__me { justify-content: center; padding: 6px 0; border: none; }
   .app-side__who { display: none; }
-  body:has(.app-side) .container { margin-left: 80px; margin-right: 16px; }
-  body:has(.app-side) .impersonate-banner { padding-left: 80px; }
+  body:has(.app-side) { padding-left: 64px; }
+  body:has(.app-side) .container { margin: 16px auto; }
 }
 /* ≤640px: 侧栏隐藏, 改底部 Tab（仅浏览器: App 壳不输出该节点） */
 .m-tabbar, .m-fab { display: none; }
@@ -603,16 +604,19 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 /* 短内容居中、长内容顶部对齐可滚：靠 .modal-box 的 margin:auto 自适应 */
 /* touch-action: pan-y —— body.no-scroll 锁背景滚动时祖先 touch-action:none 会连带禁掉后代滚动容器
    的触摸平移(手机上长弹窗表单会卡死), 在遮罩自身显式放行纵向手势; overscroll-behavior:contain 防止滚到边连锁背景 */
-/* 键盘避让: 键盘弹出时 COMMON_JS 给 .show 遮罩加 .kb-on —— 弹窗由垂直居中改为靠顶部对齐,
-   遮罩底部 padding 留出键盘高度(--kb-inset), 使弹窗可滚动、当前聚焦框能滚到键盘上方;
-   不做整体几何压缩, 弹窗不会被"顶起"重排。 */
-.modal-mask { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000; padding: 40px 16px calc(40px + var(--kb-inset, 0px)); overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
+/* 键盘避让: 键盘弹出时 COMMON_JS 给 .show 遮罩加 .kb-on —— 弹窗自然"坐"在键盘正上方
+   (底部对齐, 底部 padding 留出键盘高度 --kb-inset), 高度受限后内部滚动,
+   JS 只把当前聚焦框滚入键盘上方; 弹窗不再整体跳到屏幕顶部。 */
+.modal-mask { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000; padding: 40px 16px; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
 .modal-mask.show { display: flex; }
-/* 键盘弹出: 遮罩交叉轴改 flex-start(默认 stretch 会在 margin 非 auto 时把弹框拉伸异常、露底),
-   modal-box 靠顶部对齐(取代 margin:auto 垂直居中)、保持内容高度白底, 弹窗从顶部排列、键盘盖住
-   底部, 由 JS 把当前聚焦框滚入键盘上方; margin-bottom:0 让底部留白交给遮罩 padding */
-.modal-mask.kb-on { align-items: flex-start; }
-.modal-mask.kb-on .modal-box { margin-top: 40px; margin-bottom: 0; }
+/* 键盘弹出: 弹窗底部贴键盘上沿(12px 间隙), 水平保持居中; box 限高, 内容在 .modal-body 内滚动 */
+.modal-mask.kb-on { align-items: flex-end; padding: 12px 16px calc(12px + var(--kb-inset, 0px)); }
+.modal-mask.kb-on .modal-box {
+  margin: 0 auto;
+  max-height: calc(100vh - var(--kb-inset, 0px) - 24px);
+  display: flex; flex-direction: column;
+}
+.modal-mask.kb-on .modal-body { overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 /* 全局滚动锁: body.no-scroll 由 JS 在打开弹窗(modal / mp-menu)时加, 关闭时移除.
    position:fixed + width:100% 兼容 iOS Safari, 单纯 overflow:hidden 在 iOS 上仍能滑动.
    同时锁 <html> 的 overflow, 阻止 Android Chrome / 微信 X5 在 body:fixed 时仍能滚动根滚动容器的行为.
@@ -1446,8 +1450,11 @@ html { scrollbar-gutter: stable; }
   .login-wrap { margin: 40px auto; padding: 0 12px; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */
   .dropdown-menu { right: auto; left: 0; }
-  .modal-mask { padding: 20px 10px calc(20px + var(--kb-inset, 0px)); }
-  .modal-mask.kb-on .modal-box { margin-top: 20px; }
+  .modal-mask { padding: 16px 10px; }
+  /* 键盘弹起: 弹窗贴键盘上沿, 不再顶到屏幕顶部 */
+  .modal-mask.kb-on { padding: 10px 10px calc(10px + var(--kb-inset, 0px)); align-items: flex-end; }
+  .modal-mask.kb-on .modal-box { margin: 0 auto; max-height: calc(100vh - var(--kb-inset, 0px) - 20px); display: flex; flex-direction: column; }
+  .modal-mask.kb-on .modal-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
   /* 多选面板窄屏: 改为居中 modal 弹窗 (JS 侧已把 .mp-menu 移到 body 末尾, 彻底脱离 card 堆叠上下文,
      否则 .card 的 z-index/backdrop-filter 会封印内部 fixed 元素, 导致遮罩必然盖住面板)
      居中显示、大触点、显式"完成"按钮, 比底部弹出更好操作 */
