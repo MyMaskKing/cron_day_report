@@ -88,8 +88,10 @@ const COMMON_JS = `
     if (!isEditable(document.activeElement)) baseInnerH = Math.max(baseInnerH, window.innerHeight);
     var m = measure();
     document.documentElement.style.setProperty('--kb-inset', m.inset + 'px');
-    var focusedEditable = isEditable(document.activeElement);
-    var on = focusedEditable || m.inset > 80;
+    // kb-on 只在键盘【真实可见】时加: overlay 看键盘高 inset>80(App 原生注入后),
+    // resize 看模式(系统已压缩视口)。纯聚焦(键盘未起/已关)不加——否则弹窗会在 click 派发前
+    // 就从居中跳到靠顶, 点击点落到遮罩上触发"点遮罩关闭"; FAB 也可能卡在隐藏态。
+    var on = m.inset > 80 || m.mode === 'resize';
     document.body.classList.toggle('kb-on', on);
     document.body.classList.toggle('kb-resize', on && m.mode === 'resize');
     var masks = document.querySelectorAll('.modal-mask');
