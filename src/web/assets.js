@@ -45,7 +45,7 @@ const COMMON_JS = `
     }
     return { inset: 0, visBottom: visBottom, mode: 'none' };
   }
-  var GAP = 28; // 输入框底边与键盘上沿的间距（真机反馈 12/18 都偏近，留明显缝隙）
+  var GAP = 8; // 输入框底边与键盘上沿的间距（用户要求紧贴, 2026-09-14 由 28 调小）
   function isEditable(el){
     if (!el) return false;
     var tag = (el.tagName || '').toLowerCase();
@@ -6977,7 +6977,7 @@ function todoLiftIntoView(el) {
   var vv = window.visualViewport;
   if (!vv) return;
   var r = el.getBoundingClientRect();
-  var delta = r.bottom - (vv.offsetTop + vv.height) + 28; // 可视视口底边(布局坐标) + 28px 余量(与键盘避让 GAP 同值)
+  var delta = r.bottom - (vv.offsetTop + vv.height) + 8; // 可视视口底边(布局坐标) + 8px 余量(与键盘避让 GAP 同值)
   if (delta <= 0) return;
   for (var p = el.parentElement; p; p = p.parentElement) {
     var s = getComputedStyle(p);
