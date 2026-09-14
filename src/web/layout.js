@@ -1227,8 +1227,40 @@ body { padding-bottom: var(--kb-inset, 0px); }
   transition: transform .22s ease, opacity .22s ease;
 }
 .todo-fs-title { flex: 1; font-size: 16.5px; font-weight: 800; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
-.todo-fs-hide { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--label); font-weight: normal; cursor: pointer; white-space: nowrap; }
+.todo-fs-hide { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--label); font-weight: normal; cursor: pointer; white-space: nowrap; margin-left: auto; }
 .todo-fs-hide input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--brand); }
+/* 全屏顶栏两行: 上行 菜单/标题/新建, 下行 视图切换/隐藏已完成/退出（id 与绑定不变） */
+.todo-fs-top { flex-direction: column; align-items: stretch; gap: 0; }
+.todo-fs-top__row { display: flex; align-items: center; gap: 9px; }
+.todo-fs-top__sub { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+.fs-iconbtn {
+  width: 38px; height: 38px; flex-shrink: 0; padding: 0;
+  border: 1px solid var(--border); border-radius: 11px;
+  background: var(--surface); color: var(--label);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.fs-iconbtn svg { width: 18px; height: 18px; }
+.fs-addbtn {
+  height: 38px; flex-shrink: 0; padding: 0 14px; border: none; border-radius: 11px;
+  background: var(--brand-grad); color: #fff; font-family: inherit; font-size: 14px; font-weight: 700;
+  box-shadow: 0 3px 10px rgba(124,58,237,.3); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.fs-addbtn svg { width: 16px; height: 16px; }
+.fs-segbtn {
+  height: 34px; padding: 0 13px; flex-shrink: 0;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-2); color: var(--label);
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; white-space: nowrap;
+}
+.fs-segbtn svg { width: 15px; height: 15px; }
+.fs-exitbtn {
+  height: 34px; padding: 0 13px; flex-shrink: 0;
+  border: 1px solid var(--danger); border-radius: 10px;
+  background: var(--surface); color: var(--danger);
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
 
 /* 默认视图"待办清单"卡片头: 始终一行。宽屏标题 flex:1 占满左侧、控件靠右;
    窄屏(≤640px, App/手机浏览器)标题固定在左、"隐藏已完成"固定在右, 中间"卡片视图/新建任务/
