@@ -333,8 +333,10 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
   body.kb-on .m-tabbar, body.kb-on .m-fab {
     transform: translateY(130%); opacity: 0; pointer-events: none;
   }
-  body.kb-on.todo-fs-on .todo-fs-main,
+  /* 覆盖式(App/部分浏览器): 系统不压缩 layout, 底部留白=键盘高;
+     压缩式浏览器(kb-resize): 系统已把容器缩到键盘上方, 只留小呼吸, 不双倍留白 */
   body.kb-on .todo-fs-main { padding-bottom: calc(12px + var(--kb-inset, 0px)); }
+  body.kb-resize .todo-fs-main { padding-bottom: 14px; }
   /* 基金页策略浮层在底栏之上的避让规则写在 .strat-* 原媒体块旁(该处带 !important) */
 }
 .impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }

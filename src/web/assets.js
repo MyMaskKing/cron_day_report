@@ -13,13 +13,38 @@ const COMMON_JS = `
 //    "当前聚焦框"滚到键盘上方——键盘只贴在当前输入框下面, 不挪动其它输入框。
 // 原生注入 --kb-native 后会调 window.__onKb 驱动(visualViewport 不反映键盘时靠它)。
 (function(){
-  function curKb(){
+  // 两种键盘模式（动作必须一致的根源）：
+  //  A. 覆盖式(App edge-to-edge / 部分浏览器): layout 视口(innerHeight)不变, 键盘悬浮其上,
+  //     可见底边 = vv.offsetTop + vv.height; 需要用键盘全高做底部留白(--kb-inset)。
+  //  B. 压缩式(多数手机浏览器 adjustResize): layout 视口被系统缩到键盘上方, innerHeight 变小,
+  //     vv 几乎铺满新 innerHeight(算出来的 vvKb≈0); 此时不能再补键盘全高(否则双倍留白/错位),
+  //     对齐仍以【visualViewport 实际可见底边】为准——两种模式由此统一。
+  var baseInnerH = window.innerHeight; // 无键盘时的 layout 视口高(仅在未聚焦时更新)
+  function measure(){
     var vv = window.visualViewport;
-    var vvKb = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
     var nativeKb = 0;
     try { nativeKb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb-native')) || 0; } catch(e){}
-    return Math.max(nativeKb, vvKb);
+    // 可见底边（布局视口坐标）与可见高度
+    var visBottom = window.innerHeight, visHeight = window.innerHeight;
+    if (vv) { visBottom = vv.offsetTop + vv.height; visHeight = vv.height; }
+    if (nativeKb > 80) {
+      // App: 原生实测键盘高, 覆盖式（WebView 不 resize）
+      return { inset: nativeKb, visBottom: window.innerHeight - nativeKb, mode: 'overlay' };
+    }
+    if (vv) {
+      var vvKb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      if (vvKb > 80) {
+        // 覆盖式浏览器: layout 没变, 键盘高=innerHeight-可见底边
+        return { inset: vvKb, visBottom: visBottom, mode: 'overlay' };
+      }
+      if (window.innerHeight < baseInnerH - 80) {
+        // 压缩式: 系统已把 layout 缩到键盘上方, 留白交给系统(inset=0), 可见底边即键盘上沿
+        return { inset: 0, visBottom: visBottom, mode: 'resize' };
+      }
+    }
+    return { inset: 0, visBottom: visBottom, mode: 'none' };
   }
+  var GAP = 18; // 输入框底边与键盘上沿的间距（浏览器反馈 12 太近）
   function isEditable(el){
     if (!el) return false;
     var tag = (el.tagName || '').toLowerCase();
@@ -33,70 +58,70 @@ const COMMON_JS = `
     }
     return null;
   }
-  // 把当前聚焦框对齐到键盘正上方: 底边贴键盘上沿 + 12px。
-  // 内部滚动容器(弹窗 body/待办全屏)做【双向】对齐——输入框在屏幕中部也会下移贴住键盘;
-  // 顶层文档只在被遮挡时上滚, 避免普通长页面把输入框硬拉到屏幕底。
-  function liftFocused(){
+  // 把当前聚焦框对齐到键盘正上方: 底边统一落在 visualViewport 可见底边 - GAP。
+  // 内部滚动容器做双向对齐; 容器/系统已把输入框置于可见区时不动。
+  function liftFocused(m){
     var el = document.activeElement;
     if (!isEditable(el)) return;
-    var kb = curKb();
-    var GAP = 12;
+    var target = m.visBottom - GAP;
     var r = el.getBoundingClientRect();
-    var kbTop = window.innerHeight - kb;
     var box = scrollBoxOf(el);
     if (box) {
       var br = box.getBoundingClientRect();
-      // 期望输入框底边落在 kbTop-GAP; delta>0 上滚, <0 下滚贴近键盘
-      var delta = r.bottom - (kbTop - GAP);
-      // 不要把输入框滚出容器顶部可视区
-      var maxUp = r.top - br.top - GAP;
-      if (delta > maxUp) delta = maxUp;
-      if (Math.abs(delta) > 2) box.scrollTop += delta;
+      var delta = r.bottom - target;
+      if (delta > 0) {
+        // 需要上滚: 不超过把输入框贴到容器顶部的量
+        var maxUp = r.top - br.top - GAP;
+        if (delta > maxUp) delta = maxUp;
+        if (delta > 2) box.scrollTop += delta;
+      } else if (delta < -GAP && box.scrollTop > 0) {
+        // 输入框离键盘过远(上方有留白)且容器可下滚: 适度回滚贴近, 不强行拉到底
+        box.scrollTop += Math.max(delta, -box.scrollTop);
+      }
       return;
     }
-    // 顶层文档: 仅当输入框被键盘盖住时滚动
-    if (kb > 0) {
-      var d = r.bottom - kbTop + GAP;
-      if (d > 0) window.scrollBy(0, d);
-    } else {
-      // 测不到键盘高度的内核兜底: 让输入框滚入视口
-      try { el.scrollIntoView({ block: 'nearest' }); } catch(e){}
-    }
+    // 顶层文档: 仅当被键盘盖住时滚动
+    var d = r.bottom - target;
+    if (d > 0) window.scrollBy(0, d);
   }
   function syncKb(){
-    var kb = curKb();
-    document.documentElement.style.setProperty('--kb-inset', kb + 'px');
+    if (!isEditable(document.activeElement)) baseInnerH = Math.max(baseInnerH, window.innerHeight);
+    var m = measure();
+    document.documentElement.style.setProperty('--kb-inset', m.inset + 'px');
     var focusedEditable = isEditable(document.activeElement);
-    // body.kb-on: 手机端底部 Tab/FAB 在软键盘弹起时下沉隐藏 + 全屏容器收窄底部留白。
-    // 双判定: 聚焦输入框时立即加类(不依赖部分内核不可靠的 visualViewport),
-    // 或实测键盘高度>80; focusout 后若键盘仍在(实测高度)则保持。
-    document.body.classList.toggle('kb-on', focusedEditable || kb > 80);
-    // 键盘弹出时给打开的弹窗遮罩加 .kb-on(弹窗保持居中, 内容区内部滚动, 见 layout.js)
+    var on = focusedEditable || m.inset > 80;
+    document.body.classList.toggle('kb-on', on);
+    document.body.classList.toggle('kb-resize', on && m.mode === 'resize');
     var masks = document.querySelectorAll('.modal-mask');
     Array.prototype.forEach.call(masks, function(mask){
-      mask.classList.toggle('kb-on', (focusedEditable || kb > 80) && mask.classList.contains('show'));
+      mask.classList.toggle('kb-on', on && mask.classList.contains('show'));
     });
+    return m;
   }
-  // 键盘变化/聚焦统一入口: 更新变量与 .kb-on, 等两帧(底部 padding 完成重新布局、可滚动高度增加)
-  // 再把当前聚焦框对齐到键盘上方; 同步滚会因留白未生效而滚不动。
+  // 键盘动画期间连续校正(覆盖式 vv 连续变化); 两帧等留白生效后对齐
   function onKbChange(){
-    syncKb();
-    requestAnimationFrame(function(){ requestAnimationFrame(liftFocused); });
+    var m = syncKb();
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ liftFocused(m); }); });
   }
   window.__onKb = onKbChange; // 原生 App 注入 --kb-native 后调用(见 MainActivity)
   document.addEventListener('focusin', function(e){
     if (!isEditable(e.target)) return;
-    syncKb();                       // 立即加 .kb-on(隐藏底栏/收窄容器), 对齐等键盘高度已知
-    setTimeout(onKbChange, 320);    // 兜底: 部分内核不触发 vv resize; 键盘动画完成后对齐
+    var m = syncKb();
+    setTimeout(function(){ var mm = syncKb(); liftFocused(mm); }, 320); // 键盘动画完成兜底
   });
   document.addEventListener('focusout', function(){
-    setTimeout(function(){ if (!isEditable(document.activeElement)) syncKb(); }, 30);
+    setTimeout(function(){
+      if (!isEditable(document.activeElement)) {
+        baseInnerH = window.innerHeight; // 键盘收起, 刷新基准 layout 高
+        syncKb();
+      }
+    }, 60);
   });
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', onKbChange);
     window.visualViewport.addEventListener('scroll', onKbChange);
   }
-  window.addEventListener('resize', onKbChange);
+  window.addEventListener('resize', function(){ if (!isEditable(document.activeElement)) baseInnerH = window.innerHeight; });
   syncKb();
 })();
 // ============ 现代化日期选择器(渐进增强, 自动接管全站 input[type=date]) ============
