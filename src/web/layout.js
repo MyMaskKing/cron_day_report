@@ -328,7 +328,12 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
      modal 10000/图表全屏 10010 仍能盖住它) */
   body.todo-fs-on .m-fab { display: none; }
   .m-tabbar { z-index: 1002; }
-  body.kb-on .m-tabbar, body.kb-on .m-fab { transform: translateY(115%); }
+  /* 键盘弹起: 底栏/FAB 彻底下沉隐藏(不透明、不拦触摸), 全屏容器底部只留键盘高度 */
+  body.kb-on .m-tabbar, body.kb-on .m-fab {
+    transform: translateY(130%); opacity: 0; pointer-events: none;
+  }
+  body.kb-on.todo-fs-on .todo-fs-main,
+  body.kb-on .todo-fs-main { padding-bottom: calc(12px + var(--kb-inset, 0px)); }
   /* 基金页策略浮层在底栏之上的避让规则写在 .strat-* 原媒体块旁(该处带 !important) */
 }
 .impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }

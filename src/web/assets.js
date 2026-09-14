@@ -20,45 +20,78 @@ const COMMON_JS = `
     try { nativeKb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb-native')) || 0; } catch(e){}
     return Math.max(nativeKb, vvKb);
   }
-  function liftFocused(){
-    var el = document.activeElement;
-    if (!el) return;
+  function isEditable(el){
+    if (!el) return false;
     var tag = (el.tagName || '').toLowerCase();
-    if (tag !== 'input' && tag !== 'textarea' && !el.isContentEditable) return;
-    var kb = curKb();
-    var r = el.getBoundingClientRect();
-    var bottom = window.innerHeight - kb; // 键盘上沿(布局坐标)
-    var GAP = 12; // 输入框底边与键盘之间的间距
-    var delta = r.bottom - bottom + GAP;
-    if (delta <= 0) return; // 输入框本就在键盘上方, 不动
-    // 沿祖先找真正可滚的容器(键盘态下是 .modal-body), 把聚焦框滚到键盘上沿 + 12px
+    return tag === 'input' || tag === 'textarea' || el.isContentEditable;
+  }
+  // 沿祖先找真正可滚动容器（键盘态下是 .modal-body / .todo-fs-main）
+  function scrollBoxOf(el){
     for (var p = el.parentElement; p; p = p.parentElement) {
       var s = getComputedStyle(p);
-      if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && p.scrollHeight > p.clientHeight) {
-        p.scrollTop += delta; return;
-      }
+      if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && p.scrollHeight > p.clientHeight + 2) return p;
     }
-    window.scrollBy(0, delta);
+    return null;
+  }
+  // 把当前聚焦框对齐到键盘正上方: 底边贴键盘上沿 + 12px。
+  // 内部滚动容器(弹窗 body/待办全屏)做【双向】对齐——输入框在屏幕中部也会下移贴住键盘;
+  // 顶层文档只在被遮挡时上滚, 避免普通长页面把输入框硬拉到屏幕底。
+  function liftFocused(){
+    var el = document.activeElement;
+    if (!isEditable(el)) return;
+    var kb = curKb();
+    var GAP = 12;
+    var r = el.getBoundingClientRect();
+    var kbTop = window.innerHeight - kb;
+    var box = scrollBoxOf(el);
+    if (box) {
+      var br = box.getBoundingClientRect();
+      // 期望输入框底边落在 kbTop-GAP; delta>0 上滚, <0 下滚贴近键盘
+      var delta = r.bottom - (kbTop - GAP);
+      // 不要把输入框滚出容器顶部可视区
+      var maxUp = r.top - br.top - GAP;
+      if (delta > maxUp) delta = maxUp;
+      if (Math.abs(delta) > 2) box.scrollTop += delta;
+      return;
+    }
+    // 顶层文档: 仅当输入框被键盘盖住时滚动
+    if (kb > 0) {
+      var d = r.bottom - kbTop + GAP;
+      if (d > 0) window.scrollBy(0, d);
+    } else {
+      // 测不到键盘高度的内核兜底: 让输入框滚入视口
+      try { el.scrollIntoView({ block: 'nearest' }); } catch(e){}
+    }
   }
   function syncKb(){
     var kb = curKb();
     document.documentElement.style.setProperty('--kb-inset', kb + 'px');
-    // body.kb-on: 手机端底部 Tab/FAB 在软键盘弹起时下沉隐藏(见 layout.js)
-    document.body.classList.toggle('kb-on', kb > 80);
-    // 键盘弹出时给打开的弹窗遮罩加 .kb-on(靠顶对齐, 见 layout.js); 不做遮罩几何压缩以免弹窗被顶起重排
+    var focusedEditable = isEditable(document.activeElement);
+    // body.kb-on: 手机端底部 Tab/FAB 在软键盘弹起时下沉隐藏 + 全屏容器收窄底部留白。
+    // 双判定: 聚焦输入框时立即加类(不依赖部分内核不可靠的 visualViewport),
+    // 或实测键盘高度>80; focusout 后若键盘仍在(实测高度)则保持。
+    document.body.classList.toggle('kb-on', focusedEditable || kb > 80);
+    // 键盘弹出时给打开的弹窗遮罩加 .kb-on(弹窗保持居中, 内容区内部滚动, 见 layout.js)
     var masks = document.querySelectorAll('.modal-mask');
     Array.prototype.forEach.call(masks, function(mask){
-      mask.classList.toggle('kb-on', kb > 80 && mask.classList.contains('show'));
+      mask.classList.toggle('kb-on', (focusedEditable || kb > 80) && mask.classList.contains('show'));
     });
   }
   // 键盘变化/聚焦统一入口: 更新变量与 .kb-on, 等两帧(底部 padding 完成重新布局、可滚动高度增加)
-  // 再把当前聚焦框滚到键盘上方; 同步滚会因留白未生效而滚不动。
+  // 再把当前聚焦框对齐到键盘上方; 同步滚会因留白未生效而滚不动。
   function onKbChange(){
     syncKb();
     requestAnimationFrame(function(){ requestAnimationFrame(liftFocused); });
   }
   window.__onKb = onKbChange; // 原生 App 注入 --kb-native 后调用(见 MainActivity)
-  document.addEventListener('focusin', function(){ setTimeout(onKbChange, 300); });
+  document.addEventListener('focusin', function(e){
+    if (!isEditable(e.target)) return;
+    syncKb();                       // 立即加 .kb-on(隐藏底栏/收窄容器), 对齐等键盘高度已知
+    setTimeout(onKbChange, 320);    // 兜底: 部分内核不触发 vv resize; 键盘动画完成后对齐
+  });
+  document.addEventListener('focusout', function(){
+    setTimeout(function(){ if (!isEditable(document.activeElement)) syncKb(); }, 30);
+  });
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', onKbChange);
     window.visualViewport.addEventListener('scroll', onKbChange);
