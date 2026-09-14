@@ -989,6 +989,7 @@ function todoPage(user) {
     <div class="todo-fs-main">
       <div class="todo-fs-top">
         <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
+        <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-segbtn" id="viewToggleFs">${ICO_TREE}完整树</button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
