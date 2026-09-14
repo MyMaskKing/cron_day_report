@@ -27,9 +27,11 @@ const COMMON_JS = `
     if (tag !== 'input' && tag !== 'textarea' && !el.isContentEditable) return;
     var kb = curKb();
     var r = el.getBoundingClientRect();
-    var bottom = window.innerHeight - kb; // 键盘上方可视底边(布局坐标)
-    var delta = r.bottom - bottom + 16; // + 16px 余量
-    if (delta <= 0) return;
+    var bottom = window.innerHeight - kb; // 键盘上沿(布局坐标)
+    var GAP = 12; // 输入框底边与键盘之间的间距
+    var delta = r.bottom - bottom + GAP;
+    if (delta <= 0) return; // 输入框本就在键盘上方, 不动
+    // 沿祖先找真正可滚的容器(键盘态下是 .modal-body), 把聚焦框滚到键盘上沿 + 12px
     for (var p = el.parentElement; p; p = p.parentElement) {
       var s = getComputedStyle(p);
       if ((s.overflowY === 'auto' || s.overflowY === 'scroll') && p.scrollHeight > p.clientHeight) {

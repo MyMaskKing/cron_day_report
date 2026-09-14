@@ -604,19 +604,19 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 /* 短内容居中、长内容顶部对齐可滚：靠 .modal-box 的 margin:auto 自适应 */
 /* touch-action: pan-y —— body.no-scroll 锁背景滚动时祖先 touch-action:none 会连带禁掉后代滚动容器
    的触摸平移(手机上长弹窗表单会卡死), 在遮罩自身显式放行纵向手势; overscroll-behavior:contain 防止滚到边连锁背景 */
-/* 键盘避让: 键盘弹出时 COMMON_JS 给 .show 遮罩加 .kb-on —— 弹窗自然"坐"在键盘正上方
-   (底部对齐, 底部 padding 留出键盘高度 --kb-inset), 高度受限后内部滚动,
-   JS 只把当前聚焦框滚入键盘上方; 弹窗不再整体跳到屏幕顶部。 */
+/* 键盘避让: 键盘弹出时弹窗位置/尺寸完全不动, 键盘从屏幕底部盖住其下半部;
+   .kb-on 只把弹窗内容区变成内部滚动, JS 把当前聚焦框精确滚到键盘上沿(留 12px),
+   即"键盘贴在当前输入框下面", 不重排/不顶起整个弹窗。 */
 .modal-mask { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000; padding: 40px 16px; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
 .modal-mask.show { display: flex; }
-/* 键盘弹出: 弹窗底部贴键盘上沿(12px 间隙), 水平保持居中; box 限高, 内容在 .modal-body 内滚动 */
-.modal-mask.kb-on { align-items: flex-end; padding: 12px 16px calc(12px + var(--kb-inset, 0px)); }
+/* 键盘弹出: 弹窗保持垂直居中, 限高到键盘上沿, 头部固定、内容区滚动 */
+.modal-mask.kb-on { padding: 0 16px; }
 .modal-mask.kb-on .modal-box {
-  margin: 0 auto;
-  max-height: calc(100vh - var(--kb-inset, 0px) - 24px);
+  margin: auto;
+  max-height: calc(100vh - var(--kb-inset, 0px) - 16px);
   display: flex; flex-direction: column;
 }
-.modal-mask.kb-on .modal-body { overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.modal-mask.kb-on .modal-body { overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 /* 全局滚动锁: body.no-scroll 由 JS 在打开弹窗(modal / mp-menu)时加, 关闭时移除.
    position:fixed + width:100% 兼容 iOS Safari, 单纯 overflow:hidden 在 iOS 上仍能滑动.
    同时锁 <html> 的 overflow, 阻止 Android Chrome / 微信 X5 在 body:fixed 时仍能滚动根滚动容器的行为.
@@ -1451,10 +1451,9 @@ html { scrollbar-gutter: stable; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */
   .dropdown-menu { right: auto; left: 0; }
   .modal-mask { padding: 16px 10px; }
-  /* 键盘弹起: 弹窗贴键盘上沿, 不再顶到屏幕顶部 */
-  .modal-mask.kb-on { padding: 10px 10px calc(10px + var(--kb-inset, 0px)); align-items: flex-end; }
-  .modal-mask.kb-on .modal-box { margin: 0 auto; max-height: calc(100vh - var(--kb-inset, 0px) - 20px); display: flex; flex-direction: column; }
-  .modal-mask.kb-on .modal-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* 键盘弹起: 弹窗保持居中不顶起, 只在内容区内部滚动(见 .modal-mask.kb-on 主规则) */
+  .modal-mask.kb-on { padding: 0 10px; }
+  .modal-mask.kb-on .modal-box { max-height: calc(100vh - var(--kb-inset, 0px) - 12px); }
   /* 多选面板窄屏: 改为居中 modal 弹窗 (JS 侧已把 .mp-menu 移到 body 末尾, 彻底脱离 card 堆叠上下文,
      否则 .card 的 z-index/backdrop-filter 会封印内部 fixed 元素, 导致遮罩必然盖住面板)
      居中显示、大触点、显式"完成"按钮, 比底部弹出更好操作 */
