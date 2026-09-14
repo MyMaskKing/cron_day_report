@@ -146,9 +146,11 @@ private fun MeItem(
     title: String,
     subtitle: String,
     divider: Boolean = false,
-    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+    tint: androidx.compose.ui.graphics.Color? = null,
     onClick: () -> Unit
 ) {
+    // 默认图标色取品牌 primary；不能写在参数默认值里（默认表达式不是 @Composable 上下文）
+    val iconTint = tint ?: MaterialTheme.colorScheme.primary
     Column {
         Row(
             modifier = Modifier
@@ -167,7 +169,7 @@ private fun MeItem(
                 Icon(
                     painter = painterResource(iconRes),
                     contentDescription = null,
-                    tint = tint,
+                    tint = iconTint,
                     modifier = Modifier.size(18.dp)
                 )
             }
