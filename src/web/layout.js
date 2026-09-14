@@ -612,16 +612,19 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 /* 短内容居中、长内容顶部对齐可滚：靠 .modal-box 的 margin:auto 自适应 */
 /* touch-action: pan-y —— body.no-scroll 锁背景滚动时祖先 touch-action:none 会连带禁掉后代滚动容器
    的触摸平移(手机上长弹窗表单会卡死), 在遮罩自身显式放行纵向手势; overscroll-behavior:contain 防止滚到边连锁背景 */
-/* 键盘避让: 键盘弹出时弹窗位置/尺寸完全不动, 键盘从屏幕底部盖住其下半部;
-   .kb-on 只把弹窗内容区变成内部滚动, JS 把当前聚焦框精确滚到键盘上沿(留 12px),
-   即"键盘贴在当前输入框下面", 不重排/不顶起整个弹窗。 */
+/* 键盘避让: 键盘弹出时弹窗靠顶部、限高到键盘上沿(见下方 .kb-on 规则);
+   .kb-on 把弹窗内容区变成内部滚动, JS 把当前聚焦框精确滚到键盘上沿(留 28px),
+   即"键盘贴在当前输入框下面"。 */
 .modal-mask { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 10000; padding: 40px 16px; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
 .modal-mask.show { display: flex; }
-/* 键盘弹出: 弹窗保持垂直居中, 限高到键盘上沿, 头部固定、内容区滚动 */
-.modal-mask.kb-on { padding: 0 16px; }
+/* 键盘弹出: 弹窗【靠顶部】排列(不是居中、不缩放位移), 键盘从底部盖住其下半截;
+   长表单限高到键盘上沿, 头部固定、内容区内部滚动, JS 把当前聚焦框滚到贴键盘上沿;
+   短表单自然高, 整体在键盘上方。padding-bottom=键盘高让 mask 内容区止于键盘上沿。
+   resize 模式(手机浏览器) inset=0, 100vh 已被系统压缩, 形态两端一致 */
+.modal-mask.kb-on { padding: 0 16px var(--kb-inset, 0px); align-items: flex-start; }
 .modal-mask.kb-on .modal-box {
-  margin: auto;
-  max-height: calc(100vh - var(--kb-inset, 0px) - 16px);
+  margin: 40px auto 0;
+  max-height: calc(100vh - var(--kb-inset, 0px) - 56px);
   display: flex; flex-direction: column;
 }
 .modal-mask.kb-on .modal-body { overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
@@ -1483,9 +1486,9 @@ html { scrollbar-gutter: stable; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */
   .dropdown-menu { right: auto; left: 0; }
   .modal-mask { padding: 16px 10px; }
-  /* 键盘弹起: 弹窗保持居中不顶起, 只在内容区内部滚动(见 .modal-mask.kb-on 主规则) */
-  .modal-mask.kb-on { padding: 0 10px; }
-  .modal-mask.kb-on .modal-box { max-height: calc(100vh - var(--kb-inset, 0px) - 12px); }
+  /* 键盘弹起: 弹窗靠顶部, 内容区内部滚动(见 .modal-mask.kb-on 主规则) */
+  .modal-mask.kb-on { padding: 0 10px var(--kb-inset, 0px); }
+  .modal-mask.kb-on .modal-box { max-height: calc(100vh - var(--kb-inset, 0px) - 52px); }
   /* 多选面板窄屏: 改为居中 modal 弹窗 (JS 侧已把 .mp-menu 移到 body 末尾, 彻底脱离 card 堆叠上下文,
      否则 .card 的 z-index/backdrop-filter 会封印内部 fixed 元素, 导致遮罩必然盖住面板)
      居中显示、大触点、显式"完成"按钮, 比底部弹出更好操作 */

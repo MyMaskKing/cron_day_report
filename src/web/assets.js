@@ -44,7 +44,7 @@ const COMMON_JS = `
     }
     return { inset: 0, visBottom: visBottom, mode: 'none' };
   }
-  var GAP = 18; // 输入框底边与键盘上沿的间距（浏览器反馈 12 太近）
+  var GAP = 28; // 输入框底边与键盘上沿的间距（真机反馈 12/18 都偏近，留明显缝隙）
   function isEditable(el){
     if (!el) return false;
     var tag = (el.tagName || '').toLowerCase();
@@ -70,19 +70,19 @@ const COMMON_JS = `
       var br = box.getBoundingClientRect();
       var delta = r.bottom - target;
       if (delta > 0) {
-        // 需要上滚: 不超过把输入框贴到容器顶部的量
+        // 需要上滚: 不超过把输入框贴到容器顶部的量; 4px 死区吃掉键盘高度 1px 抖动
         var maxUp = r.top - br.top - GAP;
         if (delta > maxUp) delta = maxUp;
-        if (delta > 2) box.scrollTop += delta;
+        if (delta > 4) box.scrollTop += delta;
       } else if (delta < -GAP && box.scrollTop > 0) {
         // 输入框离键盘过远(上方有留白)且容器可下滚: 适度回滚贴近, 不强行拉到底
         box.scrollTop += Math.max(delta, -box.scrollTop);
       }
       return;
     }
-    // 顶层文档: 仅当被键盘盖住时滚动
+    // 顶层文档: 仅当被键盘盖住时滚动(4px 死区)
     var d = r.bottom - target;
-    if (d > 0) window.scrollBy(0, d);
+    if (d > 4) window.scrollBy(0, d);
   }
   function syncKb(){
     if (!isEditable(document.activeElement)) baseInnerH = Math.max(baseInnerH, window.innerHeight);
@@ -98,20 +98,33 @@ const COMMON_JS = `
     });
     return m;
   }
-  // 键盘动画期间连续校正(覆盖式 vv 连续变化); 两帧等留白生效后对齐
+  // 键盘动画期间连续校正(覆盖式 vv 连续变化); 两帧等留白生效后对齐。
+  // 几何死区: App 原生 ime 在键盘稳定后仍会 1px 级抖动(351/352)反复注入, 变化<4px 时
+  // 不再重跑对齐, 避免画面持续微抖(浏览器 resize 模式键盘稳定后本就静止, 行为由此统一)。
+  var lastGeo = { inset: -999, visBottom: -999, mode: '' };
   function onKbChange(){
     var m = syncKb();
+    var same = m.mode === lastGeo.mode && Math.abs(m.inset - lastGeo.inset) < 4 && Math.abs(m.visBottom - lastGeo.visBottom) < 4;
+    if (same) return;
+    lastGeo = { inset: m.inset, visBottom: m.visBottom, mode: m.mode };
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ liftFocused(m); }); });
   }
   window.__onKb = onKbChange; // 原生 App 注入 --kb-native 后调用(见 MainActivity)
+  // 自动跟随: textarea 换行自增高(autoGrowTextarea)/任何聚焦元素尺寸变化后, 自动重新对齐键盘, 无需手动滑。
+  // App(覆盖式, vv 不反映键盘)与浏览器同走 liftFocused 这一条, 两端跟随行为一致; 无 RO 的旧 WebView 降级为仅键盘开合时对齐。
+  var kbRO = (typeof ResizeObserver !== 'undefined') ? new ResizeObserver(function(){
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ liftFocused(syncKb()); }); });
+  }) : null;
   document.addEventListener('focusin', function(e){
     if (!isEditable(e.target)) return;
+    if (kbRO) { kbRO.disconnect(); kbRO.observe(e.target); } // observe 会立即触发一次, 兼作首帧对齐
     var m = syncKb();
     setTimeout(function(){ var mm = syncKb(); liftFocused(mm); }, 320); // 键盘动画完成兜底
   });
   document.addEventListener('focusout', function(){
     setTimeout(function(){
       if (!isEditable(document.activeElement)) {
+        if (kbRO) kbRO.disconnect();
         baseInnerH = window.innerHeight; // 键盘收起, 刷新基准 layout 高
         syncKb();
       }
@@ -6933,7 +6946,7 @@ function todoLiftIntoView(el) {
   var vv = window.visualViewport;
   if (!vv) return;
   var r = el.getBoundingClientRect();
-  var delta = r.bottom - (vv.offsetTop + vv.height) + 16; // 可视视口底边(布局坐标) + 16px 余量
+  var delta = r.bottom - (vv.offsetTop + vv.height) + 28; // 可视视口底边(布局坐标) + 28px 余量(与键盘避让 GAP 同值)
   if (delta <= 0) return;
   for (var p = el.parentElement; p; p = p.parentElement) {
     var s = getComputedStyle(p);
