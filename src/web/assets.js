@@ -9,8 +9,9 @@ const COMMON_JS = `
 // 键盘高度(CSS px)双来源取大: App 原生 WindowInsets.ime 实测注入的 --kb-native(该 App WebView 的
 // visualViewport 不反映键盘, 为可靠来源) 与 visualViewport 计算值(手机浏览器/桌面回退)。
 //  - 写入 CSS 变量 --kb-inset: 供 .modal-mask / body / .todo-fs-main 底部留白(见 layout.js)。
-//  - 弹窗遮罩键盘弹出时加 .kb-on: modal-box 由垂直居中改靠顶部对齐, 键盘盖住弹窗下半部, 再把
-//    "当前聚焦框"滚到键盘上方——键盘只贴在当前输入框下面, 不挪动其它输入框。
+//  - 弹窗遮罩键盘弹出时加 .kb-on: 短弹窗保持垂直居中, JS 整体 translateY 最小位移把"当前聚焦框"
+//    送到键盘上方——键盘只贴在当前输入框下面, 不挪动其它输入框; 弹窗放不进键盘上方可视区时
+//    加 .kb-tall: modal-box 改靠顶部对齐, 键盘盖住弹窗下半部, 由遮罩滚动把聚焦框滚到键盘上方。
 // 原生注入 --kb-native 后会调 window.__onKb 驱动(visualViewport 不反映键盘时靠它)。
 (function(){
   // 两种键盘模式（动作必须一致的根源）：
@@ -58,13 +59,33 @@ const COMMON_JS = `
     }
     return null;
   }
+  // 清掉弹窗的键盘最小位移(键盘收起/切长弹窗形态时用), 弹窗回垂直居中
+  function clearKbBox(box){ box.__kbLift = 0; box.style.transform = ''; }
   // 把当前聚焦框对齐到键盘正上方: 底边统一落在 visualViewport 可见底边 - GAP。
-  // 内部滚动容器做双向对齐; 容器/系统已把输入框置于可见区时不动。
+  // 居中短弹窗(.kb-on 非 .kb-tall)不滚动: 弹窗整体 translateY 上移最小位移, 键盘贴当前输入框下面;
+  // 长弹窗/普通页面走内部滚动容器做双向对齐; 容器/系统已把输入框置于可见区时不动。
   function liftFocused(m){
     var el = document.activeElement;
     if (!isEditable(el)) return;
     var target = m.visBottom - GAP;
     var r = el.getBoundingClientRect();
+    var mask = el.closest ? el.closest('.modal-mask') : null;
+    if (mask && mask.classList.contains('kb-on')) {
+      var mbox = mask.querySelector('.modal-box');
+      // 弹窗(含 autogrow 撑高后)放不进键盘上方可视区 → 切 kb-tall: 靠顶+遮罩整体滚动
+      mask.classList.toggle('kb-tall', !mbox || mbox.offsetHeight + 80 > m.visBottom);
+      if (mask.classList.contains('kb-tall')) {
+        if (mbox) clearKbBox(mbox);
+      } else {
+        // 最小位移: 聚焦框底边送到键盘上沿-GAP; 位移后弹窗顶边不低于 40px
+        var cur = mbox.__kbLift || 0;
+        var maxLift = Math.max(0, mbox.getBoundingClientRect().top + cur - 40);
+        var want = Math.max(0, Math.min(maxLift, r.bottom + cur - target));
+        mbox.__kbLift = want;
+        mbox.style.transform = want > 0 ? 'translateY(' + (-want) + 'px)' : '';
+        return;
+      }
+    }
     var box = scrollBoxOf(el);
     if (box) {
       var br = box.getBoundingClientRect();
@@ -96,7 +117,15 @@ const COMMON_JS = `
     document.body.classList.toggle('kb-resize', on && m.mode === 'resize');
     var masks = document.querySelectorAll('.modal-mask');
     Array.prototype.forEach.call(masks, function(mask){
-      mask.classList.toggle('kb-on', on && mask.classList.contains('show'));
+      var onMask = on && mask.classList.contains('show');
+      mask.classList.toggle('kb-on', onMask);
+      var mbox = mask.querySelector('.modal-box');
+      if (!mbox) return;
+      // 短弹窗(放得进键盘上方可视区)保持居中+JS 最小位移; 放不下切 kb-tall(靠顶+遮罩滚动)。
+      // 键盘收起/PC: 摘位移, 弹窗回垂直居中完整显示。
+      var tall = onMask && mbox.offsetHeight + 80 > m.visBottom;
+      mask.classList.toggle('kb-tall', tall);
+      if (!onMask || tall) clearKbBox(mbox);
     });
     return m;
   }
