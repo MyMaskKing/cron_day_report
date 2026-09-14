@@ -1455,8 +1455,8 @@ html { scrollbar-gutter: stable; }
   .container { margin: 14px auto; padding: 0 12px; }
   body:has(.m-tabbar) .container { padding-bottom: 80px; }
   .card { padding: 15px; }
-  /* 小按钮触控高度补齐(视觉尺寸不变时靠内边距撑热区) */
-  .btn.sm { min-height: 34px; display: inline-flex; align-items: center; }
+  /* 小按钮保持自然高度(与 PC 一致), 避免标题行内被撑成大方块; 需要大触控热区的场景(如待办内联添加钮)各自补 min-height */
+  .btn.sm { display: inline-flex; align-items: center; }
   /* 待办筛选/图表区间 8 个胶囊: 单行横滑不换行, 项目不缩减; JS 筛选语义不变 */
   .todo-range { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; display: flex; }
   .todo-range::-webkit-scrollbar { display: none; }
