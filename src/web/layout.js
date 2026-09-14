@@ -1041,22 +1041,23 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-cards { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
 /* 单张顶层卡片：顶部色带 + 内容区 + 底部操作 */
 .todo-card {
-  position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-  overflow: hidden; transition: box-shadow .18s, transform .12s, border-color .18s;
+  position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  overflow: hidden; transition: box-shadow .18s, border-color .18s;
   cursor: default;
 }
 .todo-card.clickable { cursor: pointer; }
-.todo-card.clickable:hover { box-shadow: 0 6px 24px rgba(168,85,247,.14); border-color: var(--brand-border); transform: translateY(-1px); }
-.todo-card__band { height: 4px; background: #b4bccb; }
-.todo-card.pri-2 .todo-card__band { background: #e5484d; }
-.todo-card.pri-1 .todo-card__band { background: #e8a317; }
-.todo-card.pri-0 .todo-card__band { background: #b4bccb; }
+.todo-card.clickable:hover { box-shadow: 0 6px 20px rgba(124,58,237,.12); border-color: var(--brand-border); }
+/* 优先级顶带 3px: 高=红 / 中=琥珀 / 无=中性灰（新色值与圆点/小组件一致） */
+.todo-card__band { height: 3px; background: #C9CCD6; }
+.todo-card.pri-2 .todo-card__band { background: #E0453E; }
+.todo-card.pri-1 .todo-card__band { background: #E5A113; }
+.todo-card.pri-0 .todo-card__band { background: #C9CCD6; }
 .todo-card.is-done { opacity: .78; background: var(--surface-done); }
-.todo-card__body { padding: 14px 16px 10px; }
-.todo-card__head { display: flex; align-items: flex-start; gap: 10px; }
+.todo-card__body { padding: 12px 14px 9px; }
+.todo-card__head { display: flex; align-items: flex-start; gap: 11px; }
 .todo-card__title {
-  flex: 1; min-width: 0; font-size: 17px; font-weight: 700; color: var(--text);
-  line-height: 1.45; word-break: break-word;
+  flex: 1; min-width: 0; font-size: 16px; font-weight: 700; color: var(--text);
+  line-height: 1.42; word-break: break-word;
 }
 .todo-card.is-done .todo-card__title { color: var(--faint); text-decoration: line-through; }
 .todo-card__check {
@@ -1073,16 +1074,17 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-card__check.done { background: linear-gradient(135deg, #52c41a, #34b34a); border-color: #34b34a; }
 .todo-card__check::after { content: '✓'; color: #fff; font-size: 14px; font-weight: 700; opacity: 0; transform: scale(.4); transition: .18s; }
 .todo-card__check.done::after { opacity: 1; transform: scale(1); }
-.todo-card__meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.todo-card__meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; align-items: center; }
 .todo-card__note { margin-top: 6px; font-size: 13px; color: var(--muted-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 底部操作条：入口位置保持不变, 视觉收紧到 42px 高, 图标钮 36px 触控 */
 .todo-card__foot {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 12px; background: var(--surface-done); border-top: 1px solid var(--border);
+  padding: 5px 8px 5px 6px; background: var(--surface-done); border-top: 1px solid var(--border);
 }
-.todo-card__ops { display: flex; gap: 2px; }
-.todo-card__ops .todo-op { font-size: 16px; padding: 6px 8px; }
+.todo-card__ops { display: flex; gap: 1px; }
+.todo-card__ops .todo-op { font-size: 16px; padding: 0; width: 38px; height: 36px; }
 .todo-card__ops .todo-op svg { width: 18px; height: 18px; }
-.todo-card__enter { color: var(--brand); font-size: 13px; font-weight: 600; user-select: none; }
+.todo-card__enter { color: var(--brand); font-size: 13px; font-weight: 700; user-select: none; padding: 7px 8px; border-radius: 9px; }
 .todo-card__count { background: var(--hover-brand); color: var(--brand); font-weight: 600; }
 .todo-card__count.done { background: var(--ok-bg); color: var(--ok); }
 
@@ -1221,12 +1223,12 @@ body { padding-bottom: var(--kb-inset, 0px); }
 .todo-fs-top {
   display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
   padding-bottom: 10px; border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--surface);
   transition: transform .22s ease, opacity .22s ease;
 }
-.todo-fs-title { flex: 1; font-size: 16px; font-weight: 700; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-fs-title { flex: 1; font-size: 16.5px; font-weight: 800; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
 .todo-fs-hide { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--label); font-weight: normal; cursor: pointer; white-space: nowrap; }
-.todo-fs-hide input[type="checkbox"] { width: auto; margin: 0; }
+.todo-fs-hide input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--brand); }
 
 /* 默认视图"待办清单"卡片头: 始终一行。宽屏标题 flex:1 占满左侧、控件靠右;
    窄屏(≤640px, App/手机浏览器)标题固定在左、"隐藏已完成"固定在右, 中间"卡片视图/新建任务/
@@ -1520,7 +1522,7 @@ html { scrollbar-gutter: stable; }
   /* 卡片视图窄屏收小内边距 */
   .todo-card__body { padding: 12px 14px 8px; }
   .todo-card__title { font-size: 16px; }
-  .todo-card__foot { padding: 6px 10px; }
+  .todo-card__foot { padding: 5px 8px; }
   /* 详情面包屑: 窄屏允许换行, 标题独占一行避免按钮把它挤没; 按钮成对紧凑排列 */
   .todo-crumb { flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
   .todo-crumb__title { flex: 1 0 100%; order: -1; font-size: 15px; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
@@ -1528,11 +1530,12 @@ html { scrollbar-gutter: stable; }
   /* 全屏模式下, 抽屉浮层覆盖: 从左侧滑入, 半透明遮罩 */
   .todo-fullscreen { flex-direction: row; }
   .todo-drawer {
-    /* bottom 让给常驻 .m-tabbar(60px), 抽屉不与底栏重叠 */
-    position: fixed; top: 0; left: 0; bottom: 60px; z-index: 1001;
+    /* App 壳(无 .m-tabbar, 原生底栏已裁掉 WebView 高度)贴底; 浏览器才给网页底栏让位 */
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 1001;
     transform: translateX(-100%);
     box-shadow: 2px 0 20px rgba(0,0,0,.15);
   }
+  body:has(.m-tabbar) .todo-drawer { bottom: 60px; }
   .todo-drawer.closed { display: flex; transform: translateX(-100%); }
   .todo-drawer.open { transform: translateX(0); }
   .todo-drawer-mask {
@@ -1543,7 +1546,9 @@ html { scrollbar-gutter: stable; }
   /* 手机端全屏顶栏 sticky + 滚动方向隐藏/显示; PC 端不生效 */
   /* 把 fs-main 的 padding-top 移到 fs-top 自身, 让 sticky 到 top:0 时无空隙;
      底部给常驻 Tab(60px)留位, 键盘弹起时随 --kb-inset 上抬 */
-  .todo-fs-main { padding: 0 12px calc(74px + var(--kb-inset, 0px)); }
+  /* 默认贴底(含 App 壳); 浏览器有网页底栏时预留 60px */
+  .todo-fs-main { padding: 0 12px calc(14px + var(--kb-inset, 0px)); }
+  body:has(.m-tabbar) .todo-fs-main { padding-bottom: calc(74px + var(--kb-inset, 0px)); }
   .todo-fs-top {
     position: sticky; top: 0; z-index: 5;
     padding-top: 12px; margin-left: -12px; margin-right: -12px;

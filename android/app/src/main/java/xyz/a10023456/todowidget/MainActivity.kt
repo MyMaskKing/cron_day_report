@@ -25,8 +25,16 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
@@ -230,8 +238,11 @@ private fun AppShell(
 
     Scaffold(
         bottomBar = {
-            // 与网页底部 Tab 同族：中性表面 + 顶部 1px 描边，选中品牌紫、浅紫药丸指示器
+            // 与网页底部 Tab 同族：中性表面 + 顶部 1px 描边；去掉 M3 大药丸指示器，
+            // 选中=品牌紫图标/文字 + 顶部 2.5dp 短条（与 .m-tabbar 完全一致）
             val navBarBorderColor = MaterialTheme.colorScheme.outlineVariant
+            val brandColor = MaterialTheme.colorScheme.primary
+            val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 0.dp,
@@ -244,8 +255,9 @@ private fun AppShell(
                 }
             ) {
                 TABS.forEachIndexed { i, tab ->
+                    val isSel = if (tab.path == null) showMe else (!showMe && selected == i)
                     NavigationBarItem(
-                        selected = if (tab.path == null) showMe else (!showMe && selected == i),
+                        selected = isSel,
                         onClick = {
                             if (tab.path == null) {
                                 showMe = true
@@ -255,18 +267,43 @@ private fun AppShell(
                             }
                         },
                         icon = {
-                            Icon(
-                                painter = painterResource(tab.iconRes),
-                                contentDescription = tab.label
+                            // 28dp 槽：选中时顶部 22×2.5 短条，图标 22dp 居中
+                            androidx.compose.foundation.layout.Box(
+                                modifier = Modifier
+                                    .width(28.dp)
+                                    .height(28.dp),
+                                contentAlignment = androidx.compose.ui.Alignment.Center
+                            ) {
+                                if (isSel) {
+                                    androidx.compose.foundation.layout.Box(
+                                        modifier = Modifier
+                                            .align(androidx.compose.ui.Alignment.TopCenter)
+                                            .width(22.dp)
+                                            .height(2.5.dp)
+                                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                                            .background(brandColor)
+                                    )
+                                }
+                                Icon(
+                                    painter = painterResource(tab.iconRes),
+                                    contentDescription = tab.label,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        },
+                        label = {
+                            Text(
+                                tab.label,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
                             )
                         },
-                        label = { Text(tab.label) },
                         colors = NavigationBarItemDefaults.colors(
-                            indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            selectedIconColor = brandColor,
+                            selectedTextColor = brandColor,
+                            unselectedIconColor = unselectedColor,
+                            unselectedTextColor = unselectedColor
                         )
                     )
                 }
