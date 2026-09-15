@@ -1049,11 +1049,15 @@ function renderMd(md) {
   return '<div class="md-body">' + out.join('') + '</div>';
 }
 // 通用弹窗；maskClass 可选，给遮罩加临时修饰类（如 'modal-mask--lg' 大弹窗），每次打开先摘除
-function openModal(title, bodyHtml, maskClass) {
+// pinned=true：防误触模式，点遮罩空白不关闭，只能由弹窗内按钮/右上角 ×/ESC 关闭
+// （待办新建/编辑表单使用，避免长表单输入中误触丢失内容）
+function openModal(title, bodyHtml, maskClass, pinned) {
   var mask = document.getElementById('modalMask');
   if (!mask) return;
   mask.classList.remove('modal-mask--lg');
+  mask.classList.remove('modal-mask--pinned');
   if (maskClass) mask.classList.add(maskClass);
+  if (pinned) mask.classList.add('modal-mask--pinned');
   var wasOpen = mask.classList.contains('show');
   document.getElementById('modalTitle').textContent = title || '';
   document.getElementById('modalBody').innerHTML = bodyHtml || '';
@@ -1113,7 +1117,7 @@ function bindModal() {
   if (!mask) return;
   var close = document.getElementById('modalClose');
   if (close) close.addEventListener('click', closeModal);
-  mask.addEventListener('click', function(e){ if (e.target === mask) closeModal(); });
+  mask.addEventListener('click', function(e){ if (e.target === mask && !mask.classList.contains('modal-mask--pinned')) closeModal(); });
 }
 function confirmModal(title, message, onConfirm) {
   openModal(title || '确认操作',
@@ -2108,7 +2112,7 @@ bindLogout();
       var od = r.due_date < today;
       var label = od ? (Number(r.due_date.slice(5, 7)) + '月' + Number(r.due_date.slice(8, 10)) + '日') : '今天';
       return '<div class="dash-row"><span class="d-dot' + (od ? ' od' : '') + '"></span>'
-        + '<a href="/todo">' + esc(r.title) + '</a>'
+        + '<a href="/todo?root=' + r.id + '">' + esc(r.title) + '</a>'
         + '<span class="d-tag' + (od ? ' od' : '') + '">' + label + '</span></div>';
     }).join('');
   }).catch(function(){});
@@ -6190,6 +6194,7 @@ function applyTodoView(getRowsFn, onDrawTree) {
     document.addEventListener('keydown', function(e){
       if (e.key !== 'Escape' && e.keyCode !== 27) return;
       // 优先关 modal: modal 用 #modalMask.show 表示打开, 之前误判 #modal 永远拿不到导致 ESC 越过 modal 直退全屏
+      // pinned 仅拦截遮罩点击, ESC 仍可关闭
       var mask = document.getElementById('modalMask');
       if (mask && mask.classList.contains('show')) {
         closeModal();
@@ -6611,7 +6616,9 @@ function renderTodoTree(container, trees, opts) {
         ops.appendChild(b1);
       }
       if (opts.onDetail || opts.onEdit) { var b2 = mkOp(ICONS.view, '查看详情', function(){ (opts.onDetail || opts.onEdit)(node); }); ops.appendChild(b2); }
-      if (opts.onShare && depth === 0) { var b3 = mkOp(ICONS.share, '协作链接', function(){ opts.onShare(node); }); ops.appendChild(b3); }
+      // 分享单元是整棵顶层清单(后端仅允许 parent_id==null), 不能只看渲染深度:
+      // 详情页用 root.children 重新起渲(startDepth=0), 子任务 depth 也是 0, 会误显示本按钮
+      if (opts.onShare && depth === 0 && node.parent_id == null) { var b3 = mkOp(ICONS.share, '协作链接', function(){ opts.onShare(node); }); ops.appendChild(b3); }
       if (opts.onDel)      { var b4 = mkOp(ICONS.trash, '删除',       function(){ opts.onDel(node); }, 'danger'); ops.appendChild(b4); }
       if (ops.childNodes.length) row.appendChild(ops);
       // 手柄插入后再绑定拖拽
@@ -8337,7 +8344,7 @@ function openTodoEdit(node) {
     ? (_rootTitle ? '编辑子任务 · ' + _rootTitle : '编辑子任务')
     : '编辑任务';
   openModal(_modalTitle, todoFormHtml(node, false, isChild, fopts) +
-    '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   // 仅编辑已有任务挂 markdown 编辑器（新建/新建子任务不挂）；multipart 直连，随数据源带头
   (async function(){
     var noteEl = document.getElementById('tfNote');
@@ -8554,7 +8561,7 @@ function openAddForm(parentId, title, isChild) {
     }
   }
   openModal(title, todoFormHtml({}, true, !!isChild, fopts) +
-    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   // 新建时若抽屉选中了分类则预填下拉(文本分类或共享分类 sc:<id>), 便于连续录入
   // 子任务分类继承父任务(后端处理), 表单中共享分类选项禁用
   var pref = (_todoCategory && _todoCategory !== '__none__') ? _todoCategory : '';
@@ -8947,7 +8954,7 @@ function openPublicEdit(node) {
         inheritDue: todoEffDueRow(node, _byId) || '', lockChildDue: true, forceChildDue: !!node.child_due }
     : { lockChildDue: true, forceChildDue: !!node.child_due };
   openModal('编辑任务', todoFormHtml(node, false, isChild, fopts) +
-    '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   todoFillCategoryOptions(_rows, node.category || '');
   (async function(){
     var noteEl = document.getElementById('tfNote'); if (!noteEl) return;
@@ -9443,7 +9450,7 @@ function openPublicEdit(node) {
         inheritDue: todoEffDueRow(node, _byId) || '' }
     : {};
   openModal('编辑任务', todoFormHtml(node, false, isChild, fopts) +
-    '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   todoFillCategoryOptions(_rows, node.category || '');
   (async function(){
     var noteEl = document.getElementById('tfNote'); if (!noteEl) return;
