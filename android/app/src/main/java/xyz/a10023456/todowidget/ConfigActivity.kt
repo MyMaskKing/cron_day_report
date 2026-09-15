@@ -265,7 +265,8 @@ class ConfigActivity : ComponentActivity() {
             Prefs.setWidgetTheme(this@ConfigActivity, appWidgetId, widgetTheme)
             WidgetStateStore.publish(this@ConfigActivity, appWidgetId)
             RefreshWorker.enqueue(this@ConfigActivity)
-            WidgetRepo.refresh(this@ConfigActivity, appWidgetId)
+            // 交互式保存：少量重试，避免弱网下弹窗长时间不关闭
+            WidgetRepo.refresh(this@ConfigActivity, appWidgetId, maxAttempts = 2)
             // updateAll 必须在主线程（Glance 组合需要主线程推进）
             withContext(Dispatchers.Main) {
                 TodoAppWidget().updateAll(this@ConfigActivity)

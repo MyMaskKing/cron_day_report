@@ -80,7 +80,8 @@ class WidgetActionWorker(
                         val sid = Prefs.getSid(applicationContext)
                         val token = Prefs.getToken(applicationContext, widgetId)
                         val resp = ApiClient.markDone(baseUrl, sid, token, itemId)
-                        WidgetRepo.refresh(applicationContext, widgetId)
+                        // markDone 已成功说明网络可达，随后的刷新少量重试即可，避免遮罩长时间转圈
+                        WidgetRepo.refresh(applicationContext, widgetId, maxAttempts = 2)
                         if (!resp.message.isNullOrBlank()) resp.message else "已完成"
                     }
                     if (!silent) WidgetStateStore.setUiState(
@@ -89,7 +90,8 @@ class WidgetActionWorker(
                     )
                 }
                 else -> {
-                    val ok = WidgetRepo.refresh(applicationContext, widgetId)
+                    // 手动刷新：用户正在使用手机、网络通常活跃，2 次（间隔 2s）兼顾弱网与等待时长
+                    val ok = WidgetRepo.refresh(applicationContext, widgetId, maxAttempts = 2)
                     Log.d(TAG, "refresh result: ok=$ok, widget=$widgetId")
                     if (!silent) WidgetStateStore.setUiState(
                         applicationContext, widgetId,
@@ -196,7 +198,7 @@ class WidgetActionWorker(
  * 进程在广播结束后被杀且动作任务未被系统及时调度（国产 ROM 省电策略）、动作任务异常进入
  * 重试退避、（旧版本）silent 刷新 REPLACE 掉动作任务等。SP 的 6s 过期是惰性的——只在读
  * SP 时生效，不会自行触发重绘。本 Worker 延时后主动检查：动作任务仍在 RUNNING（弱网多跳
- * 重定向，OkHttp 10s 超时保底会结束）则交给它自己写终态；其余情况（loading 但任务已结束/
+ * 重定向/刷新重试中，由 OkHttp 15s 超时与有限重试保底结束）则交给它自己写终态；其余情况（loading 但任务已结束/
  * 被取消/排队未调度、done/error 过期残留、屏幕帧残留）一律强制回落 idle 并重绘一次。
  */
 class MaskResetWorker(
@@ -237,7 +239,10 @@ class MaskResetWorker(
         private const val MASK_WORK_PREFIX = "todo_widget_mask_"
         private const val KEY_WIDGET_ID = "widget_id"
 
-        /** 延时：略大于正常失败路径（OkHttp 10s 超时 + 结果遮罩停留 1.4s）；更慢的多跳重定向弱网由 RUNNING 检查放过。 */
+        /**
+         * 延时：覆盖单次请求快速失败 + 结果遮罩停留 1.4s；弱网下动作进入 15s 超时/刷新重试
+         * （最坏约数十秒）时，doWork 的 RUNNING 检查会跳过本次兜底，由动作任务自行写终态。
+         */
         private const val MASK_DELAY_MS = 13000L
 
         fun enqueue(context: Context, widgetId: Int) {

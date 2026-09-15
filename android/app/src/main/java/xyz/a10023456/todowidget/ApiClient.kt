@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * 服务端 API 客户端。优先用 App 登录会话 Cookie（sid）调登录态接口；
- * 未登录时回退到免密 report_token 接口。10s 超时，所有方法为阻塞调用，需在 IO 线程执行。
+ * 未登录时回退到免密 report_token 接口。15s 超时，所有方法为阻塞调用，需在 IO 线程执行。
  */
 object ApiClient {
     private val json = Json {
@@ -19,9 +19,9 @@ object ApiClient {
         coerceInputValues = true
     }
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .writeTimeout(15, TimeUnit.SECONDS)
         .followRedirects(false)
         .build()
     private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()

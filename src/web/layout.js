@@ -367,6 +367,9 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
 .card h2 { font-size: 16px; margin-bottom: 14px; color: var(--text-strong); }
 /* 推送配置折叠卡: 低频设置默认收起, 不占页面主流程; 内部 id/class 全部保留, JS 零感知 */
 .card.push-card { padding: 0; overflow: hidden; }
+/* 多选下拉打开时放开裁切: 否则 .mp-menu 向下溢出卡片的部分（24 个小时选项的下半段）被
+   overflow:hidden 切掉; 层叠顺序由上方 .card:has(.mp-menu.show){z-index:100} 保证 */
+.card.push-card:has(.mp-menu.show) { overflow: visible; }
 .push-card > summary {
   list-style: none; cursor: pointer; user-select: none;
   display: flex; align-items: center; gap: 10px;
