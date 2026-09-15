@@ -1516,10 +1516,11 @@ function initGlobalSwipeBack() {
     // 5. 待办全屏
     if (document.body.classList.contains('todo-fs-on')) {
       var exitBtn = document.getElementById('exitFullscreen');
-      // 首次进入全屏、数据加载完成前, exitBtn 上的 click 事件还没绑(applyTodoView 尚未运行), 单纯 .click() 会哑;
-      // 直接调 exitTodoFullscreen 兜底; 若函数不存在则手动移除 body class 做最小回退
+      // 直接调 exitTodoFullscreen 兜底; 回调必须取 _todoEscCtx 里的最新值而不能传 null:
+      // applyTodoView 末尾靠 onDrawTree 重绘, 传 null 不重绘, 从完整树全屏退出后默认页会残留树 DOM。
+      // 首次进入全屏、数据加载完成前 ctx 尚为 null, 那时本就只有空壳, 不重绘也无残留。
       if (typeof exitTodoFullscreen === 'function') {
-        try { exitTodoFullscreen(null, null); return; } catch(err){ /* fallthrough */ }
+        try { exitTodoFullscreen(_todoEscCtx.getRows, _todoEscCtx.onDraw); return; } catch(err){ /* fallthrough */ }
       }
       if (exitBtn && exitBtn.__exitBound) { exitBtn.click(); return; }
       // 兜底: 手动切回默认页
@@ -2510,7 +2511,7 @@ function resetPwd(id, name) {
     '<p class="muted">留空则重置为默认密码 123456。</p>' +
     '<label>新密码（可选，至少6位）</label><input id="rpPwd" type="text" placeholder="留空=123456">' +
     '<div style="margin-top:12px;"><button class="btn" id="rpConfirm">确认重置</button> ' +
-    '<button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('rpConfirm').addEventListener('click', async function(){
     var pwd = document.getElementById('rpPwd').value;
     try {
@@ -2523,7 +2524,7 @@ function editNick(id, cur) {
   openModal('修改昵称',
     '<label>昵称</label><input id="enNick" maxlength="32" value="' + cur + '">' +
     '<div style="margin-top:12px;"><button class="btn" id="enConfirm">保存</button> ' +
-    '<button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('enConfirm').addEventListener('click', async function(){
     try {
       var r = await api('/api/admin/users/' + id + '/nickname', { method: 'PUT', body: { nickname: document.getElementById('enNick').value } });
@@ -2538,7 +2539,7 @@ function newUser() {
     '<label>密码（留空=123456）</label><input id="nuPwd" type="text" placeholder="留空=123456">' +
     '<label>角色</label><select id="nuRole"><option value="user">用户</option><option value="admin">超管</option></select>' +
     '<div style="margin-top:12px;"><button class="btn" id="nuConfirm">创建</button> ' +
-    '<button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('nuConfirm').addEventListener('click', async function(){
     var payload = {
       username: document.getElementById('nuName').value.trim(),
@@ -2638,7 +2639,7 @@ if (regLimitMsgBtn) regLimitMsgBtn.addEventListener('click', function(){
     '<div style="margin-bottom:10px;"><label>预览</label>' +
     '<div id="rlmPreview" style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;min-height:60px;background:var(--surface-2);"></div></div>' +
     '<div style="text-align:right;"><button class="btn gray" id="rlmCancel">取消</button> ' +
-    '<button class="btn" id="rlmSave">保存提示词</button></div>');
+    '<button class="btn" id="rlmSave">保存提示词</button></div>', null, true);
   var ta = document.getElementById('rlmText');
   var pv = document.getElementById('rlmPreview');
   ta.value = regLimitMsg;
@@ -2703,7 +2704,7 @@ function annOpenEditor(){
       '<button type="button" class="btn gray" id="annEdCancel">取消</button> ' +
       (has ? '<button type="button" class="btn danger" id="annEdOff">下线</button> ' : '') +
       '<button type="button" class="btn" id="annEdPublish">保存并发布</button>' +
-    '</div>', 'modal-mask--lg');
+    '</div>', 'modal-mask--lg', true);
   var ta = document.getElementById('annEdText');
   // 附件上限复用本页系统设置里的同一项（服务端另有强校验）
   var mbInput = document.getElementById('attachMaxMbInput');
@@ -3228,7 +3229,7 @@ function taskForm(t) {
     '<label><input type="checkbox" id="tEnabled" style="width:auto;"' + (enabled ? ' checked' : '') + '> 启用</label>' +
     '<label><input type="checkbox" id="tStandalone" style="width:auto;"' + (standalone ? ' checked' : '') + '> 独立发送（该任务结果单独一条消息；不勾则与同渠道其他任务合并）</label>' +
     '<div style="margin-top:12px;"><button class="btn" id="tSave">保存</button> <button class="btn gray" id="tCancel">取消</button></div>';
-  openModal(isEdit ? '编辑任务' : '新建任务', html);
+  openModal(isEdit ? '编辑任务' : '新建任务', html, null, true);
   document.getElementById('tType').value = t.return_type || 'text';
   document.getElementById('tSave').addEventListener('click', async function(){
     var id = document.getElementById('tId').value;
@@ -3357,7 +3358,7 @@ function chModal(c) {
     '<label>自定义请求头 JSON（可选）</label><textarea id="chHeaders" rows="2">' + esc(c.headers_json||'') + '</textarea>' +
     '<label>Body 模板（可选，含 {{content}}）</label><textarea id="chBody" rows="2">' + esc(c.body_template||'') + '</textarea>' +
     '<label><input type="checkbox" id="chEnabled" style="width:auto;"' + (c.enabled!==0&&c.enabled!==false?' checked':'') + '> 启用</label>' +
-    '<div style="margin-top:12px;"><button class="btn" id="chSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="chSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('chType').value = c.type || 'wechat';
   document.getElementById('chMethod').value = c.method || 'POST';
   var renderHelp = function(){ document.getElementById('chHelp').innerHTML = CH_HELP[document.getElementById('chType').value] || ''; };
@@ -3624,7 +3625,7 @@ function fundForm(f) {
     '</div>' +
     '<div style="margin-top:12px;"><button class="btn" id="fSave">保存</button> ' +
     '<button class="btn gray" onclick="closeModal()">取消</button></div>';
-  openModal(id ? '修改持仓' : '添加持仓', html);
+  openModal(id ? '修改持仓' : '添加持仓', html, null, true);
   document.getElementById('fSave').addEventListener('click', async function(){
     var payload = {
       code: document.getElementById('fCode').value.trim(),
@@ -3685,7 +3686,7 @@ window.buyFundUI = async function(id){
     '<p class="muted" style="font-size:12px;margin-top:4px;">选择今天=实时估算净值；选择历史日=该日单位净值（周末/节假日无数据请手填）。</p>' +
     '<div style="margin-top:12px;"><button class="btn" id="buyConfirm">确认加仓</button> ' +
     '<button class="btn gray" onclick="closeModal()">取消</button></div>';
-  openModal('加仓 · ' + f.name + ' (' + f.code + ')', html);
+  openModal('加仓 · ' + f.name + ' (' + f.code + ')', html, null, true);
   // 日期变更时自动回填净值: 今天用当前估值, 历史日查 navMap, 无数据清空让用户手填
   var dEl = document.getElementById('buyDate');
   var nEl = document.getElementById('buyNavInput');
@@ -4375,7 +4376,7 @@ window.mRename = function(id){
   var curName = m ? m.name : '';
   openModal('修改成员名',
     '<label>成员名称</label><input id="mReName" value="' + esc(curName) + '">' +
-    '<div style="margin-top:12px;"><button class="btn" id="mReConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="mReConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('mReConfirm').addEventListener('click', async function(){
     var name = document.getElementById('mReName').value;
     try { await api('/api/weight/members/' + id, { method:'PUT', body:{ name: name } }); closeModal(); await loadAll(); }
@@ -4400,7 +4401,7 @@ window.recEdit = function(id, curKg, curDate){
   openModal('修改记录',
     '<label>日期</label><input id="reD" type="date" value="' + curDate + '">' +
     '<label>体重(' + unitLabel() + ')</label><input id="reW" type="number" step="0.1" value="' + toDisplay(curKg) + '">' +
-    '<div style="margin-top:12px;"><button class="btn" id="reConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="reConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('reConfirm').addEventListener('click', async function(){
     try {
       await api('/api/weight/records/' + id, { method:'PUT', body:{
@@ -4420,7 +4421,7 @@ window.recDel = async function(id){
 document.getElementById('mAdd').addEventListener('click', function(){
   openModal('新建成员',
     '<label>成员名称</label><input id="mName">' +
-    '<div style="margin-top:12px;"><button class="btn" id="mConfirm">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="mConfirm">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('mConfirm').addEventListener('click', async function(){
     var name = (document.getElementById('mName').value || '').trim();
     if (!name) { alertModal('请填写成员名称', {ok:false}); return; }
@@ -5126,7 +5127,7 @@ function openRecModal(id, type, month, preset, editId) {
   openModal(editId ? '修改 · ' + w.name + ' (' + month + ')' : '录入 · ' + w.name,
     monthField + fields +
     '<p class="msg ok" id="recSavedHint" style="display:none;margin:8px 0 0;">已保存，可继续录入下一条</p>' +
-    actions);
+    actions, null, true);
   if (type === 'investment') {
     var calc = function(){
       var t = parseFloat(document.getElementById('fTotal').value)||0;
@@ -5224,7 +5225,7 @@ window.wEdit = function(id){
   openModal('编辑钱包',
     '<label>类型</label><select id="eType">' + opts + '</select>' +
     '<label>名称</label><input id="eName" value="' + esc(w.name) + '">' +
-    '<div style="margin-top:12px;"><button class="btn" id="eConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="eConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('eConfirm').addEventListener('click', async function(){
     try { await api('/api/asset/wallets/' + id, { method:'PUT', body:{ type: document.getElementById('eType').value, name: document.getElementById('eName').value } }); closeModal(); await loadAll(); }
     catch(e){ alertModal(e.message, {ok:false}); }
@@ -5255,7 +5256,7 @@ document.getElementById('walletAdd').addEventListener('click', function(){
   openModal('新建钱包',
     '<label>类型</label><select id="nType">' + opts + '</select>' +
     '<label>名称（如：AA的招商银行）</label><input id="nName">' +
-    '<div style="margin-top:12px;"><button class="btn" id="nConfirm">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="nConfirm">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('nConfirm').addEventListener('click', async function(){
     try { await api('/api/asset/wallets', { method:'POST', body:{ type: document.getElementById('nType').value, name: document.getElementById('nName').value } }); closeModal(); await loadAll(); }
     catch(e){ alertModal(e.message, {ok:false}); }
@@ -8638,7 +8639,7 @@ function scCreate() {
   openModal('新建共享分类',
     '<p class="muted" style="margin:0 0 8px;">创建一个共享分类（如「家庭」），家人凭邀请码加入后，分类下的待办对大家可见可协作，也会出现在每位成员的日报中。</p>' +
     '<input id="scNewName" placeholder="分类名称，如：家庭" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:6px;box-sizing:border-box;">' +
-    '<div style="text-align:right;margin-top:14px;"><button class="btn gray" onclick="closeModal()">取消</button> <button class="btn" id="scCreateOk">创建</button></div>');
+    '<div style="text-align:right;margin-top:14px;"><button class="btn gray" onclick="closeModal()">取消</button> <button class="btn" id="scCreateOk">创建</button></div>', null, true);
   bindClickBusy(document.getElementById('scCreateOk'), async function(){
     var name = (document.getElementById('scNewName').value || '').trim();
     if (!name) { alertModal('请填写分类名称', {ok:false}); return; }
@@ -8652,7 +8653,7 @@ function scJoin() {
   openModal('加入共享分类',
     '<p class="muted" style="margin:0 0 8px;">输入家人分享的 8 位邀请码（或直接打开家人发的邀请链接）。</p>' +
     '<input id="scJoinCode" placeholder="邀请码" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:6px;box-sizing:border-box;letter-spacing:2px;">' +
-    '<div style="text-align:right;margin-top:14px;"><button class="btn gray" onclick="closeModal()">取消</button> <button class="btn" id="scJoinOk">加入</button></div>');
+    '<div style="text-align:right;margin-top:14px;"><button class="btn gray" onclick="closeModal()">取消</button> <button class="btn" id="scJoinOk">加入</button></div>', null, true);
   bindClickBusy(document.getElementById('scJoinOk'), async function(){
     var code = (document.getElementById('scJoinCode').value || '').trim();
     if (!code) { alertModal('请输入邀请码', {ok:false}); return; }
@@ -8747,7 +8748,7 @@ function onTodoRenameCat(name) {
   openModal('重命名分类',
     '<p class="muted" style="margin:0 0 8px;">输入新的分类名称，该分类下所有任务将同步改挂新名称。</p>' +
     '<input id="catRenameInput" value="' + esc(name) + '" placeholder="分类名称" style="width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:6px;box-sizing:border-box;">' +
-    '<div style="text-align:right;margin-top:14px;"><button class="btn gray" onclick="closeModal()">取消</button> <button class="btn" id="catRenameOk">保存</button></div>');
+    '<div style="text-align:right;margin-top:14px;"><button class="btn gray" onclick="closeModal()">取消</button> <button class="btn" id="catRenameOk">保存</button></div>', null, true);
   var input = document.getElementById('catRenameInput');
   if (input) {
     input.focus(); input.select();
@@ -9097,7 +9098,7 @@ function openAddForm(parentId, title) {
   var fopts = { childDueMode: !!(pRow && pRow.child_due), canRecur: true,
     inheritDue: pRow ? (todoEffDueRow(pRow, _byId) || '') : '' };
   openModal(title, todoFormHtml({}, true, true, fopts) +
-    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   var pref = (_todoCategory && _todoCategory !== '__none__' && _todoCategory !== '__all__') ? _todoCategory : '';
   todoFillCategoryOptions(_rows, pref);
   bindClickBusy(document.getElementById('tfCreate'), async function(){
@@ -9255,7 +9256,7 @@ function openReportEdit(node) {
   var _rootTitle = isChild && node._root ? node._root.title : '';
   openModal(isChild ? (_rootTitle ? '编辑子任务 · ' + _rootTitle : '编辑子任务') : '编辑任务',
     todoFormHtml(node, false, isChild, fopts) +
-    '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   todoFillCategoryOptions(_rows, node.category || '');
   (async function(){
     var noteEl = document.getElementById('tfNote'); if (!noteEl) return;
@@ -9294,7 +9295,7 @@ function openAddForm(parentId, title, isChild) {
     }
   }
   openModal(title, todoFormHtml({}, true, !!isChild, fopts) +
-    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   var pref = (_todoCategory && _todoCategory !== '__none__' && _todoCategory !== '__all__') ? _todoCategory : '';
   todoFillCategoryOptions(_rows, pref);
   bindClickBusy(document.getElementById('tfCreate'), async function(){
@@ -9603,7 +9604,7 @@ function openAddForm(parentId, title, isChild) {
     }
   }
   openModal(title, todoFormHtml({}, true, !!isChild, fopts) +
-    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>');
+    '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   var pref = (_todoCategory && _todoCategory !== '__none__' && _todoCategory !== '__all__') ? _todoCategory : '';
   todoFillCategoryOptions(_rows, pref);
   bindClickBusy(document.getElementById('tfCreate'), async function(){
