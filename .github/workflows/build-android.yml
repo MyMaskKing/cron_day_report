@@ -128,6 +128,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+        with:
+          # 覆盖 action 默认的 "tools platform-tools"：tools 遗留包已从新仓库清单移除
+          # （cmdline-tools 20.0 下 sdkmanager 报 Failed to find package 'tools'）
+          packages: 'platform-tools'
 
       - name: Install Android platform & build-tools
         run: |
