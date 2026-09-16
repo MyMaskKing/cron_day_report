@@ -2089,6 +2089,7 @@ applyRegLimit();
 // 仪表盘 JS
 const DASHBOARD_JS = `
 bindLogout();
+bindModal();
 (function() {
   function pad2(n){ return (n < 10 ? '0' : '') + n; }
   var now = new Date();
@@ -2102,25 +2103,67 @@ bindLogout();
     if (el && me.user) el.textContent = '欢迎，' + (me.user.nickname || me.user.username);
   }).catch(function(){});
 
-  // 待办: KPI 直接用后端 stats 口径; 列表取今日到期+逾期的叶子任务前 5
-  api('/api/todo/list').then(function(d){
-    var s = d.stats || {};
-    document.getElementById('kpiToday').textContent = s.today || 0;
-    document.getElementById('kpiOverdue').textContent = s.overdue || 0;
-    var rows = (d.todos || []).filter(function(r){
-      return !r.done && r.due_date && r.due_date <= today && !r.child_due && r.parent_id == null;
-    }).sort(function(a, b){ return a.due_date < b.due_date ? -1 : 1; }).slice(0, 5);
-    var box = document.getElementById('dashTodo');
-    if (!box) return;
-    if (!rows.length) { box.innerHTML = '<p class="muted" style="margin:0;">今天没有到期任务。</p>'; return; }
-    box.innerHTML = rows.map(function(r){
-      var od = r.due_date < today;
-      var label = od ? (Number(r.due_date.slice(5, 7)) + '月' + Number(r.due_date.slice(8, 10)) + '日') : '今天';
-      return '<div class="dash-row"><span class="d-dot' + (od ? ' od' : '') + '"></span>'
-        + '<a href="/todo?edit=' + r.id + '">' + esc(r.title) + '</a>'
-        + '<span class="d-tag' + (od ? ' od' : '') + '">' + label + '</span></div>';
-    }).join('');
-  }).catch(function(){});
+  // 待办: KPI 直接用后端 stats 口径; 列表取今日到期+逾期的主任务前 5;
+  // 全量 rows 缓存供点击行时构造任务树、在仪表盘原地弹出详情(不跳转, 复用 todo-core 的 openTodoDetail)
+  var dashTodoRows = [];
+  function loadDashTodos(){
+    return api('/api/todo/list').then(function(d){
+      var s = d.stats || {};
+      document.getElementById('kpiToday').textContent = s.today || 0;
+      document.getElementById('kpiOverdue').textContent = s.overdue || 0;
+      dashTodoRows = d.todos || [];
+      var rows = dashTodoRows.filter(function(r){
+        return !r.done && r.due_date && r.due_date <= today && !r.child_due && r.parent_id == null;
+      }).sort(function(a, b){ return a.due_date < b.due_date ? -1 : 1; }).slice(0, 5);
+      var box = document.getElementById('dashTodo');
+      if (!box) return;
+      if (!rows.length) { box.innerHTML = '<p class="muted" style="margin:0;">今天没有到期任务。</p>'; return; }
+      box.innerHTML = rows.map(function(r){
+        var od = r.due_date < today;
+        var label = od ? (Number(r.due_date.slice(5, 7)) + '月' + Number(r.due_date.slice(8, 10)) + '日') : '今天';
+        return '<div class="dash-row"><span class="d-dot' + (od ? ' od' : '') + '"></span>'
+          + '<a href="/todo?edit=' + r.id + '">' + esc(r.title) + '</a>'
+          + '<span class="d-tag' + (od ? ' od' : '') + '">' + label + '</span></div>';
+      }).join('');
+    }).catch(function(){});
+  }
+  loadDashTodos();
+
+  // 点行原地弹任务详情(等同待办页眼睛图标); href 保留作无 JS/中键新标签的降级跳转
+  var dashBox = document.getElementById('dashTodo');
+  if (dashBox) dashBox.addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a[href^="/todo?edit="]');
+    if (!a) return;
+    e.preventDefault();
+    var id = Number(String(a.getAttribute('href')).split('edit=')[1]);
+    var node = null;
+    (function walk(list){
+      list.forEach(function(n){
+        if (node) return;
+        if (n.id === id) { node = n; return; }
+        walk(n.children || []);
+      });
+    })(todoBuildTree(dashTodoRows));
+    if (!node) return;
+    openTodoDetail(node, {
+      today: today,
+      editable: true,
+      // 复杂编辑去待办页(openTodoEdit 仅待办页脚本有)
+      onEdit: function(n){ location.href = '/todo?edit=' + n.id; },
+      // 子任务勾选: 完成后关闭详情(openTodoDetail 内部处理)并重拉仪表盘 KPI/列表
+      onToggle: async function(n, done){
+        try {
+          await api('/api/todo/' + n.id + '/done', { method: 'PUT', body: { done: done } });
+          await loadDashTodos();
+          return true;
+        } catch (err) { alertModal(err.message, { ok: false }); return false; }
+      },
+      listAttachments: async function(id){
+        var r = await api('/api/todo/' + id + '/attachments');
+        return r.attachments || [];
+      }
+    });
+  });
 
   // 体重: 取第一位成员(通常是本人)的最新一条记录, 库内 kg 按用户单位换算
   api('/api/weight/chart').then(function(d){

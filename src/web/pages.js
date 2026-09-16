@@ -146,7 +146,7 @@ function dashboardPage(user) {
       </div>
     </div>
   </div>`;
-  return renderPage({ title: '仪表盘', body, scripts: ['page-dashboard.js'], theme: user.theme });
+  return renderPage({ title: '仪表盘', body, scripts: ['todo-core.js', 'page-dashboard.js'], theme: user.theme });
 }
 
 /** 超管用户管理页 */
