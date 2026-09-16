@@ -170,6 +170,8 @@ private fun AppShell(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var baseUrl by remember { mutableStateOf(AppConfig.getBaseUrl(context)) }
+    // 当前账号角色：sid 变化时拉 /api/auth/me 更新；「我的」页据此隐藏用户管理
+    var accountRole by remember { mutableStateOf(Prefs.getRole(context)) }
     var selected by rememberSaveable { mutableStateOf(tabIndexFor(initialUrl)) }
     var showMe by rememberSaveable { mutableStateOf(false) }
     var targetUrl by rememberSaveable { mutableStateOf(initialUrl ?: (baseUrl + TABS[0].path)) }
@@ -368,6 +370,15 @@ private fun AppShell(
                                     !sid.isNullOrBlank() && sid != oldSid -> {
                                         // 登录/会话变更：写入 sid
                                         Prefs.setSid(context, sid)
+                                        // 拉取账号角色（admin 才显示「用户管理」）；失败按普通用户兜底
+                                        val roleBaseUrl = currentBaseUrl
+                                        kotlinx.coroutines.MainScope().launch(Dispatchers.IO) {
+                                            val role = runCatching {
+                                                ApiClient.fetchRole(roleBaseUrl, sid)
+                                            }.getOrNull() ?: "user"
+                                            Prefs.setRole(context, role)
+                                            withContext(Dispatchers.Main) { accountRole = role }
+                                        }
                                         // 登录成功后若停在登录页/dashboard 等非 Tab 页，自动切到待办 Tab
                                         val path = url?.let { Uri.parse(it).path } ?: ""
                                         val onTab = TABS.any { t ->
@@ -386,6 +397,8 @@ private fun AppShell(
                                     sid.isNullOrBlank() && oldSid.isNotBlank() -> {
                                         // 登出/会话失效：清除并刷新小组件
                                         Prefs.clearSid(context)
+                                        Prefs.clearRole(context)
+                                        accountRole = "user"
                                         kotlinx.coroutines.MainScope().launch(Dispatchers.IO) {
                                             withContext(Dispatchers.Main) { TodoAppWidget().updateAll(context) }
                                         }
@@ -535,11 +548,14 @@ private fun AppShell(
                     MeScreen(
                     baseUrl = baseUrl,
                     currentUrl = { webViewRef?.url ?: baseUrl },
+                    isAdmin = accountRole == "admin",
                     onOpenPath = { path -> openPath(path) },
                     onChangeBaseUrl = { newUrl ->
                         AppConfig.setBaseUrl(context, newUrl)
                         CookieManager.getInstance().removeAllCookies(null)
                         Prefs.clearSid(context)
+                        Prefs.clearRole(context)
+                        accountRole = "user"
                         baseUrl = AppConfig.normalize(newUrl)
                         targetUrl = baseUrl + "/todo"
                         selected = 0
@@ -583,6 +599,8 @@ private fun AppShell(
                     onLogout = {
                         CookieManager.getInstance().removeAllCookies(null)
                         Prefs.clearSid(context)
+                        Prefs.clearRole(context)
+                        accountRole = "user"
                         targetUrl = baseUrl + "/login"
                         showMe = false
                         webViewRef?.loadUrl(targetUrl)

@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 fun MeScreen(
     baseUrl: String,
     currentUrl: () -> String,
+    isAdmin: Boolean,
     onOpenPath: (String) -> Unit,
     onChangeBaseUrl: (String) -> Unit,
     onOpenInBrowser: () -> Unit,
@@ -70,8 +71,12 @@ fun MeScreen(
         MeGroup {
             MeItem(R.drawable.ic_me_monitor, "网站监控", "查看定时任务与访问记录") { onOpenPath("/monitor") }
             MeItem(R.drawable.ic_me_channels, "通知渠道", "企业微信 / Webhook / 邮件", divider = true) { onOpenPath("/channels") }
-            MeItem(R.drawable.ic_me_settings, "推送与设置", "日报推送、账号与系统设置", divider = true) { onOpenPath("/settings") }
-            MeItem(R.drawable.ic_me_users, "用户管理", "管理员可用，切换身份/管理用户") { onOpenPath("/admin") }
+            // 「推送与设置」仅当下方还有用户管理项时才画分隔线（末项不画）
+            MeItem(R.drawable.ic_me_settings, "推送与设置", "日报推送、账号与系统设置", divider = isAdmin) { onOpenPath("/settings") }
+            // 用户管理仅超管可见；普通用户不渲染入口（服务端 /admin 另有兜底拦截）
+            if (isAdmin) {
+                MeItem(R.drawable.ic_me_users, "用户管理", "管理员可用，切换身份/管理用户") { onOpenPath("/admin") }
+            }
         }
 
         Spacer(Modifier.height(12.dp))

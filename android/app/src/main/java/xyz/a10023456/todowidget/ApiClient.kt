@@ -6,6 +6,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
@@ -74,6 +75,24 @@ object ApiClient {
                 throw RuntimeException(err?.message ?: "HTTP ${resp.code}")
             }
             return json.decodeFromString<WidgetResponse>(body)
+        }
+    }
+
+    /**
+     * 查询当前会话账号角色（admin|user），供原生「我的」页隐藏超管入口。
+     * 失败（网络错误/非 2xx/会话失效/解析失败）返回 null，调用方按 user 兜底。
+     */
+    fun fetchRole(baseUrl: String, sid: String): String? {
+        if (sid.isBlank()) return null
+        val req = Request.Builder().url("${baseUrlOf(baseUrl)}/api/auth/me").get()
+            .header("Cookie", "sid=$sid")
+            .build()
+        execute(req).use { resp ->
+            if (!resp.isSuccessful) return null
+            val body = resp.body?.string().orEmpty()
+            return runCatching { JSONObject(body).getJSONObject("user").getString("role") }
+                .getOrNull()
+                ?.takeIf { it == "admin" || it == "user" }
         }
     }
 

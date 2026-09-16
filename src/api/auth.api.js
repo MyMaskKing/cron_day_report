@@ -25,6 +25,8 @@ function validateCredentials(username, password) {
 
 // 界面主题合法值（与前端 data-theme 取值一致）；非法值回退 light
 const THEMES = ['light', 'dark', 'eye'];
+// 每日勉励卡风格：a=极光能量(默认) c=手账打气 h1=战书令 h2=最后通牒；非法值回退 a
+const MOTTO_STYLES = ['a', 'c', 'h1', 'h2'];
 
 // 注册人数上限相关 app_settings 键
 const SETTING_REG_LIMIT = 'register_limit';
@@ -144,7 +146,7 @@ async function getProfile({ request, env }) {
     theme: THEMES.includes(u.theme) ? u.theme : 'light',
     todo_auto_parent: u.todo_auto_parent === 0 ? 0 : 1,
     motto: u.motto || '',
-    motto_style: u.motto_style === 'c' ? 'c' : 'a'
+    motto_style: MOTTO_STYLES.includes(u.motto_style) ? u.motto_style : 'a'
   } });
 }
 
@@ -343,7 +345,7 @@ async function updateMotto({ request, env }) {
   const body = await request.json().catch(() => ({}));
   const motto = typeof body.motto === 'string' ? body.motto.trim() : '';
   if (motto.length > 80) return error('座右铭最多 80 个字符', 400);
-  const style = body.style === 'c' ? 'c' : 'a';
+  const style = MOTTO_STYLES.includes(body.style) ? body.style : 'a';
   const storage = getStorage(env);
   await storage.users.updateMotto(session.user_id, motto, style);
   return json({ success: true, message: '座右铭已保存' });

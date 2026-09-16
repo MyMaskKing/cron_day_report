@@ -2117,7 +2117,7 @@ bindLogout();
       var od = r.due_date < today;
       var label = od ? (Number(r.due_date.slice(5, 7)) + '月' + Number(r.due_date.slice(8, 10)) + '日') : '今天';
       return '<div class="dash-row"><span class="d-dot' + (od ? ' od' : '') + '"></span>'
-        + '<a href="/todo?root=' + r.id + '">' + esc(r.title) + '</a>'
+        + '<a href="/todo?edit=' + r.id + '">' + esc(r.title) + '</a>'
         + '<span class="d-tag' + (od ? ' od' : '') + '">' + label + '</span></div>';
     }).join('');
   }).catch(function(){});
@@ -2166,7 +2166,7 @@ var showMsg = function(_el, text, ok){ showToast(text, ok); };
     var mi0 = document.getElementById('mottoInput');
     if (mi0) {
       mi0.value = d.profile.motto || '';
-      mottoStyle = d.profile.motto_style === 'c' ? 'c' : 'a';
+      mottoStyle = ['a','c','h1','h2'].indexOf(d.profile.motto_style) >= 0 ? d.profile.motto_style : 'a';
       document.querySelectorAll('.motto-style').forEach(function(b){
         b.classList.toggle('on', b.dataset.style === mottoStyle);
       });
@@ -9051,6 +9051,8 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
         today: todayStr(),
         editable: true,
         onEdit: function(n){ openTodoEdit(n); },
+        // 与列表「查看详情」眼睛图标完全一致：弹层内可直接勾选完成
+        onToggle: todoToggleDone,
         listAttachments: async function(id){
           var r = await api('/api/todo/' + id + '/attachments');
           return r.attachments || [];

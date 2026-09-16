@@ -28,6 +28,15 @@ object Prefs {
     fun setTheme(context: Context, theme: String) =
         sp(context).edit().putString("app_theme", theme).apply()
 
+    // ── 当前登录账号角色（admin|user）：sid 变化时由 ApiClient 拉 /api/auth/me 刷新，
+    //    「我的」页据此隐藏超管入口；登出/换服务器清除，默认 user ──
+    fun getRole(context: Context): String = sp(context).getString("account_role", "user") ?: "user"
+
+    fun setRole(context: Context, role: String) =
+        sp(context).edit().putString("account_role", role).apply()
+
+    fun clearRole(context: Context) = sp(context).edit().remove("account_role").apply()
+
     fun getToken(context: Context, widgetId: Int): String =
         sp(context).getString("token_$widgetId", "") ?: ""
 

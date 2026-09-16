@@ -14,7 +14,7 @@
 -- investment_strategy: 投资策略 Markdown, 每用户一条
 -- theme: 界面主题 light(默认) | dark | eye
 -- todo_auto_parent: 待办偏好, 1=子任务全部完成后父任务自动完成(默认) | 0=关闭
--- motto: 每日勉励卡正文(用户私有), 空=不弹; motto_style: a=极光能量(默认) | c=手账打气
+-- motto: 每日勉励卡正文(用户私有), 空=不弹; motto_style: a=极光能量(默认) | c=手账打气 | h1=战书令 | h2=最后通牒
 -- motto_seen_date: 最近已读日期 YYYY-MM-DD(按 tz_offset 计日), 不等于今日则当天首次登录弹一次
 CREATE TABLE IF NOT EXISTS users (
   id                   INTEGER PRIMARY KEY AUTOINCREMENT,

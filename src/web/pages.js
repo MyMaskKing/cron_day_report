@@ -700,6 +700,14 @@ function settingsPage(user) {
           <span class="ms-prev"><i></i></span>
           <span class="ms-name">手账打气<small>暖色便签 · 治愈陪伴</small></span>
         </button>
+        <button type="button" class="motto-style" data-style="h1">
+          <span class="ms-prev">今日必办</span>
+          <span class="ms-name">战书令<small>黑红战书 · 狠话叫醒</small></span>
+        </button>
+        <button type="button" class="motto-style" data-style="h2">
+          <span class="ms-prev">23:59:59</span>
+          <span class="ms-name">最后通牒<small>今日倒计时 · 时间在烧</small></span>
+        </button>
       </div>
       <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
         <button class="btn" id="mottoSave" type="button">保存勉励</button>

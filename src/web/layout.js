@@ -411,6 +411,7 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
 #kpiOverdue.num:not(:empty) { color: var(--danger); }
 /* 仪表盘今日待办行 */
 .dash-todo .dash-row {
+  position: relative;
   display: flex; align-items: center; gap: 10px;
   padding: 9px 2px; border-bottom: 1px solid var(--th-border); font-size: 14px;
 }
@@ -419,6 +420,8 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
 .dash-row .d-dot.od { background: var(--danger); }
 .dash-row a { flex: 1; min-width: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dash-row a:hover { color: var(--brand); }
+/* 整行都是链接热区：伪元素铺满行（含圆点/日期标签），点哪都直达该任务详情 /todo?root=id */
+.dash-row a::after { content: ''; position: absolute; inset: 0; }
 .dash-row .d-tag { font-size: 11.5px; color: var(--muted-2); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .dash-row .d-tag.od { color: var(--danger); font-weight: 600; }
 /* 主按钮: 品牌双色紫渐变 + 内高光, hover 提亮 + 品牌柔光, 点击涟漪 */
@@ -1725,6 +1728,104 @@ html { scrollbar-gutter: stable; }
   .motto-overlay, .motto-overlay * { animation: none !important; transition: none !important; }
 }
 
+/* —— H1 战书令（黑红粗野，针对意志力薄弱的"狠话叫醒"） —— */
+.motto-overlay.is-h1 { background: #0A0A0C; color: #F4F2EE; padding: 30px 28px; }
+.motto-h1__hazard { position: absolute; left: 0; right: 0; height: 10px; z-index: 5;
+  background: repeating-linear-gradient(-45deg, #E11D2E 0 12px, #0A0A0C 12px 24px); }
+.motto-h1__hazard.top { top: 0; }
+.motto-h1__hazard.bot { bottom: 0; }
+.motto-overlay.is-h1 .motto-x { background: rgba(255,255,255,.07); color: rgba(255,255,255,.75); }
+.motto-overlay.is-h1 .motto-x:hover { background: rgba(255,255,255,.16); }
+.motto-h1__frame { position: relative; z-index: 6; flex: 1; display: flex; flex-direction: column;
+  width: 100%; max-width: 620px; margin-block: 10px; margin-inline: auto;
+  border: 2px solid rgba(255,255,255,.85); padding: 24px 22px; }
+.motto-h1__frame::before { content: ''; position: absolute; inset: 5px;
+  border: 1px solid rgba(225,29,46,.55); pointer-events: none; }
+.motto-h1__top { display: flex; justify-content: space-between; align-items: flex-start; }
+.motto-h1__writ { font-size: 11px; font-weight: 900; letter-spacing: .3em; color: #E11D2E;
+  border: 2px solid #E11D2E; padding: 4px 9px; transform: rotate(-3deg); }
+.motto-h1__no { font-size: 11px; color: rgba(255,255,255,.45); font-variant-numeric: tabular-nums; letter-spacing: .1em; }
+.motto-h1__mid { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.motto-h1__kick { font-size: 12.5px; font-weight: 800; color: rgba(255,255,255,.55);
+  letter-spacing: .14em; margin-bottom: 14px; }
+.motto-overlay.is-h1 .motto-quote { text-shadow: 0 0 40px rgba(225,29,46,.35); }
+.motto-h1__sign { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 18px; }
+.motto-h1__stamp { font-size: 12px; font-weight: 900; color: #E11D2E; border: 2.5px solid #E11D2E;
+  padding: 6px 10px; letter-spacing: .22em; transform: rotate(6deg); opacity: .92;
+  font-family: "Songti SC", "STSong", "SimSun", serif; }
+.motto-h1__date { font-size: 11px; color: rgba(255,255,255,.4); font-variant-numeric: tabular-nums; }
+.motto-h1__actions { position: relative; z-index: 10; display: flex; flex-direction: column;
+  align-items: center; width: 100%; max-width: 620px; margin-inline: auto; }
+.motto-h1__btn { display: inline-flex; align-items: center; gap: 9px;
+  background: #E11D2E; color: #fff; border: 0; border-radius: 0;
+  font: inherit; font-size: 15px; font-weight: 900; letter-spacing: .08em; padding: 14px 30px; cursor: pointer;
+  box-shadow: 7px 7px 0 rgba(225,29,46,.25); transition: transform .12s ease, box-shadow .12s ease; }
+.motto-h1__btn:hover { transform: translate(-2px,-2px); box-shadow: 10px 10px 0 rgba(225,29,46,.3); }
+.motto-h1__tip { margin-top: 12px; font-size: 11px; letter-spacing: .12em; color: rgba(255,255,255,.38); text-align: center; }
+.motto-overlay.is-h1 .motto-quote[data-len="s"] { font-size: 37px; }
+.motto-overlay.is-h1 .motto-quote[data-len="m"] { font-size: 28px; }
+.motto-overlay.is-h1 .motto-quote[data-len="l"] { font-size: 21px; }
+.motto-overlay.is-h1.is-on .motto-quote { animation: mottoSlam .55s cubic-bezier(.16,1,.3,1) .25s both; }
+@keyframes mottoSlam { 0% { opacity: 0; transform: translateY(26px) scale(.985); }
+  60% { transform: translateY(-3px) scale(1.005); } 100% { opacity: 1; transform: none; } }
+.motto-overlay.is-h1.is-on .motto-h1__stamp { animation: mottoH1Stamp .4s cubic-bezier(.2,1.8,.4,1) .9s both; }
+@keyframes mottoH1Stamp { 0% { opacity: 0; transform: rotate(24deg) scale(2.4); }
+  100% { opacity: .92; transform: rotate(6deg) scale(1); } }
+
+/* —— H2 最后通牒（实时倒计时，针对"再等会儿"型拖延） —— */
+.motto-overlay.is-h2 { background: #0E0F14; color: #F2F3F8; padding: 30px 28px;
+  background-image: radial-gradient(rgba(255,255,255,.045) 1px, transparent 1px); background-size: 20px 20px; }
+.motto-h2__glow { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(80% 50% at 50% 0%, rgba(225,29,46,.2), transparent 70%); }
+.motto-overlay.is-h2 .motto-x { background: rgba(255,255,255,.07); color: rgba(255,255,255,.72); }
+.motto-overlay.is-h2 .motto-x:hover { background: rgba(255,255,255,.16); }
+.motto-h2__inner { position: relative; z-index: 5; width: 100%; max-width: 620px; margin-inline: auto;
+  flex: 1; display: flex; flex-direction: column; }
+.motto-h2__warn { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 900;
+  letter-spacing: .26em; color: #FF6B6B; }
+.motto-h2__dot { width: 8px; height: 8px; border-radius: 50%; background: #FF3B3B;
+  animation: mottoPulse 1.4s infinite; }
+@keyframes mottoPulse { 0% { box-shadow: 0 0 0 0 rgba(255,59,59,.6); }
+  70% { box-shadow: 0 0 0 11px rgba(255,59,59,0); } 100% { box-shadow: 0 0 0 0 rgba(255,59,59,0); } }
+.motto-h2__clock { margin: 14px 0 4px; }
+.motto-h2__clock .lab { font-size: 12px; color: rgba(255,255,255,.45); letter-spacing: .16em; margin-bottom: 2px; }
+.motto-h2__time { font-size: 58px; font-weight: 900; line-height: 1.05; font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+  background: linear-gradient(180deg, #FFF 20%, #FF8A6B 100%); -webkit-background-clip: text;
+  background-clip: text; color: transparent; }
+.motto-h2__dayleft { font-size: 12.5px; color: rgba(255,255,255,.5); font-variant-numeric: tabular-nums; }
+.motto-h2__dayleft b { color: #FF9080; font-weight: 900; }
+.motto-h2__rule { height: 1px; background: linear-gradient(90deg, rgba(225,29,46,.7), transparent); margin: 16px 0; }
+.motto-h2__mid { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.motto-h2__before { font-size: 12px; font-weight: 800; color: rgba(255,255,255,.45);
+  letter-spacing: .2em; margin-bottom: 10px; }
+.motto-overlay.is-h2 .motto-quote { line-height: 1.55; }
+.motto-h2__btn { display: inline-flex; align-items: center; gap: 9px;
+  background: linear-gradient(100deg, #E11D2E, #FF5A2D);
+  color: #fff; border: 0; border-radius: 12px; font: inherit; font-size: 15px; font-weight: 900;
+  letter-spacing: .08em; padding: 15px 30px; cursor: pointer;
+  box-shadow: 0 12px 34px rgba(225,29,46,.35);
+  transition: transform .15s ease, filter .15s ease; }
+.motto-h2__btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+.motto-h2__tip { margin-top: 11px; font-size: 11px; color: rgba(255,255,255,.36); letter-spacing: .08em; }
+.motto-overlay.is-h2 .motto-quote[data-len="s"] { font-size: 33px; }
+.motto-overlay.is-h2 .motto-quote[data-len="m"] { font-size: 25px; }
+.motto-overlay.is-h2 .motto-quote[data-len="l"] { font-size: 20px; }
+.motto-overlay.is-h2.is-on .motto-h2__time { animation: mottoClockIn .8s .15s both; }
+@keyframes mottoClockIn { from { opacity: 0; filter: blur(6px); } to { opacity: 1; filter: blur(0); } }
+
+@media (max-width: 640px) {
+  .motto-overlay.is-h1 { padding: 24px 20px; }
+  .motto-overlay.is-h1 .motto-quote[data-len="s"] { font-size: 29px; }
+  .motto-overlay.is-h1 .motto-quote[data-len="m"] { font-size: 23px; }
+  .motto-overlay.is-h1 .motto-quote[data-len="l"] { font-size: 18px; }
+  .motto-overlay.is-h2 { padding: 24px 20px; }
+  .motto-overlay.is-h2 .motto-h2__time { font-size: 44px; }
+  .motto-overlay.is-h2 .motto-quote[data-len="s"] { font-size: 27px; }
+  .motto-overlay.is-h2 .motto-quote[data-len="m"] { font-size: 21px; }
+  .motto-overlay.is-h2 .motto-quote[data-len="l"] { font-size: 17px; }
+}
+
 /* —— 设置页：每日勉励风格选择缩略卡 —— */
 .motto-input {
   width: 100%; border: 1px solid var(--border-strong); border-radius: 8px;
@@ -1732,7 +1833,7 @@ html { scrollbar-gutter: stable; }
   padding: 9px 11px; resize: vertical;
 }
 .motto-input:focus { outline: none; border-color: var(--brand); }
-.motto-styles { display: flex; gap: 10px; margin-top: 6px; }
+.motto-styles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
 .motto-style {
   flex: 1; border: 1.5px solid var(--border-strong); border-radius: 10px; overflow: hidden;
   background: var(--surface); color: var(--text); font: inherit; padding: 0; cursor: pointer;
@@ -1750,6 +1851,14 @@ html { scrollbar-gutter: stable; }
 }
 .motto-style[data-style="c"] .ms-prev { color: #4A4030; background: #F0E7D2;
   font-family: "Yuanti SC", "YouYuan", "幼圆", "PingFang SC", "Microsoft YaHei", sans-serif; }
+.motto-style[data-style="h1"] .ms-prev { color: #F4F2EE; background: #0A0A0C; position: relative;
+  overflow: hidden; font-weight: 900; letter-spacing: .12em; }
+.motto-style[data-style="h1"] .ms-prev::before { content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 5px; background: repeating-linear-gradient(-45deg, #E11D2E 0 6px, #0A0A0C 6px 12px); }
+.motto-style[data-style="h2"] .ms-prev { color: #FF8A6B; background: #0E0F14;
+  font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: .04em; gap: 6px; }
+.motto-style[data-style="h2"] .ms-prev::before { content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: #FF3B3B; box-shadow: 0 0 6px #FF3B3B; flex-shrink: 0; }
 .motto-style .ms-prev i { display: block; width: 58%; height: 26px; border-radius: 5px; background: #FFFDF3;
   box-shadow: 0 3px 8px rgba(110,84,40,.25); transform: rotate(-1.5deg); }
 .motto-style .ms-name { display: block; padding: 7px 10px; font-size: 13px; }
@@ -1758,7 +1867,7 @@ html { scrollbar-gutter: stable; }
 `;
 
 /**
- * 每日勉励卡（用户私有座右铭）：全屏弹层，两种风格 a/c。
+ * 每日勉励卡（用户私有座右铭）：全屏弹层，四种风格 a/c/h1/h2。
  * user.motto 非空才输出 DOM；user.mottoDue 控制当天首次打开自动展示。
  * 关闭经 POST /api/auth/motto-seen 按服务端时区记已读；设置页可调用 window.__mottoPreview() 手动唤出。
  * @param {Object} user - { motto, mottoStyle, mottoDue, tzOffset }
@@ -1767,7 +1876,7 @@ html { scrollbar-gutter: stable; }
 function renderMottoCard(user) {
   const motto = user && user.motto;
   if (!motto) return '';
-  const style = user.mottoStyle === 'c' ? 'c' : 'a';
+  const style = ['a', 'c', 'h1', 'h2'].includes(user.mottoStyle) ? user.mottoStyle : 'a';
   const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
@@ -1776,6 +1885,7 @@ function renderMottoCard(user) {
   const wk = '日一二三四五六'[d.getUTCDay()];
   const md = String(d.getUTCMonth() + 1).padStart(2, '0') + ' / ' + String(d.getUTCDate()).padStart(2, '0');
   const dot = `${d.getUTCMonth() + 1}.${d.getUTCDate()} 周${wk}`;
+  const iso = `${d.getUTCFullYear()}-${md.replace(' / ', '-')}`;
 
   const len = Array.from(motto.trim()).length <= 14 ? 's' : (Array.from(motto.trim()).length <= 30 ? 'm' : 'l');
   const quote = `<div class="motto-quote" data-len="${len}">${escHtml(motto)}</div>`;
@@ -1787,8 +1897,9 @@ function renderMottoCard(user) {
   const ICON_HEART = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.3C.4 8.6 2.3 5 5.7 5c2 0 3.4 1.1 4.3 2.6h4C14.9 6.1 16.3 5 18.3 5c3.4 0 5.3 3.6 3.7 6.7C19.5 16.1 12 21 12 21z"/></svg>';
   const ICON_DOT = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/></svg>';
 
-  const inner = style === 'a'
-    ? `<div class="motto-a__aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+  let inner;
+  if (style === 'a') {
+    inner = `<div class="motto-a__aurora" aria-hidden="true"><span></span><span></span><span></span></div>
        <div class="motto-a__veil" aria-hidden="true"></div>
        <button type="button" class="motto-x" data-motto-close aria-label="关闭（今日不再显示）">✕</button>
        <div class="motto-a__top" data-rise style="animation-delay:.05s"><span class="motto-a__badge">DAILY</span><span class="motto-a__date">${md} 周${wk}</span></div>
@@ -1796,8 +1907,9 @@ function renderMottoCard(user) {
          <div data-rise style="animation-delay:.22s">${quote}</div>
        </div>
        <button type="button" class="motto-a__cta" data-rise style="animation-delay:.5s" data-motto-close>开始今天 ${ICON_ARROW}</button>
-       <div class="motto-a__again" data-rise style="animation-delay:.64s">今日仅此一次 · 明天再见</div>`
-    : `<button type="button" class="motto-x" data-motto-close aria-label="关闭（今日不再显示）">✕</button>
+       <div class="motto-a__again" data-rise style="animation-delay:.64s">今日仅此一次 · 明天再见</div>`;
+  } else if (style === 'c') {
+    inner = `<button type="button" class="motto-x" data-motto-close aria-label="关闭（今日不再显示）">✕</button>
        <span class="motto-c__tape t1" aria-hidden="true"></span><span class="motto-c__tape t2" aria-hidden="true"></span>
        <span class="motto-c__sticker s1" aria-hidden="true">${ICON_STAR}</span>
        <span class="motto-c__sticker s2" aria-hidden="true">${ICON_HEART}</span>
@@ -1808,6 +1920,48 @@ function renderMottoCard(user) {
          ${ICON_WAVE}
        </div>
        <button type="button" class="motto-c__cta" data-motto-close data-rise style="animation-delay:.7s">贴进今天！</button>`;
+  } else if (style === 'h1') {
+    inner = `<div class="motto-h1__hazard top" aria-hidden="true"></div><div class="motto-h1__hazard bot" aria-hidden="true"></div>
+       <button type="button" class="motto-x" data-motto-close aria-label="关闭（今日不再显示）">✕</button>
+       <div class="motto-h1__frame">
+         <div class="motto-h1__top" data-rise style="animation-delay:.05s">
+           <span class="motto-h1__writ">战 书</span>
+           <span class="motto-h1__no">NO. ${iso}</span>
+         </div>
+         <div class="motto-h1__mid">
+           <div class="motto-h1__kick" data-rise style="animation-delay:.15s">致 又 想 找 借 口 的 你</div>
+           ${quote}
+         </div>
+         <div class="motto-h1__sign" data-rise style="animation-delay:.75s">
+           <span class="motto-h1__stamp">今日必办</span>
+           <span class="motto-h1__date">${dot}</span>
+         </div>
+       </div>
+       <div class="motto-h1__actions" data-rise style="animation-delay:.6s">
+         <button type="button" class="motto-h1__btn" data-motto-close>干，就现在 ${ICON_ARROW}</button>
+         <div class="motto-h1__tip">今日只下一道 · 明天此时再战</div>
+       </div>`;
+  } else {
+    inner = `<div class="motto-h2__glow" aria-hidden="true"></div>
+       <button type="button" class="motto-x" data-motto-close aria-label="关闭（今日不再显示）">✕</button>
+       <div class="motto-h2__inner">
+         <div class="motto-h2__warn" data-rise style="animation-delay:.05s"><span class="motto-h2__dot"></span>最 后 通 牒 · 时 间 在 烧</div>
+         <div class="motto-h2__clock" data-rise style="animation-delay:.1s">
+           <div class="lab">你的今天还剩</div>
+           <div class="motto-h2__time" data-clock>--:--:--</div>
+           <div class="motto-h2__dayleft">今年还剩 <b data-days>--</b> 天 · 没一天能重来</div>
+         </div>
+         <div class="motto-h2__rule"></div>
+         <div class="motto-h2__mid">
+           <div class="motto-h2__before" data-rise style="animation-delay:.4s">在今天结束之前，记住：</div>
+           <div data-rise style="animation-delay:.5s">${quote}</div>
+         </div>
+         <div data-rise style="animation-delay:.7s">
+           <button type="button" class="motto-h2__btn" data-motto-close>现在就去做 ${ICON_ARROW}</button>
+           <div class="motto-h2__tip">关掉它不难 · 难的是关掉之后真的去做</div>
+         </div>
+       </div>`;
+  }
 
   // 关闭：按钮/✕/点遮罩空白/ESC；上报失败静默（次日仍会再弹）。预览态(__mottoPreview)同样记已读。
   const js = `(function(){
@@ -1827,6 +1981,23 @@ function renderMottoCard(user) {
     if (e.key === 'Escape' && ov.classList.contains('is-on')) closeMotto();
   });
   window.__mottoPreview = function(){ ov.classList.add('is-on'); };
+${style === 'h2' ? `  // H2 最后通牒：按用户时区(tz_offset)实时倒计时到今天 24:00 与今年剩余天数
+  var tz = ${Number.isFinite(user.tzOffset) ? user.tzOffset : 8};
+  var clockEl = ov.querySelector('[data-clock]');
+  var daysEl = ov.querySelector('[data-days]');
+  var pad2 = function(n){ return (n < 10 ? '0' : '') + n; };
+  function mottoTick(){
+    var nowMs = Date.now();
+    var sd = new Date(nowMs + tz * 3600000);
+    var midnight = Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate() + 1) - tz * 3600000;
+    var yearEnd = Date.UTC(sd.getUTCFullYear() + 1, 0, 1) - tz * 3600000;
+    var left = Math.max(0, midnight - nowMs);
+    if (clockEl) clockEl.textContent = pad2(Math.floor(left / 3600000)) + ':'
+      + pad2(Math.floor(left % 3600000 / 60000)) + ':' + pad2(Math.floor(left % 60000 / 1000));
+    if (daysEl) daysEl.textContent = Math.ceil((yearEnd - nowMs) / 86400000);
+  }
+  mottoTick();
+  setInterval(mottoTick, 1000);` : ''}
 })();`;
 
   return `<div class="motto-overlay is-${style}${user.mottoDue ? ' is-on' : ''}" id="mottoOverlay"

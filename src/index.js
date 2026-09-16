@@ -410,7 +410,7 @@ async function handlePages(request, env) {
     user.theme = (_me && ['light', 'dark', 'eye'].includes(_me.theme)) ? _me.theme : 'light';
     // 每日勉励卡（用户私有）：受限免密会话不弹；mottoDue=今日是否未读（按 tz_offset 计日）
     user.motto = (!session.quicklogin_module && _me && _me.motto) ? _me.motto : '';
-    user.mottoStyle = _me && _me.motto_style === 'c' ? 'c' : 'a';
+    user.mottoStyle = _me && ['a', 'c', 'h1', 'h2'].includes(_me.motto_style) ? _me.motto_style : 'a';
     user.mottoDue = !!user.motto && _me.motto_seen_date !== nowCN(Date.now(), user.tzOffset).dateStr;
 
     switch (pageMap[path]) {
