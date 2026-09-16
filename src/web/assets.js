@@ -2213,7 +2213,7 @@ var showMsg = function(_el, text, ok){ showToast(text, ok); };
       document.querySelectorAll('.motto-style').forEach(function(b){
         b.classList.toggle('on', b.dataset.style === mottoStyle);
       });
-      document.getElementById('mottoCount').textContent = mi0.value.length + '/80';
+      document.getElementById('mottoCount').textContent = mottoPlainLen(mi0.value) + '/80（样式标记不计）';
     }
   } catch(e){ navTo('/login'); }
 })();
@@ -2292,13 +2292,21 @@ document.getElementById('nickForm').addEventListener('submit', async function(e)
 });
 
 // ===== 每日勉励卡（用户私有座右铭，a=极光能量默认 / c=手账打气） =====
+// 正文字数：去除行内样式标记后按码点计数（与后端 mottoPlainLen、卡片字号分档同一口径）
+function mottoPlainLen(s) {
+  // 注意：本函数处于模板字符串内，正则反斜杠必须双写（\\* 才是页面脚本里的 \*）
+  return Array.from(String(s).replace(/\\*\\*|~~|__|\\+\\+|\\[f:y\\]|\\[\\/f\\]|~/g, '')).length;
+}
 var mottoInput = document.getElementById('mottoInput');
 var mottoStyle = 'a';
 if (mottoInput) {
   var mottoCount = document.getElementById('mottoCount');
-  mottoInput.addEventListener('input', function(){
-    mottoCount.textContent = mottoInput.value.length + '/80';
-  });
+  function mottoUpdateCount(){
+    var n = mottoPlainLen(mottoInput.value);
+    mottoCount.textContent = n + '/80（样式标记不计）';
+    mottoCount.style.color = n > 80 ? 'var(--danger)' : '';
+  }
+  mottoInput.addEventListener('input', mottoUpdateCount);
   // 行内标记工具栏：选中文字包标记；无选中时插入占位「文字」并选中，方便直接改写
   var MOTTO_TAGS = { b:['**','**'], s:['~~','~~'], u:['__','__'], w:['~','~'], big:['++','++'], font:['[f:y]','[/f]'] };
   var mottoTb = document.getElementById('mottoToolbar');
@@ -2313,7 +2321,7 @@ if (mottoInput) {
     mottoInput.value = val.slice(0, start) + pair[0] + selected + pair[1] + val.slice(end);
     mottoInput.focus();
     mottoInput.setSelectionRange(start + pair[0].length, start + pair[0].length + selected.length);
-    mottoCount.textContent = mottoInput.value.length + '/80';
+    mottoUpdateCount();
   });
   document.getElementById('mottoStyles').addEventListener('click', function(e){
     var b = e.target.closest('.motto-style');
@@ -2324,7 +2332,7 @@ if (mottoInput) {
   // 保存：同风格时即时更新本页已直出卡片的文案；跨风格/首次填写由刷新统一呈现
   document.getElementById('mottoSave').addEventListener('click', async function(){
     var text = mottoInput.value.trim();
-    if (text.length > 80) { showMsg(msg, '座右铭最多 80 个字符', false); return; }
+    if (mottoPlainLen(text) > 80) { showMsg(msg, '座右铭正文最多 80 个字（样式标记不计入）', false); mottoUpdateCount(); return; }
     try {
       await api('/api/auth/motto', { method: 'PUT', body: { motto: text, style: mottoStyle } });
       var ov = document.getElementById('mottoOverlay');
@@ -2340,7 +2348,7 @@ if (mottoInput) {
   document.getElementById('mottoPreview').addEventListener('click', async function(){
     var text = mottoInput.value.trim();
     if (!text) { showMsg(msg, '请先填写一句座右铭', false); return; }
-    if (text.length > 80) { showMsg(msg, '座右铭最多 80 个字符', false); return; }
+    if (mottoPlainLen(text) > 80) { showMsg(msg, '座右铭正文最多 80 个字（样式标记不计入）', false); mottoUpdateCount(); return; }
     try {
       await api('/api/auth/motto', { method: 'PUT', body: { motto: text, style: mottoStyle } });
       sessionStorage.setItem('mottoPreview', '1');

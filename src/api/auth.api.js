@@ -27,6 +27,10 @@ function validateCredentials(username, password) {
 const THEMES = ['light', 'dark', 'eye'];
 // 每日勉励卡风格：a=极光能量(默认) c=手账打气 h1=战书令 h2=最后通牒；非法值回退 a
 const MOTTO_STYLES = ['a', 'c', 'h1', 'h2'];
+// 座右铭正文字数口径：去除行内样式标记后按码点计数（与 layout.js 卡片分档、设置页计数同一正则）
+function mottoPlainLen(s) {
+  return Array.from(String(s).replace(/\*\*|~~|__|\+\+|\[f:y\]|\[\/f\]|~/g, '')).length;
+}
 
 // 注册人数上限相关 app_settings 键
 const SETTING_REG_LIMIT = 'register_limit';
@@ -344,7 +348,9 @@ async function updateMotto({ request, env }) {
   if (!session) return error('未登录', 401);
   const body = await request.json().catch(() => ({}));
   const motto = typeof body.motto === 'string' ? body.motto.trim() : '';
-  if (motto.length > 80) return error('座右铭最多 80 个字符', 400);
+  // 80 字限的是正文（不含样式标记）；500 是含标记原始串的防滥用硬上限
+  if (mottoPlainLen(motto) > 80) return error('座右铭最多 80 个字（加粗、字体等样式标记不计入字数）', 400);
+  if (motto.length > 500) return error('座右铭内容过长', 400);
   const style = MOTTO_STYLES.includes(body.style) ? body.style : 'a';
   const storage = getStorage(env);
   await storage.users.updateMotto(session.user_id, motto, style);

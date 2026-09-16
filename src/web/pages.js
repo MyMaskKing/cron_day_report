@@ -694,10 +694,10 @@ function settingsPage(user) {
         <button type="button" data-tag="big" title="放大">A+</button>
         <button type="button" data-tag="font" title="快乐体">快乐体</button>
       </div>
-      <textarea id="mottoInput" class="motto-input" rows="2" maxlength="80" placeholder="例如：日拱一卒，**功不唐捐**。"></textarea>
+      <textarea id="mottoInput" class="motto-input" rows="2" maxlength="500" placeholder="例如：日拱一卒，**功不唐捐**。"></textarea>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
         <label style="margin:0;">卡片风格</label>
-        <span class="muted" id="mottoCount" style="font-size:12px;">0/80</span>
+        <span class="muted" id="mottoCount" style="font-size:12px;">0/80（样式标记不计）</span>
       </div>
       <div class="motto-styles" id="mottoStyles">
         <button type="button" class="motto-style" data-style="a">
