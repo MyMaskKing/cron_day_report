@@ -680,33 +680,15 @@ async function mountDataSwitcher(mod){
 }
 async function api(path, opts) {
   opts = opts || {};
-  // ===== 请求指纹缓存: 三级防重, 覆盖 fetch 报错后手动重试导致的重复提交 =====
-  //   in-flight: 相同 (method+path+body) 复用 Promise
-  //   成功后 15s: 命中直接返回上次 data(避免"手抖点两次立即产生两条记录")
-  //   失败后 3s : 命中抛提示错误, 让用户看清"刚才那次刚失败了"再决定重试
-  //   GET 不参与缓存: 查询无副作用, 缓存反而妨碍 UI 手动刷新
+  // ===== 请求指纹防重: 只拦截"在途请求"的重复提交(网速慢/手抖双击) =====
+  //   相同 (method+path+body) 的请求尚未返回时, 并发调用复用同一个 Promise:
+  //   服务端只收到一次, 各方拿到同一份结果, 不报错; 响应一落地(成功或失败)
+  //   即释放指纹, 立即允许再次提交(仅留 100ms 静默窗吞掉紧贴响应的双击)。
   var method = (opts.method || 'GET').toUpperCase();
   var bodyKey = opts.body ? JSON.stringify(opts.body) : '';
   var key = method + ' ' + path + ' ' + bodyKey;
-  var cacheable = method !== 'GET';
   if (!window._apiInflight) window._apiInflight = {};
-  if (!window._apiCache) window._apiCache = {};
   if (window._apiInflight[key]) return window._apiInflight[key];
-  if (cacheable) {
-    var cached = window._apiCache[key];
-    var now = Date.now();
-    if (cached) {
-      if (cached.err && now - cached.at < 3000) {
-        var leftE = Math.max(1, Math.ceil((3000 - (now - cached.at)) / 1000));
-        throw new Error('刚才这次请求已失败: ' + cached.err + '。请等待 ' + leftE + ' 秒后重试, 或刷新页面确认是否已生效。');
-      }
-      if (cached.data && now - cached.at < 15000) {
-        var leftO = Math.max(1, Math.ceil((15000 - (now - cached.at)) / 1000));
-        // 直接抛出提示, 阻断"表面上重复提交"的写操作; UI 层已有 alertModal 承接
-        throw new Error('这次请求刚已提交过 (' + leftO + ' 秒前)。请刷新页面确认结果, 无需重复提交。');
-      }
-    }
-  }
   var p = (async function(){
     showLoading(loadingTextOf(path, opts));
     try {
@@ -726,14 +708,10 @@ async function api(path, opts) {
       try { data = await res.json(); } catch (e) {}
       if (!res.ok) throw new Error(data.message || ('请求失败: ' + res.status));
       setLoadingProgress(100);
-      if (cacheable) window._apiCache[key] = { at: Date.now(), data: data };
       return data;
-    } catch (err) {
-      if (cacheable) window._apiCache[key] = { at: Date.now(), err: (err && err.message) || String(err) };
-      throw err;
     } finally {
       hideLoading();
-      // in-flight 释放: 保证 UI 侧下次可正常发起(缓存拦截由 _apiCache 负责)
+      // 响应落地后留 100ms 静默窗吞掉紧贴的双击, 随后释放指纹允许再次提交
       setTimeout(function(){ if (window._apiInflight) delete window._apiInflight[key]; }, 100);
     }
   })();
