@@ -69,7 +69,8 @@ fun MeScreen(
         )
 
         MeGroup {
-            MeItem(R.drawable.ic_me_monitor, "网站监控", "查看定时任务与访问记录") { onOpenPath("/monitor") }
+            MeItem(R.drawable.ic_me_dashboard, "仪表盘", "今日概览与功能入口") { onOpenPath("/dashboard") }
+            MeItem(R.drawable.ic_me_monitor, "网站监控", "查看定时任务与访问记录", divider = true) { onOpenPath("/monitor") }
             MeItem(R.drawable.ic_me_channels, "通知渠道", "企业微信 / Webhook / 邮件", divider = true) { onOpenPath("/channels") }
             // 「推送与设置」仅当下方还有用户管理项时才画分隔线（末项不画）
             MeItem(R.drawable.ic_me_settings, "推送与设置", "日报推送、账号与系统设置", divider = isAdmin) { onOpenPath("/settings") }
