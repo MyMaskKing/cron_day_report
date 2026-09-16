@@ -117,6 +117,8 @@ const BASE_CSS = `
   --ok: #34b34a;
   --danger-bg: #fff1f0;
   --ok-bg: #f6ffed;
+  --warn: #b45309;        /* 临近到期(明天/本周内)琥珀色 */
+  --warn-bg: #fdf2e2;
   --th-bg: rgba(20,20,40,.025);
   --th-border: rgba(20,20,40,.06);
   --loading-mask: rgba(246,245,242,.65);
@@ -157,6 +159,8 @@ const BASE_CSS = `
   --ok: #4ade80;
   --danger-bg: rgba(255,107,107,.14);
   --ok-bg: rgba(74,222,128,.12);
+  --warn: #fbbf24;
+  --warn-bg: rgba(251,191,36,.15);
   --th-bg: rgba(255,255,255,.04);
   --th-border: rgba(255,255,255,.08);
   --loading-mask: rgba(10,12,20,.6);
@@ -197,6 +201,8 @@ const BASE_CSS = `
   --ok: #2f9e44;
   --danger-bg: #fbeae7;
   --ok-bg: #e9f5ea;
+  --warn: #93611a;
+  --warn-bg: #f6ead2;
   --th-bg: rgba(120,100,50,.05);
   --th-border: rgba(120,100,50,.10);
   --loading-mask: rgba(243,238,224,.65);
@@ -856,6 +862,10 @@ input[type="date"] { cursor: pointer; }
 .todo-chip.cat { background: var(--hover-brand); color: var(--brand); }
 .todo-chip.due { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due.overdue { background: var(--danger-bg); color: var(--danger); font-weight: 600; }
+.todo-chip.due.today { background: var(--brand-grad); color: #fff; font-weight: 700; }
+.todo-chip.due.soon { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+.todo-chip.due.future { background: var(--surface-2); color: var(--link-dim); }
+.todo-chip.due .due-days { opacity: .72; font-weight: 500; }
 .todo-chip.done-at { background: var(--ok-bg); color: var(--ok); }
 .todo-chip.repeat { background: var(--hover-brand); color: var(--brand); font-weight: 600; }
 /* 行内操作按钮：默认略淡，hover 行时显现；SVG 图标走 currentColor, 移动端常显 */
@@ -926,6 +936,20 @@ input[type="date"] { cursor: pointer; }
 .td-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 .td-chip { font-size: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--label); border-radius: 999px; padding: 3px 10px; display: inline-flex; align-items: center; gap: 4px; }
 .td-chip svg { width: 12px; height: 12px; }
+/* 任务详情弹窗: 第一子层级预览(普通主任务)/最近到期(child_due 主任务) */
+.td-subs { margin: 4px 0 2px; }
+.td-subs__head { font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 0 2px 7px; }
+.td-subs__head span { font-weight: 500; }
+.td-sub { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 11px; }
+.td-sub:hover { background: var(--surface-2); }
+.td-sub__t { flex: 1; min-width: 0; font-size: 13.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-sub .todo-check { width: 19px; height: 19px; border-width: 1.7px; }
+.td-sub .todo-check.readonly { cursor: default; }
+.td-sub .todo-check.readonly:hover { border-color: var(--check-ring); }
+.td-sub--next, .td-sub--next:hover { background: var(--surface-2); }
+.td-sub--next.is-over, .td-sub--next.is-over:hover { background: var(--danger-bg); }
+.td-sub--next.is-today, .td-sub--next.is-today:hover { background: var(--brand-tint); }
+.td-sub-empty { font-size: 13px; color: var(--muted); padding: 4px 2px; }
 .td-att-title { font-size: 13px; font-weight: 600; color: var(--label); margin: 18px 0 8px; }
 .td-att-list { display: flex; flex-direction: column; gap: 8px; }
 a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 11px; text-decoration: none; color: var(--text); }

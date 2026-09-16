@@ -1407,6 +1407,32 @@ function todoDateLabel(dueDate, today) {
   if (dueDate.slice(0,4) !== today.slice(0,4)) return dueDate.slice(2,4) + '/' + md;
   return md;
 }
+// 截止日期距今天的整天数(UTC 午夜对齐); 空/非法返回 null
+function todoDateDiff(dueDate, today) {
+  if (!dueDate || dueDate.length < 10 || !today || today.length < 10) return null;
+  var dMs = Date.UTC(+dueDate.slice(0,4), +dueDate.slice(5,7)-1, +dueDate.slice(8,10));
+  var tMs = Date.UTC(+today.slice(0,4), +today.slice(5,7)-1, +today.slice(8,10));
+  return Math.round((dMs - tMs) / 86400000);
+}
+// 日期 chip(四级语义): 逾期(未完成且过期)=红底"逾期 N 天"; 今天=品牌紫实心;
+//   临近=琥珀, 仅"明天/本周X"这类汉字相对日期(数字 MM/DD 即使只差几天也保持中性灰);
+//   更远=中性灰; 后两者附"· N天后"(今天/明天 label 已达意, 不附)。
+//   已完成恒中性且不附天数。无日期返回 null。
+function todoDueChip(dueDate, today, done) {
+  if (!dueDate) return null;
+  var diff = todoDateDiff(dueDate, today);
+  if (!done && diff != null && diff < 0) {
+    return { cls: 'todo-chip due overdue', html: ICONS.warn + '逾期 ' + (-diff) + ' 天' };
+  }
+  var label = todoDateLabel(dueDate, today);
+  var cls = 'todo-chip due';
+  if (!done && diff === 0) cls += ' today';
+  else if (!done && (diff === 1 || label.charAt(0) === '本')) cls += ' soon';
+  else if (!done && diff != null) cls += ' future';
+  var html = ICONS.calendar + esc(label);
+  if (!done && diff != null && diff >= 2) html += ' <span class="due-days">· ' + diff + '天后</span>';
+  return { cls: cls, html: html };
+}
 
 // ============ 全局左滑返回手势 ============
 // 触发条件: 任意位置起手, 水平右滑 > 60 且垂直位移 < 0.5×水平位移
@@ -6556,15 +6582,16 @@ function renderTodoTree(container, trees, opts) {
     if (node.category) {
       var cc = document.createElement('span'); cc.className = 'todo-chip cat'; cc.textContent = node.category; meta.appendChild(cc);
     }
-    // 日期 chip：已完成也显示；逾期(未完成且过期)标红
+    // 日期 chip：已完成也显示；状态/文案统一走 todoDueChip(逾期红/今日紫/临近琥珀/未来灰, 附天数)
     // 显示口径: 完整树顶层行(depth 0 且非详情页)展示子树最早到期日 todoRootDue(新模式主任务自身无日期);
     //   其余行展示有效日期 effDue(自身优先, 否则继承祖先自身日期; 继承链不能用兄弟最小日期)
     var chipDue = (depth === 0 && !isDetail) ? todoRootDue(node) : effDue;
-    if (chipDue) {
-      var over = !node.done && today && chipDue < today;
+    var dueChip = todoDueChip(chipDue, today, node.done);
+    if (dueChip) {
       var dc = document.createElement('span');
-      dc.className = 'todo-chip due' + (over ? ' overdue' : '');
-      dc.innerHTML = (over ? (ICONS.warn + '逾期 ') : ICONS.calendar) + esc(todoDateLabel(chipDue, today));
+      dc.className = dueChip.cls;
+      if (chipDue) dc.title = chipDue; // 悬浮给完整日期(逾期只显示天数时补信息)
+      dc.innerHTML = dueChip.html;
       meta.appendChild(dc);
     }
     // 完成时间 chip：已完成且有完成日期时显示
@@ -6726,11 +6753,12 @@ function renderTodoCards(container, trees, opts) {
     }
     // 卡片日期: 顶层显示日期 todoRootDue(旧模式=root.due_date; 新模式=最早到期的未完成子任务)
     var rootDue = todoRootDue(root);
-    if (rootDue) {
-      var over = !root.done && today && rootDue < today;
+    var rootDueChip = todoDueChip(rootDue, today, root.done);
+    if (rootDueChip) {
       var dc = document.createElement('span');
-      dc.className = 'todo-chip due' + (over ? ' overdue' : '');
-      dc.innerHTML = (over ? (ICONS.warn + '逾期 ') : ICONS.calendar) + esc(todoDateLabel(rootDue, today));
+      dc.className = rootDueChip.cls;
+      dc.title = rootDue;
+      dc.innerHTML = rootDueChip.html;
       meta.appendChild(dc);
     }
     if (root.done && root.done_at) {
@@ -8249,9 +8277,51 @@ async function openTodoDetail(node, opts) {
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
   var priName = ['⚪ 低', '🟡 中', '🔴 高'][node.priority == null ? 1 : node.priority];
   meta.push('<span class="td-chip">⭐ ' + esc(priName) + '</span>');
+  // 子任务预览: 普通主任务列出第一子层级的未完成项(已完成不显示, 孙级不在此展开);
+  //   勾选"子任务各自设置截止日期"(child_due)则严格只显示截止最近的 1 个未完成子任务
+  //   (自身有 due_date 在前按日期升序, 无日期沉底, 再回退 sort_order+id), 勾选完成后下次进弹窗自动浮现下一个
+  var subsHtml = '';
+  var subsView = [];
+  if (node.children && node.children.length) {
+    var pendingSubs = node.children.filter(function(c){ return !c.done; });
+    var focusOne = node.child_due === 1;
+    subsView = pendingSubs;
+    if (focusOne) {
+      subsView = pendingSubs.slice().sort(function(a, b){
+        if (!!a.due_date !== !!b.due_date) return a.due_date ? -1 : 1;
+        if (a.due_date && b.due_date && a.due_date !== b.due_date) return a.due_date < b.due_date ? -1 : 1;
+        return (a.sort_order - b.sort_order) || (a.id - b.id);
+      }).slice(0, 1);
+    }
+    var doneCount = node.children.length - pendingSubs.length;
+    var headTxt = focusOne ? '最近到期' : '子任务';
+    var headMeta = focusOne
+      ? (node.children.length > 1 ? ' <span class="muted">共 ' + node.children.length + ' 项，只显示最近到期的 1 项</span>' : '')
+      : ' <span class="muted">' + pendingSubs.length + ' 项待办' + (doneCount ? ' · ' + doneCount + ' 项已完成' : '') + '</span>';
+    var rowsHtml;
+    if (!subsView.length) {
+      rowsHtml = '<div class="td-sub-empty">🎉 子任务已全部完成</div>';
+    } else {
+      rowsHtml = subsView.map(function(c, i){
+        // 子任务有效日期: 自身 due_date 优先, 否则继承当前任务的有效日期(与列表渲染同口径)
+        var cChip = todoDueChip(c.due_date || due, today, false);
+        var diff = todoDateDiff(c.due_date || due, today);
+        var nextCls = focusOne ? ' td-sub--next' + (diff != null && diff < 0 ? ' is-over' : (diff === 0 ? ' is-today' : '')) : '';
+        var check = opts.onToggle
+          ? '<button type="button" class="todo-check" data-tdsub="' + i + '" title="标记完成"></button>'
+          : '<span class="todo-check readonly" aria-hidden="true"></span>';
+        return '<div class="td-sub' + nextCls + '">' + check
+          + '<span class="td-sub__t">' + esc(c.title) + '</span>'
+          + (cChip ? '<span class="' + cChip.cls + '"' + ((c.due_date || due) ? ' title="' + (c.due_date || due) + '"' : '') + '>' + cChip.html + '</span>' : '')
+          + '</div>';
+      }).join('');
+    }
+    subsHtml = '<div class="td-subs"><div class="td-subs__head">' + headTxt + headMeta + '</div>' + rowsHtml + '</div>';
+  }
   var body =
     '<div class="td-title">' + esc(node.title) + '</div>' +
     '<div class="td-meta">' + meta.join('') + '</div>' +
+    subsHtml +
     (node.note
       ? '<div class="md-body" id="tdNote">' + renderMarkdown(node.note) + '</div>'
       : '<p class="muted" style="font-size:13px;margin:4px 0 0;">无备注</p>') +
@@ -8266,6 +8336,23 @@ async function openTodoDetail(node, opts) {
     document.getElementById('tdEditBtn').addEventListener('click', function(){
       closeModal();
       if (opts.onEdit) opts.onEdit(node);
+    });
+  }
+  // 子任务勾选: 调页面回调完成后关闭弹窗(回调内部已 loadTodos 刷新列表)
+  if (opts.onToggle) {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tdsub]'), function(btn){
+      btn.addEventListener('click', async function(){
+        if (btn.disabled) return;
+        var c = subsView[parseInt(btn.getAttribute('data-tdsub'), 10)];
+        if (!c) return;
+        btn.disabled = true;
+        btn.setAttribute('data-busy', '1');
+        try {
+          var doneOk = await opts.onToggle(c, true);
+          if (doneOk !== false) closeModal(); // 取消确认/失败时保留详情弹窗
+        }
+        finally { btn.disabled = false; btn.removeAttribute('data-busy'); }
+      });
     });
   }
   var box = document.getElementById('tdAttList');
@@ -8413,6 +8500,21 @@ function openTodoEdit(node) {
     await _doSave(body);
   });
 }
+// 勾选完成统一处理(列表勾选与任务详情弹窗子任务勾选共用): 二次确认 → 提交 → 刷新 → 庆祝
+// 返回 false 表示未完成(用户取消确认或请求失败), 调用方据此保留弹窗
+async function todoToggleDone(node, done) {
+  if (!(await todoConfirmDoneIfPending(node, done))) return false;
+  try {
+    await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+    await loadTodos(); await loadChart();
+    if (done) {
+      var cc = todoCelebrationCount(todoBuildTree(_rows), true);
+      todoCelebrate(cc.remaining, cc.total);
+    }
+    return true;
+  }
+  catch(e){ alertModal(e.message, {ok:false}); return false; }
+}
 function drawTree() {
   // 已完成 tab 下强制显示完成项，否则遵从复选框
   var hideDone = _filter === 'done' ? false : document.getElementById('hideDone').checked;
@@ -8432,6 +8534,7 @@ function drawTree() {
         today: todayStr(),
         editable: true,
         onEdit: function(n){ openTodoEdit(n); },
+        onToggle: todoToggleDone,
         listAttachments: async function(id){
           var r = await api('/api/todo/' + id + '/attachments');
           return r.attachments || [];
@@ -8500,18 +8603,7 @@ function drawTree() {
         todoCelebrate(cc.remaining, cc.total);
       });
     },
-    onToggle: async function(node, done){
-      if (!(await todoConfirmDoneIfPending(node, done))) return;
-      try {
-        await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
-        await loadTodos(); await loadChart();
-        if (done) {
-          var cc = todoCelebrationCount(todoBuildTree(_rows), true);
-          todoCelebrate(cc.remaining, cc.total);
-        }
-      }
-      catch(e){ alertModal(e.message, {ok:false}); }
-    },
+    onToggle: function(node, done){ return todoToggleDone(node, done); },
     onEdit: function(node){ openTodoEdit(node); },
     onAddChildSubmit: async function(node, payload){
       await api('/api/todo', { method:'POST', body: payload });
