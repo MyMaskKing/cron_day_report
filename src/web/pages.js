@@ -685,8 +685,16 @@ function settingsPage(user) {
       </form>
       <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <h2 style="font-size:15px;">每日勉励</h2>
-      <p class="muted" style="font-size:12px;">写一句给自己的话，每天首次打开面板时全屏展示一次；当天关闭后手机 / PC / Android 都不再出现，留空则完全不展示。</p>
-      <textarea id="mottoInput" class="motto-input" rows="2" maxlength="80" placeholder="例如：日拱一卒，功不唐捐。"></textarea>
+      <p class="muted" style="font-size:12px;">写一句给自己的话，每天首次打开面板时全屏展示一次；当天关闭后手机 / PC / Android 都不再出现，留空则完全不展示。支持加粗、删除线、下划线、波浪线、放大与快乐体。</p>
+      <div class="motto-tb" id="mottoToolbar">
+        <button type="button" data-tag="b" title="加粗"><b>B</b></button>
+        <button type="button" data-tag="s" title="删除线"><s>S</s></button>
+        <button type="button" data-tag="u" title="下划线"><u>U</u></button>
+        <button type="button" data-tag="w" title="波浪线">波浪</button>
+        <button type="button" data-tag="big" title="放大">A+</button>
+        <button type="button" data-tag="font" title="快乐体">快乐体</button>
+      </div>
+      <textarea id="mottoInput" class="motto-input" rows="2" maxlength="80" placeholder="例如：日拱一卒，**功不唐捐**。"></textarea>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
         <label style="margin:0;">卡片风格</label>
         <span class="muted" id="mottoCount" style="font-size:12px;">0/80</span>

@@ -2299,6 +2299,22 @@ if (mottoInput) {
   mottoInput.addEventListener('input', function(){
     mottoCount.textContent = mottoInput.value.length + '/80';
   });
+  // 行内标记工具栏：选中文字包标记；无选中时插入占位「文字」并选中，方便直接改写
+  var MOTTO_TAGS = { b:['**','**'], s:['~~','~~'], u:['__','__'], w:['~','~'], big:['++','++'], font:['[f:y]','[/f]'] };
+  var mottoTb = document.getElementById('mottoToolbar');
+  if (mottoTb) mottoTb.addEventListener('click', function(e){
+    var btn = e.target.closest && e.target.closest('button[data-tag]');
+    if (!btn) return;
+    var pair = MOTTO_TAGS[btn.dataset.tag];
+    if (!pair) return;
+    var start = mottoInput.selectionStart || 0, end = mottoInput.selectionEnd || 0;
+    var val = mottoInput.value;
+    var selected = val.slice(start, end) || '文字';
+    mottoInput.value = val.slice(0, start) + pair[0] + selected + pair[1] + val.slice(end);
+    mottoInput.focus();
+    mottoInput.setSelectionRange(start + pair[0].length, start + pair[0].length + selected.length);
+    mottoCount.textContent = mottoInput.value.length + '/80';
+  });
   document.getElementById('mottoStyles').addEventListener('click', function(e){
     var b = e.target.closest('.motto-style');
     if (!b) return;

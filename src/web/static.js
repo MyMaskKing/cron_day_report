@@ -20,9 +20,21 @@ import {
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
   TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS
 } from './assets.js';
+import { KUAILE_WOFF2_B64 } from './fonts.js';
 
 const JS = 'application/javascript';
 const CSS = 'text/css';
+const WOFF2 = 'font/woff2';
+
+// 二进制字体单例：首次请求时从 base64 解码一次（Workers 与 Node>=18 均有全局 atob）
+let _kuaileFont = null;
+function kuaileFont() {
+  if (!_kuaileFont) {
+    const bin = atob(KUAILE_WOFF2_B64);
+    _kuaileFont = Uint8Array.from(bin, c => c.charCodeAt(0));
+  }
+  return _kuaileFont;
+}
 
 // /s/<name> 白名单（惰性构造：函数体内引用 BASE_CSS，规避循环依赖顶层求值）
 function buildAssets() {
@@ -51,7 +63,9 @@ function buildAssets() {
     'page-todo-public.js': { body: PUBLIC_TODO_JS, type: JS },
     'page-todo-report.js': { body: TODO_REPORT_JS, type: JS },
     'page-todo-collab.js': { body: TODO_COLLAB_JS, type: JS },
-    'page-storage.js': { body: STORAGE_ADMIN_JS, type: JS }
+    'page-storage.js': { body: STORAGE_ADMIN_JS, type: JS },
+    // 座右铭快乐体（二进制，响应不带 charset；getter 惰性解码避免启动即占内存）
+    'motto-kuaile.woff2': { get body() { return kuaileFont(); }, type: WOFF2, binary: true }
   };
 }
 
@@ -62,8 +76,11 @@ function assets() { return _assets || (_assets = buildAssets()); }
 // 几十个文件碰撞概率可忽略，最坏后果也只是该文件多下载一次（无害）。
 function contentHash(str) {
   let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
+  // 二进制资源（Uint8Array）按字节哈希
+  const len = str && str.length;
+  const isBin = str && typeof str !== 'string' && typeof str[0] === 'number';
+  for (let i = 0; i < len; i++) {
+    h ^= isBin ? str[i] : str.charCodeAt(i);
     h = Math.imul(h, 0x01000193);
   }
   return (h >>> 0).toString(36);
@@ -91,7 +108,7 @@ function serveStaticAsset(name) {
   if (!a) return null;
   return new Response(a.body, {
     headers: {
-      'Content-Type': a.type + '; charset=utf-8',
+      'Content-Type': a.binary ? a.type : a.type + '; charset=utf-8',
       'Cache-Control': 'public, max-age=31536000, immutable',
       'X-Content-Type-Options': 'nosniff'
     }

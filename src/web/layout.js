@@ -1826,6 +1826,29 @@ html { scrollbar-gutter: stable; }
   .motto-overlay.is-h2 .motto-quote[data-len="l"] { font-size: 17px; }
 }
 
+/* —— 座右铭行内标记（用户在设置页工具栏插入；解析见 mottoInlineMd） ——
+   **粗** ~~删~~ __下划线__ ~波浪~ ++放大++ [f:y]快乐体[/f]；装饰一律 currentColor 适配四种卡片底 */
+@font-face {
+  font-family: 'MottoKuaiLe';
+  src: url('/s/motto-kuaile.woff2') format('woff2');
+  font-display: swap;
+  /* 站酷快乐体 OFL，已子集到 GB2312 一级 3755 字 + ASCII/常用标点；缺字自动走 fallback 链 */
+}
+.motto-quote .mi-b { font-weight: 900; }
+.motto-quote .mi-s { text-decoration: line-through currentColor; opacity: .6; }
+.motto-quote .mi-u { text-decoration: underline currentColor; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+.motto-quote .mi-w { text-decoration: underline wavy currentColor; text-underline-offset: 5px; }
+.motto-quote .mi-big { font-size: 1.28em; }
+.motto-quote .mi-y { font-family: 'MottoKuaiLe', "Yuanti SC", "YouYuan", "幼圆", "PingFang SC", "Microsoft YaHei", sans-serif; font-weight: 400; }
+
+/* —— 设置页：座右铭工具栏 —— */
+.motto-tb { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 8px; }
+.motto-tb button { border: 1px solid var(--border-strong); background: var(--surface); color: var(--label);
+  border-radius: 7px; font: inherit; font-size: 12px; padding: 3px 11px; cursor: pointer;
+  transition: border-color .15s, color .15s; }
+.motto-tb button:hover { border-color: var(--brand); color: var(--brand-strong); }
+.motto-tb button[data-tag="font"] { color: var(--brand-strong); border-color: var(--brand-border); background: var(--brand-tint); }
+
 /* —— 设置页：每日勉励风格选择缩略卡 —— */
 .motto-input {
   width: 100%; border: 1px solid var(--border-strong); border-radius: 8px;
@@ -1873,12 +1896,42 @@ html { scrollbar-gutter: stable; }
  * @param {Object} user - { motto, mottoStyle, mottoDue, tzOffset }
  * @returns {string}
  */
+// 座右铭行内标记解析：先整体 HTML 转义再替换为固定 span（插入内容不含任何用户原文拼进标签，防 XSS）。
+// **粗** ~~删~~ __下划线__ ~波浪~ ++放大++ [f:y]快乐体[/f]；~~ 删除线必须先于 ~ 波浪处理。
+// 每轮只替换一处、多轮收敛，支持标记互相嵌套（如 **++又粗又大++**）。
+function mottoInlineMd(text) {
+  const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  let h = escHtml(text);
+  const rules = [
+    [/\*\*([^*\n]+)\*\*/, '<span class="mi-b">$1</span>'],
+    [/~~([^~\n]+)~~/, '<span class="mi-s">$1</span>'],
+    [/__([^_\n]+)__/, '<span class="mi-u">$1</span>'],
+    [/~([^~\n]+)~/, '<span class="mi-w">$1</span>'],
+    [/\+\+([^+\n]+)\+\+/, '<span class="mi-big">$1</span>'],
+    [/\[f:y\]([\s\S]+?)\[\/f\]/, '<span class="mi-y">$1</span>']
+  ];
+  let changed = true;
+  let guard = 0;
+  while (changed && guard < 30) {
+    changed = false;
+    for (const [re, rep] of rules) {
+      const next = h.replace(re, rep);
+      if (next !== h) { h = next; changed = true; }
+    }
+    guard++;
+  }
+  return h;
+}
+
 function renderMottoCard(user) {
   const motto = user && user.motto;
   if (!motto) return '';
   const style = ['a', 'c', 'h1', 'h2'].includes(user.mottoStyle) ? user.mottoStyle : 'a';
-  const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  // 字号分档按去除标记符号后的纯文本长度，避免 ** 等控制符把句子顶到大一档
+  const plainLen = Array.from(motto
+    .replace(/\*\*|~~|__|\+\+|\[f:y\]|\[\/f\]|~/g, '')
+    .trim()).length;
 
   // 按用户时区(tz_offset)直出今日日期，避免前端时区偏差
   const d = new Date(Date.now() + (Number.isFinite(user.tzOffset) ? user.tzOffset : 8) * 3600 * 1000);
@@ -1887,8 +1940,8 @@ function renderMottoCard(user) {
   const dot = `${d.getUTCMonth() + 1}.${d.getUTCDate()} 周${wk}`;
   const iso = `${d.getUTCFullYear()}-${md.replace(' / ', '-')}`;
 
-  const len = Array.from(motto.trim()).length <= 14 ? 's' : (Array.from(motto.trim()).length <= 30 ? 'm' : 'l');
-  const quote = `<div class="motto-quote" data-len="${len}">${escHtml(motto)}</div>`;
+  const len = plainLen <= 14 ? 's' : (plainLen <= 30 ? 'm' : 'l');
+  const quote = `<div class="motto-quote" data-len="${len}">${mottoInlineMd(motto)}</div>`;
 
   const ICON_ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>';
   const ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>';
