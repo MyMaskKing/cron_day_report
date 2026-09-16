@@ -1608,7 +1608,231 @@ html { scrollbar-gutter: stable; }
   }
   .todo-fs-top--hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
 }
+
+/* ============ 每日勉励卡（用户私有；全屏弹层，自有配色不跟随面板主题） ============
+   两种风格：a=极光能量（默认，深色潮流）/ c=手账打气（暖色便签治愈）。
+   DOM 仅在用户已填写 motto 时直出；.is-on 控制当天自动展示，设置页可用 __mottoPreview() 手动唤出。
+   层级 10300：高于 modal(10000)，低于 #globalLoading(10500)，开场加载遮罩退后自然显现。 */
+.motto-overlay {
+  display: none; position: fixed; inset: 0; z-index: 10300; overflow: hidden;
+  flex-direction: column;
+  opacity: 0; transition: opacity .3s ease;
+}
+.motto-overlay.is-on { display: flex; opacity: 1; }
+.motto-overlay.is-closing { opacity: 0; }
+.motto-quote { white-space: pre-wrap; word-break: break-word; font-weight: 800; line-height: 1.62; }
+.motto-x {
+  position: absolute; top: 16px; right: 16px; z-index: 10;
+  width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
+  font-size: 13px; display: flex; align-items: center; justify-content: center;
+  transition: transform .15s ease, background .15s ease;
+}
+.motto-x:hover { transform: rotate(90deg); }
+
+/* —— A 极光能量 —— */
+.motto-overlay.is-a { background: #0A0A13; color: #F4F5FF; padding: 30px 28px; }
+.motto-a__aurora { position: absolute; inset: -20%; z-index: 0; filter: blur(70px); }
+.motto-a__aurora span { position: absolute; border-radius: 50%; mix-blend-mode: screen; }
+.motto-a__aurora span:nth-child(1) { width: 52%; aspect-ratio: 1; left: -8%; top: -14%;
+  background: radial-gradient(circle, #8B5CF6, transparent 65%); animation: mottoDrift 14s ease-in-out infinite alternate; }
+.motto-a__aurora span:nth-child(2) { width: 46%; aspect-ratio: 1; right: -10%; top: 8%;
+  background: radial-gradient(circle, #22D3EE, transparent 65%); opacity: .7;
+  animation: mottoDrift 18s ease-in-out -6s infinite alternate; }
+.motto-a__aurora span:nth-child(3) { width: 56%; aspect-ratio: 1; left: 18%; bottom: -26%;
+  background: radial-gradient(circle, #EC4899, transparent 62%); opacity: .55;
+  animation: mottoDrift 16s ease-in-out -3s infinite alternate; }
+@keyframes mottoDrift { from { transform: translate3d(-3%,-2%,0) scale(1); }
+  to { transform: translate3d(4%,5%,0) scale(1.12); } }
+.motto-a__veil { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 0%, transparent 40%, rgba(8,8,16,.55) 100%); }
+.motto-overlay.is-a .motto-x { background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); }
+.motto-overlay.is-a .motto-x:hover { background: rgba(255,255,255,.18); }
+.motto-a__top { position: relative; z-index: 2; display: flex; align-items: center; gap: 11px; }
+.motto-a__badge { font-size: 10.5px; font-weight: 800; letter-spacing: .22em; text-indent: .22em;
+  border: 1px solid rgba(255,255,255,.25); border-radius: 99px; padding: 4px 11px; color: #CFCBFF; }
+.motto-a__date { font-size: 11.5px; color: rgba(255,255,255,.5); font-variant-numeric: tabular-nums; }
+.motto-a__mid { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.motto-overlay.is-a .motto-quote { text-shadow: 0 2px 30px rgba(139,92,246,.35); }
+.motto-a__cta { position: relative; z-index: 2; align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 9px;
+  background: #fff; color: #12121C; border: 0; border-radius: 99px;
+  font: inherit; font-size: 14px; font-weight: 700; padding: 13px 26px; cursor: pointer;
+  box-shadow: 0 10px 30px rgba(139,92,246,.35); transition: transform .15s ease; }
+.motto-a__cta:hover { transform: translateY(-2px); }
+.motto-a__cta svg { width: 15px; height: 15px; }
+.motto-a__again { position: relative; z-index: 2; margin-top: 13px; font-size: 11px; color: rgba(255,255,255,.4); }
+.motto-overlay.is-a .motto-quote[data-len="s"] { font-size: 34px; }
+.motto-overlay.is-a .motto-quote[data-len="m"] { font-size: 27px; }
+.motto-overlay.is-a .motto-quote[data-len="l"] { font-size: 21px; }
+
+/* —— C 手账打气 —— */
+.motto-overlay.is-c { background: #F0E7D2; color: #4A4030; padding: 34px 26px;
+  align-items: center; justify-content: center; }
+.motto-overlay.is-c .motto-x { background: rgba(74,64,48,.08); color: #7C705A; }
+.motto-overlay.is-c .motto-x:hover { background: rgba(74,64,48,.18); }
+.motto-c__tape { position: absolute; z-index: 6; width: 92px; height: 27px; opacity: .72;
+  box-shadow: 0 1px 3px rgba(90,70,30,.18); }
+.motto-c__tape.t1 { top: 26px; left: 50%; margin-left: -70px; transform: rotate(-5deg);
+  background: repeating-linear-gradient(-45deg, rgba(159,201,232,.9) 0 7px, rgba(140,186,220,.9) 7px 14px); }
+.motto-c__tape.t2 { top: 44px; right: 34px; width: 66px; transform: rotate(9deg);
+  background: repeating-linear-gradient(-45deg, rgba(242,181,200,.9) 0 7px, rgba(232,158,186,.9) 7px 14px); }
+.motto-c__sticker { position: absolute; z-index: 1; }
+.motto-c__sticker.s1 { left: 30px; bottom: 120px; width: 26px; color: #E8A24B; transform: rotate(-14deg); }
+.motto-c__sticker.s2 { right: 34px; top: 110px; width: 21px; color: #E06B8A; transform: rotate(16deg); }
+.motto-c__sticker.s3 { left: 44px; top: 120px; width: 19px; color: #6FA8DC; transform: rotate(10deg); }
+.motto-c__note { position: relative; z-index: 5; width: 100%; max-width: 330px;
+  background: #FFFDF3; border: 1px solid #EADFC0; border-radius: 8px;
+  padding: 30px 24px 24px; transform: rotate(-1.4deg);
+  box-shadow: 0 22px 44px rgba(110,84,40,.22), 0 3px 8px rgba(110,84,40,.12);
+  background-image: repeating-linear-gradient(transparent 0 33px, rgba(120,100,60,.08) 33px 34px); }
+.motto-c__head { display: flex; align-items: center; justify-content: center; gap: 7px;
+  font-family: "Yuanti SC", "YouYuan", "幼圆", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 15px; color: #8A7350; margin-bottom: 12px; }
+.motto-c__head svg { width: 20px; height: 20px; color: #E8A24B; }
+.motto-overlay.is-c .motto-quote {
+  font-family: "Yuanti SC", "YouYuan", "幼圆", "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.75; color: #453B28; text-align: center; }
+.motto-overlay.is-c .motto-quote[data-len="s"] { font-size: 27px; }
+.motto-overlay.is-c .motto-quote[data-len="m"] { font-size: 23px; }
+.motto-overlay.is-c .motto-quote[data-len="l"] { font-size: 19px; }
+.motto-c__wave { display: block; margin: 10px auto 0; width: 110px; color: #E06B8A; }
+.motto-c__cta { position: relative; z-index: 5; margin-top: 26px;
+  background: #3F3626; color: #FFFDF3; border: 0; border-radius: 99px;
+  font-family: "Yuanti SC", "YouYuan", "幼圆", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 16px; letter-spacing: .06em; padding: 11px 32px; cursor: pointer;
+  box-shadow: 0 8px 20px rgba(70,55,30,.28); transition: transform .15s ease; }
+.motto-c__cta:hover { transform: translateY(-2px) rotate(-.5deg); }
+
+/* —— 入场动画：.is-on 时各元素错峰浮入 —— */
+.motto-overlay.is-on [data-rise] { animation: mottoRise .7s cubic-bezier(.22,.8,.26,1) both; }
+@keyframes mottoRise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+.motto-overlay.is-c.is-on .motto-c__note { animation: mottoPop .75s cubic-bezier(.2,1.4,.36,1) .12s both; }
+@keyframes mottoPop { from { opacity: 0; transform: rotate(-4deg) scale(.85) translateY(24px); }
+  to { opacity: 1; transform: rotate(-1.4deg) scale(1) translateY(0); } }
+
+/* —— 手机端收紧 —— */
+@media (max-width: 640px) {
+  .motto-overlay.is-a { padding: 24px 22px; }
+  .motto-overlay.is-a .motto-quote[data-len="s"] { font-size: 29px; }
+  .motto-overlay.is-a .motto-quote[data-len="m"] { font-size: 23px; }
+  .motto-overlay.is-a .motto-quote[data-len="l"] { font-size: 18px; }
+  .motto-overlay.is-c .motto-quote[data-len="s"] { font-size: 24px; }
+  .motto-overlay.is-c .motto-quote[data-len="m"] { font-size: 20px; }
+  .motto-overlay.is-c .motto-quote[data-len="l"] { font-size: 17px; }
+  .motto-c__note { padding: 26px 20px 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .motto-overlay, .motto-overlay * { animation: none !important; transition: none !important; }
+}
+
+/* —— 设置页：每日勉励风格选择缩略卡 —— */
+.motto-input {
+  width: 100%; border: 1px solid var(--border-strong); border-radius: 8px;
+  background: var(--surface); color: var(--text); font: inherit; font-size: 14px;
+  padding: 9px 11px; resize: vertical;
+}
+.motto-input:focus { outline: none; border-color: var(--brand); }
+.motto-styles { display: flex; gap: 10px; margin-top: 6px; }
+.motto-style {
+  flex: 1; border: 1.5px solid var(--border-strong); border-radius: 10px; overflow: hidden;
+  background: var(--surface); color: var(--text); font: inherit; padding: 0; cursor: pointer;
+  text-align: left; transition: border-color .15s ease;
+}
+.motto-style .ms-prev {
+  height: 46px; display: flex; align-items: center; justify-content: center;
+  font-size: 12.5px; font-weight: 800; letter-spacing: .04em;
+}
+.motto-style[data-style="a"] .ms-prev { color: #F4F5FF;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(139,92,246,.85), transparent 60%),
+    radial-gradient(circle at 85% 30%, rgba(34,211,238,.55), transparent 60%),
+    radial-gradient(circle at 60% 110%, rgba(236,72,153,.6), transparent 62%), #0A0A13;
+}
+.motto-style[data-style="c"] .ms-prev { color: #4A4030; background: #F0E7D2;
+  font-family: "Yuanti SC", "YouYuan", "幼圆", "PingFang SC", "Microsoft YaHei", sans-serif; }
+.motto-style .ms-prev i { display: block; width: 58%; height: 26px; border-radius: 5px; background: #FFFDF3;
+  box-shadow: 0 3px 8px rgba(110,84,40,.25); transform: rotate(-1.5deg); }
+.motto-style .ms-name { display: block; padding: 7px 10px; font-size: 13px; }
+.motto-style .ms-name small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+.motto-style.on { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
 `;
+
+/**
+ * 每日勉励卡（用户私有座右铭）：全屏弹层，两种风格 a/c。
+ * user.motto 非空才输出 DOM；user.mottoDue 控制当天首次打开自动展示。
+ * 关闭经 POST /api/auth/motto-seen 按服务端时区记已读；设置页可调用 window.__mottoPreview() 手动唤出。
+ * @param {Object} user - { motto, mottoStyle, mottoDue, tzOffset }
+ * @returns {string}
+ */
+function renderMottoCard(user) {
+  const motto = user && user.motto;
+  if (!motto) return '';
+  const style = user.mottoStyle === 'c' ? 'c' : 'a';
+  const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  // 按用户时区(tz_offset)直出今日日期，避免前端时区偏差
+  const d = new Date(Date.now() + (Number.isFinite(user.tzOffset) ? user.tzOffset : 8) * 3600 * 1000);
+  const wk = '日一二三四五六'[d.getUTCDay()];
+  const md = String(d.getUTCMonth() + 1).padStart(2, '0') + ' / ' + String(d.getUTCDate()).padStart(2, '0');
+  const dot = `${d.getUTCMonth() + 1}.${d.getUTCDate()} 周${wk}`;
+
+  const len = Array.from(motto.trim()).length <= 14 ? 's' : (Array.from(motto.trim()).length <= 30 ? 'm' : 'l');
+  const quote = `<div class="motto-quote" data-len="${len}">${escHtml(motto)}</div>`;
+
+  const ICON_ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>';
+  const ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>';
+  const ICON_WAVE = '<svg class="motto-c__wave" viewBox="0 0 120 10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M2 6c8-4 14 4 22 0s14 4 22 0 14 4 22 0 14 4 22 0 14 4 26 0"/></svg>';
+  const ICON_STAR = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.6 5.2 2.8 7.4 8 8-5.2.6-7.4 2.8-8 8-.6-5.2-2.8-7.4-8-8 5.2-.6 7.4-2.8 8-8z"/></svg>';
+  const ICON_HEART = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.9-10-9.3C.4 8.6 2.3 5 5.7 5c2 0 3.4 1.1 4.3 2.6h4C14.9 6.1 16.3 5 18.3 5c3.4 0 5.3 3.6 3.7 6.7C19.5 16.1 12 21 12 21z"/></svg>';
+  const ICON_DOT = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/></svg>';
+
+  const inner = style === 'a'
+    ? `<div class="motto-a__aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+       <div class="motto-a__veil" aria-hidden="true"></div>
+       <button type="button" class="motto-x" data-motto-close aria-label="关闭（今日不再显示）">✕</button>
+       <div class="motto-a__top" data-rise style="animation-delay:.05s"><span class="motto-a__badge">DAILY</span><span class="motto-a__date">${md} 周${wk}</span></div>
+       <div class="motto-a__mid">
+         <div data-rise style="animation-delay:.22s">${quote}</div>
+       </div>
+       <button type="button" class="motto-a__cta" data-rise style="animation-delay:.5s" data-motto-close>开始今天 ${ICON_ARROW}</button>
+       <div class="motto-a__again" data-rise style="animation-delay:.64s">今日仅此一次 · 明天再见</div>`
+    : `<button type="button" class="motto-x" data-motto-close aria-label="关闭（今日不再显示）">✕</button>
+       <span class="motto-c__tape t1" aria-hidden="true"></span><span class="motto-c__tape t2" aria-hidden="true"></span>
+       <span class="motto-c__sticker s1" aria-hidden="true">${ICON_STAR}</span>
+       <span class="motto-c__sticker s2" aria-hidden="true">${ICON_HEART}</span>
+       <span class="motto-c__sticker s3" aria-hidden="true">${ICON_DOT}</span>
+       <div class="motto-c__note">
+         <div class="motto-c__head">${ICON_SUN}<span>${dot} · 今日打气</span></div>
+         ${quote}
+         ${ICON_WAVE}
+       </div>
+       <button type="button" class="motto-c__cta" data-motto-close data-rise style="animation-delay:.7s">贴进今天！</button>`;
+
+  // 关闭：按钮/✕/点遮罩空白/ESC；上报失败静默（次日仍会再弹）。预览态(__mottoPreview)同样记已读。
+  const js = `(function(){
+  var ov = document.getElementById('mottoOverlay');
+  if (!ov) return;
+  var closing = false;
+  function closeMotto(){
+    if (closing) return; closing = true;
+    ov.classList.add('is-closing');
+    try { fetch('/api/auth/motto-seen', { method:'POST', keepalive:true, credentials:'same-origin' }); } catch(e) {}
+    setTimeout(function(){ ov.classList.remove('is-on','is-closing'); closing = false; }, 300);
+  }
+  ov.addEventListener('click', function(e){
+    if (e.target === ov || e.target.closest('[data-motto-close]')) closeMotto();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && ov.classList.contains('is-on')) closeMotto();
+  });
+  window.__mottoPreview = function(){ ov.classList.add('is-on'); };
+})();`;
+
+  return `<div class="motto-overlay is-${style}${user.mottoDue ? ' is-on' : ''}" id="mottoOverlay"
+    role="dialog" aria-modal="true" aria-label="每日勉励">${inner}</div>
+<script>${js.replace(/<\/script>/g, '<\\/script')}</script>`;
+}
 
 /**
  * 渲染顶部导航（登录后页面）
@@ -1655,7 +1879,8 @@ function renderTopbar(user, active = '') {
       (user.impersonating ? `<div class="impersonate-banner">
       ⚠️ 你（超管 ${user.admin_username || ''}）正在以 <b>${user.username}</b> 的身份浏览
       <a href="#" id="stopImpersonateBtn">点此退出</a>
-    </div>` : '');
+    </div>` : '') +
+      renderMottoCard(user);
   }
 
   // 受限免密会话：导航只保留对应模块，隐藏设置入口（与旧顶栏行为一致）
@@ -1747,7 +1972,7 @@ document.addEventListener('click', function(e){
   }
   var lo = e.target.closest && e.target.closest('[data-logout]');
   if (lo) { var b = document.getElementById('logoutBtn'); if (b) b.click(); }
-});</script>`;
+});</script>` + renderMottoCard(user);
 }
 
 export { renderPage, renderTopbar, BASE_CSS, FAVICON_SVG };

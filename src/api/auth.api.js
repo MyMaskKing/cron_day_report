@@ -5,6 +5,8 @@
 import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
+import { parseOffset } from '../services/time.service.js';
+import { nowCN } from '../services/schedule.service.js';
 import {
   createSession, destroySession, getSession,
   getTokenFromRequest, buildSessionCookie, buildClearCookie
@@ -140,7 +142,9 @@ async function getProfile({ request, env }) {
     nickname: u.nickname || u.username,
     restrict_quicklogin: u.restrict_quicklogin != null ? u.restrict_quicklogin : 1,
     theme: THEMES.includes(u.theme) ? u.theme : 'light',
-    todo_auto_parent: u.todo_auto_parent === 0 ? 0 : 1
+    todo_auto_parent: u.todo_auto_parent === 0 ? 0 : 1,
+    motto: u.motto || '',
+    motto_style: u.motto_style === 'c' ? 'c' : 'a'
   } });
 }
 
@@ -329,6 +333,38 @@ async function updateTodoAutoParent({ request, env }) {
 }
 
 /**
+ * PUT /api/auth/motto  保存自己的每日勉励卡  body: { motto, style }
+ * motto 去空白后 0-80 字符（空=清空，不再弹卡）；style 仅接受 a|c，非法回退 a
+ */
+async function updateMotto({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  const motto = typeof body.motto === 'string' ? body.motto.trim() : '';
+  if (motto.length > 80) return error('座右铭最多 80 个字符', 400);
+  const style = body.style === 'c' ? 'c' : 'a';
+  const storage = getStorage(env);
+  await storage.users.updateMotto(session.user_id, motto, style);
+  return json({ success: true, message: '座右铭已保存' });
+}
+
+/**
+ * POST /api/auth/motto-seen  上报今日勉励卡已读（关闭弹卡时调用）
+ * 日期由服务端按全局 tz_offset 计算，不信客户端传值；失败静默（次日还会再弹）
+ */
+async function markMottoSeen({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const storage = getStorage(env);
+  const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
+  const today = nowCN(Date.now(), tzOffset).dateStr;
+  await storage.users.markMottoSeen(session.user_id, today);
+  return json({ success: true, date: today });
+}
+
+/**
  * PUT /api/auth/quicklogin-restrict  设置免密登录访问限制  body: { enabled }
  */
 async function updateQuickloginRestrict({ request, env }) {
@@ -344,5 +380,5 @@ async function updateQuickloginRestrict({ request, env }) {
 export {
   register, login, logout, me, bootstrap, setupStatus, registerStatus,
   getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict,
-  updateTheme, updateTodoAutoParent
+  updateTheme, updateTodoAutoParent, updateMotto, markMottoSeen
 };

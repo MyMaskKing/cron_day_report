@@ -16,7 +16,7 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateTodoAutoParent } from './api/auth.api.js';
+import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateTodoAutoParent, updateMotto, markMottoSeen } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
@@ -109,6 +109,8 @@ router.put('/api/auth/theme', updateTheme);
 router.put('/api/auth/password', changePassword);
 router.put('/api/auth/quicklogin-restrict', updateQuickloginRestrict);
 router.put('/api/auth/todo-auto-parent', updateTodoAutoParent);
+router.put('/api/auth/motto', updateMotto);
+router.post('/api/auth/motto-seen', markMottoSeen);
 router.get('/api/auth/setup-status', setupStatus);
 router.post('/api/auth/bootstrap', bootstrap);
 router.post('/api/public/quick-login/:kind/:token', quickLoginByToken);
@@ -406,6 +408,10 @@ async function handlePages(request, env) {
     // 界面主题（账号级偏好）：服务端直出 data-theme 防首屏闪白；非法/缺失回退 light
     const _me = await _storage.users.findById(session.user_id);
     user.theme = (_me && ['light', 'dark', 'eye'].includes(_me.theme)) ? _me.theme : 'light';
+    // 每日勉励卡（用户私有）：受限免密会话不弹；mottoDue=今日是否未读（按 tz_offset 计日）
+    user.motto = (!session.quicklogin_module && _me && _me.motto) ? _me.motto : '';
+    user.mottoStyle = _me && _me.motto_style === 'c' ? 'c' : 'a';
+    user.mottoDue = !!user.motto && _me.motto_seen_date !== nowCN(Date.now(), user.tzOffset).dateStr;
 
     switch (pageMap[path]) {
       case 'dashboard':

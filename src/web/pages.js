@@ -684,6 +684,28 @@ function settingsPage(user) {
         <button class="btn" type="submit">保存昵称</button>
       </form>
       <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+      <h2 style="font-size:15px;">每日勉励</h2>
+      <p class="muted" style="font-size:12px;">写一句给自己的话，每天首次打开面板时全屏展示一次；当天关闭后手机 / PC / Android 都不再出现，留空则完全不展示。</p>
+      <textarea id="mottoInput" class="motto-input" rows="2" maxlength="80" placeholder="例如：日拱一卒，功不唐捐。"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+        <label style="margin:0;">卡片风格</label>
+        <span class="muted" id="mottoCount" style="font-size:12px;">0/80</span>
+      </div>
+      <div class="motto-styles" id="mottoStyles">
+        <button type="button" class="motto-style" data-style="a">
+          <span class="ms-prev">日拱一卒</span>
+          <span class="ms-name">极光能量<small>深色 · 流动光斑 · 能量感</small></span>
+        </button>
+        <button type="button" class="motto-style" data-style="c">
+          <span class="ms-prev"><i></i></span>
+          <span class="ms-name">手账打气<small>暖色便签 · 治愈陪伴</small></span>
+        </button>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn" id="mottoSave" type="button">保存勉励</button>
+        <button class="btn gray" id="mottoPreview" type="button">预览今日卡片</button>
+      </div>
+      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <form id="pwdForm">
         <h2 style="font-size:15px;">修改密码</h2>
         <label>原密码</label>
