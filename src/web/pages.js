@@ -718,6 +718,27 @@ function settingsPage(user) {
           <span class="ms-name">最后通牒<small>今日倒计时 · 时间在烧</small></span>
         </button>
       </div>
+      <label style="margin:14px 0 6px;">展示频率（各设备独立，已读也按设备分别记录）</label>
+      <div id="mottoFreqBox" style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;">
+        <span style="font-size:13px;color:var(--label);">PC 浏览器</span>
+        <select id="mottoFreqPc" class="motto-freq">
+          <option value="daily">每天首次打开一次</option>
+          <option value="every">每次打开都展示</option>
+          <option value="off">不展示</option>
+        </select>
+        <span style="font-size:13px;color:var(--label);">手机浏览器</span>
+        <select id="mottoFreqMobile" class="motto-freq">
+          <option value="daily">每天首次打开一次</option>
+          <option value="every">每次打开都展示</option>
+          <option value="off">不展示</option>
+        </select>
+        <span style="font-size:13px;color:var(--label);">App</span>
+        <select id="mottoFreqApp" class="motto-freq">
+          <option value="daily">每天首次打开一次</option>
+          <option value="every">每次冷启动展示</option>
+          <option value="off">不展示</option>
+        </select>
+      </div>
       <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
         <button class="btn" id="mottoSave" type="button">保存勉励</button>
         <button class="btn gray" id="mottoPreview" type="button">预览今日卡片</button>

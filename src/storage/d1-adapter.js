@@ -102,13 +102,14 @@ function createD1Adapter(env) {
       async updateTodoAutoParent(id, v) {
         await db.prepare('UPDATE users SET todo_auto_parent = ? WHERE id = ?').bind(v ? 1 : 0, id).run();
       },
-      // 每日勉励卡：motto 为空串即清空（不弹）；style 仅接受 a/c，调用方负责校验
-      async updateMotto(id, motto, style) {
-        await db.prepare('UPDATE users SET motto = ?, motto_style = ? WHERE id = ?').bind(motto, style, id).run();
+      // 每日勉励卡：motto 为空串即清空（不弹）；style/freqJson 由 api 层校验后传入
+      async updateMotto(id, motto, style, freqJson) {
+        await db.prepare('UPDATE users SET motto = ?, motto_style = ?, motto_freq = ? WHERE id = ?')
+          .bind(motto, style, freqJson, id).run();
       },
-      // 记录勉励卡已读日期键 YYYY-MM-DD（按用户时区由 api 层算好传入）
-      async markMottoSeen(id, dateStr) {
-        await db.prepare('UPDATE users SET motto_seen_date = ? WHERE id = ?').bind(dateStr, id).run();
+      // 记录分设备已读日期 JSON（{"pc":"YYYY-MM-DD",...}，由 api 层读改写）
+      async updateMottoSeen(id, seenJson) {
+        await db.prepare('UPDATE users SET motto_seen = ? WHERE id = ?').bind(seenJson, id).run();
       },
       async count() {
         const row = await db.prepare('SELECT COUNT(*) AS c FROM users').first();

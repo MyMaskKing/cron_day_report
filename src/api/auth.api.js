@@ -31,6 +31,22 @@ const MOTTO_STYLES = ['a', 'c', 'h1', 'h2'];
 function mottoPlainLen(s) {
   return Array.from(String(s).replace(/\*\*|~~|__|\+\+|\[f:y\]|\[\/f\]|~/g, '')).length;
 }
+// 分设备展示频率白名单（daily=每天一次 every=每次打开 off=不展示）；缺失/非法回退 daily
+const MOTTO_FREQS = ['daily', 'every', 'off'];
+const MOTTO_DEVICES = ['pc', 'mobile', 'app'];
+function normalizeMottoFreq(v) {
+  const out = { pc: 'daily', mobile: 'daily', app: 'daily' };
+  if (v && typeof v === 'object') {
+    for (const d of MOTTO_DEVICES) {
+      if (MOTTO_FREQS.includes(v[d])) out[d] = v[d];
+    }
+  }
+  return out;
+}
+function parseMottoJson(v) {
+  if (!v || typeof v !== 'string') return {};
+  try { const o = JSON.parse(v); return o && typeof o === 'object' ? o : {}; } catch { return {}; }
+}
 
 // 注册人数上限相关 app_settings 键
 const SETTING_REG_LIMIT = 'register_limit';
@@ -150,7 +166,8 @@ async function getProfile({ request, env }) {
     theme: THEMES.includes(u.theme) ? u.theme : 'light',
     todo_auto_parent: u.todo_auto_parent === 0 ? 0 : 1,
     motto: u.motto || '',
-    motto_style: MOTTO_STYLES.includes(u.motto_style) ? u.motto_style : 'a'
+    motto_style: MOTTO_STYLES.includes(u.motto_style) ? u.motto_style : 'a',
+    motto_freq: normalizeMottoFreq(parseMottoJson(u.motto_freq))
   } });
 }
 
@@ -339,8 +356,9 @@ async function updateTodoAutoParent({ request, env }) {
 }
 
 /**
- * PUT /api/auth/motto  保存自己的每日勉励卡  body: { motto, style }
- * motto 去空白后 0-80 字符（空=清空，不再弹卡）；style 仅接受 a|c，非法回退 a
+ * PUT /api/auth/motto  保存自己的每日勉励卡  body: { motto, style, freq? }
+ * motto 去空白后正文 0-80 字（空=清空，不再弹卡）；style 白名单见 MOTTO_STYLES；
+ * freq 可选 {pc,mobile,app} ∈ daily|every|off，缺省/非法回退 daily
  */
 async function updateMotto({ request, env }) {
   const token = getTokenFromRequest(request);
@@ -352,24 +370,35 @@ async function updateMotto({ request, env }) {
   if (mottoPlainLen(motto) > 80) return error('座右铭最多 80 个字（加粗、字体等样式标记不计入字数）', 400);
   if (motto.length > 500) return error('座右铭内容过长', 400);
   const style = MOTTO_STYLES.includes(body.style) ? body.style : 'a';
+  const freq = normalizeMottoFreq(body.freq);
   const storage = getStorage(env);
-  await storage.users.updateMotto(session.user_id, motto, style);
+  await storage.users.updateMotto(session.user_id, motto, style, JSON.stringify(freq));
   return json({ success: true, message: '座右铭已保存' });
 }
 
 /**
- * POST /api/auth/motto-seen  上报今日勉励卡已读（关闭弹卡时调用）
- * 日期由服务端按全局 tz_offset 计算，不信客户端传值；失败静默（次日还会再弹）
+ * POST /api/auth/motto-seen  上报今日勉励卡已读（关闭弹卡时调用） body: { device: pc|mobile|app }
+ * 已读按设备独立记录；app 设备类型以 X-App-Shell 头为权威（该数据无安全意义，仅纠正自报）。
+ * 日期由服务端按全局 tz_offset 计算；失败静默（次日还会再弹）
  */
 async function markMottoSeen({ request, env }) {
   const token = getTokenFromRequest(request);
   const session = await getSession(env, token);
   if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  let device = MOTTO_DEVICES.includes(body.device) ? body.device : null;
+  const isApp = request.headers.get('X-App-Shell') === '1';
+  if (isApp) device = 'app';
+  else if (!device) device = 'pc';
   const storage = getStorage(env);
   const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
   const today = nowCN(Date.now(), tzOffset).dateStr;
-  await storage.users.markMottoSeen(session.user_id, today);
-  return json({ success: true, date: today });
+  // 读改写 motto_seen JSON（保留其他设备的已读日期）
+  const u = await storage.users.findById(session.user_id);
+  const seen = parseMottoJson(u && u.motto_seen);
+  seen[device] = today;
+  await storage.users.updateMottoSeen(session.user_id, JSON.stringify(seen));
+  return json({ success: true, device, date: today });
 }
 
 /**

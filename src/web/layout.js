@@ -1891,9 +1891,10 @@ html { scrollbar-gutter: stable; }
 
 /**
  * 每日勉励卡（用户私有座右铭）：全屏弹层，四种风格 a/c/h1/h2。
- * user.motto 非空才输出 DOM；user.mottoDue 控制当天首次打开自动展示。
- * 关闭经 POST /api/auth/motto-seen 按服务端时区记已读；设置页可调用 window.__mottoPreview() 手动唤出。
- * @param {Object} user - { motto, mottoStyle, mottoDue, tzOffset }
+ * user.motto 非空才输出 DOM；是否自动展示由内联脚本按设备(pc/mobile/app)×频率(daily/every/off)
+ * 结合 user.mottoFreq/user.mottoSeen/user.mottoToday 与 sessionStorage 决定。
+ * 关闭经 POST /api/auth/motto-seen {device} 按服务端时区记该设备已读；设置页可调 window.__mottoPreview() 手动唤出。
+ * @param {Object} user - { motto, mottoStyle, mottoFreq, mottoSeen, mottoToday, appShell, tzOffset }
  * @returns {string}
  */
 // 座右铭行内标记解析：先整体 HTML 转义再替换为固定 span（插入内容不含任何用户原文拼进标签，防 XSS）。
@@ -2016,15 +2017,36 @@ function renderMottoCard(user) {
        </div>`;
   }
 
-  // 关闭：按钮/✕/点遮罩空白/ESC；上报失败静默（次日仍会再弹）。预览态(__mottoPreview)同样记已读。
+  // 弹不弹由前端按「设备 × 频率」决定（视口宽度只有客户端知道）：
+  //   app 由服务端头权威判定；浏览器按 <=640px 归 mobile（与底部 Tab 同一断点）
+  //   daily: 该设备服务端已读日 != 今日，且本会话未关闭过 → 弹；every: 本会话未弹过 → 弹；off: 不弹
+  //   会话态用 sessionStorage 挡住同标签/同 App 进程内的后续页面，daily 持久态由后端按设备独立记录
+  const jsJson = o => JSON.stringify(o).replace(/</g, '\\u003c');
   const js = `(function(){
   var ov = document.getElementById('mottoOverlay');
   if (!ov) return;
+  var cfg = ${jsJson(user.mottoFreq || {})};
+  var seen = ${jsJson(user.mottoSeen || {})};
+  var today = ${jsJson(user.mottoToday || '')};
+  var device = ${user.appShell ? 'true' : 'false'} ? 'app' : (window.innerWidth <= 640 ? 'mobile' : 'pc');
+  var freq = cfg[device] || 'daily';
+  var due = false;
+  if (freq === 'every') due = sessionStorage.getItem('mottoOpen') !== '1';
+  else if (freq === 'daily') due = seen[device] !== today && sessionStorage.getItem('mottoDaily') !== today;
+  if (due) {
+    ov.classList.add('is-on');
+    if (freq === 'every') sessionStorage.setItem('mottoOpen', '1');
+    else sessionStorage.setItem('mottoDaily', today);
+  }
   var closing = false;
   function closeMotto(){
     if (closing) return; closing = true;
     ov.classList.add('is-closing');
-    try { fetch('/api/auth/motto-seen', { method:'POST', keepalive:true, credentials:'same-origin' }); } catch(e) {}
+    sessionStorage.setItem('mottoDaily', today);
+    try {
+      fetch('/api/auth/motto-seen', { method:'POST', keepalive:true, credentials:'same-origin',
+        headers:{'Content-Type':'application/json'}, body: JSON.stringify({ device: device }) });
+    } catch(e) {}
     setTimeout(function(){ ov.classList.remove('is-on','is-closing'); closing = false; }, 300);
   }
   ov.addEventListener('click', function(e){
@@ -2053,7 +2075,8 @@ ${style === 'h2' ? `  // H2 最后通牒：按用户时区(tz_offset)实时倒�
   setInterval(mottoTick, 1000);` : ''}
 })();`;
 
-  return `<div class="motto-overlay is-${style}${user.mottoDue ? ' is-on' : ''}" id="mottoOverlay"
+  // is-on 由内联脚本按设备/频率决定，服务端不预判
+  return `<div class="motto-overlay is-${style}" id="mottoOverlay"
     role="dialog" aria-modal="true" aria-label="每日勉励">${inner}</div>
 <script>${js.replace(/<\/script>/g, '<\\/script')}</script>`;
 }

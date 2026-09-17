@@ -15,7 +15,8 @@
 -- theme: 界面主题 light(默认) | dark | eye
 -- todo_auto_parent: 待办偏好, 1=子任务全部完成后父任务自动完成(默认) | 0=关闭
 -- motto: 每日勉励卡正文(用户私有), 空=不弹; motto_style: a=极光能量(默认) | c=手账打气 | h1=战书令 | h2=最后通牒
--- motto_seen_date: 最近已读日期 YYYY-MM-DD(按 tz_offset 计日), 不等于今日则当天首次登录弹一次
+-- motto_seen_date: (已废弃, 0006 起被 motto_seen 取代, 保留供滚动部署兼容)
+-- motto_freq: JSON {pc,mobile,app} ∈ daily(默认)|every|off; motto_seen: JSON 各设备独立已读日期
 CREATE TABLE IF NOT EXISTS users (
   id                   INTEGER PRIMARY KEY AUTOINCREMENT,
   username             TEXT NOT NULL UNIQUE,
@@ -31,6 +32,8 @@ CREATE TABLE IF NOT EXISTS users (
   motto                TEXT,
   motto_style          TEXT NOT NULL DEFAULT 'a',
   motto_seen_date      TEXT,
+  motto_freq           TEXT,
+  motto_seen           TEXT,
   last_login_at        TEXT,
   last_public_at       TEXT,
   created_at           TEXT NOT NULL DEFAULT (datetime('now'))

@@ -2217,6 +2217,12 @@ var showMsg = function(_el, text, ok){ showToast(text, ok); };
         b.classList.toggle('on', b.dataset.style === mottoStyle);
       });
       document.getElementById('mottoCount').textContent = mottoPlainLen(mi0.value) + '/80（样式标记不计）';
+      var freq = d.profile.motto_freq || {};
+      ['Pc','Mobile','App'].forEach(function(k){
+        var sel = document.getElementById('mottoFreq' + k);
+        var dev = k.toLowerCase();
+        if (sel) sel.value = ['daily','every','off'].indexOf(freq[dev]) >= 0 ? freq[dev] : 'daily';
+      });
     }
   } catch(e){ navTo('/login'); }
 })();
@@ -2332,12 +2338,30 @@ if (mottoInput) {
     mottoStyle = b.dataset.style;
     this.querySelectorAll('.motto-style').forEach(function(x){ x.classList.toggle('on', x === b); });
   });
+  // 收集三设备频率（缺省/非法由后端再兜一次 daily）
+  function mottoFreqBody(){
+    return {
+      pc: (document.getElementById('mottoFreqPc')||{}).value || 'daily',
+      mobile: (document.getElementById('mottoFreqMobile')||{}).value || 'daily',
+      app: (document.getElementById('mottoFreqApp')||{}).value || 'daily'
+    };
+  }
+  // 频率下拉切换即保存（带当前文案/风格，避免覆盖）
+  var freqBox = document.getElementById('mottoFreqBox');
+  if (freqBox) freqBox.addEventListener('change', async function(){
+    var text = mottoInput.value.trim();
+    if (mottoPlainLen(text) > 80) { showMsg(msg, '座右铭正文超过 80 字，请先修改正文', false); return; }
+    try {
+      await api('/api/auth/motto', { method: 'PUT', body: { motto: text, style: mottoStyle, freq: mottoFreqBody() } });
+      showMsg(msg, '展示频率已保存', true);
+    } catch(err) { showMsg(msg, err.message, false); }
+  });
   // 保存：同风格时即时更新本页已直出卡片的文案；跨风格/首次填写由刷新统一呈现
   document.getElementById('mottoSave').addEventListener('click', async function(){
     var text = mottoInput.value.trim();
     if (mottoPlainLen(text) > 80) { showMsg(msg, '座右铭正文最多 80 个字（样式标记不计入）', false); mottoUpdateCount(); return; }
     try {
-      await api('/api/auth/motto', { method: 'PUT', body: { motto: text, style: mottoStyle } });
+      await api('/api/auth/motto', { method: 'PUT', body: { motto: text, style: mottoStyle, freq: mottoFreqBody() } });
       var ov = document.getElementById('mottoOverlay');
       if (ov && text && ov.classList.contains('is-' + mottoStyle)) {
         var q = ov.querySelector('.motto-quote');
@@ -2353,7 +2377,7 @@ if (mottoInput) {
     if (!text) { showMsg(msg, '请先填写一句座右铭', false); return; }
     if (mottoPlainLen(text) > 80) { showMsg(msg, '座右铭正文最多 80 个字（样式标记不计入）', false); mottoUpdateCount(); return; }
     try {
-      await api('/api/auth/motto', { method: 'PUT', body: { motto: text, style: mottoStyle } });
+      await api('/api/auth/motto', { method: 'PUT', body: { motto: text, style: mottoStyle, freq: mottoFreqBody() } });
       sessionStorage.setItem('mottoPreview', '1');
       location.reload();
     } catch(err) { showMsg(msg, err.message, false); }

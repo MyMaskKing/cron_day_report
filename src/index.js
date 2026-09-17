@@ -408,10 +408,24 @@ async function handlePages(request, env) {
     // 界面主题（账号级偏好）：服务端直出 data-theme 防首屏闪白；非法/缺失回退 light
     const _me = await _storage.users.findById(session.user_id);
     user.theme = (_me && ['light', 'dark', 'eye'].includes(_me.theme)) ? _me.theme : 'light';
-    // 每日勉励卡（用户私有）：受限免密会话不弹；mottoDue=今日是否未读（按 tz_offset 计日）
+    // 每日勉励卡（用户私有）：受限免密会话不弹。弹不弹由前端按设备+频率决定
+    // （视口宽度只有客户端知道）；服务端下发频率配置、分设备已读日期、按 tz_offset 的今日键
     user.motto = (!session.quicklogin_module && _me && _me.motto) ? _me.motto : '';
     user.mottoStyle = _me && ['a', 'c', 'h1', 'h2'].includes(_me.motto_style) ? _me.motto_style : 'a';
-    user.mottoDue = !!user.motto && _me.motto_seen_date !== nowCN(Date.now(), user.tzOffset).dateStr;
+    user.mottoToday = nowCN(Date.now(), user.tzOffset).dateStr;
+    user.mottoFreq = (() => {
+      const def = { pc: 'daily', mobile: 'daily', app: 'daily' };
+      let f = null;
+      try { f = _me && _me.motto_freq ? JSON.parse(_me.motto_freq) : null; } catch { f = null; }
+      const ok = ['daily', 'every', 'off'];
+      for (const d of ['pc', 'mobile', 'app']) {
+        if (f && ok.includes(f[d])) def[d] = f[d];
+      }
+      return def;
+    })();
+    user.mottoSeen = (() => {
+      try { return _me && _me.motto_seen ? JSON.parse(_me.motto_seen) : {}; } catch { return {}; }
+    })();
 
     switch (pageMap[path]) {
       case 'dashboard':
