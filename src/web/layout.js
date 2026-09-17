@@ -2149,7 +2149,9 @@ function renderTopbar(user, active = '') {
     { key: 'asset', href: '/asset', text: '资产' },
     { key: 'settings', href: '/settings', text: '我的' }
   ];
-  const tabOn = k => (k === 'settings' ? (active === 'settings' || active === '') : active === k);
+  // 「我的」Tab 归属：设置页本身 + 仅能从「我的」功能入口到达的页面（仪表盘/定时任务/渠道/用户管理/存储）
+  const MY_TAB_PAGES = { settings: 1, dashboard: 1, monitor: 1, channels: 1, admin: 1, storage: 1 };
+  const tabOn = k => (k === 'settings' ? !!MY_TAB_PAGES[active] : active === k);
   const tabHtml = restricted
     ? tabDefs.filter(t => t.key === user.quickloginModule)
         .map(t => `<a href="${t.href}" class="${tabOn(t.key) ? 'on' : ''}">${SIDE_ICONS[t.key]}${t.text}</a>`).join('')

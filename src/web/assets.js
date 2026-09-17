@@ -582,6 +582,9 @@ function _showLoadingImmediate(text) {
 }
 // 统一封装的页面跳转: 立即显示 loading → 触发 location.href.
 // 相比裸 location.href, 用户在点击后立刻看到反馈, 不用干等到新页面渲染.
+// 登录落地页：窄屏（手机浏览器 / App 壳，与底部 Tab 的 640px 断点一致）首屏去待办（底部首个 Tab）；
+// 宽屏去仪表盘（PC 侧栏「概览」首项）。旋转/缩放即时取值，登录页本身无底部 Tab 不影响。
+function homePath() { return window.innerWidth <= 640 ? '/todo' : '/dashboard'; }
 function navTo(url, text) {
   _showLoadingImmediate(text || '正在打开页面…');
   location.href = url;
@@ -1357,7 +1360,7 @@ function bindQuickLogin(kind) {
   bindClickBusy(document.getElementById('quickLoginBtn'), async function(e){
     if (e && e.preventDefault) e.preventDefault();
     var r = await api('/api/public/quick-login/' + kind + '/' + tk, { method: 'POST' });
-    navTo(r.redirect || '/dashboard');
+    navTo(r.redirect || homePath());
   });
 }
 // 图表横屏全屏查看：给页面每个图表 canvas 加「⛶」按钮，点击把 canvas 移入旋转 90° 的全屏层
@@ -1543,7 +1546,7 @@ function initGlobalSwipeBack() {
     if (canBack && history.length > 1) { history.back(); return; }
     // 登录页不做兜底跳转
     if (location.pathname === '/login' || location.pathname === '/setup') return;
-    navTo('/dashboard');
+    navTo(homePath());
   }
 }
 
@@ -2041,7 +2044,7 @@ async function doLogin() {
       username: document.getElementById('lu').value,
       password: document.getElementById('lp').value
     }});
-    navTo('/dashboard');
+    navTo(homePath());
   } catch (err) { showMsg(msg, err.message, false); }
 }
 loginForm.addEventListener('submit', function(e) { e.preventDefault(); doLogin(); });

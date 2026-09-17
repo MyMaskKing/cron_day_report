@@ -153,11 +153,17 @@ private val TABS = listOf(
 // 标记原生壳：每次 loadUrl 都带此头，服务端据此隐藏顶部网站导航（cookie 因 setCookie 异步有竞态，用头保证当次请求立即生效）
 private val APP_HEADERS = mapOf("X-App-Shell" to "1")
 
-/** 深链 URL → 对应底部 Tab 下标（按路径前缀匹配），默认 0（待办）。 */
+/**
+ * 深链/页面 URL → 底部 Tab 下标（按路径前缀匹配）。
+ * null（App 冷启动无深链）→ 0（待办，默认首页）；
+ * 已登录但不属于四个业务 Tab 的页面（仪表盘/定时任务/渠道/设置等，均从「我的」进入）→ -1，
+ * 底部高亮「我的」（见 NavigationBarItem 选中判定）。
+ */
 private fun tabIndexFor(url: String?): Int {
-    val path = url?.let { runCatching { Uri.parse(it).path }.getOrNull() } ?: return 0
+    if (url == null) return 0
+    val path = runCatching { Uri.parse(url).path }.getOrNull() ?: return -1
     val idx = TABS.indexOfFirst { it.path != null && (path == it.path || path.startsWith(it.path + "/")) }
-    return if (idx >= 0) idx else 0
+    return if (idx >= 0) idx else -1
 }
 
 @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
@@ -230,6 +236,9 @@ private fun AppShell(
 
     fun openPath(path: String) {
         targetUrl = baseUrl + path
+        // 从「我的」进入非业务 Tab 页（如 /dashboard）时返回 -1，底部保持「我的」高亮；
+        // 点业务 Tab 时这里算出对应下标，与 onClick 显式赋值一致
+        selected = tabIndexFor(targetUrl)
         showMe = false
     }
 
@@ -258,7 +267,8 @@ private fun AppShell(
                 }
             ) {
                 TABS.forEachIndexed { i, tab ->
-                    val isSel = if (tab.path == null) showMe else (!showMe && selected == i)
+                    // 「我的」高亮：原生我的面板打开(showMe)，或停在从我的进入的非业务页(selected=-1)
+                    val isSel = if (tab.path == null) (showMe || selected == -1) else (!showMe && selected == i)
                     NavigationBarItem(
                         selected = isSel,
                         onClick = {
@@ -349,6 +359,26 @@ private fun AppShell(
                                     context.startActivity(Intent(Intent.ACTION_VIEW, uri))
                                     true
                                 }
+                            }
+
+                            // 网页内部跳转（如仪表盘「查看全部」→ /todo）同步底部 Tab 选中态；
+                            // 非整页 loadUrl（replaceState）不触发本回调，不会误切
+                            override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                                super.doUpdateVisitedHistory(view, url, isReload)
+                                val path = url?.let { runCatching { Uri.parse(it).path }.getOrNull() } ?: return
+                                val idx = TABS.indexOfFirst {
+                                    it.path != null && (path == it.path || path.startsWith(it.path + "/"))
+                                }
+                                if (idx >= 0) {
+                                    selected = idx
+                                    showMe = false
+                                    return
+                                }
+                                // 已登录的非业务页（仪表盘/定时任务/渠道/设置等）归「我的」高亮；
+                                // 登录/初始化页不点亮任何 Tab
+                                val hasSid = CookieManager.getInstance().getCookie(url)
+                                    ?.let { Regex("(?:^|;)\\s*sid=([^;]+)").find(it)?.groupValues?.get(1)?.isNotBlank() } == true
+                                if (hasSid && path != "/login" && path != "/setup") selected = -1
                             }
 
                             override fun onPageFinished(view: WebView, url: String?) {
