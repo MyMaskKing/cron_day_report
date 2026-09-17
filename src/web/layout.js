@@ -406,6 +406,10 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
 }
 .m-entry a svg { color: var(--brand); flex-shrink: 0; }
 .m-entry a:hover { border-color: var(--brand-border); background: var(--hover-brand); text-decoration: none; }
+/* 退出登录（仅手机浏览器功能入口卡；App 壳不输出该项，登出走原生「我的」） */
+.m-entry a.m-entry__logout { color: var(--danger); }
+.m-entry a.m-entry__logout svg { color: var(--danger); }
+.m-entry a.m-entry__logout:hover { border-color: rgba(207,19,34,.35); background: rgba(207,19,34,.06); }
 /* 仪表盘 KPI 语义数字 */
 #kpiToday { color: var(--brand); }
 #kpiOverdue.num:not(:empty) { color: var(--danger); }
