@@ -119,10 +119,10 @@ const BASE_CSS = `
   --ok-bg: #f6ffed;
   --warn: #b45309;        /* 临近到期(明天/本周内)琥珀色 */
   --warn-bg: #fdf2e2;
-  /* child_due「各自截止」模式标识: 鼠尾草绿(低唤醒, 区别于品牌紫行动色), 三主题各自取值 */
-  --cd-bg: #EAF1EC;
-  --cd-fg: #4C7659;
-  --cd-border: #CCDFD2;
+  /* child_due「各自截止」模式标识: 品牌浅紫族(与"今天"chip 同语言, 低唤醒), 三主题各自取值 */
+  --cd-bg: #F3EEFE;
+  --cd-fg: #7C3AED;
+  --cd-border: #dfe4fb;
   --th-bg: rgba(20,20,40,.025);
   --th-border: rgba(20,20,40,.06);
   --loading-mask: rgba(246,245,242,.65);
@@ -165,9 +165,9 @@ const BASE_CSS = `
   --ok-bg: rgba(74,222,128,.12);
   --warn: #fbbf24;
   --warn-bg: rgba(251,191,36,.15);
-  --cd-bg: rgba(120,178,140,.15);
-  --cd-fg: #93C6A6;
-  --cd-border: rgba(140,195,158,.30);
+  --cd-bg: rgba(168,85,247,.18);
+  --cd-fg: #b97bff;
+  --cd-border: rgba(185,123,255,.45);
   --th-bg: rgba(255,255,255,.04);
   --th-border: rgba(255,255,255,.08);
   --loading-mask: rgba(10,12,20,.6);
@@ -210,9 +210,9 @@ const BASE_CSS = `
   --ok-bg: #e9f5ea;
   --warn: #93611a;
   --warn-bg: #f6ead2;
-  --cd-bg: #E7EEDF;
-  --cd-fg: #4F6B46;
-  --cd-border: #CBDDBF;
+  --cd-bg: #f0e6f8;
+  --cd-fg: #7e22ce;
+  --cd-border: #d9cdf5;
   --th-bg: rgba(120,100,50,.05);
   --th-border: rgba(120,100,50,.10);
   --loading-mask: rgba(243,238,224,.65);
