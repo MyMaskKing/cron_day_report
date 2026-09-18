@@ -880,11 +880,13 @@ input[type="date"] { cursor: pointer; }
 .todo-chip.due { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due.overdue { background: var(--danger-bg); color: var(--danger); font-weight: 600; }
 .todo-chip.due.today { background: var(--brand-grad); color: #fff; font-weight: 700; }
-/* 详情内子任务自带日期为"今天"时降唤醒: 不用深紫渐变白字, 用普通灰 chip;
-   只作用于子树行(.td-sub / .todo-tree), 面包屑上的主任务日期仍保留紫色重点 */
+/* 详情相关位置的"今天"降唤醒: 不用深紫渐变白字, 用普通灰 chip(子树行/弹窗子任务行/面包屑主任务日期) */
 .td-sub .todo-chip.due.today,
-body.todo-detail .todo-tree .todo-chip.due.today { background: var(--surface-2); color: var(--link-dim); font-weight: 400; }
+body.todo-detail .todo-tree .todo-chip.due.today,
+.todo-crumb .todo-chip.due.today { background: var(--surface-2); color: var(--link-dim); font-weight: 400; }
 .todo-crumb .todo-chip { flex: none; }
+/* 日期+重复 chip 的不可拆分组: 组内不换行, 整组随 meta 换行 */
+.todo-chip-grp { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0; }
 .todo-chip.due.soon { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .todo-chip.due.future { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due .due-days { opacity: .72; font-weight: 500; }
