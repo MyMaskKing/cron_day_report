@@ -932,6 +932,7 @@ input[type="date"] { cursor: pointer; }
 .todo-chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; line-height: 1.6; }
 .todo-chip.cat { background: var(--hover-brand); color: var(--brand); }
 .todo-chip.due { background: var(--surface-2); color: var(--link-dim); }
+.todo-chip.due svg { width: 12px; height: 12px; }
 .todo-chip.due.overdue { background: var(--danger-bg); color: var(--danger); font-weight: 600; }
 .todo-chip.due.today { background: var(--brand-grad); color: #fff; font-weight: 700; }
 /* "今天"统一浅紫语言(柔和但保留今日特殊感): 面包屑主任务日期 / 眼睛详情弹窗 /

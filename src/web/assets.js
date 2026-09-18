@@ -1403,7 +1403,7 @@ function todoDateDiff(dueDate, today) {
 //   临近=琥珀, 仅"明天/本周X"这类汉字相对日期(数字 MM/DD 即使只差几天也保持中性灰);
 //   更远=中性灰; 后两者附"· N天后"(今天/明天 label 已达意, 不附)。
 //   已完成恒中性且不附天数。无日期返回 null。
-function todoDueChip(dueDate, today, done) {
+function todoDueChip(dueDate, today, done, icon) {
   if (!dueDate) return null;
   var diff = todoDateDiff(dueDate, today);
   if (!done && diff != null && diff < 0) {
@@ -1414,7 +1414,7 @@ function todoDueChip(dueDate, today, done) {
   if (!done && diff === 0) cls += ' today';
   else if (!done && (diff === 1 || label.charAt(0) === '本')) cls += ' soon';
   else if (!done && diff != null) cls += ' future';
-  var html = ICONS.calendar + esc(label);
+  var html = (icon || ICONS.calendar) + esc(label);
   if (!done && diff != null && diff >= 2) html += ' <span class="due-days">· ' + diff + '天后</span>';
   return { cls: cls, html: html };
 }
@@ -6808,7 +6808,7 @@ function renderTodoTree(container, trees, opts) {
     // 完整树顶层同卡片视图(todoRootDue)；其余节点只显示自身日期。
     // 跟随父级的任务不重复挂 chip；effDue 仍用于勾选/排序等业务判断。
     var chipDue = (!isDetail && depth === 0) ? todoRootDue(node) : node.due_date;
-    var dueChip = todoDueChip(chipDue, today, node.done);
+    var dueChip = todoDueChip(chipDue, today, node.done, (!isDetail && depth === 0 && node.child_due) ? ICONS.branch : null);
     if (dueChip) {
       var dc = document.createElement('span');
       dc.className = dueChip.cls;
@@ -6981,7 +6981,7 @@ function renderTodoCards(container, trees, opts) {
     }
     // 卡片日期: 顶层显示日期 todoRootDue(旧模式=root.due_date; 新模式=最早到期的未完成子任务)
     var rootDue = todoRootDue(root);
-    var rootDueChip = todoDueChip(rootDue, today, root.done);
+    var rootDueChip = todoDueChip(rootDue, today, root.done, root.child_due ? ICONS.branch : null);
     if (rootDueChip) {
       var dc = document.createElement('span');
       dc.className = rootDueChip.cls;
