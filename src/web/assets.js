@@ -8707,7 +8707,10 @@ var _filter = 'planned'; // all | planned | cur | today | overdue | future | mem
 function switchTodoFilter(f) {
   if (_filter === f) return;
   var btn = document.querySelector('#todoFilter button[data-filter="' + f + '"]');
-  if (btn) btn.click();
+  if (!btn) return;
+  btn.click();
+  // 抽屉时间项是渲染时的 active 快照, 程序切换后同步重绘, 否则抽屉仍高亮旧筛选
+  refreshTodoDrawer(_rows);
 }
 // 按当前 _filter 过滤后的可见顶层树重算 未完成/已逾期/备忘录 三项统计
 // 与已完成一栏保持一致的联动风格; 已完成节点(整枝)不计入
