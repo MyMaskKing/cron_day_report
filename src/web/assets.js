@@ -5594,10 +5594,11 @@ function todoOpMenuToggle(row, opsEl){
   menu.addEventListener('click', function(e){ e.stopPropagation(); });
   var isMobile = window.matchMedia && window.matchMedia('(max-width:640px)').matches;
   if (isMobile) {
-    // 手机端脱离全屏树/行容器的堆叠与裁剪上下文，直接挂到 body，用 fixed 对齐当前行。
+    // 手机端挂到 body，用 fixed 对齐三点按钮，脱离全屏树/行容器的堆叠与裁剪上下文。
     menu.classList.add('todo-op-menu--fixed');
     document.body.appendChild(menu);
-    var rect = row.getBoundingClientRect();
+    var anchor = opsEl.querySelector('.todo-more') || row;
+    var rect = anchor.getBoundingClientRect();
     var menuW = menu.offsetWidth || 162;
     var menuH = menu.offsetHeight || 0;
     var menuLeft = Math.max(8, Math.min(Math.round(rect.right - menuW - 4), Math.round(window.innerWidth - menuW - 8)));
@@ -6804,9 +6805,9 @@ function renderTodoTree(container, trees, opts) {
     if (node.category) {
       var cc = document.createElement('span'); cc.className = 'todo-chip cat'; cc.textContent = node.category; meta.appendChild(cc);
     }
-    // 日期 chip：完整树与详情子树口径一致，只显示任务自身设置的截止日期。
+    // 完整树顶层同卡片视图(todoRootDue)；其余节点只显示自身日期。
     // 跟随父级的任务不重复挂 chip；effDue 仍用于勾选/排序等业务判断。
-    var chipDue = node.due_date;
+    var chipDue = (!isDetail && depth === 0) ? todoRootDue(node) : node.due_date;
     var dueChip = todoDueChip(chipDue, today, node.done);
     if (dueChip) {
       var dc = document.createElement('span');
