@@ -6739,25 +6739,20 @@ function renderTodoTree(container, trees, opts) {
     // 完整树仍按有效日期(自身优先否则继承)显示
     var chipDue = isDetail ? node.due_date : ((depth === 0) ? todoRootDue(node) : effDue);
     var dueChip = todoDueChip(chipDue, today, node.done);
-    // 日期+重复包成不换行组: 窄行(手机/缩进子任务)里 meta 换行时二者作为整体换行,
-    // 不会把"今天"和"每3天"拆成两行
-    var chipGrp = document.createElement('span');
-    chipGrp.className = 'todo-chip-grp';
     if (dueChip) {
       var dc = document.createElement('span');
       dc.className = dueChip.cls;
       if (chipDue) dc.title = chipDue; // 悬浮给完整日期(逾期只显示天数时补信息)
       dc.innerHTML = dueChip.html;
-      chipGrp.appendChild(dc);
+      meta.appendChild(dc);
     }
     // 重复徽章: 哪个节点设了重复就显示在哪个节点(旧模式仅顶层; 新模式可在叶子子任务上)
     if (node.recurrence) {
       var rc = document.createElement('span');
       rc.className = 'todo-chip repeat';
       rc.innerHTML = ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday));
-      chipGrp.appendChild(rc);
+      meta.appendChild(rc);
     }
-    if (chipGrp.childNodes.length) meta.appendChild(chipGrp);
     // 完成时间 chip：已完成且有完成日期时显示
     if (node.done && node.done_at) {
       var doneC = document.createElement('span');
