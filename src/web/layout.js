@@ -353,8 +353,35 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
      压缩式浏览器(kb-resize): 系统已把容器缩到键盘上方, 只留小呼吸, 不双倍留白 */
   body.kb-on .todo-fs-main { padding-bottom: calc(12px + var(--kb-inset, 0px)); }
   body.kb-resize .todo-fs-main { padding-bottom: 14px; }
+  /* 手机完整树(非详情视图)任务行三行化: 标题行 / 相关内容(meta, 在 main 内自然换行) / 操作钮独占一行右对齐,
+     避免操作钮把标题列挤成单字宽 */
+  body:not(.todo-detail) .todo-tree .todo-row { flex-wrap: wrap; row-gap: 6px; }
+  body:not(.todo-detail) .todo-tree .todo-ops {
+    flex-basis: 100%; justify-content: flex-end; opacity: 1;
+  }
   /* 基金页策略浮层在底栏之上的避让规则写在 .strat-* 原媒体块旁(该处带 !important) */
 }
+/* FAB 加号弹出菜单: 两个竖排卡片按钮(任务/备忘录), 定位由 JS 按锚点按钮写 top/bottom+right */
+.fab-menu {
+  position: fixed; z-index: 1004;
+  display: flex; flex-direction: column; gap: 8px;
+  animation: fabMenuIn .16s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes fabMenuIn { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+.fab-menu__item {
+  display: flex; align-items: center; gap: 10px; min-width: 178px; text-align: left;
+  padding: 10px 14px; border-radius: 13px; font-family: inherit; cursor: pointer;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(20,20,40,.16), 0 2px 8px rgba(20,20,40,.08);
+  transition: transform .12s ease, border-color .12s ease;
+}
+.fab-menu__item:active { transform: scale(.97); border-color: var(--brand-border); }
+.fab-menu__ic { flex: none; width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  background: var(--brand-tint); color: var(--brand); }
+.fab-menu__ic svg { width: 16px; height: 16px; }
+.fab-menu__t { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.fab-menu__t small { display: block; font-size: 11px; font-weight: 400; color: var(--muted); margin-top: 1px; }
+@media (prefers-reduced-motion: reduce) { .fab-menu { animation: none; } }
 .impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }
 .impersonate-banner a { color: var(--danger); font-weight: 600; margin-left: 8px; }
 /* 全站公告强制阅读弹窗：独立遮罩，层级高于 #globalLoading(10500)，无关闭叉、点空白不关闭 */
@@ -880,11 +907,11 @@ input[type="date"] { cursor: pointer; }
 .todo-chip.due { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due.overdue { background: var(--danger-bg); color: var(--danger); font-weight: 600; }
 .todo-chip.due.today { background: var(--brand-grad); color: #fff; font-weight: 700; }
-/* "今天"统一浅紫语言(柔和但保留今日特殊感): 面包屑主任务日期 / 眼睛详情弹窗子任务行 chip /
-   弹窗顶部日期 chip / 页面内详情子树行 chip */
+/* "今天"统一浅紫语言(柔和但保留今日特殊感): 面包屑主任务日期 / 眼睛详情弹窗 /
+   完整树与详情子树(根行+子任务行) / 卡片列表根卡仍保留深紫渐变作为扫视重点 */
 .todo-crumb .todo-chip.due.today,
 .td-sub .todo-chip.due.today,
-body.todo-detail .todo-tree .todo-chip.due.today,
+.todo-tree .todo-chip.due.today,
 .td-chip.td-chip--today { background: var(--brand-tint); color: var(--brand-strong); font-weight: 600; }
 /* 弹窗顶部日期 chip 本体是描边中性样式, 浅紫态换品牌浅紫边 */
 .td-chip.td-chip--today { border-color: var(--brand-border); }
@@ -892,13 +919,13 @@ body.todo-detail .todo-tree .todo-chip.due.today,
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .todo-crumb .todo-chip.due.today,
   :root:not([data-theme="light"]) .td-sub .todo-chip.due.today,
-  :root:not([data-theme="light"]) body.todo-detail .todo-tree .todo-chip.due.today,
+  :root:not([data-theme="light"]) .todo-tree .todo-chip.due.today,
   :root:not([data-theme="light"]) .td-chip.td-chip--today,
   :root:not([data-theme="light"]) .todo-chip.repeat { color: var(--brand); }
 }
 [data-theme="dark"] .todo-crumb .todo-chip.due.today,
 [data-theme="dark"] .td-sub .todo-chip.due.today,
-[data-theme="dark"] body.todo-detail .todo-tree .todo-chip.due.today,
+[data-theme="dark"] .todo-tree .todo-chip.due.today,
 [data-theme="dark"] .td-chip.td-chip--today,
 [data-theme="dark"] .todo-chip.repeat { color: var(--brand); }
 .todo-crumb .todo-chip { flex: none; }

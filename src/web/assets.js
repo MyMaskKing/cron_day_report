@@ -9054,20 +9054,68 @@ function onTodoRenameCat(name) {
   });
 }
 bindClickBusy(document.getElementById('tListBtn'), function(){ openSharedCatPanel(); return Promise.resolve(); });
-// 右下角 FAB / 顶栏加号: 先弹类型选择(带日期的任务 / 无日期的备忘录), 再进对应表单
-function openAddChooser() {
-  openModal('新建',
-    '<div style="display:flex;flex-direction:column;gap:4px;">'
-    + '<button type="button" class="btn" id="acTask" style="width:100%;">' + ICONS.calendar + ' 新建任务</button>'
-    + '<p class="muted" style="margin:-2px 0 10px;font-size:12px;">可设截止日期与重复，计入今日/逾期统计</p>'
-    + '<button type="button" class="btn gray" id="acMemo" style="width:100%;">' + ICONS.edit + ' 新建备忘录</button>'
-    + '<p class="muted" style="margin:-2px 0 0;font-size:12px;">无日期、不重复，只作记录，不计入统计</p>'
-    + '</div>');
-  document.getElementById('acTask').addEventListener('click', function(){ closeModal(); openAddForm(null, '新建任务', false); });
-  document.getElementById('acMemo').addEventListener('click', function(){ closeModal(); openAddForm(null, '新建备忘录', false, true); });
+// 右下角 FAB / 顶栏加号: 在锚点(优先可见 FAB, 否则顶栏钮)旁弹出气泡菜单
+// 两个选项: 带日期的任务 / 无日期的备忘录; 点外部/Esc/滚动/再点一次关闭
+var _addMenu = null;
+function _onAddMenuDoc(e){
+  if (_addMenu && !_addMenu.contains(e.target) && !(e.target.closest && e.target.closest('.m-fab,#tAdd,#tAddFs'))) closeAddMenu();
 }
-bindClickBusy(document.getElementById('tAdd'), function(){ openAddChooser(); return Promise.resolve(); });
-bindClickBusy(document.getElementById('tAddFs'), function(){ openAddChooser(); return Promise.resolve(); });
+function _onAddMenuKey(e){ if (e.key === 'Escape') closeAddMenu(); }
+function closeAddMenu() {
+  if (!_addMenu) return;
+  _addMenu.remove(); _addMenu = null;
+  document.removeEventListener('click', _onAddMenuDoc, true);
+  document.removeEventListener('keydown', _onAddMenuKey, true);
+  window.removeEventListener('scroll', closeAddMenu, true);
+  window.removeEventListener('resize', closeAddMenu);
+}
+function openAddChooser(ev) {
+  if (_addMenu) { closeAddMenu(); return; }
+  // FAB 是 layout 全局视觉代理(点击后程序触发本按钮), 手机上气泡应对准 FAB 本体;
+  // PC/无 FAB 场景回退到真实按钮(顶栏加号), 菜单向下展开
+  var anchor = ev && ev.currentTarget;
+  var fab = document.querySelector('.m-fab');
+  var fabVisible = fab && fab.getBoundingClientRect().width > 0 && !document.body.classList.contains('todo-detail');
+  if (fabVisible) anchor = fab;
+  if (!anchor) return;
+  var r = anchor.getBoundingClientRect();
+  var menu = document.createElement('div');
+  menu.className = 'fab-menu';
+  menu.innerHTML =
+    '<button type="button" class="fab-menu__item" data-k="task">'
+    +   '<span class="fab-menu__ic">' + ICONS.calendar + '</span>'
+    +   '<span class="fab-menu__t">新建任务<small>设截止日期或重复，计入今日/逾期</small></span></button>'
+    + '<button type="button" class="fab-menu__item" data-k="memo">'
+    +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.edit + '</span>'
+    +   '<span class="fab-menu__t">新建备忘录<small>无日期、不重复，只作记录</small></span></button>';
+  document.body.appendChild(menu);
+  // 右缘对齐锚点右侧, 但不贴出屏幕
+  var right = Math.max(12, window.innerWidth - r.right);
+  menu.style.right = right + 'px';
+  // 下方空间不足(FAB 贴底)→ 出现在上方; 否则(顶栏钮)出现在下方
+  var above = (window.innerHeight - r.bottom) < 210;
+  if (above) menu.style.bottom = (window.innerHeight - r.top + 10) + 'px';
+  else menu.style.top = (r.bottom + 10) + 'px';
+  // 超窄屏防溢出左缘
+  if (menu.getBoundingClientRect().left < 12) { menu.style.right = 'auto'; menu.style.left = '12px'; }
+  menu.querySelectorAll('.fab-menu__item').forEach(function(b){
+    b.addEventListener('click', function(){
+      var memo = b.dataset.k === 'memo';
+      closeAddMenu();
+      openAddForm(null, memo ? '新建备忘录' : '新建任务', false, memo);
+    });
+  });
+  _addMenu = menu;
+  // 延后一帧再绑外部点击, 避免本次触发点击立即关闭菜单
+  setTimeout(function(){ document.addEventListener('click', _onAddMenuDoc, true); }, 0);
+  document.addEventListener('keydown', _onAddMenuKey, true);
+  window.addEventListener('scroll', closeAddMenu, true);
+  window.addEventListener('resize', closeAddMenu);
+}
+['tAdd', 'tAddFs'].forEach(function(id){
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', openAddChooser);
+});
 // 视图三态循环: default → card → tree → default
 bindClickBusy(document.getElementById('viewToggle'), function(){
   enterTodoFullscreen(_todoGetRows, drawTree);
