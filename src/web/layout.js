@@ -963,6 +963,7 @@ input[type="date"] { cursor: pointer; }
 #tdEditBtn { float: right; margin: 2px 0 8px 10px; }
 #tdEditBtn svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 3px; }
 .td-title { font-size: 17px; font-weight: 700; color: var(--text-strong); margin-bottom: 10px; padding-right: 8px; }
+.td-title .todo-cd-tag, .td-title .todo-chip.cd-sub { vertical-align: middle; margin-left: 8px; }
 .td-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 .td-chip { font-size: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--label); border-radius: 999px; padding: 3px 10px; display: inline-flex; align-items: center; gap: 4px; }
 .td-chip svg { width: 12px; height: 12px; }

@@ -8481,8 +8481,15 @@ async function openTodoDetail(node, opts) {
     }
     subsHtml = '<div class="td-subs"><div class="td-subs__head">' + headTxt + headMeta + '</div>' + rowsHtml + '</div>';
   }
+  // child_due 模式标识(与列表同语言): 顶层主任务=实心贴, 中间层子分组=描边胶囊; 叶子无
+  var cdTitle = '';
+  if (node.child_due) {
+    cdTitle = node.parent_id == null
+      ? '<span class="todo-cd-tag">' + ICONS.branch + '各自截止</span>'
+      : '<span class="todo-chip cd-sub">' + ICONS.branch + '各自截止</span>';
+  }
   var body =
-    '<div class="td-title">' + esc(node.title) + '</div>' +
+    '<div class="td-title">' + esc(node.title) + cdTitle + '</div>' +
     '<div class="td-meta">' + meta.join('') + '</div>' +
     subsHtml +
     (node.note
