@@ -373,8 +373,8 @@ var ICONS = {
   fs_expand: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>',
   // 日期日历: 用于 due chip / drawer section title / form 子任务提示
   calendar: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-  // 各自截止日期: 日历内分叉, 仅用于 child_due 根任务的日期 chip
-  child_due_calendar: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M12 20v-4.5M12 15.5 8.5 12.5M12 15.5l3.5-3"/></svg>',
+  // 各自截止日期: 普通线框 + 开放分叉, 仅用于 child_due 根任务的日期 chip
+  child_due_frame: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><rect x="1.2" y="1.2" width="21.6" height="21.6" rx="6"/><g stroke-width="2.2" transform="translate(12 12) scale(.7) translate(-12 -12)"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.9a4 4 0 0 0-1.176-2.828L3 3"/><path d="m22 3-7.824 7.252A4 4 0 0 0 13 13.1"/></g></svg>',
   // 重复: 环形箭头, 用于 repeat chip / form 提示
   repeat: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
   // 分支线: 用于 child_due「子任务各自设置截止日期」模式标识(尺寸由 .todo-cd-* 类控制)
@@ -6810,7 +6810,7 @@ function renderTodoTree(container, trees, opts) {
     // 完整树顶层同卡片视图(todoRootDue)；其余节点只显示自身日期。
     // 跟随父级的任务不重复挂 chip；effDue 仍用于勾选/排序等业务判断。
     var chipDue = (!isDetail && depth === 0) ? todoRootDue(node) : node.due_date;
-    var dueChip = todoDueChip(chipDue, today, node.done, (!isDetail && depth === 0 && node.child_due) ? ICONS.child_due_calendar : null);
+    var dueChip = todoDueChip(chipDue, today, node.done, (!isDetail && depth === 0 && node.child_due) ? ICONS.child_due_frame : null);
     if (dueChip) {
       var dc = document.createElement('span');
       dc.className = dueChip.cls;
@@ -6983,7 +6983,7 @@ function renderTodoCards(container, trees, opts) {
     }
     // 卡片日期: 顶层显示日期 todoRootDue(旧模式=root.due_date; 新模式=最早到期的未完成子任务)
     var rootDue = todoRootDue(root);
-    var rootDueChip = todoDueChip(rootDue, today, root.done, root.child_due ? ICONS.child_due_calendar : null);
+    var rootDueChip = todoDueChip(rootDue, today, root.done, root.child_due ? ICONS.child_due_frame : null);
     if (rootDueChip) {
       var dc = document.createElement('span');
       dc.className = rootDueChip.cls;
