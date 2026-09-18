@@ -354,12 +354,11 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
   body.kb-on .todo-fs-main { padding-bottom: calc(12px + var(--kb-inset, 0px)); }
   body.kb-resize .todo-fs-main { padding-bottom: 14px; }
   /* 手机完整树(非详情视图): 操作收进「⋯」弹层, 行内只留更多钮;
-     标题/备注完整显示不截断(完整树就是全量视图, 不依赖进详情看全文) */
+   标题保留完整显示；备注仍单行截断，完整内容点详情查看 */
   body:not(.todo-detail) .todo-tree .todo-ops { opacity: 1; gap: 0; }
   body:not(.todo-detail) .todo-tree .todo-ops .todo-op:not(.todo-more) { display: none; }
   body:not(.todo-detail) .todo-tree .todo-op.todo-more { display: inline-flex; }
-  body:not(.todo-detail) .todo-tree .todo-title,
-  body:not(.todo-detail) .todo-tree .todo-note.todo-note--clip { white-space: pre-wrap; overflow: visible; text-overflow: clip; }
+  body:not(.todo-detail) .todo-tree .todo-title { white-space: pre-wrap; overflow: visible; text-overflow: clip; }
   /* 基金页策略浮层在底栏之上的避让规则写在 .strat-* 原媒体块旁(该处带 !important) */
 }
 /* 手机完整树「⋯」操作弹层(桌面 ⋯ 隐藏, 弹层也不会被触发) */
@@ -976,6 +975,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   padding: 3px 9px 4px 10px; border-bottom-left-radius: 10px;
 }
 .todo-cd-ribbon svg { width: 11px; height: 11px; display: block; }
+/* 卡片标识下移到 3px 优先级顶带下方，避免遮盖优先级色带 */
+.todo-card .todo-cd-ribbon { top: 3px; }
 /* 角贴避让标题, 防长标题钻到角贴下 */
 .todo-card.cd-on .todo-card__head { padding-right: 88px; }
 /* 根行尾/面包屑/详情行内贴 */
@@ -1018,7 +1019,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 /* 标题支持换行长文本；备注次级灰字 */
 .todo-title { white-space: pre-wrap; }
 .todo-note { font-size: 13px; color: var(--muted-2); margin-top: 4px; white-space: pre-wrap; line-height: 1.5; }
-/* 详情页子任务列表：备注单行截断（对齐主任务卡片 .todo-card__note），全文进任务详情查看 */
+/* 备注单行截断（完整树/详情子任务同卡片口径），全文进任务详情查看 */
 .todo-note--clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Markdown 备注渲染（任务详情/编辑器预览） */
 .md-body { font-size: 14px; line-height: 1.7; color: var(--text); word-break: break-word; }
