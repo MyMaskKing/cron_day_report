@@ -6088,8 +6088,9 @@ function todoBindRecurUI() {
       if (recurWrap) recurWrap.style.display = on ? 'none' : 'block';
       if (memoTip) memoTip.style.display = on ? 'none' : 'block';
       if (cdTip) cdTip.style.display = on ? 'block' : 'none';
-      // 子任务(无 #tfMemoTip 备忘录提示)取消勾选后日期必填: 空框自动给今天, 避免空值保存被拦
-      if (!on && !memoTip) {
+      // 取消勾选(主任务/任意层子任务)后整支回到"跟随本任务日期", 本任务需要日期作锚点:
+      // 空框自动填今天, 避免保存成无日期备忘录(主任务)或被"日期必填"拦截(子任务)
+      if (!on) {
         var dueEl = document.getElementById('tfDue');
         if (dueEl && !dueEl.value) dueEl.value = todoTodayStr();
       }
