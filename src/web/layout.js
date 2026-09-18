@@ -391,21 +391,22 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 /* FAB 加号弹出菜单: 两个竖排卡片按钮(任务/备忘录), 定位由 JS 按锚点按钮写 top/bottom+right */
 .fab-menu {
   position: fixed; z-index: 1004;
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+  width: max-content;
   animation: fabMenuIn .16s cubic-bezier(.2,.9,.3,1);
 }
 @keyframes fabMenuIn { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
 .fab-menu__item {
-  display: flex; align-items: center; gap: 10px; min-width: 168px; min-height: 46px; text-align: left;
-  padding: 8px 12px; border-radius: 12px; font-family: inherit; cursor: pointer;
+  display: flex; align-items: center; gap: 8px; min-height: 40px; text-align: left;
+  padding: 6px 12px; border-radius: 10px; font-family: inherit; cursor: pointer;
   background: var(--surface); color: var(--text); border: 1px solid var(--border);
   box-shadow: 0 10px 30px rgba(20,20,40,.16), 0 2px 8px rgba(20,20,40,.08);
   transition: transform .12s ease, border-color .12s ease;
 }
 .fab-menu__item:active { transform: scale(.97); border-color: var(--brand-border); }
-.fab-menu__ic { flex: none; width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+.fab-menu__ic { flex: none; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
   background: var(--brand-tint); color: var(--brand); }
-.fab-menu__ic svg { width: 16px; height: 16px; }
+.fab-menu__ic svg { width: 15px; height: 15px; }
 .fab-menu__t { font-size: 14px; font-weight: 600; line-height: 1.3; }
 @media (prefers-reduced-motion: reduce) { .fab-menu { animation: none; } }
 .impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }

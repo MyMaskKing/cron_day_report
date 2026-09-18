@@ -9205,7 +9205,7 @@ function openAddChooser(ev) {
   var right = Math.max(12, window.innerWidth - r.right);
   menu.style.right = right + 'px';
   // 下方空间不足(FAB 贴底)→ 出现在上方; 否则(顶栏钮)出现在下方
-  var above = (window.innerHeight - r.bottom) < 126;
+  var above = (window.innerHeight - r.bottom) < 100;
   if (above) menu.style.bottom = (window.innerHeight - r.top + 10) + 'px';
   else menu.style.top = (r.bottom + 10) + 'px';
   // 超窄屏防溢出左缘
