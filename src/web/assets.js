@@ -5555,14 +5555,15 @@ const TODO_TREE_CORE = `
 // 手机完整树操作菜单(⋯): 把行内已有操作钮(不含拖拽/⋯自身)列成弹层, 点击代理到原按钮,
 // 复用各页面既有的 handler/二次确认, 无需重绑。桌面 CSS 隐藏 ⋯, 菜单不会被触发。
 var _todoOpMenuRow = null;
+var _todoOpMenuEl = null;
 function _todoOpDocClose(e){
   if (_todoOpMenuRow && !(e.target.closest && (e.target.closest('.todo-op-menu') || e.target.closest('.todo-more')))) todoCloseOpMenu();
 }
 function _todoOpKeyClose(e){ if (e.key === 'Escape') todoCloseOpMenu(); }
 function todoCloseOpMenu(){
   if (!_todoOpMenuRow) return;
-  var m = _todoOpMenuRow.querySelector('.todo-op-menu');
-  if (m) m.remove();
+  if (_todoOpMenuEl) _todoOpMenuEl.remove();
+  _todoOpMenuEl = null;
   _todoOpMenuRow.classList.remove('op-menu-open');
   _todoOpMenuRow = null;
   document.body.classList.remove('todo-opmenu');
@@ -5591,7 +5592,27 @@ function todoOpMenuToggle(row, opsEl){
     menu.appendChild(item);
   });
   menu.addEventListener('click', function(e){ e.stopPropagation(); });
-  row.appendChild(menu);
+  var isMobile = window.matchMedia && window.matchMedia('(max-width:640px)').matches;
+  if (isMobile) {
+    // 手机端脱离全屏树/行容器的堆叠与裁剪上下文，直接挂到 body，用 fixed 对齐当前行。
+    menu.classList.add('todo-op-menu--fixed');
+    document.body.appendChild(menu);
+    var rect = row.getBoundingClientRect();
+    var menuW = menu.offsetWidth || 162;
+    var menuH = menu.offsetHeight || 0;
+    var menuLeft = Math.max(8, Math.min(Math.round(rect.right - menuW - 4), Math.round(window.innerWidth - menuW - 8)));
+    var menuTop = Math.round(rect.bottom + 4);
+    if (menuH && menuTop + menuH > window.innerHeight - 8) {
+      menuTop = Math.max(8, Math.round(rect.top - menuH - 4));
+    }
+    menu.style.position = 'fixed';
+    menu.style.right = 'auto';
+    menu.style.top = menuTop + 'px';
+    menu.style.left = menuLeft + 'px';
+  } else {
+    row.appendChild(menu);
+  }
+  _todoOpMenuEl = menu;
   row.classList.add('op-menu-open');
   document.body.classList.add('todo-opmenu');
   _todoOpMenuRow = row;
@@ -6698,7 +6719,7 @@ function renderTodoTree(container, trees, opts) {
     // 未完成节点仅当其后代表现过已完成项时保留为分组容器, 否则整枝隐藏
     if (opts.onlyDone && !node.done && !todoSubtreeDoneInfo(node).any) return null;
     // 有效截止日期：自身 due_date 优先，否则继承祖先（rootDue）。
-    // 旧模式子任务自身无日期 → 继承顶层；新模式(child_due)子任务有自身日期 → 显示自身。
+    // 旧模式子任务自身无日期 → 继承顶层；新模式(child_due)子任务有自身日期 → 使用自身。
     // 详情页（显式传 forcedRootDue）首层是 root 的直接子任务，rootDue 由 forcedRootDue 兜底，
     // 否则 depth=0 取到子任务自身 null 会让孙任务继承到 null 被判成备忘录而不显示勾选框。
     var isDetail = Object.prototype.hasOwnProperty.call(opts, 'forcedRootDue');
@@ -6783,12 +6804,9 @@ function renderTodoTree(container, trees, opts) {
     if (node.category) {
       var cc = document.createElement('span'); cc.className = 'todo-chip cat'; cc.textContent = node.category; meta.appendChild(cc);
     }
-    // 日期 chip：已完成也显示；状态/文案统一走 todoDueChip(逾期红/今日紫/临近琥珀/未来灰, 附天数)
-    // 显示口径: 完整树顶层行(depth 0 且非详情页)展示子树最早到期日 todoRootDue(新模式主任务自身无日期);
-    //   其余行展示有效日期 effDue(自身优先, 否则继承祖先自身日期; 继承链不能用兄弟最小日期)
-    // 详情视图(isDetail): 子任务只显示自身日期, 跟随上级的不重复挂 chip(日期在面包屑/上级行);
-    // 完整树仍按有效日期(自身优先否则继承)显示
-    var chipDue = isDetail ? node.due_date : ((depth === 0) ? todoRootDue(node) : effDue);
+    // 日期 chip：完整树与详情子树口径一致，只显示任务自身设置的截止日期。
+    // 跟随父级的任务不重复挂 chip；effDue 仍用于勾选/排序等业务判断。
+    var chipDue = node.due_date;
     var dueChip = todoDueChip(chipDue, today, node.done);
     if (dueChip) {
       var dc = document.createElement('span');

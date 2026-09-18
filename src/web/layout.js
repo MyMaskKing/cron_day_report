@@ -380,6 +380,10 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
 .todo-op-menu__item.danger { color: var(--danger); }
 .todo-op-menu__item.danger svg { color: var(--danger); }
 .todo-op-menu__item:active { background: var(--surface-2); }
+.todo-op-menu--fixed {
+  position: fixed; right: auto; z-index: 2000;
+  max-width: calc(100vw - 16px);
+}
 /* 打开菜单的行与整个任务节点一起抬层, 避免后续兄弟行/子行的白底盖住弹层 */
 .todo-node:has(> .todo-row.op-menu-open) { position: relative; z-index: 200; }
 .todo-row.op-menu-open { z-index: 210; }
