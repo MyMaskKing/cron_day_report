@@ -119,6 +119,10 @@ const BASE_CSS = `
   --ok-bg: #f6ffed;
   --warn: #b45309;        /* 临近到期(明天/本周内)琥珀色 */
   --warn-bg: #fdf2e2;
+  /* child_due「各自截止」模式标识: 鼠尾草绿(低唤醒, 区别于品牌紫行动色), 三主题各自取值 */
+  --cd-bg: #EAF1EC;
+  --cd-fg: #4C7659;
+  --cd-border: #CCDFD2;
   --th-bg: rgba(20,20,40,.025);
   --th-border: rgba(20,20,40,.06);
   --loading-mask: rgba(246,245,242,.65);
@@ -161,6 +165,9 @@ const BASE_CSS = `
   --ok-bg: rgba(74,222,128,.12);
   --warn: #fbbf24;
   --warn-bg: rgba(251,191,36,.15);
+  --cd-bg: rgba(120,178,140,.15);
+  --cd-fg: #93C6A6;
+  --cd-border: rgba(140,195,158,.30);
   --th-bg: rgba(255,255,255,.04);
   --th-border: rgba(255,255,255,.08);
   --loading-mask: rgba(10,12,20,.6);
@@ -203,6 +210,9 @@ const BASE_CSS = `
   --ok-bg: #e9f5ea;
   --warn: #93611a;
   --warn-bg: #f6ead2;
+  --cd-bg: #E7EEDF;
+  --cd-fg: #4F6B46;
+  --cd-border: #CBDDBF;
   --th-bg: rgba(120,100,50,.05);
   --th-border: rgba(120,100,50,.10);
   --loading-mask: rgba(243,238,224,.65);
@@ -875,27 +885,30 @@ input[type="date"] { cursor: pointer; }
 .todo-chip.due .due-days { opacity: .72; font-weight: 500; }
 .todo-chip.done-at { background: var(--ok-bg); color: var(--ok); }
 .todo-chip.repeat { background: var(--hover-brand); color: var(--brand); font-weight: 600; }
-/* child_due「子任务各自设置截止日期」模式标识:
-   主任务(根)=实心渐变贴(卡片右上角贴/树行尾贴); 中间层子分组=淡紫描边胶囊 */
+/* child_due「子任务各自设置截止日期」模式标识 —— 鼠尾草绿低唤醒语言(浅底深字细边, 无渐变白字块):
+   主任务(根)=浅绿底贴(卡片右上角贴/树行尾贴/面包屑/详情信息行); 中间层子分组=透明底描边胶囊 */
 .todo-cd-ribbon {
   position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; gap: 3px;
-  background: var(--brand-grad); color: #fff; font-size: 10.5px; font-weight: 600;
-  padding: 3px 9px 4px 10px; border-bottom-left-radius: 10px; box-shadow: 0 2px 6px rgba(124,58,237,.28);
+  background: var(--cd-bg); color: var(--cd-fg);
+  border-left: 1px solid var(--cd-border); border-bottom: 1px solid var(--cd-border);
+  font-size: 10.5px; font-weight: 600;
+  padding: 3px 9px 4px 10px; border-bottom-left-radius: 10px;
 }
 .todo-cd-ribbon svg { width: 11px; height: 11px; display: block; }
 /* 角贴避让标题, 防长标题钻到角贴下 */
 .todo-card.cd-on .todo-card__head { padding-right: 88px; }
-/* 树视图根行尾实心小贴 */
+/* 根行尾/面包屑/详情行内贴 */
 .todo-cd-tag {
   flex: none; align-self: center; display: inline-flex; align-items: center; gap: 3px;
-  background: var(--brand-grad); color: #fff; font-size: 10.5px; font-weight: 600;
+  background: var(--cd-bg); color: var(--cd-fg); border: 1px solid var(--cd-border);
+  font-size: 10.5px; font-weight: 600;
   padding: 1px 7px; border-radius: 6px; line-height: 1.6;
 }
 .todo-cd-tag svg { width: 10px; height: 10px; display: block; }
-/* 中间层子分组: 淡紫描边胶囊(与实心贴区分层级), 置于该行 meta 最前 */
+/* 中间层子分组: 透明底描边胶囊(比根贴再弱一级), 置于该行 meta 最前 */
 .todo-chip.cd-sub {
   display: inline-flex; align-items: center; gap: 3px;
-  background: var(--brand-tint); color: var(--brand); border: 1px solid var(--brand-border); font-weight: 600;
+  background: transparent; color: var(--cd-fg); border: 1px solid var(--cd-border); font-weight: 600;
 }
 .todo-chip.cd-sub svg { width: 11px; height: 11px; display: block; }
 /* 行内操作按钮：默认略淡，hover 行时显现；SVG 图标走 currentColor, 移动端常显 */
