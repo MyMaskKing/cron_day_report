@@ -375,6 +375,8 @@ var ICONS = {
   calendar: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
   // 重复: 环形箭头, 用于 repeat chip / form 提示
   repeat: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+  // 分支线: 用于 child_due「子任务各自设置截止日期」模式标识(尺寸由 .todo-cd-* 类控制)
+  branch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>',
   // 逾期警告 (三角+感叹号): 用于 overdue chip
   warn: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   // 完成对勾 (圆圈+勾): 用于 done-at chip
@@ -6719,6 +6721,14 @@ function renderTodoTree(container, trees, opts) {
     main.appendChild(title);
     var meta = document.createElement('div');
     meta.className = 'todo-meta';
+    // child_due 模式标识: 真顶层根走行尾实心贴(下方单独插); 其余(中间层分组, 含详情页 depth0 的子任务)用描边胶囊
+    var cdRealRoot = depth === 0 && !isDetail;
+    if (node.child_due && !cdRealRoot) {
+      var cdSub = document.createElement('span');
+      cdSub.className = 'todo-chip cd-sub';
+      cdSub.innerHTML = ICONS.branch + '各自截止';
+      meta.appendChild(cdSub);
+    }
     if (node.category) {
       var cc = document.createElement('span'); cc.className = 'todo-chip cat'; cc.textContent = node.category; meta.appendChild(cc);
     }
@@ -6757,6 +6767,13 @@ function renderTodoTree(container, trees, opts) {
       main.appendChild(noteEl);
     }
     row.appendChild(main);
+    // child_due 真顶层根: 行尾实心小贴(中间层分组用 meta 描边胶囊, 见上; 详情页 depth0 实为子任务不走这里)
+    if (node.child_due && depth === 0 && !isDetail) {
+      var cdTag = document.createElement('span');
+      cdTag.className = 'todo-cd-tag';
+      cdTag.innerHTML = ICONS.branch + '各自';
+      row.appendChild(cdTag);
+    }
 
     // 行内操作
     if (!opts.readOnly) {
@@ -6984,10 +7001,18 @@ function renderTodoCards(container, trees, opts) {
       card.appendChild(foot);
     }
 
+    // child_due「子任务各自设置截止日期」: 右上角折角贴标识
+    if (root.child_due) {
+      card.classList.add('cd-on');
+      var cdRibbon = document.createElement('span');
+      cdRibbon.className = 'todo-cd-ribbon';
+      cdRibbon.innerHTML = ICONS.branch + '各自截止';
+      card.appendChild(cdRibbon);
+    }
     // 整卡点击进入详情：忽略勾选/操作按钮区
     if (canEnter) {
       card.addEventListener('click', function(e){
-        if (e.target.closest('.todo-card__check, .todo-card__ops')) return;
+        if (e.target.closest('.todo-card__check, .todo-card__ops, .todo-cd-ribbon')) return;
         opts.onEnter(root);
       });
     }
