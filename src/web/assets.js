@@ -6735,7 +6735,9 @@ function renderTodoTree(container, trees, opts) {
     // 日期 chip：已完成也显示；状态/文案统一走 todoDueChip(逾期红/今日紫/临近琥珀/未来灰, 附天数)
     // 显示口径: 完整树顶层行(depth 0 且非详情页)展示子树最早到期日 todoRootDue(新模式主任务自身无日期);
     //   其余行展示有效日期 effDue(自身优先, 否则继承祖先自身日期; 继承链不能用兄弟最小日期)
-    var chipDue = (depth === 0 && !isDetail) ? todoRootDue(node) : effDue;
+    // 详情视图(isDetail): 子任务只显示自身日期, 跟随上级的不重复挂 chip(日期在面包屑/上级行);
+    // 完整树仍按有效日期(自身优先否则继承)显示
+    var chipDue = isDetail ? node.due_date : ((depth === 0) ? todoRootDue(node) : effDue);
     var dueChip = todoDueChip(chipDue, today, node.done);
     if (dueChip) {
       var dc = document.createElement('span');
@@ -7133,12 +7135,22 @@ function todoRenderView(container, trees, opts) {
       t.textContent = (root.shared_cat_id != null ? '👥 ' : '') + root.title;
       crumb.appendChild(back);
       crumb.appendChild(t);
-      // child_due 模式: 面包屑标题后挂实心贴(根必为顶层任务); 中间层子分组的胶囊在子树行内渲染
+      // child_due 模式: 面包屑标题后挂贴(根必为顶层任务); 中间层子分组的胶囊在子树行内渲染
       if (root.child_due) {
         var cdCrumb = document.createElement('span');
         cdCrumb.className = 'todo-cd-tag';
         cdCrumb.innerHTML = ICONS.branch + '各自截止';
         crumb.appendChild(cdCrumb);
+      }
+      // 主任务代表日期(旧模式=自身日期; 各自截止=子树最早到期日, 与卡片同口径),
+      // 让详情头部始终能看到主任务截止日(子树内跟随上级的子任务不再重复显示)
+      var rootDueChip = todoDueChip(todoRootDue(root), opts.today, root.done);
+      if (rootDueChip) {
+        var crumbDue = document.createElement('span');
+        crumbDue.className = rootDueChip.cls;
+        crumbDue.title = todoRootDue(root) || '';
+        crumbDue.innerHTML = rootDueChip.html;
+        crumb.appendChild(crumbDue);
       }
       // "完成主任务"入口不放这里(已由 todoAttachDoneLinkToTip 挂到提示文末尾或独立一行)
       // "添加子任务"入口不再放面包屑, 改为详情页子任务列表底部常驻输入行(MS To Do 风格, 见下面 mountDetailAdder)
@@ -8473,16 +8485,17 @@ async function openTodoDetail(node, opts) {
       rowsHtml = '<div class="td-sub-empty">🎉 子任务已全部完成</div>';
     } else {
       rowsHtml = subsView.map(function(c, i){
-        // 子任务有效日期: 自身 due_date 优先, 否则继承当前任务的有效日期(与列表渲染同口径)
-        var cChip = todoDueChip(c.due_date || due, today, false);
-        var diff = todoDateDiff(c.due_date || due, today);
+        // 子任务只显示自身日期: 跟随上级日期(c.due_date 为空)的不再重复挂 chip(日期已在上级信息行);
+        // 自身有日期时照常显示, "今天"按 CSS 柔化为灰 chip
+        var cChip = todoDueChip(c.due_date, today, false);
+        var diff = todoDateDiff(c.due_date, today);
         var nextCls = focusOne ? ' td-sub--next' + (diff != null && diff < 0 ? ' is-over' : (diff === 0 ? ' is-today' : '')) : '';
         var check = opts.onToggle
           ? '<button type="button" class="todo-check" data-tdsub="' + i + '" title="标记完成"></button>'
           : '<span class="todo-check readonly" aria-hidden="true"></span>';
         return '<div class="td-sub' + nextCls + '">' + check
           + '<span class="td-sub__t">' + esc(c.title) + '</span>'
-          + (cChip ? '<span class="' + cChip.cls + '"' + ((c.due_date || due) ? ' title="' + (c.due_date || due) + '"' : '') + '>' + cChip.html + '</span>' : '')
+          + (cChip ? '<span class="' + cChip.cls + '" title="' + c.due_date + '">' + cChip.html + '</span>' : '')
           + '</div>';
       }).join('');
     }

@@ -880,6 +880,11 @@ input[type="date"] { cursor: pointer; }
 .todo-chip.due { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due.overdue { background: var(--danger-bg); color: var(--danger); font-weight: 600; }
 .todo-chip.due.today { background: var(--brand-grad); color: #fff; font-weight: 700; }
+/* 详情内子任务自带日期为"今天"时降唤醒: 不用深紫渐变白字, 用普通灰 chip;
+   只作用于子树行(.td-sub / .todo-tree), 面包屑上的主任务日期仍保留紫色重点 */
+.td-sub .todo-chip.due.today,
+body.todo-detail .todo-tree .todo-chip.due.today { background: var(--surface-2); color: var(--link-dim); font-weight: 400; }
+.todo-crumb .todo-chip { flex: none; }
 .todo-chip.due.soon { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .todo-chip.due.future { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due .due-days { opacity: .72; font-weight: 500; }
