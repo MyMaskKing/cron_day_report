@@ -8449,7 +8449,9 @@ async function openTodoDetail(node, opts) {
   var meta = [];
   if (due) {
     var over = !node.done && !!today && due < today;
-    meta.push('<span class="td-chip"' + (dueInherited ? ' title="截止日期跟随上级任务"' : '')
+    // "今天"挂浅紫样式类(与面包屑/子任务行同语言); 逾期仍走行内红色
+    var isToday = !node.done && !!today && due === today;
+    meta.push('<span class="td-chip' + (isToday ? ' td-chip--today' : '') + '"' + (dueInherited ? ' title="截止日期跟随上级任务"' : '')
       + (over ? ' style="color:var(--danger);border-color:var(--danger);"' : '') + '>'
       + ICONS.calendar + esc(todoDateLabel(due, today))
       + (dueInherited ? '<span style="opacity:.65;">·跟随上级</span>' : '') + '</span>');
