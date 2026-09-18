@@ -6721,13 +6721,14 @@ function renderTodoTree(container, trees, opts) {
     main.appendChild(title);
     var meta = document.createElement('div');
     meta.className = 'todo-meta';
-    // child_due 模式标识: 真顶层根走行尾实心贴(下方单独插); 其余(中间层分组, 含详情页 depth0 的子任务)用描边胶囊
+    // child_due 模式标识: 统一放 meta 行首(行级 flex 项在手机窄行会被 4 个操作钮挤垮标题列);
+    // 真顶层根=实心贴, 中间层分组(含详情页 depth0 的子任务)=描边胶囊
     var cdRealRoot = depth === 0 && !isDetail;
-    if (node.child_due && !cdRealRoot) {
-      var cdSub = document.createElement('span');
-      cdSub.className = 'todo-chip cd-sub';
-      cdSub.innerHTML = ICONS.branch + '各自截止';
-      meta.appendChild(cdSub);
+    if (node.child_due) {
+      var cdMark = document.createElement('span');
+      cdMark.className = cdRealRoot ? 'todo-cd-tag' : 'todo-chip cd-sub';
+      cdMark.innerHTML = ICONS.branch + '各自截止';
+      meta.appendChild(cdMark);
     }
     if (node.category) {
       var cc = document.createElement('span'); cc.className = 'todo-chip cat'; cc.textContent = node.category; meta.appendChild(cc);
@@ -6769,13 +6770,6 @@ function renderTodoTree(container, trees, opts) {
       main.appendChild(noteEl);
     }
     row.appendChild(main);
-    // child_due 真顶层根: 行尾实心小贴(中间层分组用 meta 描边胶囊, 见上; 详情页 depth0 实为子任务不走这里)
-    if (node.child_due && depth === 0 && !isDetail) {
-      var cdTag = document.createElement('span');
-      cdTag.className = 'todo-cd-tag';
-      cdTag.innerHTML = ICONS.branch + '各自';
-      row.appendChild(cdTag);
-    }
 
     // 行内操作
     if (!opts.readOnly) {
@@ -7782,10 +7776,12 @@ function todoBindDrag(handle, wrap, node, opts) {
 //   inheritDue    (子任务): 锁定跟随态下展示的有效截止日(沿祖先链继承到的日期)
 //   lockChildDue  (主任务): true 时不渲染模式勾选框(/t/ 协作页根任务不允许切换模式)
 //   forceChildDue (主任务): 与 lockChildDue 配合, 强制按勾选态呈现(隐藏主任务日期/重复)
+//   memo          (新建主任务): 备忘录模式, 隐藏全部时间相关控件(截止日期/重复/子任务各自截止开关)
 function todoFormHtml(t, isNew, isChild, fopts) {
   t = t || {};
   fopts = fopts || {};
   var lockMode = !!fopts.lockChildDue;
+  var memoMode = !!fopts.memo && isNew && !isChild;
   // 直接父是否允许自设日期: 主任务恒允许; 子任务看 fopts.childDueMode(调用方按直接父判定)
   var allowsDate = !isChild || !!fopts.childDueMode;
   // 锁定跟随态: 子任务且直接父未勾选 → 日期只读跟随, 无日期框/重复/开关
@@ -7803,7 +7799,7 @@ function todoFormHtml(t, isNew, isChild, fopts) {
     // 独占 .row 整行(flex:0 0 100%), 避免被两列布局挤窄导致冒号后断行; 日期部分 nowrap 不被拆开
     dueField = '<div style="flex:0 0 100%;width:100%;padding:7px 10px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);color:var(--muted,#888);font-size:13px;line-height:1.5;">'
       + '📅 截止日期跟随上级任务' + (fopts.inheritDue ? '：<span style="white-space:nowrap;">' + esc(fopts.inheritDue) + '</span>' : '（上级暂未设置日期）') + '</div>';
-  } else {
+  } else if (!memoMode) {
     dueField = '<div id="tfDueWrap" style="display:' + (childDueOn ? 'none' : 'block') + ';"><label>截止日期</label><input id="tfDue" type="date" value="' + defDue + '"></div>';
   }
   // 重复块(主任务旧模式 / 新模式叶子子任务): 主任务侧包 #tfRecurWrap 供勾选框联动显隐
@@ -7845,12 +7841,12 @@ function todoFormHtml(t, isNew, isChild, fopts) {
         '</select>' +
       '</div>' +
       '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">' + ICONS.repeat + '完成后自动生成下一条任务；如"每 2 周"、"每月第一个周一"</p>';
-  var recurBlock = recurAvailable
+  var recurBlock = (recurAvailable && !memoMode)
     ? '<div id="tfRecurWrap" style="display:' + (childDueOn ? 'none' : 'block') + ';">' + recurInner + '</div>'
     : '';
   // child_due 勾选框: 主任务与自由子任务均可勾选(开关只管一级, 勾选后其直接子任务才能各自设日期);
   // /t/ 协作页根任务(lockMode)与锁定跟随子任务不渲染
-  var childDueBox = (!lockedChild && !lockMode) ?
+  var childDueBox = (!lockedChild && !lockMode && !memoMode) ?
     '<label style="display:flex;align-items:center;gap:8px;margin:2px 0 4px;cursor:pointer;font-weight:normal;white-space:nowrap;">' +
       '<input type="checkbox" id="tfChildDue"' + (childDueOn ? ' checked' : '') + ' style="width:auto;margin:0;flex:none;">' +
       '<span>子任务各自设置截止日期</span>' +
@@ -7860,7 +7856,9 @@ function todoFormHtml(t, isNew, isChild, fopts) {
     : '';
   // 日期提示行
   var dueTip;
-  if (lockedChild) {
+  if (memoMode) {
+    dueTip = '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📝 备忘录没有截止日期与重复，不计入今日/逾期统计</p>';
+  } else if (lockedChild) {
     // 与只读块留 6px、与下方分类区留 14px, 避免三段挤在一起
     dueTip = '<p class="muted" style="margin:8px 2px 14px;font-size:12px;">' + ICONS.calendar + '截止日期跟随上级任务；如需调整，请修改上级任务的截止日期</p>';
   } else if (isChild) {
@@ -8836,9 +8834,10 @@ window.todoShareLink = async function(id, reset){
   try { await openShare(false); } catch(e){ alertModal(e.message, {ok:false}); }
 };
 window.todoCopy = function(){ var el=document.getElementById('tShareUrl'); el.select(); try{document.execCommand('copy');alertModal('已复制');}catch(e){alertModal('请手动复制', {ok:false});} };
-function openAddForm(parentId, title, isChild) {
+function openAddForm(parentId, title, isChild, memo) {
   // 子任务: 按【直接父】的 child_due 决定表单(直接父勾选即可自设日期/重复);
   // 直接父未勾选时为锁定跟随态, 只读展示将继承的有效日期
+  // memo: 新建备忘录(仅顶层), 表单隐藏全部时间相关控件
   var fopts = {};
   if (parentId != null) {
     var pRow = _rows.filter(function(r){ return r.id === parentId; })[0];
@@ -8846,6 +8845,8 @@ function openAddForm(parentId, title, isChild) {
       var _byId = {}; _rows.forEach(function(r){ _byId[r.id] = r; });
       fopts = { childDueMode: !!pRow.child_due, inheritDue: todoEffDueRow(pRow, _byId) || '' };
     }
+  } else if (memo) {
+    fopts = { memo: true };
   }
   openModal(title, todoFormHtml({}, true, !!isChild, fopts) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">创建</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
@@ -9053,8 +9054,20 @@ function onTodoRenameCat(name) {
   });
 }
 bindClickBusy(document.getElementById('tListBtn'), function(){ openSharedCatPanel(); return Promise.resolve(); });
-bindClickBusy(document.getElementById('tAdd'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
-bindClickBusy(document.getElementById('tAddFs'), function(){ openAddForm(null, '新建任务', false); return Promise.resolve(); });
+// 右下角 FAB / 顶栏加号: 先弹类型选择(带日期的任务 / 无日期的备忘录), 再进对应表单
+function openAddChooser() {
+  openModal('新建',
+    '<div style="display:flex;flex-direction:column;gap:4px;">'
+    + '<button type="button" class="btn" id="acTask" style="width:100%;">' + ICONS.calendar + ' 新建任务</button>'
+    + '<p class="muted" style="margin:-2px 0 10px;font-size:12px;">可设截止日期与重复，计入今日/逾期统计</p>'
+    + '<button type="button" class="btn gray" id="acMemo" style="width:100%;">' + ICONS.edit + ' 新建备忘录</button>'
+    + '<p class="muted" style="margin:-2px 0 0;font-size:12px;">无日期、不重复，只作记录，不计入统计</p>'
+    + '</div>');
+  document.getElementById('acTask').addEventListener('click', function(){ closeModal(); openAddForm(null, '新建任务', false); });
+  document.getElementById('acMemo').addEventListener('click', function(){ closeModal(); openAddForm(null, '新建备忘录', false, true); });
+}
+bindClickBusy(document.getElementById('tAdd'), function(){ openAddChooser(); return Promise.resolve(); });
+bindClickBusy(document.getElementById('tAddFs'), function(){ openAddChooser(); return Promise.resolve(); });
 // 视图三态循环: default → card → tree → default
 bindClickBusy(document.getElementById('viewToggle'), function(){
   enterTodoFullscreen(_todoGetRows, drawTree);

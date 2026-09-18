@@ -893,18 +893,20 @@ body.todo-detail .todo-tree .todo-chip.due.today,
   :root:not([data-theme="light"]) .todo-crumb .todo-chip.due.today,
   :root:not([data-theme="light"]) .td-sub .todo-chip.due.today,
   :root:not([data-theme="light"]) body.todo-detail .todo-tree .todo-chip.due.today,
-  :root:not([data-theme="light"]) .td-chip.td-chip--today { color: var(--brand); }
+  :root:not([data-theme="light"]) .td-chip.td-chip--today,
+  :root:not([data-theme="light"]) .todo-chip.repeat { color: var(--brand); }
 }
 [data-theme="dark"] .todo-crumb .todo-chip.due.today,
 [data-theme="dark"] .td-sub .todo-chip.due.today,
 [data-theme="dark"] body.todo-detail .todo-tree .todo-chip.due.today,
-[data-theme="dark"] .td-chip.td-chip--today { color: var(--brand); }
+[data-theme="dark"] .td-chip.td-chip--today,
+[data-theme="dark"] .todo-chip.repeat { color: var(--brand); }
 .todo-crumb .todo-chip { flex: none; }
 .todo-chip.due.soon { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .todo-chip.due.future { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due .due-days { opacity: .72; font-weight: 500; }
 .todo-chip.done-at { background: var(--ok-bg); color: var(--ok); }
-.todo-chip.repeat { background: var(--hover-brand); color: var(--brand); font-weight: 600; }
+.todo-chip.repeat { background: var(--brand-tint); color: var(--brand-strong); font-weight: 600; }
 /* child_due「子任务各自设置截止日期」模式标识 —— 鼠尾草绿低唤醒语言(浅底深字细边, 无渐变白字块):
    主任务(根)=浅绿底贴(卡片右上角贴/树行尾贴/面包屑/详情信息行); 中间层子分组=透明底描边胶囊 */
 .todo-cd-ribbon {
