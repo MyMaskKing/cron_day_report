@@ -160,10 +160,8 @@ async function createTodo({ request, env }) {
   // 自设日期/重复: 顶层恒可(勾选 child_due 后自身清空); 子任务须直接父勾选
   const allowsOwnDate = parentAllowsDate(parentRow) && !childDue;
   const dueDate = allowsOwnDate ? ((body.due_date || '').trim() || null) : null;
-  // 重复: 允许自设日期的新建叶子(恒为叶子)才可设
+  // 重复: 允许自设日期即可设(任意层级; 带子女的重复任务完成时整树克隆到下一周期)
   const recFields = readRecurFields(body, allowsOwnDate);
-  // 不变量: 新模式下重复任务必须是叶子; 若给带重复的叶子任务添加首个子任务, 先记录, 建后清其重复
-  const parentWasLeaf = parentRow ? (await storage.todo.collectDescendantIds(parentId)).length === 0 : false;
   // 共享分类归属: 子任务继承父任务所在分类; 顶层任务可显式指定 shared_cat_id(在分类视图下新建)
   // 行归属分类 owner(ownerUid), shared_cat_id 为分类 id, created_by 记真实操作人;
   // 个人任务: 归属 dc.uid, shared_cat_id NULL, created_by=dc.uid
@@ -192,11 +190,6 @@ async function createTodo({ request, env }) {
     shared_cat_id: catId,
     created_by: catId != null ? auth.user_id : dc.uid
   });
-  // 非顶层重复叶子获得首个子女即变成中间层(不变量: 重复任务只允许是叶子, 旧模式顶层除外), 清掉其重复;
-  // 顶层旧模式例外: 顶层周期任务允许带无日期子女, 完成时整树克隆到下一周期
-  if (parentWasLeaf && parentRow && parentRow.recurrence && parentRow.parent_id != null) {
-    await storage.todo.clearRecur(parentId);
-  }
   return json({ success: true, message: '任务已添加', id });
 }
 
@@ -238,13 +231,8 @@ async function updateTodo({ request, env, params }) {
   const dueDate = selfChildDue
     ? null
     : (allowsDate ? ((body.due_date || '').trim() || null) : null);
-  // 重复: 勾选态不允许; 传统顶层主任务(未勾选)恒允许; 其余须直接父允许 + 叶子
-  let allowRecur;
-  if (isRoot) allowRecur = !selfChildDue;
-  else {
-    const descendants = await storage.todo.collectDescendantIds(id);
-    allowRecur = !selfChildDue && allowsDate && descendants.length === 0;
-  }
+  // 重复: 勾选态不允许; 传统顶层主任务(未勾选)恒允许; 其余须直接父允许(任意层级, 带子女时完成走整树克隆)
+  const allowRecur = isRoot ? !selfChildDue : (!selfChildDue && allowsDate);
   const payload = {
     title,
     priority: normPriority(body.priority),
@@ -572,9 +560,8 @@ async function publicAddTodo({ request, env, params }) {
   const allowsOwnDate = !!parentRow.child_due;
   // 直接父勾选后子任务可自带日期; 否则日期继承父任务不单独存
   const dueDate = allowsOwnDate ? ((body.due_date || '').trim() || null) : null;
-  // 允许自设日期时新建叶子可重复; 若给带重复的叶子任务添加首个子任务, 建后清其重复
+  // 允许自设日期即可带重复(任意层级; 带子女的重复任务完成时整树克隆到下一周期)
   const recFields = readRecurFields(body, allowsOwnDate);
-  const parentWasLeaf = (await storage.todo.collectDescendantIds(parentId)).length === 0;
   const id = await storage.todo.create(root.user_id, {
     parent_id: parentId, title,
     priority: normPriority(body.priority),
@@ -589,10 +576,6 @@ async function publicAddTodo({ request, env, params }) {
     shared_cat_id: root.shared_cat_id != null ? root.shared_cat_id : null,
     created_by: null
   });
-  // 非顶层重复叶子获得首个子女即清其重复(旧模式顶层周期任务可带无日期子女, 例外保留)
-  if (parentWasLeaf && parentRow && parentRow.recurrence && parentRow.parent_id != null) {
-    await storage.todo.clearRecur(parentId);
-  }
   return json({ success: true, message: '已添加', id });
 }
 
@@ -648,10 +631,9 @@ async function publicUpdateTodo({ request, env, params }) {
     dueDate = selfChildDue ? null : ((body.due_date || '').trim() || null);
     allowRecur = !selfChildDue;
   } else {
-    // 勾选态子任务不设日期; 否则直接父勾选才可自设日期; 仅叶子可重复
+    // 勾选态子任务不设日期; 否则直接父勾选才可自设日期; 重复任意层级可设(带子女时完成走整树克隆)
     dueDate = (!selfChildDue && allowsDate) ? ((body.due_date || '').trim() || null) : null;
-    const hasKids = subtree.some(r => r.parent_id === id);
-    allowRecur = !selfChildDue && allowsDate && !hasKids;
+    allowRecur = !selfChildDue && allowsDate;
   }
   const payload = {
     title,
@@ -875,7 +857,6 @@ async function publicAllAdd({ request, env, params }) {
   const allowsOwnDate = parentAllowsDate(parentRow) && !childDue;
   const dueDate = allowsOwnDate ? ((body.due_date || '').trim() || null) : null;
   const recFields = readRecurFields(body, allowsOwnDate);
-  const parentWasLeaf = parentRow ? (await storage.todo.collectDescendantIds(parentId)).length === 0 : false;
   const id = await storage.todo.create(userId, {
     parent_id: parentId, title,
     priority: normPriority(body.priority),
@@ -891,10 +872,6 @@ async function publicAllAdd({ request, env, params }) {
     shared_cat_id: null,
     created_by: null
   });
-  // 非顶层重复叶子获得首个子女即清其重复(旧模式顶层周期任务可带无日期子女, 例外保留)
-  if (parentWasLeaf && parentRow && parentRow.recurrence && parentRow.parent_id != null) {
-    await storage.todo.clearRecur(parentId);
-  }
   return json({ success: true, message: '已添加', id });
 }
 
@@ -958,12 +935,8 @@ async function publicAllUpdate({ request, env, params }) {
   const dueDate = selfChildDue
     ? null
     : (allowsDate ? ((body.due_date || '').trim() || null) : null);
-  let allowRecur;
-  if (isRoot) allowRecur = !selfChildDue;
-  else {
-    const descendants = await storage.todo.collectDescendantIds(id);
-    allowRecur = !selfChildDue && allowsDate && descendants.length === 0;
-  }
+  // 重复任意层级可设(带子女时完成走整树克隆); 勾选态不允许
+  const allowRecur = isRoot ? !selfChildDue : (!selfChildDue && allowsDate);
   const payload = {
     title,
     priority: normPriority(body.priority),

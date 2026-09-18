@@ -638,7 +638,7 @@ function createD1Adapter(env) {
         return await db.prepare('SELECT * FROM todos WHERE id=?').bind(id).first();
       },
       async create(userId, t) {
-        // recurrence 是否允许由 API 层按模式(顶层旧模式 / child_due 模式下叶子子任务)校验, 此处只做归一
+        // recurrence 是否允许由 API 层按模式(顶层旧模式 / child_due 模式下直接父允许的任意层级)校验, 此处只做归一
         const rec = t.recurrence || null;
         // recur_interval: [1..99], 无 recurrence 时强制置 null
         const rawIv = t.recur_interval != null ? parseInt(t.recur_interval, 10) : null;
@@ -715,12 +715,6 @@ function createD1Adapter(env) {
           'SELECT 1 AS x FROM todos WHERE user_id=? AND category=? AND shared_cat_id IS NULL LIMIT 1'
         ).bind(userId, name).first();
         return !!row;
-      },
-      // 清空单个任务的重复设置（叶子重复任务被添加子任务、不再是叶子时调用）
-      async clearRecur(id) {
-        await db.prepare(
-          'UPDATE todos SET recurrence=NULL, recur_interval=NULL, recur_nth=NULL, recur_weekday=NULL WHERE id=?'
-        ).bind(id).run();
       },
       // 清空某任务全部后代(不含自身)的截止日期/重复/独立截止开关
       // （任意层 child_due 1→0 回退时调用: 整支后代重新跟随本任务日期）

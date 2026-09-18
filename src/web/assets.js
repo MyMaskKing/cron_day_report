@@ -2115,15 +2115,22 @@ bindModal();
       document.getElementById('kpiToday').textContent = s.today || 0;
       document.getElementById('kpiOverdue').textContent = s.overdue || 0;
       dashTodoRows = d.todos || [];
-      var rows = dashTodoRows.filter(function(r){
-        return !r.done && r.due_date && r.due_date <= today && !r.child_due && r.parent_id == null;
-      }).sort(function(a, b){ return a.due_date < b.due_date ? -1 : 1; }).slice(0, 5);
+      // 树口径: 主任务自身有日期(旧模式)或子树内存在今日/逾期叶子(child_due 新模式, 日期取自任务叶子)
+      // 都按顶层任务展示; 显示日期与待办页/小组件一致走 todoRootDue
+      var rows = [];
+      todoBuildTree(dashTodoRows).forEach(function(root){
+        if (root.done) return;
+        var d0 = todoRootDue(root);
+        if (d0 && d0 <= today) rows.push({ id: root.id, title: root.title, due: d0 });
+      });
+      rows.sort(function(a, b){ return a.due < b.due ? -1 : 1; });
+      rows = rows.slice(0, 5);
       var box = document.getElementById('dashTodo');
       if (!box) return;
       if (!rows.length) { box.innerHTML = '<p class="muted" style="margin:0;">今天没有到期任务。</p>'; return; }
       box.innerHTML = rows.map(function(r){
-        var od = r.due_date < today;
-        var label = od ? (Number(r.due_date.slice(5, 7)) + '月' + Number(r.due_date.slice(8, 10)) + '日') : '今天';
+        var od = r.due < today;
+        var label = od ? (Number(r.due.slice(5, 7)) + '月' + Number(r.due.slice(8, 10)) + '日') : '今天';
         return '<div class="dash-row"><span class="d-dot' + (od ? ' od' : '') + '"></span>'
           + '<a href="/todo?edit=' + r.id + '">' + esc(r.title) + '</a>'
           + '<span class="d-tag' + (od ? ' od' : '') + '">' + label + '</span></div>';
@@ -7728,7 +7735,6 @@ function todoBindDrag(handle, wrap, node, opts) {
 // fopts:
 //   childDueMode  (子任务): 直接父勾选了 child_due → 本任务可自设日期/重复/勾选自身开关
 //   inheritDue    (子任务): 锁定跟随态下展示的有效截止日(沿祖先链继承到的日期)
-//   canRecur      (子任务): false 时隐藏重复块(该子任务已有后代, 仅叶子可重复)
 //   lockChildDue  (主任务): true 时不渲染模式勾选框(/t/ 协作页根任务不允许切换模式)
 //   forceChildDue (主任务): 与 lockChildDue 配合, 强制按勾选态呈现(隐藏主任务日期/重复)
 function todoFormHtml(t, isNew, isChild, fopts) {
@@ -7743,9 +7749,8 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   var childDueOn = !lockedChild && (lockMode ? !!fopts.forceChildDue : !!t.child_due);
   // 重复块是否"可能出现"(不看当前勾选态): 取消勾选时要能即时显示出来, 故勾选态也渲染但隐藏。
   // 锁定跟随子任务永不出现; /t/ 锁定根(forceChildDue)无勾选框可取消, 勾选态不渲染;
-  // 非叶子子任务即使取消勾选也不能重复(canRecur=false)
-  var recurAvailable = !lockedChild && (!isChild ? (!lockMode || !childDueOn)
-    : (allowsDate && fopts.canRecur !== false));
+  // 子任务直接父勾选即可设重复(任意层级; 带子女的重复任务完成时由后端整树克隆到下一周期)
+  var recurAvailable = !lockedChild && (!isChild ? (!lockMode || !childDueOn) : allowsDate);
   var defDue = t.due_date || (isNew ? todoTodayStr() : '');
   // 日期字段: 主任务/自由子任务均可设(统一包 #tfDueWrap 供勾选联动); 锁定子任务只读跟随
   var dueField = '';
@@ -8555,7 +8560,7 @@ function openTodoEdit(node) {
   // 逐级门控: 子任务能否自设日期只看【直接父】(_parent)是否勾选; inheritDue 供锁定跟随态只读显示
   var _byId = {}; _rows.forEach(function(r){ _byId[r.id] = r; });
   var fopts = isChild
-    ? { childDueMode: !!(node._parent && node._parent.child_due), canRecur: node.children.length === 0,
+    ? { childDueMode: !!(node._parent && node._parent.child_due),
         inheritDue: todoEffDueRow(node, _byId) || '' }
     : {};
   // 子任务弹窗标题带所属主任务名(组件深链 ?edit 与卡片/树编辑共用), 明确当前在编辑哪个清单下的任务
@@ -8604,8 +8609,9 @@ function openTodoEdit(node) {
   var _doSave = async function(body){
     await api('/api/todo/' + node.id, { method:'PUT', body: body });
     closeModal(); await loadTodos(); await loadChart();
-    // 任意层切到"子任务各自设日期"后该节点自身无日期, 空容器在"今日+逾期"等筛选下会消失 → 自动跳到"全部"
-    if (body.child_due === 1) switchTodoFilter('all');
+    // child_due 任一方向切换都会改动整支日期归属(勾选→自身无日期; 取消→清空整支后代日期),
+    // 当前节点在"今日+逾期"等筛选下可能消失 → 自动跳到"全部", 避免用户误以为任务丢失
+    if (body.child_due === 1 || (body.child_due === 0 && node.child_due === 1)) switchTodoFilter('all');
   };
   bindClickBusy(document.getElementById('tfSave'), async function(){
     var body = todoFormRead();
@@ -8775,14 +8781,14 @@ window.todoShareLink = async function(id, reset){
 };
 window.todoCopy = function(){ var el=document.getElementById('tShareUrl'); el.select(); try{document.execCommand('copy');alertModal('已复制');}catch(e){alertModal('请手动复制', {ok:false});} };
 function openAddForm(parentId, title, isChild) {
-  // 子任务: 按【直接父】的 child_due 决定表单(新建即为叶子, canRecur=true);
+  // 子任务: 按【直接父】的 child_due 决定表单(直接父勾选即可自设日期/重复);
   // 直接父未勾选时为锁定跟随态, 只读展示将继承的有效日期
   var fopts = {};
   if (parentId != null) {
     var pRow = _rows.filter(function(r){ return r.id === parentId; })[0];
     if (pRow) {
       var _byId = {}; _rows.forEach(function(r){ _byId[r.id] = r; });
-      fopts = { childDueMode: !!pRow.child_due, canRecur: true, inheritDue: todoEffDueRow(pRow, _byId) || '' };
+      fopts = { childDueMode: !!pRow.child_due, inheritDue: todoEffDueRow(pRow, _byId) || '' };
     }
   }
   openModal(title, todoFormHtml({}, true, !!isChild, fopts) +
@@ -9177,7 +9183,7 @@ function openPublicEdit(node) {
   var _byId = {}; _rows.forEach(function(r){ _byId[r.id] = r; });
   var fopts = isChild
     // 协作页子任务同样不允许切换开关(lockChildDue), 但容器状态按现值 forceChildDue 呈现
-    ? { childDueMode: !!(node._parent && node._parent.child_due), canRecur: node.children.length === 0,
+    ? { childDueMode: !!(node._parent && node._parent.child_due),
         inheritDue: todoEffDueRow(node, _byId) || '', lockChildDue: true, forceChildDue: !!node.child_due }
     : { lockChildDue: true, forceChildDue: !!node.child_due };
   openModal('编辑任务', todoFormHtml(node, false, isChild, fopts) +
@@ -9321,7 +9327,7 @@ function openAddForm(parentId, title) {
   var _pid = parentId != null ? parentId : _rootId;
   var pRow = _rows.filter(function(r){ return r.id === _pid; })[0];
   var _byId = {}; _rows.forEach(function(r){ _byId[r.id] = r; });
-  var fopts = { childDueMode: !!(pRow && pRow.child_due), canRecur: true,
+  var fopts = { childDueMode: !!(pRow && pRow.child_due),
     inheritDue: pRow ? (todoEffDueRow(pRow, _byId) || '') : '' };
   openModal(title, todoFormHtml({}, true, true, fopts) +
     '<div style="margin-top:12px;"><button class="btn" id="tfCreate">添加</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
@@ -9476,7 +9482,7 @@ function openReportEdit(node) {
   // 报告页(所有者本人): 逐级门控, 子任务按【直接父】child_due 决定能否自设日期/切开关
   var _byId = {}; _rows.forEach(function(r){ _byId[r.id] = r; });
   var fopts = isChild
-    ? { childDueMode: !!(node._parent && node._parent.child_due), canRecur: node.children.length === 0,
+    ? { childDueMode: !!(node._parent && node._parent.child_due),
         inheritDue: todoEffDueRow(node, _byId) || '' }
     : {};
   var _rootTitle = isChild && node._root ? node._root.title : '';
@@ -9510,14 +9516,14 @@ function openReportEdit(node) {
 // 新建任务/子任务弹窗: parentId=null → 顶层主任务(可设日期/重复/独立截止模式); 传 id → 子任务
 // 与 TODO_COLLAB_JS 同口径, 走 report_token 的 /api/public/todo-all/:token API
 function openAddForm(parentId, title, isChild) {
-  // 子任务: 按【直接父】的 child_due 决定表单(新建即为叶子, canRecur=true);
+  // 子任务: 按【直接父】的 child_due 决定表单(直接父勾选即可自设日期/重复);
   // 直接父未勾选时为锁定跟随态, 只读展示将继承的有效日期
   var fopts = {};
   if (parentId != null) {
     var pRow = _rows.filter(function(r){ return r.id === parentId; })[0];
     if (pRow) {
       var _byId = {}; _rows.forEach(function(r){ _byId[r.id] = r; });
-      fopts = { childDueMode: !!pRow.child_due, canRecur: true, inheritDue: todoEffDueRow(pRow, _byId) || '' };
+      fopts = { childDueMode: !!pRow.child_due, inheritDue: todoEffDueRow(pRow, _byId) || '' };
     }
   }
   openModal(title, todoFormHtml({}, true, !!isChild, fopts) +
@@ -9673,7 +9679,7 @@ function openPublicEdit(node) {
   // 逐级门控(汇总页为所有者本人, 任意层开关可切): 子任务看【直接父】
   var _byId = {}; _rows.forEach(function(r){ _byId[r.id] = r; });
   var fopts = isChild
-    ? { childDueMode: !!(node._parent && node._parent.child_due), canRecur: node.children.length === 0,
+    ? { childDueMode: !!(node._parent && node._parent.child_due),
         inheritDue: todoEffDueRow(node, _byId) || '' }
     : {};
   openModal('编辑任务', todoFormHtml(node, false, isChild, fopts) +
@@ -9820,13 +9826,13 @@ function drawTree(trees) {
 }
 function openAddForm(parentId, title, isChild) {
   // 主任务: 汇总页为所有者本人, 可勾选 child_due 独立截止模式(fopts={});
-  // 子任务: 按【直接父】的 child_due 决定表单(新建即为叶子, canRecur=true), 父未勾选即锁定跟随
+  // 子任务: 按【直接父】的 child_due 决定表单(直接父勾选即可自设日期/重复), 父未勾选即锁定跟随
   var fopts = {};
   if (parentId != null) {
     var pRow = _rows.filter(function(r){ return r.id === parentId; })[0];
     if (pRow) {
       var _byId = {}; _rows.forEach(function(r){ _byId[r.id] = r; });
-      fopts = { childDueMode: !!pRow.child_due, canRecur: true, inheritDue: todoEffDueRow(pRow, _byId) || '' };
+      fopts = { childDueMode: !!pRow.child_due, inheritDue: todoEffDueRow(pRow, _byId) || '' };
     }
   }
   openModal(title, todoFormHtml({}, true, !!isChild, fopts) +
