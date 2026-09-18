@@ -9196,10 +9196,10 @@ function openAddChooser(ev) {
   menu.innerHTML =
     '<button type="button" class="fab-menu__item" data-k="task">'
     +   '<span class="fab-menu__ic">' + ICONS.calendar + '</span>'
-    +   '<span class="fab-menu__t">新建任务<small>设截止日期或重复，计入今日/逾期</small></span></button>'
+    +   '<span class="fab-menu__t">新建任务</span></button>'
     + '<button type="button" class="fab-menu__item" data-k="memo">'
     +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.edit + '</span>'
-    +   '<span class="fab-menu__t">新建备忘录<small>无日期、不重复，只作记录</small></span></button>';
+    +   '<span class="fab-menu__t">新建备忘录</span></button>';
   document.body.appendChild(menu);
   // 右缘对齐锚点右侧, 但不贴出屏幕
   var right = Math.max(12, window.innerWidth - r.right);
