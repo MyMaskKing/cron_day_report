@@ -8776,8 +8776,9 @@ function openTodoEdit(node) {
     await api('/api/todo/' + node.id, { method:'PUT', body: body });
     closeModal(); await loadTodos(); await loadChart();
     // child_due 任一方向切换都会改动整支日期归属(勾选→自身无日期; 取消→清空整支后代日期),
-    // 当前节点在"今日+逾期"等筛选下可能消失 → 自动跳到"全部", 避免用户误以为任务丢失
-    if (body.child_due === 1 || (body.child_due === 0 && node.child_due === 1)) switchTodoFilter('all');
+    // 当前节点在"今日+逾期"等筛选下可能消失 → 按落点自动定位: 勾选→计划中; 取消无日期→备忘录
+    if (body.child_due === 1) switchTodoFilter('planned');
+    else if (body.child_due === 0 && node.child_due === 1) switchTodoFilter(body.due_date ? 'planned' : 'memo');
   };
   bindClickBusy(document.getElementById('tfSave'), async function(){
     var body = todoFormRead();
@@ -8972,8 +8973,12 @@ function openAddForm(parentId, title, isChild, memo) {
     if (parentId != null) body.parent_id = parentId;
     await api('/api/todo', { method:'POST', body: body });
     closeModal(); await loadTodos(); await loadChart();
-    // 新建"子任务各自设日期"的主任务后, 空容器在"今日+逾期"等筛选下不显示 → 自动跳到"全部"
-    if (body.child_due === 1) switchTodoFilter('all');
+    // 顶层新建后自动定位时间筛选: 任务(各自截止空容器/有日期)→计划中, 无日期备忘录→备忘录;
+    // 子任务跟随父任务所在视图, 不切换
+    if (parentId == null) {
+      var asMemo = !!memo || (body.child_due !== 1 && !body.due_date);
+      switchTodoFilter(asMemo ? 'memo' : 'planned');
+    }
   });
 }
 // ==================== 共享分类（登录账号 + 邀请码协作）====================
