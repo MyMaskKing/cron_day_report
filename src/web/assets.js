@@ -7133,6 +7133,13 @@ function todoRenderView(container, trees, opts) {
       t.textContent = (root.shared_cat_id != null ? '👥 ' : '') + root.title;
       crumb.appendChild(back);
       crumb.appendChild(t);
+      // child_due 模式: 面包屑标题后挂实心贴(根必为顶层任务); 中间层子分组的胶囊在子树行内渲染
+      if (root.child_due) {
+        var cdCrumb = document.createElement('span');
+        cdCrumb.className = 'todo-cd-tag';
+        cdCrumb.innerHTML = ICONS.branch + '各自截止';
+        crumb.appendChild(cdCrumb);
+      }
       // "完成主任务"入口不放这里(已由 todoAttachDoneLinkToTip 挂到提示文末尾或独立一行)
       // "添加子任务"入口不再放面包屑, 改为详情页子任务列表底部常驻输入行(MS To Do 风格, 见下面 mountDetailAdder)
     }
@@ -8481,16 +8488,17 @@ async function openTodoDetail(node, opts) {
     }
     subsHtml = '<div class="td-subs"><div class="td-subs__head">' + headTxt + headMeta + '</div>' + rowsHtml + '</div>';
   }
-  // child_due 模式标识(与列表同语言): 顶层主任务=实心贴, 中间层子分组=描边胶囊; 叶子无
-  var cdTitle = '';
+  // child_due 模式标识(与列表同语言): 顶层主任务=实心贴, 中间层子分组=描边胶囊; 叶子无。
+  // 放在 td-meta(截止日期 chip 行)最前, 与日期/优先级同一行
+  var cdChip = '';
   if (node.child_due) {
-    cdTitle = node.parent_id == null
+    cdChip = node.parent_id == null
       ? '<span class="todo-cd-tag">' + ICONS.branch + '各自截止</span>'
       : '<span class="todo-chip cd-sub">' + ICONS.branch + '各自截止</span>';
   }
   var body =
-    '<div class="td-title">' + esc(node.title) + cdTitle + '</div>' +
-    '<div class="td-meta">' + meta.join('') + '</div>' +
+    '<div class="td-title">' + esc(node.title) + '</div>' +
+    '<div class="td-meta">' + cdChip + meta.join('') + '</div>' +
     subsHtml +
     (node.note
       ? '<div class="md-body" id="tdNote">' + renderMarkdown(node.note) + '</div>'
