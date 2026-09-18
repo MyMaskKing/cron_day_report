@@ -880,11 +880,11 @@ input[type="date"] { cursor: pointer; }
 .todo-chip.due { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due.overdue { background: var(--danger-bg); color: var(--danger); font-weight: 600; }
 .todo-chip.due.today { background: var(--brand-grad); color: #fff; font-weight: 700; }
-/* 页面内详情子树行的"今天"降唤醒: 普通灰 chip */
-body.todo-detail .todo-tree .todo-chip.due.today { background: var(--surface-2); color: var(--link-dim); font-weight: 400; }
-/* "今天"统一浅紫语言(柔和但保留今日特殊感): 面包屑主任务日期 / 眼睛详情弹窗子任务行 chip / 弹窗顶部日期 chip */
+/* "今天"统一浅紫语言(柔和但保留今日特殊感): 面包屑主任务日期 / 眼睛详情弹窗子任务行 chip /
+   弹窗顶部日期 chip / 页面内详情子树行 chip */
 .todo-crumb .todo-chip.due.today,
 .td-sub .todo-chip.due.today,
+body.todo-detail .todo-tree .todo-chip.due.today,
 .td-chip.td-chip--today { background: var(--brand-tint); color: var(--brand-strong); font-weight: 600; }
 /* 弹窗顶部日期 chip 本体是描边中性样式, 浅紫态换品牌浅紫边 */
 .td-chip.td-chip--today { border-color: var(--brand-border); }
@@ -892,10 +892,12 @@ body.todo-detail .todo-tree .todo-chip.due.today { background: var(--surface-2);
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .todo-crumb .todo-chip.due.today,
   :root:not([data-theme="light"]) .td-sub .todo-chip.due.today,
+  :root:not([data-theme="light"]) body.todo-detail .todo-tree .todo-chip.due.today,
   :root:not([data-theme="light"]) .td-chip.td-chip--today { color: var(--brand); }
 }
 [data-theme="dark"] .todo-crumb .todo-chip.due.today,
 [data-theme="dark"] .td-sub .todo-chip.due.today,
+[data-theme="dark"] body.todo-detail .todo-tree .todo-chip.due.today,
 [data-theme="dark"] .td-chip.td-chip--today { color: var(--brand); }
 .todo-crumb .todo-chip { flex: none; }
 .todo-chip.due.soon { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
