@@ -377,6 +377,8 @@ var ICONS = {
   repeat: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
   // 分支线: 用于 child_due「子任务各自设置截止日期」模式标识(尺寸由 .todo-cd-* 类控制)
   branch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>',
+  // 更多(三个点): 手机完整树的操作收纳
+  more:   '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>',
   // 逾期警告 (三角+感叹号): 用于 overdue chip
   warn: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   // 完成对勾 (圆圈+勾): 用于 done-at chip
@@ -5550,6 +5552,52 @@ bindQuickLogin('asset');
 // onAddChildSubmit(node, payload) → Promise: 由业务侧封装 api + reload; 卡片/树/详情页共用同一 submitFn 通道
 // 用 createElement + addEventListener，规避模板串内引号转义。
 const TODO_TREE_CORE = `
+// 手机完整树操作菜单(⋯): 把行内已有操作钮(不含拖拽/⋯自身)列成弹层, 点击代理到原按钮,
+// 复用各页面既有的 handler/二次确认, 无需重绑。桌面 CSS 隐藏 ⋯, 菜单不会被触发。
+var _todoOpMenuRow = null;
+function _todoOpDocClose(e){
+  if (_todoOpMenuRow && !(e.target.closest && (e.target.closest('.todo-op-menu') || e.target.closest('.todo-more')))) todoCloseOpMenu();
+}
+function _todoOpKeyClose(e){ if (e.key === 'Escape') todoCloseOpMenu(); }
+function todoCloseOpMenu(){
+  if (!_todoOpMenuRow) return;
+  var m = _todoOpMenuRow.querySelector('.todo-op-menu');
+  if (m) m.remove();
+  _todoOpMenuRow.classList.remove('op-menu-open');
+  _todoOpMenuRow = null;
+  document.removeEventListener('click', _todoOpDocClose, true);
+  document.removeEventListener('keydown', _todoOpKeyClose, true);
+  window.removeEventListener('scroll', todoCloseOpMenu, true);
+  window.removeEventListener('resize', todoCloseOpMenu);
+}
+function todoOpMenuToggle(row, opsEl){
+  if (_todoOpMenuRow === row) { todoCloseOpMenu(); return; }
+  todoCloseOpMenu();
+  var menu = document.createElement('div');
+  menu.className = 'todo-op-menu';
+  Array.prototype.forEach.call(opsEl.querySelectorAll('.todo-op'), function(btn){
+    if (btn.classList.contains('todo-more') || btn.classList.contains('todo-drag')) return;
+    var item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'todo-op-menu__item' + (btn.classList.contains('danger') ? ' danger' : '');
+    item.innerHTML = btn.innerHTML + '<span>' + esc(btn.title || '') + '</span>';
+    item.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      var target = btn;
+      todoCloseOpMenu();
+      target.click();
+    });
+    menu.appendChild(item);
+  });
+  menu.addEventListener('click', function(e){ e.stopPropagation(); });
+  row.appendChild(menu);
+  row.classList.add('op-menu-open');
+  _todoOpMenuRow = row;
+  setTimeout(function(){ document.addEventListener('click', _todoOpDocClose, true); }, 0);
+  document.addEventListener('keydown', _todoOpKeyClose, true);
+  window.addEventListener('scroll', todoCloseOpMenu, true);
+  window.addEventListener('resize', todoCloseOpMenu);
+}
 // ============ 任务表单草稿（防 App 切后台被系统回收进程后丢输入） ============
 // 只暂存标题/备注文字(丢失成本最高); 日期/优先级/重复等选择项不暂存, 避免与勾选联动错位。
 // 正常保存/取消都会走 closeModal → __todoDraftClose 清除; 仅异常退出(进程被杀)才会留下草稿。
@@ -6801,7 +6849,13 @@ function renderTodoTree(container, trees, opts) {
       // 详情页用 root.children 重新起渲(startDepth=0), 子任务 depth 也是 0, 会误显示本按钮
       if (opts.onShare && depth === 0 && node.parent_id == null) { var b3 = mkOp(ICONS.share, '协作链接', function(){ opts.onShare(node); }); ops.appendChild(b3); }
       if (opts.onDel)      { var b4 = mkOp(ICONS.trash, '删除',       function(){ opts.onDel(node); }, 'danger'); ops.appendChild(b4); }
-      if (ops.childNodes.length) row.appendChild(ops);
+      // 手机完整树: 操作收进「⋯」弹层(桌面/详情子树 CSS 隐藏此钮, 操作钮原样常显)
+      if (ops.childNodes.length) {
+        var bMore = mkOp(ICONS.more, '更多操作', function(){ todoOpMenuToggle(row, ops); });
+        bMore.classList.add('todo-more');
+        ops.appendChild(bMore);
+        row.appendChild(ops);
+      }
       // 手柄插入后再绑定拖拽
       if (dragHandle) todoBindDrag(dragHandle, wrap, node, opts);
     }

@@ -353,14 +353,32 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
      压缩式浏览器(kb-resize): 系统已把容器缩到键盘上方, 只留小呼吸, 不双倍留白 */
   body.kb-on .todo-fs-main { padding-bottom: calc(12px + var(--kb-inset, 0px)); }
   body.kb-resize .todo-fs-main { padding-bottom: 14px; }
-  /* 手机完整树(非详情视图)任务行三行化: 标题行 / 相关内容(meta, 在 main 内自然换行) / 操作钮独占一行右对齐,
-     避免操作钮把标题列挤成单字宽 */
-  body:not(.todo-detail) .todo-tree .todo-row { flex-wrap: wrap; row-gap: 6px; }
-  body:not(.todo-detail) .todo-tree .todo-ops {
-    flex-basis: 100%; justify-content: flex-end; opacity: 1;
-  }
+  /* 手机完整树(非详情视图): 操作收进「⋯」弹层, 行内只留更多钮, 标题拿到全宽不被挤碎 */
+  body:not(.todo-detail) .todo-tree .todo-ops { opacity: 1; gap: 0; }
+  body:not(.todo-detail) .todo-tree .todo-ops .todo-op:not(.todo-more) { display: none; }
+  body:not(.todo-detail) .todo-tree .todo-op.todo-more { display: inline-flex; }
+  body:not(.todo-detail) .todo-tree .todo-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body:not(.todo-detail) .todo-tree .todo-row.op-menu-open { z-index: 60; }
   /* 基金页策略浮层在底栏之上的避让规则写在 .strat-* 原媒体块旁(该处带 !important) */
 }
+/* 手机完整树「⋯」操作弹层(桌面 ⋯ 隐藏, 弹层也不会被触发) */
+.todo-op.todo-more { display: none; }
+.todo-op-menu {
+  position: absolute; right: 4px; top: calc(100% - 4px); z-index: 60; min-width: 162px;
+  display: flex; flex-direction: column; gap: 1px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 5px;
+  box-shadow: 0 12px 32px rgba(20,20,40,.18), 0 2px 8px rgba(20,20,40,.08);
+  animation: fabMenuIn .15s cubic-bezier(.2,.9,.3,1);
+}
+.todo-op-menu__item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  border: 0; background: none; color: var(--text); font-family: inherit; font-size: 13.5px;
+  text-align: left; padding: 9px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+}
+.todo-op-menu__item svg { width: 16px; height: 16px; color: var(--link-dim); flex: none; }
+.todo-op-menu__item.danger { color: var(--danger); }
+.todo-op-menu__item.danger svg { color: var(--danger); }
+.todo-op-menu__item:active { background: var(--surface-2); }
 /* FAB 加号弹出菜单: 两个竖排卡片按钮(任务/备忘录), 定位由 JS 按锚点按钮写 top/bottom+right */
 .fab-menu {
   position: fixed; z-index: 1004;
@@ -913,6 +931,10 @@ input[type="date"] { cursor: pointer; }
 .td-sub .todo-chip.due.today,
 .todo-tree .todo-chip.due.today,
 .td-chip.td-chip--today { background: var(--brand-tint); color: var(--brand-strong); font-weight: 600; }
+/* 完整树(非详情视图)根行"今天"保持深紫渐变白字, 与卡片视图根卡一致; 子任务行仍为浅紫 */
+body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
+  background: var(--brand-grad); color: #fff; font-weight: 700;
+}
 /* 弹窗顶部日期 chip 本体是描边中性样式, 浅紫态换品牌浅紫边 */
 .td-chip.td-chip--today { border-color: var(--brand-border); }
 /* 暗色下根级深紫在浅紫底上对比不足, 换用主题亮紫(dark 未定义 --brand-strong, 会回退根值) */
