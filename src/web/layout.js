@@ -353,18 +353,19 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
      压缩式浏览器(kb-resize): 系统已把容器缩到键盘上方, 只留小呼吸, 不双倍留白 */
   body.kb-on .todo-fs-main { padding-bottom: calc(12px + var(--kb-inset, 0px)); }
   body.kb-resize .todo-fs-main { padding-bottom: 14px; }
-  /* 手机完整树(非详情视图): 操作收进「⋯」弹层, 行内只留更多钮, 标题拿到全宽不被挤碎 */
+  /* 手机完整树(非详情视图): 操作收进「⋯」弹层, 行内只留更多钮;
+     标题/备注完整显示不截断(完整树就是全量视图, 不依赖进详情看全文) */
   body:not(.todo-detail) .todo-tree .todo-ops { opacity: 1; gap: 0; }
   body:not(.todo-detail) .todo-tree .todo-ops .todo-op:not(.todo-more) { display: none; }
   body:not(.todo-detail) .todo-tree .todo-op.todo-more { display: inline-flex; }
-  body:not(.todo-detail) .todo-tree .todo-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  body:not(.todo-detail) .todo-tree .todo-row.op-menu-open { z-index: 60; }
+  body:not(.todo-detail) .todo-tree .todo-title,
+  body:not(.todo-detail) .todo-tree .todo-note.todo-note--clip { white-space: pre-wrap; overflow: visible; text-overflow: clip; }
   /* 基金页策略浮层在底栏之上的避让规则写在 .strat-* 原媒体块旁(该处带 !important) */
 }
 /* 手机完整树「⋯」操作弹层(桌面 ⋯ 隐藏, 弹层也不会被触发) */
 .todo-op.todo-more { display: none; }
 .todo-op-menu {
-  position: absolute; right: 4px; top: calc(100% - 4px); z-index: 60; min-width: 162px;
+  position: absolute; right: 4px; top: calc(100% - 4px); z-index: 300; min-width: 162px;
   display: flex; flex-direction: column; gap: 1px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 5px;
   box-shadow: 0 12px 32px rgba(20,20,40,.18), 0 2px 8px rgba(20,20,40,.08);
@@ -379,6 +380,11 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
 .todo-op-menu__item.danger { color: var(--danger); }
 .todo-op-menu__item.danger svg { color: var(--danger); }
 .todo-op-menu__item:active { background: var(--surface-2); }
+/* 打开菜单的行与整个任务节点一起抬层, 避免后续兄弟行/子行的白底盖住弹层 */
+.todo-node:has(> .todo-row.op-menu-open) { position: relative; z-index: 200; }
+.todo-row.op-menu-open { z-index: 210; }
+/* 菜单展开期间收起右下 FAB, 避免遮住最后几行的弹层 */
+body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none; }
 /* FAB 加号弹出菜单: 两个竖排卡片按钮(任务/备忘录), 定位由 JS 按锚点按钮写 top/bottom+right */
 .fab-menu {
   position: fixed; z-index: 1004;

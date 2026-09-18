@@ -5565,6 +5565,7 @@ function todoCloseOpMenu(){
   if (m) m.remove();
   _todoOpMenuRow.classList.remove('op-menu-open');
   _todoOpMenuRow = null;
+  document.body.classList.remove('todo-opmenu');
   document.removeEventListener('click', _todoOpDocClose, true);
   document.removeEventListener('keydown', _todoOpKeyClose, true);
   window.removeEventListener('scroll', todoCloseOpMenu, true);
@@ -5592,6 +5593,7 @@ function todoOpMenuToggle(row, opsEl){
   menu.addEventListener('click', function(e){ e.stopPropagation(); });
   row.appendChild(menu);
   row.classList.add('op-menu-open');
+  document.body.classList.add('todo-opmenu');
   _todoOpMenuRow = row;
   setTimeout(function(){ document.addEventListener('click', _todoOpDocClose, true); }, 0);
   document.addEventListener('keydown', _todoOpKeyClose, true);
@@ -7121,6 +7123,33 @@ function todoAttachDoneLinkToTip(container, root, opts) {
     homeBox.appendChild(wrap);
   }
 }
+// 滚动位置按"画面"记忆: 列表/详情/完整树共用 .todo-fs-main, 但重绘只应更新内容,
+// 不能把滚动夹回顶部; 从详情返回列表时恢复列表上次的位置。
+var _todoScrollTops = Object.create(null);
+var _todoScrollCurrentKey = '';
+var _todoScrollCurrentScroller = null;
+function todoScrollScroller(container) {
+  var main = document.querySelector ? document.querySelector('.todo-fs-main') : null;
+  if (main && main.contains && main.contains(container)) return main;
+  return {
+    get scrollTop() { return window.scrollY || window.pageYOffset || 0; },
+    set scrollTop(y) { window.scrollTo(0, y); }
+  };
+}
+function todoScrollKey(view, detailRootId, scroller) {
+  var scope = (scroller && scroller.classList && scroller.classList.contains('todo-fs-main')) ? 'fs' : 'page';
+  return scope + ':' + (view === 'card' && detailRootId != null ? 'card:' + detailRootId : view);
+}
+function todoPreserveScroll(scroller, key, render, afterRender) {
+  if (_todoScrollCurrentScroller && _todoScrollCurrentKey) {
+    _todoScrollTops[_todoScrollCurrentKey] = _todoScrollCurrentScroller.scrollTop || 0;
+  }
+  render();
+  if (afterRender) afterRender();
+  scroller.scrollTop = Object.prototype.hasOwnProperty.call(_todoScrollTops, key) ? _todoScrollTops[key] : 0;
+  _todoScrollCurrentScroller = scroller;
+  _todoScrollCurrentKey = key;
+}
 // 三态视图调度器：opts.view + opts.detailRootId 决定渲染哪种
 //   view='tree'                       → 完整树（多棵）
 //   view='card' && detailRootId==null → 顶层卡片列表
@@ -7130,6 +7159,8 @@ function todoAttachDoneLinkToTip(container, root, opts) {
 function todoRenderView(container, trees, opts) {
   opts = opts || {};
   var view = opts.view || 'card';
+  var scrollScroller = todoScrollScroller(container);
+  function preserveScroll(key, render, afterRender) { return todoPreserveScroll(scrollScroller, key, render, afterRender); }
   // 本次重绘会清空容器, 所有临时添加框 DOM 都被销毁: 作废旧 closer,
   // 避免恢复链中新框注册时执行僵尸 close() 误清持久草稿(会导致切 App 回来框无法自动展开)
   _todoAddFormCloser = null;
@@ -7153,7 +7184,9 @@ function todoRenderView(container, trees, opts) {
   if (view === 'tree') {
     if (crumb) crumb.style.display = 'none';
     document.body.classList.remove('todo-detail'); // 树视图无详情概念, 恢复悬浮新建钮
-    renderTodoTree(container, trees, opts);
+    preserveScroll(todoScrollKey('tree', null, scrollScroller), function(){
+      renderTodoTree(container, trees, opts);
+    });
     return;
   }
   // view === 'card': 详情 id 持久化(非 null 写入, null 清除); tree 视图在上方已 return 不影响
@@ -7171,6 +7204,7 @@ function todoRenderView(container, trees, opts) {
     // 把"完成主任务"链挂到提示文末尾(命中主页 <p class="muted">); 无提示文时兜底独立一行
     // 无论哪种, 面包屑都不再放该按钮, 顶栏永远只有「← 返回 | 标题 | ➕ 添加子任务」
     todoAttachDoneLinkToTip(container, root, opts);
+    var detailScrollKey = todoScrollKey('card', detailRootId, scrollScroller);
     if (crumb) {
       crumb.style.display = 'flex';
       crumb.innerHTML = '';
@@ -7205,9 +7239,16 @@ function todoRenderView(container, trees, opts) {
     }
     // 详情页只渲染 root 的子任务，避免与面包屑标题重复; 首层子任务视作 depth 0 但截止日期继承 root
     // root 无子任务时也保留底部 "添加子任务" 常驻行, 而不是空态提示
+    var afterDetailRender = opts.onAddChildSubmit ? function(){
+      mountDetailAdder(container, root, function(payload){
+        return opts.onAddChildSubmit(root, payload);
+      });
+    } : null;
     if (root.children.length === 0) {
-      container.className = 'todo-tree';
-      container.innerHTML = '';
+      preserveScroll(detailScrollKey, function(){
+        container.className = 'todo-tree';
+        container.innerHTML = '';
+      }, afterDetailRender);
     } else {
       var childOpts = {};
       for (var k in opts) if (Object.prototype.hasOwnProperty.call(opts, k)) childOpts[k] = opts[k];
@@ -7222,20 +7263,18 @@ function todoRenderView(container, trees, opts) {
         var ph = container.querySelector('.todo-detail-adder__placeholder');
         if (ph) ph.click();
       };
-      renderTodoTree(container, root.children, childOpts);
-    }
-    // 底部常驻"+ 添加子任务": 只在支持添加(非只读)时挂载; 追加在子任务列表末尾
-    if (opts.onAddChildSubmit) {
-      mountDetailAdder(container, root, function(payload){
-        return opts.onAddChildSubmit(root, payload);
-      });
+      preserveScroll(detailScrollKey, function(){
+        renderTodoTree(container, root.children, childOpts);
+      }, afterDetailRender);
     }
     return;
   }
   // 卡片列表
   document.body.classList.remove('todo-detail');
   if (crumb) crumb.style.display = 'none';
-  renderTodoCards(container, trees, opts);
+  preserveScroll(todoScrollKey('card', null, scrollScroller), function(){
+    renderTodoCards(container, trees, opts);
+  });
 }
 // 手机键盘弹起时把输入框"上移"到可视视区内(修复添加框被键盘盖住):
 // 先 scrollIntoView, 再按 visualViewport 底边补差, 优先滚动最近的可滚动祖先(全屏区/弹窗遮罩), 兜底 window.scrollBy
