@@ -791,15 +791,32 @@ function settingsPage(user) {
 function assetPage(user) {
   const body = renderTopbar(user, 'asset') + `<div class="container">
     <div class="card">
-      <h2>资产总览</h2>
-      <div class="grid-stats">
+      <div class="asset-overview-head">
+        <h2>资产总览</h2>
+        <div class="asset-latest">最新月份 <b id="sMonth">—</b></div>
+      </div>
+      <div class="grid-stats asset-summary-stats">
         <div class="stat"><div class="num" id="sAssets">0</div><div class="lbl">资产合计</div></div>
         <div class="stat"><div class="num" id="sDebt">0</div><div class="lbl">负债(信用)</div></div>
         <div class="stat"><div class="num" id="sNet">0</div><div class="lbl">净资产</div></div>
-        <div class="stat"><div class="num" id="sMonth" style="font-size:18px;">—</div><div class="lbl">最新月份</div></div>
       </div>
       <div id="goalBox" style="margin-top:14px;padding:10px;background:var(--surface-3);border-radius:6px;font-size:14px;"></div>
       <div id="typeTotalBox" style="margin-top:14px;"></div>
+      <div class="asset-insight">
+        <div class="asset-insight__head">
+          <h3>月增量洞察</h3>
+          <p class="muted">按多个钱包的月度余额汇总，计算相邻月份净资产变化；该指标用于观察资产增减，不等同于精确花销。</p>
+        </div>
+        <div class="grid-stats">
+          <div class="stat"><div class="num" id="aiChange">—</div><div class="lbl">本月净资产变化</div><div class="asset-stat-sub" id="aiChangeSub">最新月较上月</div></div>
+          <div class="stat"><div class="num" id="aiVs6">—</div><div class="lbl">较近6月均值</div><div class="asset-stat-sub" id="aiVs6Sub">差距</div></div>
+          <div class="stat"><div class="num" id="aiAvg6">—</div><div class="lbl">近6月平均月增</div><div class="asset-stat-sub">有效差额均值</div></div>
+          <div class="stat"><div class="num" id="aiAvg12">—</div><div class="lbl">近12月平均月增</div><div class="asset-stat-sub">有效差额均值</div></div>
+          <div class="stat"><div class="num" id="aiTotal12">—</div><div class="lbl">近12月累计变化</div><div class="asset-stat-sub">累计净资产增减</div></div>
+          <div class="stat"><div class="num" id="aiLowest">—</div><div class="lbl">最低增长月</div><div class="asset-stat-sub" id="aiLowestMonth">—</div></div>
+        </div>
+        <div id="aiNote" class="asset-insight__note">至少连续录入两个月钱包余额后，才能计算月增量。</div>
+      </div>
       <div class="row" style="margin-top:12px;">
         <div style="flex:none;width:100%;">
           <label>设置当年目标净资产(元)</label>
@@ -827,7 +844,11 @@ function assetPage(user) {
       <canvas id="netChart" style="max-height:300px;"></canvas>
     </div>
     <div class="card">
-      <h2>每月净存（本月−上月净资产，负值为减少）</h2>
+      <div class="asset-chart-head">
+        <h2>每月净资产变化</h2>
+        <span class="tag user" id="csAvgNote">区间均值 —</span>
+      </div>
+      <p class="muted asset-chart-desc">本月−上月净资产；橙色虚线为当前筛选区间均值，负值表示减少。</p>
       <canvas id="consumeChart" style="max-height:300px;"></canvas>
     </div>
 

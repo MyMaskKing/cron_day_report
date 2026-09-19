@@ -5136,6 +5136,33 @@ var nwChart = null, csChart = null;
 function curMonth(){ var d=new Date(Date.now()+8*3600*1000); return d.toISOString().slice(0,7); }
 
 var fullReport = null, fullRecords = [];
+function validChanges(series, limit) {
+  var list = (series || []).filter(function(v){ return v != null && isFinite(v); });
+  return limit ? list.slice(-limit) : list;
+}
+function avgNum(list) {
+  if (!list || !list.length) return null;
+  return list.reduce(function(a,b){ return a+b; }, 0) / list.length;
+}
+function sumNum(list) {
+  if (!list || !list.length) return null;
+  return list.reduce(function(a,b){ return a+b; }, 0);
+}
+function signedMoney(v) {
+  if (v == null || !isFinite(v)) return '—';
+  var sign = v > 0 ? '+' : (v < 0 ? '-' : '');
+  return sign + fmtMoney(Math.abs(v), {frac:2});
+}
+function setTrendNum(id, v) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = signedMoney(v);
+  el.className = 'num ' + (v > 0 ? 'is-up' : (v < 0 ? 'is-down' : 'is-flat'));
+}
+function setAssetText(id, text) {
+  var el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
 
 async function loadAll() {
   var d = await api('/api/asset/report');
@@ -5198,6 +5225,66 @@ function renderSummary(report, goal, year) {
   document.getElementById('sDebt').textContent = fmtMoney(report.latest.debt, {frac:2});
   document.getElementById('sNet').textContent = fmtMoney(report.latest.netWorth, {frac:2});
   document.getElementById('sMonth').textContent = report.latestMonth || '—';
+
+  var series = report.savingSeries || [];
+  var changes = validChanges(series);
+  var latestChange = report.netWorthChange != null && isFinite(report.netWorthChange)
+    ? report.netWorthChange
+    : (changes.length ? changes[changes.length - 1] : null);
+  var avg6 = avgNum(validChanges(series, 6));
+  var avg12 = avgNum(validChanges(series, 12));
+  var total12 = sumNum(validChanges(series, 12));
+  var diff6 = latestChange != null && avg6 != null ? latestChange - avg6 : null;
+  var lowIndex = -1, lowValue = null;
+  var start = Math.max(0, series.length - 12);
+  for (var i = start; i < series.length; i++) {
+    var v = series[i];
+    if (v == null || !isFinite(v)) continue;
+    if (lowValue === null || v < lowValue) { lowValue = v; lowIndex = i; }
+  }
+  var lowMonth = lowIndex >= 0 ? report.months[lowIndex] : null;
+
+  setTrendNum('aiChange', latestChange);
+  setTrendNum('aiVs6', diff6);
+  setTrendNum('aiAvg6', avg6);
+  setTrendNum('aiAvg12', avg12);
+  setTrendNum('aiTotal12', total12);
+  setTrendNum('aiLowest', lowValue);
+  setAssetText('aiChangeSub', report.latestMonth ? report.latestMonth + ' 较上月' : '最新月较上月');
+  setAssetText('aiVs6Sub', avg6 != null ? '均值 ' + signedMoney(avg6) : '近6月数据不足');
+  setAssetText('aiLowestMonth', lowMonth || '—');
+
+  var note = document.getElementById('aiNote');
+  if (note) {
+    var msg = '', cls = '';
+    if (latestChange == null) {
+      msg = '至少连续录入两个月钱包余额后，才能计算月增量。';
+    } else if (avg6 == null) {
+      msg = '本月净资产' + (latestChange >= 0 ? '增加 ' : '减少 ') + fmtMoney(Math.abs(latestChange), {frac:2}) +
+        ' 元；连续录入更多月份后可对比均值。';
+      cls = latestChange < 0 ? 'is-down' : 'is-up';
+    } else {
+      var amount = fmtMoney(Math.abs(latestChange), {frac:2});
+      var avgText = signedMoney(avg6);
+      if (latestChange < 0 && diff6 > 0) {
+        msg = '本月净资产减少 ' + amount + ' 元，不过降幅小于近6月平均 ' + avgText + '。';
+        cls = 'is-down';
+      } else if (latestChange < 0) {
+        msg = '本月净资产减少 ' + amount + ' 元，且低于近6月平均 ' + avgText + '。';
+        cls = 'is-down';
+      } else if (latestChange === 0) {
+        msg = '本月净资产与上月持平；近6月平均 ' + avgText + '。';
+      } else if (diff6 >= 0) {
+        msg = '本月净资产增加 ' + amount + ' 元，高于近6月平均 ' + avgText + '。';
+        cls = 'is-up';
+      } else {
+        msg = '本月净资产仍在增加 ' + amount + ' 元，但低于近6月平均 ' + avgText + '。';
+      }
+    }
+    note.textContent = msg;
+    note.className = 'asset-insight__note' + (cls ? ' ' + cls : '');
+  }
+
   var gInput = document.getElementById('goalInput');
   if (gInput) gInput.value = (goal && goal.target) ? goal.target : '';
   var gbox = document.getElementById('goalBox');
@@ -5243,17 +5330,35 @@ function renderMonthlyTypeTotals(mtt) {
       '<td data-label="净资产"' + netColor + '>' + fmtMoney(row.net, {frac:2}) + '</td></tr>';
   }).join('') || '<tr><td colspan="' + (types.length + 2) + '" class="muted">暂无记录</td></tr>';
 }
+function assetCssVar(name, fallback) {
+  var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
 function drawCharts(report) {
-  var opts = { plugins:{ legend:{ display:false } } };
+  var brandColor = assetCssVar('--brand-strong', '#7C3AED');
+  var okColor = assetCssVar('--ok', '#34b34a');
+  var dangerColor = assetCssVar('--danger', '#cf1322');
+  var avgColor = '#f97316';
   if (nwChart) nwChart.destroy();
   nwChart = new Chart(document.getElementById('netChart'), {
-    type:'line', data:{ labels: report.months, datasets:[{ label:'净资产', data: report.netWorthSeries, borderColor:'#667eea', tension:.3 }] },
+    type:'line', data:{ labels: report.months, datasets:[{ label:'净资产', data: report.netWorthSeries, borderColor:brandColor, tension:.3 }] },
     options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'净资产(元)' } } } } });
+  var avg = avgNum(validChanges(report.savingSeries));
+  var avgData = (report.savingSeries || []).map(function(v){
+    return v != null && isFinite(v) && avg != null ? avg : null;
+  });
   if (csChart) csChart.destroy();
   csChart = new Chart(document.getElementById('consumeChart'), {
-    type:'bar', data:{ labels: report.months, datasets:[{ label:'净存', data: report.savingSeries,
-      backgroundColor: function(c){ return c.raw < 0 ? '#cf1322' : '#389e0d'; } }] },
-    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'每月净存(元, 负为减少)' } } } } });
+    type:'bar',
+    data:{ labels: report.months, datasets:[
+      { label:'净资产变化', data: report.savingSeries, maxBarThickness:38, borderRadius:6,
+        backgroundColor: function(c){ return c.raw < 0 ? dangerColor : okColor; } },
+      { type:'line', label:'区间均线', data:avgData, borderColor:avgColor, backgroundColor:avgColor,
+        borderDash:[6,6], pointRadius:0, pointHoverRadius:0, fill:false, tension:0, order:1 }
+    ] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ title:{ display:true, text:'每月净资产变化(元, 负为减少)' } } } } });
+  var avgNote = document.getElementById('csAvgNote');
+  if (avgNote) avgNote.textContent = avg != null ? '区间均值 ' + signedMoney(avg) : '区间暂无均值';
 }
 function renderMonthTable(wlist, records) {
   var nameOf = {}, typeOf = {}; wlist.forEach(function(w){ nameOf[w.id] = w.name; typeOf[w.id] = w.type; });

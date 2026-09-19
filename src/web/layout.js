@@ -658,6 +658,27 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .stat-nav .stat[data-nav="admin"]:hover { box-shadow: 0 6px 18px rgba(236,72,153,.14); border-color: rgba(236,72,153,.35); }
 .stat-nav .stat[data-nav="admin"]:hover .num--icon { background-color: rgba(236,72,153,.12); color: #ec4899; }
 .stat .lbl { font-size: 13px; color: var(--label); margin-top: 4px; }
+.asset-overview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.asset-overview-head h2 { margin: 0; }
+.asset-latest { font-size: 13px; color: var(--label); white-space: nowrap; }
+.asset-latest b { color: var(--text-strong); margin-left: 4px; }
+.asset-summary-stats .num { font-size: 24px; }
+.asset-insight { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-3); }
+.asset-insight__head h3 { margin: 0 0 4px; font-size: 15px; color: var(--text-strong); }
+.asset-insight__head p { margin: 0; }
+.asset-insight .grid-stats { margin-top: 12px; }
+.asset-insight .stat { text-align: left; padding: 14px; }
+.asset-insight .num { font-size: 22px; line-height: 1.25; }
+.asset-stat-sub { margin-top: 4px; font-size: 12px; color: var(--muted); min-height: 18px; }
+.asset-insight__note { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--label); font-size: 13px; }
+.asset-insight__note.is-up { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.asset-insight__note.is-down { background: var(--danger-bg); color: var(--danger); border-color: transparent; }
+.asset-insight .num.is-up { color: var(--ok); }
+.asset-insight .num.is-down { color: var(--danger); }
+.asset-insight .num.is-flat { color: var(--muted); }
+.asset-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.asset-chart-head h2 { margin-bottom: 0; }
+.asset-chart-desc { margin: 0 0 10px; }
 /* 全局 loading: 双环反向旋转 (珊瑚 + 蓝) + 玻璃遮罩; z-index 高于 modal, 保证 modal 内提交时用户能看到进度 */
 #globalLoading { display: none; position: fixed; inset: 0; background: var(--loading-mask); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); z-index: 10500; align-items: center; justify-content: center; }
 /* 启动阶段: display:flex 但 opacity:0, 300ms 后 fade in. 快请求 (JS 就绪 + 首屏 api <300ms 完成) 全程 opacity=0 → 无感 */
@@ -1628,6 +1649,14 @@ html { scrollbar-gutter: stable; }
   .btn.sm { margin-bottom: 4px; }
   /* 汇总统计卡在窄屏两列 */
   .grid-stats { grid-template-columns: repeat(2, 1fr); }
+  .asset-overview-head { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .asset-latest { white-space: normal; }
+  .asset-summary-stats .num { font-size: 20px; }
+  .asset-insight { padding: 12px; }
+  .asset-insight .stat { padding: 12px; }
+  .asset-insight .num { font-size: 18px; }
+  .asset-stat-sub { min-height: 0; }
+  .asset-chart-head { align-items: flex-start; flex-direction: column; }
   /* 表头窄屏隐藏后，全选改在工具栏显示 */
   .fm-mobile-sel { display: inline-flex; }
   /* 空态单元格窄屏 flex 布局下保持居中（默认 space-between 会把无 data-label 的文本顶到左侧） */
