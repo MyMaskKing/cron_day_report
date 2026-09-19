@@ -21,16 +21,13 @@ class ReminderActionReceiver : BroadcastReceiver() {
         val action = intent?.getStringExtra(EXTRA_ACTION) ?: return
         if (action != ReminderNotifier.ACTION_COMPLETE && action != ReminderNotifier.ACTION_TOMORROW) return
 
-        val preview = intent.getBooleanExtra(EXTRA_PREVIEW, false)
         val notificationId = intent.getIntExtra(
             EXTRA_NOTIFICATION_ID,
             ReminderNotifier.NOTIFICATION_MORNING
         )
-        if (preview) {
-            ReminderNotifier.cancelNotification(context, notificationId)
-            return
+        if (notificationId != ReminderNotifier.NOTIFICATION_TEST) {
+            ReminderNotifier.cancelReminders(context)
         }
-        ReminderNotifier.cancelReminders(context)
         ReminderNotifier.cancelNotification(context, notificationId)
         val widgetIds = intent.getIntArrayExtra(EXTRA_WIDGET_IDS) ?: return
         if (widgetIds.isEmpty()) return
@@ -58,7 +55,6 @@ class ReminderActionReceiver : BroadcastReceiver() {
         const val EXTRA_ACTION = "action"
         const val EXTRA_WIDGET_IDS = "widget_ids"
         const val EXTRA_NOTIFICATION_ID = "notification_id"
-        const val EXTRA_PREVIEW = "preview"
     }
 }
 

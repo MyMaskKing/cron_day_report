@@ -10,6 +10,10 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.LocalTime
 
 /** Local daily reminder notifications. */
@@ -28,6 +32,31 @@ object ReminderNotifier {
     fun check(context: Context, refreshedIds: List<Int>) {
         if (refreshedIds.isEmpty() || !hasNotificationPermission(context)) return
 
+        val snapshot = reminderSnapshot(context, refreshedIds)
+        val now = LocalTime.now()
+        val morningStart = reminderTime(context, R.integer.reminder_morning_hour, R.integer.reminder_morning_minute)
+        val eveningStart = reminderTime(context, R.integer.reminder_evening_hour, R.integer.reminder_evening_minute)
+        when {
+            now >= morningStart && now.isBefore(eveningStart) -> {
+                val text = morningText(snapshot.todayCount, snapshot.overdueCount) ?: return
+                show(context, TYPE_MORNING, NOTIFICATION_MORNING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, true, snapshot.todayCount > 0)
+            }
+            now >= eveningStart -> {
+                val text = eveningText(snapshot.tomorrowCount, snapshot.overdueCount) ?: return
+                show(context, TYPE_EVENING, NOTIFICATION_EVENING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, snapshot.overdueCount > 0, false)
+            }
+        }
+    }
+
+    private data class ReminderSnapshot(
+        val date: String,
+        val todayCount: Int,
+        val overdueCount: Int,
+        val tomorrowCount: Int,
+        val accountWidgetIds: List<Int>
+    )
+
+    private fun reminderSnapshot(context: Context, refreshedIds: List<Int>): ReminderSnapshot {
         val today = java.time.LocalDate.now().toString()
         var todayCount = 0
         var overdueCount = 0
@@ -49,45 +78,69 @@ object ReminderNotifier {
             tomorrowCount += data.stats.tomorrow
         }
 
-        val now = LocalTime.now()
-        val morningStart = reminderTime(context, R.integer.reminder_morning_hour, R.integer.reminder_morning_minute)
-        val eveningStart = reminderTime(context, R.integer.reminder_evening_hour, R.integer.reminder_evening_minute)
-        when {
-            now >= morningStart && now.isBefore(eveningStart) -> {
-                val text = morningText(todayCount, overdueCount) ?: return
-                show(context, TYPE_MORNING, NOTIFICATION_MORNING, today, "待办提醒", text, accountWidgetIds, true, todayCount > 0)
-            }
-            now >= eveningStart -> {
-                val text = eveningText(tomorrowCount, overdueCount) ?: return
-                show(context, TYPE_EVENING, NOTIFICATION_EVENING, today, "待办提醒", text, accountWidgetIds, overdueCount > 0, false)
-            }
-        }
+        return ReminderSnapshot(today, todayCount, overdueCount, tomorrowCount, accountWidgetIds)
     }
 
     fun showTest(context: Context) {
         if (!hasNotificationPermission(context)) return
+        android.widget.Toast.makeText(context, "正在拉取最新待办…", android.widget.Toast.LENGTH_SHORT).show()
+
+        val appContext = context.applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+            val ids = runCatching {
+                GlanceAppWidgetManager(appContext)
+                    .getGlanceIds(TodoAppWidget::class.java)
+                    .map { it.resolveAppWidgetId(appContext) }
+                    .filter { it >= 0 }
+            }.getOrDefault(emptyList())
+            val refreshedIds = mutableListOf<Int>()
+            ids.forEach { id ->
+                if (WidgetRepo.refresh(appContext, id, maxAttempts = 2)) refreshedIds.add(id)
+            }
+            showTestSnapshot(appContext, ids, refreshedIds)
+        }
+    }
+
+    private fun showTestSnapshot(
+        context: Context,
+        ids: List<Int>,
+        refreshedIds: List<Int>
+    ) {
+        val snapshot = reminderSnapshot(context, refreshedIds)
         val isEvening = LocalTime.now() >= reminderTime(
             context,
             R.integer.reminder_evening_hour,
             R.integer.reminder_evening_minute
         )
-        val text = if (isEvening) {
-            "明日有 3 件待办；另有 1 件逾期未完成"
-        } else {
-            "今日到期 3 件，逾期 1 件"
+        val type = if (isEvening) TYPE_EVENING else TYPE_MORNING
+        val text = when {
+            ids.isEmpty() -> "请先添加桌面小组件后再模拟待办提醒"
+            refreshedIds.isEmpty() -> "最新待办刷新失败，请检查网络或登录状态后重试"
+            snapshot.accountWidgetIds.isEmpty() -> "暂无可模拟的待办提醒数据"
+            isEvening -> eveningText(snapshot.tomorrowCount, snapshot.overdueCount)
+                ?: "明日暂无待办，当前也没有逾期"
+            else -> morningText(snapshot.todayCount, snapshot.overdueCount)
+                ?: "今日暂无到期或逾期待办"
         }
+        val hasActionData = refreshedIds.isNotEmpty() && snapshot.accountWidgetIds.isNotEmpty()
+        val enableComplete = hasActionData && if (isEvening) {
+            snapshot.overdueCount > 0
+        } else {
+            snapshot.todayCount > 0 || snapshot.overdueCount > 0
+        }
+        val enablePostpone = hasActionData && !isEvening && snapshot.todayCount > 0
+
         show(
             context,
-            if (isEvening) TYPE_EVENING else TYPE_MORNING,
+            type,
             NOTIFICATION_TEST,
-            java.time.LocalDate.now().toString(),
+            snapshot.date,
             "待办提醒",
             text,
-            emptyList(),
-            enableComplete = true,
-            enablePostpone = !isEvening,
-            markSent = false,
-            preview = true
+            snapshot.accountWidgetIds,
+            enableComplete = enableComplete,
+            enablePostpone = enablePostpone,
+            markSent = false
         )
     }
 
@@ -147,23 +200,22 @@ object ReminderNotifier {
         accountWidgetIds: List<Int>,
         enableComplete: Boolean,
         enablePostpone: Boolean,
-        markSent: Boolean = true,
-        preview: Boolean = false
+        markSent: Boolean = true
     ) {
         if (!hasNotificationPermission(context) || (markSent && Prefs.getReminderSentDate(context, type) == date)) return
         createChannel(context)
         val builder = buildNotification(context, notificationId, title, text)
-        if (enableComplete && (preview || accountWidgetIds.isNotEmpty())) {
+        if (enableComplete && accountWidgetIds.isNotEmpty()) {
             builder.addAction(
                 R.drawable.ic_chip_today,
                 "全部完成",
-                actionPendingIntent(context, ACTION_COMPLETE, accountWidgetIds, notificationId, preview)
+                actionPendingIntent(context, ACTION_COMPLETE, accountWidgetIds, notificationId)
             )
             if (enablePostpone) {
                 builder.addAction(
                     R.drawable.ic_chip_today,
                     "放到明天",
-                    actionPendingIntent(context, ACTION_TOMORROW, accountWidgetIds, notificationId, preview)
+                    actionPendingIntent(context, ACTION_TOMORROW, accountWidgetIds, notificationId)
                 )
             }
         }
@@ -203,14 +255,12 @@ object ReminderNotifier {
         context: Context,
         action: String,
         widgetIds: List<Int>,
-        notificationId: Int,
-        preview: Boolean = false
+        notificationId: Int
     ): PendingIntent {
         val intent = Intent(context, ReminderActionReceiver::class.java).apply {
             putExtra(ReminderActionReceiver.EXTRA_ACTION, action)
             putExtra(ReminderActionReceiver.EXTRA_WIDGET_IDS, widgetIds.toIntArray())
             putExtra(ReminderActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
-            if (preview) putExtra(ReminderActionReceiver.EXTRA_PREVIEW, true)
         }
         val requestCode = notificationId * 10 + if (action == ACTION_COMPLETE) 1 else 2
         return PendingIntent.getBroadcast(

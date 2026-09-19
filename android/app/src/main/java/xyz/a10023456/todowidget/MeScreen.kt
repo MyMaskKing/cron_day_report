@@ -90,7 +90,7 @@ fun MeScreen(
                 showUrlDialog = true
             }
             if (isAdmin) {
-                MeItem(R.drawable.ic_chip_today, "测试通知", "模拟发送一条待办提醒") { onTestNotification() }
+                MeItem(R.drawable.ic_chip_today, "测试通知", "拉取真实待办数据并发送提醒") { onTestNotification() }
             }
         }
 
