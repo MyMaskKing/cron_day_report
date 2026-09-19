@@ -177,7 +177,14 @@ const COMMON_JS = `
   var WD = ['日','一','二','三','四','五','六'];
   var MO = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
   function bjToday(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
-  function parse(s){ if(!s) return null; var m = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(s); return m ? {y:+m[1], mo:+m[2], d:+m[3]} : null; }
+  function parse(s){
+    if(!s) return null;
+    var mm = /^(\\d{4})-(\\d{2})$/.exec(s);
+    if (mm) return {y:+mm[1], mo:+mm[2], d:1};
+    var m = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(s);
+    return m ? {y:+m[1], mo:+m[2], d:+m[3]} : null;
+  }
+  function fmtMonth(y,mo){ return y + '-' + ('0'+mo).slice(-2); }
   function fmt(y,mo,d){ return y + '-' + (mo<10?'0':'') + mo + '-' + (d<10?'0':'') + d; }
   function pStr(p){ return fmt(p.y,p.mo,p.d); }
   function addDays(s,n){ var p=parse(s); return new Date(Date.UTC(p.y,p.mo-1,p.d)+n*86400000).toISOString().slice(0,10); }
@@ -185,6 +192,7 @@ const COMMON_JS = `
   var pop=null, cur=null, vY=0, vMo=0, view='day';
   function close(){ if(pop){ pop.remove(); pop=null; cur=null; openSeq++; } }
   function disabled(ds, input){
+    if (input.type === 'month') return (input.min && ds < input.min) || (input.max && ds > input.max);
     var mn=parse(input.min), mx=parse(input.max);
     return (mn && ds < pStr(mn)) || (mx && ds > pStr(mx));
   }
@@ -251,12 +259,16 @@ const COMMON_JS = `
       '<div class="dp-wd">'+WD.map(function(w){return '<span>'+w+'</span>';}).join('')+'</div>' +
       '<div class="dp-grid">'+cells+'</div>';
   }
-  function renderMonth(today){
+  function renderMonth(today, sel){
     var tp = parse(today);
+    var monthMode = cur && cur.type === 'month';
     var cells = MO.map(function(m,i){
       var mo=i+1, cls='dp-cell dp-cell--mon';
+      var ms = fmtMonth(vY, mo), dis = monthMode && disabled(ms, cur);
       if (tp && tp.y===vY && tp.mo===mo) cls += ' today';
-      return '<button type="button" class="'+cls+'" data-mo="'+mo+'">'+m+'</button>';
+      if (sel && sel.y===vY && sel.mo===mo) cls += ' sel';
+      if (dis) cls += ' dis';
+      return '<button type="button" class="'+cls+'" data-mo="'+mo+'"'+(dis?' disabled':'')+'>'+m+'</button>';
     }).join('');
     return navBar(vY+'年', 'year') + '<div class="dp-grid dp-grid--mon">'+cells+'</div>';
   }
@@ -274,7 +286,7 @@ const COMMON_JS = `
   function render(){
     if(!pop||!cur) return;
     var today = bjToday(), sel = parse(cur.value);
-    pop.innerHTML = view==='month' ? renderMonth(today) : view==='year' ? renderYear(today) : renderDay(today, sel);
+    pop.innerHTML = view==='month' ? renderMonth(today, sel) : view==='year' ? renderYear(today) : renderDay(today, sel);
     position();
   }
   // 键盘是否开启: visualViewport 推算高度 与 原生注入 --kb-native(App WebView 的 vv 不反映键盘)取大;
@@ -309,7 +321,7 @@ const COMMON_JS = `
     // 等待键盘期间弹层被关闭/又打开了别的日期框: 本次作废
     if (seq !== openSeq || cur !== input) return;
     var base = parse(input.value) || parse(bjToday());
-    vY = base.y; vMo = base.mo; view = 'day';
+    vY = base.y; vMo = base.mo; view = input.type === 'month' ? 'month' : 'day';
     if (!pop){
       pop = document.createElement('div');
       pop.className = 'dp-pop';
@@ -319,7 +331,11 @@ const COMMON_JS = `
         function q(s){ return el.closest ? el.closest(s) : null; }
         var day=q('[data-d]'), mo=q('[data-mo]'), yr=q('[data-yr]'), goto=q('[data-goto]'), nav=q('.dp-navb');
         if (day){ choose(day.getAttribute('data-d')); return; }
-        if (mo){ vMo = parseInt(mo.getAttribute('data-mo'),10); view='day'; render(); return; }
+        if (mo){
+          vMo = parseInt(mo.getAttribute('data-mo'),10);
+          if (cur.type === 'month'){ choose(fmtMonth(vY, vMo)); return; }
+          view='day'; render(); return;
+        }
         if (yr){ vY = parseInt(yr.getAttribute('data-yr'),10); view='month'; render(); return; }
         if (goto){ view = goto.getAttribute('data-goto'); render(); return; }
         if (nav){
@@ -341,7 +357,7 @@ const COMMON_JS = `
     cur.dispatchEvent(new Event('change',{bubbles:true}));
     close();
   }
-  function isDate(t){ return t && t.tagName==='INPUT' && t.type==='date'; }
+  function isDate(t){ return t && t.tagName==='INPUT' && (t.type==='date' || t.type==='month'); }
   document.addEventListener('pointerdown', function(e){
     var t = e.target;
     if (isDate(t)){ e.preventDefault(); open(t); return; }
@@ -5148,16 +5164,14 @@ function shiftAssetMonth(month, delta) {
   mi = ((mi % 12) + 12) % 12;
   return y + '-' + ('0' + (mi + 1)).slice(-2);
 }
-// 日期控件与体重曲线保持一致；资产按月统计，筛选时取所选日期所属月份
+// 月份控件复用全站日历选择器；资产数据按 YYYY-MM 统计
 function assetDateRange(preset) {
   var endMonth = (fullReport && fullReport.latestMonth) || curMonth();
   var year = Number(endMonth.slice(0, 4));
-  var month = Number(endMonth.slice(5, 7));
   var startMonth = preset === 'year'
     ? year + '-01'
     : shiftAssetMonth(endMonth, preset === '6m' ? -5 : -11);
-  var endDay = preset === 'year' ? 31 : new Date(Date.UTC(year, month, 0)).getUTCDate();
-  return [startMonth + '-01', endMonth + '-' + ('0' + endDay).slice(-2)];
+  return [startMonth, preset === 'year' ? year + '-12' : endMonth];
 }
 function sumWalletMonth(month) {
   var map = {};
@@ -5472,9 +5486,8 @@ function renderMonthTable(wlist, records) {
 function openRecModal(id, type, month, preset, editId) {
   var w = wallets.filter(function(x){return x.id===id;})[0];
   preset = preset || {};
-  // 日期控件与体重曲线保持一致；资产按月统计，保存时取所选日期所属月份
-  var recMonth = month.length === 7 ? month + '-01' : month;
-  var monthField = '<label>月份</label><input id="fMonth" type="date" value="' + recMonth + '">';
+  // 与全站日历选择器保持一致；资产记录按月保存
+  var monthField = '<label>月份</label><input id="fMonth" type="month" value="' + month + '">';
   var fields = type === 'investment'
     ? '<label>当前总资产(元)</label><input id="fTotal" type="number" step="0.01" value="' + (preset.total != null ? preset.total : '') + '">' +
       '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01" value="' + (preset.profit != null ? preset.profit : '') + '">' +
@@ -5500,9 +5513,9 @@ function openRecModal(id, type, month, preset, editId) {
   }
   // 提交表单: 校验 + POST(新增)/PUT(修改); 成功返回 true, 失败弹窗提示并返回 false
   async function submitRec() {
-    var dateVal = document.getElementById('fMonth').value;
-    if (!dateVal) { alertModal('请选择日期', {ok:false}); return false; }
-    var payload = { month: dateVal.slice(0, 7) };
+    var mm = document.getElementById('fMonth').value;
+    if (!mm) { alertModal('请选择月份', {ok:false}); return false; }
+    var payload = { month: mm };
     if (type === 'investment') { payload.total = document.getElementById('fTotal').value; payload.profit = document.getElementById('fProfit').value; }
     else payload.balance = document.getElementById('fBalance').value;
     try {
@@ -5538,19 +5551,28 @@ function openRecModal(id, type, month, preset, editId) {
     await loadAll();
   });
 }
-// 查看某钱包最新数据月份的记录明细（同月可能多条；创建时间倒序）
+// 查看某钱包在页面所选时间区间内的全部记录（同月可能多条；月份倒序、创建时间倒序）
 window.wLogs = function(id){
   var w = wallets.filter(function(x){return x.id===id;})[0];
   if (!w) return;
-  var month = (fullReport && fullReport.latestMonth) || '';
-  var recs = (fullRecords||[]).filter(function(r){ return r.wallet_id===id && r.month===month; })
-    .slice().sort(function(a,b){ return (b.created_at||'').localeCompare(a.created_at||''); });
+  // 区间口径与 applyAssetFilter 一致：读取顶部 afStart/afEnd（YYYY-MM）
+  var startEl = document.getElementById('afStart');
+  var endEl = document.getElementById('afEnd');
+  var s = startEl ? startEl.value.slice(0, 7) : '';
+  var e = endEl ? endEl.value.slice(0, 7) : '';
+  var inRange = function(m){ if (s && m < s) return false; if (e && m > e) return false; return true; };
+  var recs = (fullRecords||[]).filter(function(r){ return r.wallet_id===id && inRange(r.month); })
+    .slice().sort(function(a,b){
+      if (a.month !== b.month) return b.month < a.month ? -1 : 1;
+      return (b.created_at||'').localeCompare(a.created_at||'');
+    });
   var rows = recs.map(function(r){
     return '<tr><td data-label="月份">' + r.month + '</td>' +
       '<td data-label="金额">' + fmtMoney(r.balance, {frac:2}) + (r.principal||r.profit ? ' <span class="muted">(本金'+ fmtMoney(r.principal, {frac:2}) +'/收益'+ fmtMoney(r.profit, {frac:2}) +')</span>' : '') + '</td>' +
       '<td data-label="更新时间" class="muted">' + fmtDbTime(r.created_at) + '</td></tr>';
-  }).join('') || '<tr><td colspan="3" class="muted">该月暂无记录</td></tr>';
-  openModal('记录 · ' + w.name + (month ? '（' + month + '）' : ''),
+  }).join('') || '<tr><td colspan="3" class="muted">该区间暂无记录</td></tr>';
+  var rangeTag = (s || e) ? '（' + (s || '更早') + ' ~ ' + (e || '至今') + '）' : '';
+  openModal('记录 · ' + w.name + rangeTag,
     '<table><thead><tr><th>月份</th><th>金额</th><th>更新时间</th></tr></thead><tbody>' + rows + '</tbody></table>' +
     '<div class="asset-record-admin"><button class="btn sm gray" onclick="closeModal();wEdit(' + id + ')">编辑钱包</button>' +
     '<button class="btn sm gray" onclick="closeModal();wShare(' + id + ')">录入链接</button>' +

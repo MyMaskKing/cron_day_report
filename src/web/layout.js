@@ -836,7 +836,7 @@ body.booting { overflow: hidden; position: fixed; width: 100%; touch-action: non
 .dp-cell--mon { height: 40px; font-weight: 600; }
 .dp-ym { cursor: pointer; padding: 2px 10px; border-radius: 6px; }
 .dp-ym[data-goto]:hover { background: var(--hover-brand); color: var(--brand); }
-input[type="date"] { cursor: pointer; }
+input[type="date"], input[type="month"] { cursor: pointer; }
 
 /* 操作下拉菜单 */
 .dropdown { position: relative; display: inline-block; }

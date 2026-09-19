@@ -820,8 +820,8 @@ function assetPage(user) {
           <div><label>时间区间</label>
             <select id="afPreset"><option value="12m">最近 12 个月</option><option value="year">本年</option><option value="6m">最近 6 个月</option></select>
           </div>
-          <div><label>开始</label><input id="afStart" type="date"></div>
-          <div><label>结束</label><input id="afEnd" type="date"></div>
+          <div><label>开始</label><input id="afStart" type="month"></div>
+          <div><label>结束</label><input id="afEnd" type="month"></div>
         </div>
         <div class="asset-legend">
           <span><i class="asset-dot" style="background:var(--ok);"></i>月增量</span>
