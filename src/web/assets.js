@@ -5148,10 +5148,16 @@ function shiftAssetMonth(month, delta) {
   mi = ((mi % 12) + 12) % 12;
   return y + '-' + ('0' + (mi + 1)).slice(-2);
 }
-function assetMonthRange(preset) {
-  var end = (fullReport && fullReport.latestMonth) || curMonth();
-  if (preset === 'year') return [end.slice(0,4) + '-01', end.slice(0,4) + '-12'];
-  return [shiftAssetMonth(end, preset === '6m' ? -5 : -11), end];
+// 日期控件与体重曲线保持一致；资产按月统计，筛选时取所选日期所属月份
+function assetDateRange(preset) {
+  var endMonth = (fullReport && fullReport.latestMonth) || curMonth();
+  var year = Number(endMonth.slice(0, 4));
+  var month = Number(endMonth.slice(5, 7));
+  var startMonth = preset === 'year'
+    ? year + '-01'
+    : shiftAssetMonth(endMonth, preset === '6m' ? -5 : -11);
+  var endDay = preset === 'year' ? 31 : new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return [startMonth + '-01', endMonth + '-' + ('0' + endDay).slice(-2)];
 }
 function sumWalletMonth(month) {
   var map = {};
@@ -5193,12 +5199,7 @@ function setGoalProgress(goal) {
   var raw = goal ? Number(goal.progress) : 0;
   var pct = Math.max(0, Math.min(100, isFinite(raw) ? raw : 0));
   var bar = document.getElementById('goalBar');
-  if (bar) {
-    bar.style.width = '0';
-    requestAnimationFrame(function(){
-      requestAnimationFrame(function(){ bar.style.width = pct.toFixed(1) + '%'; });
-    });
-  }
+  if (bar) bar.style.width = pct.toFixed(1) + '%';
   var wrap = document.getElementById('goalProgress');
   if (wrap) {
     var achieved = !!(goal && Number(goal.progress) >= 100);
@@ -5217,10 +5218,12 @@ async function loadAll() {
   renderSummary(d.report, d.goal, d.year);
   applyAssetFilter();
 }
-// 按月区间过滤图表与记录表（汇总卡片始终显示最新月, 不受筛选影响）
+// 日期选择器按所属月份过滤图表与记录表（汇总卡片始终显示最新月, 不受筛选影响）
 function applyAssetFilter() {
-  var s = document.getElementById('afStart') ? document.getElementById('afStart').value : '';
-  var e = document.getElementById('afEnd') ? document.getElementById('afEnd').value : '';
+  var startEl = document.getElementById('afStart');
+  var endEl = document.getElementById('afEnd');
+  var s = startEl ? startEl.value.slice(0, 7) : '';
+  var e = endEl ? endEl.value.slice(0, 7) : '';
   var inRange = function(m){ if (s && m < s) return false; if (e && m > e) return false; return true; };
   var months = fullReport.months.filter(inRange);
   var idx = fullReport.months.map(function(m,i){ return inRange(m) ? i : -1; }).filter(function(i){ return i>=0; });
@@ -5469,8 +5472,9 @@ function renderMonthTable(wlist, records) {
 function openRecModal(id, type, month, preset, editId) {
   var w = wallets.filter(function(x){return x.id===id;})[0];
   preset = preset || {};
-  // 新增/修改都显示月份字段：新增时直接选月即录入(替代原"先选月份再录金额"两步)
-  var monthField = '<label>月份</label><input id="fMonth" type="month" value="' + month + '">';
+  // 日期控件与体重曲线保持一致；资产按月统计，保存时取所选日期所属月份
+  var recMonth = month.length === 7 ? month + '-01' : month;
+  var monthField = '<label>月份</label><input id="fMonth" type="date" value="' + recMonth + '">';
   var fields = type === 'investment'
     ? '<label>当前总资产(元)</label><input id="fTotal" type="number" step="0.01" value="' + (preset.total != null ? preset.total : '') + '">' +
       '<label>持有收益(元)</label><input id="fProfit" type="number" step="0.01" value="' + (preset.profit != null ? preset.profit : '') + '">' +
@@ -5496,9 +5500,9 @@ function openRecModal(id, type, month, preset, editId) {
   }
   // 提交表单: 校验 + POST(新增)/PUT(修改); 成功返回 true, 失败弹窗提示并返回 false
   async function submitRec() {
-    var mm = document.getElementById('fMonth').value;
-    if (!mm) { alertModal('请选择月份', {ok:false}); return false; }
-    var payload = { month: mm };
+    var dateVal = document.getElementById('fMonth').value;
+    if (!dateVal) { alertModal('请选择日期', {ok:false}); return false; }
+    var payload = { month: dateVal.slice(0, 7) };
     if (type === 'investment') { payload.total = document.getElementById('fTotal').value; payload.profit = document.getElementById('fProfit').value; }
     else payload.balance = document.getElementById('fBalance').value;
     try {
@@ -5648,7 +5652,7 @@ if (goalEdit) {
 function initAssetFilter() {
   var sel = document.getElementById('afPreset');
   function fillPreset(){
-    var r = assetMonthRange(sel.value);
+    var r = assetDateRange(sel.value);
     document.getElementById('afStart').value = r[0];
     document.getElementById('afEnd').value = r[1];
   }

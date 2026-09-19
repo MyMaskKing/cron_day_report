@@ -675,11 +675,8 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .asset-summary-stats .num.is-flat, .asset-status-number.is-flat, .asset-metric__value.is-flat, .asset-delta.is-flat { color: var(--muted); }
 .asset-progress { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin: 10px 0 8px; }
 .asset-progress.is-achieved { background: var(--ok-bg); }
-.asset-progress__fill { position: relative; width: 0; height: 100%; border-radius: 999px; background: var(--brand-grad); box-shadow: 0 0 16px rgba(124,58,237,.22); transition: width 1.1s cubic-bezier(.22,1,.36,1); will-change: width; }
+.asset-progress__fill { width: 0; height: 100%; border-radius: 999px; background: var(--brand-grad); box-shadow: 0 0 16px rgba(124,58,237,.22); }
 .asset-progress.is-achieved .asset-progress__fill { background: var(--ok); box-shadow: 0 0 16px rgba(52,179,74,.28); }
-.asset-progress__fill::after { content: ""; position: absolute; inset: 0; transform: translateX(-120%); background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,.24) 42%, rgba(255,255,255,.58) 50%, rgba(255,255,255,.24) 58%, transparent 100%); animation: assetGoalShimmer 1.8s ease-in-out infinite; }
-@keyframes assetGoalShimmer { from { transform: translateX(-120%); } to { transform: translateX(120%); } }
-@media (prefers-reduced-motion: reduce) { .asset-progress__fill { transition: none; } .asset-progress__fill::after { animation: none; } }
 .asset-goal-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
 .asset-metric { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--th-border); font-size: 14px; }
 .asset-metric:last-child { padding-bottom: 0; border-bottom: 0; }
