@@ -1,11 +1,16 @@
 package xyz.a10023456.todowidget
 
+import android.Manifest
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,11 +48,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.appwidget.updateAll
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -266,7 +273,8 @@ class ConfigActivity : ComponentActivity() {
             WidgetStateStore.publish(this@ConfigActivity, appWidgetId)
             RefreshWorker.enqueue(this@ConfigActivity)
             // 交互式保存：少量重试，避免弱网下弹窗长时间不关闭
-            WidgetRepo.refresh(this@ConfigActivity, appWidgetId, maxAttempts = 2)
+            val refreshed = WidgetRepo.refresh(this@ConfigActivity, appWidgetId, maxAttempts = 2)
+            if (refreshed) ReminderNotifier.check(this@ConfigActivity, listOf(appWidgetId))
             // updateAll 必须在主线程（Glance 组合需要主线程推进）
             withContext(Dispatchers.Main) {
                 TodoAppWidget().updateAll(this@ConfigActivity)
@@ -315,6 +323,29 @@ private fun ConfigSheet(
     )
     val fontLabels = listOf("小", "中", "大")
     val brand = Color(0xFF7C3AED)
+    val context = LocalContext.current
+    val submitToken = if (loggedIn) "" else token
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        onSave(submitToken, scope, opacity.toInt(), fontScale, wrapChild, simpleMode, widgetTheme)
+    }
+    val save: () -> Unit = {
+        val submit = {
+            onSave(submitToken, scope, opacity.toInt(), fontScale, wrapChild, simpleMode, widgetTheme)
+        }
+        if (loggedIn || token.isNotBlank()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                submit()
+            }
+        } else {
+            submit()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -513,7 +544,7 @@ private fun ConfigSheet(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TextButton(onClick = { onTest(if (loggedIn) "" else token) }) { Text("测试连接") }
             Spacer(Modifier.weight(1f))
-            Button(onClick = { onSave(if (loggedIn) "" else token, scope, opacity.toInt(), fontScale, wrapChild, simpleMode, widgetTheme) }) {
+            Button(onClick = save) {
                 Text("保存")
             }
         }

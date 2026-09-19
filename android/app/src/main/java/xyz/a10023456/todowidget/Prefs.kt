@@ -176,6 +176,20 @@ object Prefs {
             .remove("opacity_$widgetId").remove("font_$widgetId").apply()
     }
 
+    /** 通知权限是否已自动请求过（避免每次打开 App 都弹授权框）。 */
+    fun isNotificationPermissionRequested(context: Context): Boolean =
+        sp(context).getBoolean("notification_permission_requested", false)
+
+    fun setNotificationPermissionRequested(context: Context) =
+        sp(context).edit().putBoolean("notification_permission_requested", true).apply()
+
+    /** 某类本地提醒当天已发送的日期（YYYY-MM-DD）；未发送返回空串。 */
+    fun getReminderSentDate(context: Context, type: String): String =
+        sp(context).getString("reminder_${type}_date", "") ?: ""
+
+    fun setReminderSentDate(context: Context, type: String, date: String) =
+        sp(context).edit().putString("reminder_${type}_date", date).apply()
+
     /** 返回所有已配置（有 token）的 widgetId，用于周期刷新。 */
     fun allConfiguredWidgetIds(context: Context): List<Int> {
         val ids = mutableListOf<Int>()

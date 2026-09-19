@@ -1,11 +1,16 @@
 package xyz.a10023456.todowidget
 
 import android.annotation.SuppressLint
+import android.Manifest
+import android.appwidget.AppWidgetManager
 import android.app.DownloadManager
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Environment
 import android.graphics.Color
 import android.net.Uri
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -62,6 +67,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
+import androidx.core.content.ContextCompat
 import androidx.glance.appwidget.updateAll
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import kotlinx.coroutines.Dispatchers
@@ -74,11 +80,16 @@ import kotlinx.coroutines.withContext
  */
 class MainActivity : ComponentActivity() {
 
+    // 已配置小组件的老用户打开 App 时仅自动申请一次通知权限
+    private val notificationPermissionLauncher =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+
     // 当前 WebView 实例引用：供 onSaveInstanceState 保存浏览状态（切后台被系统回收后恢复页面栈/表单）
     private var webViewRef: WebView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        maybeRequestNotificationPermission()
         // 保持 targetSdk 35 默认 edge-to-edge：WebView 不随软键盘收缩，visualViewport 如实反映
         // 键盘高度（innerHeight 不变、vv.height 缩小），由网页 COMMON_JS 据 vv 把弹窗几何对齐到
         // 键盘上方。不能用 setDecorFitsSystemWindows(true)/adjustResize——那会让 WebView 整体收缩、
@@ -109,6 +120,21 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val widgetIds = AppWidgetManager.getInstance(this)
+            .getAppWidgetIds(ComponentName(this, TodoAppWidgetReceiver::class.java))
+        if (widgetIds.isEmpty()) return
+        if (!Prefs.isLoggedIn(this) && Prefs.allConfiguredWidgetIds(this).isEmpty()) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        if (Prefs.isNotificationPermissionRequested(this)) return
+
+        Prefs.setNotificationPermissionRequested(this)
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

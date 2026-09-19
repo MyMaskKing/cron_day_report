@@ -30,7 +30,11 @@ class RefreshWorker(
             .getGlanceIds(TodoAppWidget::class.java)
             .map { it.resolveAppWidgetId(applicationContext) }
             .filter { it >= 0 }
-        ids.forEach { id -> WidgetRepo.refresh(applicationContext, id) }
+        val refreshedIds = mutableListOf<Int>()
+        ids.forEach { id ->
+            if (WidgetRepo.refresh(applicationContext, id)) refreshedIds.add(id)
+        }
+        ReminderNotifier.check(applicationContext, refreshedIds)
         withContext(Dispatchers.Main) { TodoAppWidget().updateAll(applicationContext) }
         return Result.success()
     }
@@ -83,7 +87,11 @@ class RefreshWorker(
                         .map { it.resolveAppWidgetId(context) }
                         .filter { it >= 0 }
                 }.getOrDefault(emptyList())
-                ids.forEach { id -> WidgetRepo.refresh(context, id) }
+                val refreshedIds = mutableListOf<Int>()
+                ids.forEach { id ->
+                    if (WidgetRepo.refresh(context, id)) refreshedIds.add(id)
+                }
+                ReminderNotifier.check(context, refreshedIds)
                 // updateAll 必须在主线程（Glance 组合需要主线程推进）
                 withContext(Dispatchers.Main) {
                     runCatching { TodoAppWidget().updateAll(context) }
