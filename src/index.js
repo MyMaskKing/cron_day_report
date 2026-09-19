@@ -54,7 +54,7 @@ import {
   fileStats, listAdminFiles, deleteAdminFiles, scanOrphanFiles, deleteOrphanFiles
 } from './api/admin-file.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
-import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue } from './services/report.service.js';
+import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue, todoTomorrowPreview } from './services/report.service.js';
 import { buildTree, flattenPending } from './services/todo.service.js';
 import {
   listTodos, createTodo, updateTodo, toggleTodo, removeTodo, deleteCategory, renameCategory, getShareLink as getTodoShareLink, todoChart, todoAnalyze, reorderTodo,
@@ -825,8 +825,10 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
     const rows = await storage.todo.listVisibleForUser(userId);
     const today = nowCN(Date.now(), tzOffset).dateStr;
     const pendingTrees = flattenPending(buildTree(rows));
-    // 仅当存在"截止今天或已逾期"的未完成任务时才推送，否则跳过（不发空日报）
-    if (filterTodayOverdue(pendingTrees, today).length === 0) return null;
+    // 有"截止今天或已逾期"任务才推送；今日已清空时，最后两次定时推送若明日有到期任务，
+    // 仍发一条预告（text/markdown 一行、html 区块），其余时段/手动推送仍跳过不发空日报
+    if (filterTodayOverdue(pendingTrees, today).length === 0
+      && !todoTomorrowPreview(pendingTrees, today, pushSeq && pushSeq.seq, pushSeq && pushSeq.total)) return null;
     const base = await resolveBaseUrl(storage, env);
     // 用户级报告 token：汇总协作页(/tc/)与查看全部(/tr/)共用
     let reportToken = null;

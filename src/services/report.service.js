@@ -575,6 +575,44 @@ function collectReportLeaves(root) {
   return items;
 }
 
+/** 日期加减 delta 天，返回 YYYY-MM-DD（UTC 口径，与 todoDateLabel 的日差计算一致） */
+function addDaysCN(dateStr, delta) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const t = Date.UTC(y, m - 1, d) + delta * 86400000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+/** 裁剪出"指定日期当天到期"的未完成叶子子树（有效日期口径同 pruneDueLeaves：自身优先，否则继承最近有日期的祖先） */
+function pruneLeavesOnDate(trees, date) {
+  const prune = (node, inheritedDue) => {
+    if (node.done) return null;
+    const own = node.due_date || inheritedDue;
+    const kids = node.children.map(c => prune(c, own)).filter(Boolean);
+    if (kids.length > 0) return { ...node, children: kids };
+    return own === date ? { ...node, children: [] } : null;
+  };
+  return trees.map(n => prune(n, null)).filter(Boolean);
+}
+
+/**
+ * 明日预告：仅当天最后两次定时推送（seq >= total-1；手动推送 seq=null 不显示）时构造。
+ * @param {Array} trees - flattenPending 后的未完成任务树
+ * @param {string} today - 北京时区当天 YYYY-MM-DD
+ * @param {number|null} seq - 当天第几次推送
+ * @param {number|null} total - 当天共几次推送
+ * @returns {{date:string,count:number,trees:Array}|null} 明日无未完成到期叶子时返回 null
+ */
+function todoTomorrowPreview(trees, today, seq, total) {
+  if (seq == null || !(total >= 1) || seq < total - 1) return null;
+  if (!today || today.length < 10) return null;
+  const date = addDaysCN(today, 1);
+  const tTrees = pruneLeavesOnDate(trees, date);
+  if (tTrees.length === 0) return null;
+  // 件数口径同今日分组：collectReportLeaves（含无子任务主任务的 selfRoot 降级 1 件）
+  const count = tTrees.reduce((n, root) => n + collectReportLeaves(root).length, 0);
+  return count > 0 ? { date, count, trees: tTrees } : null;
+}
+
 /**
  * 生成待办日报文本/HTML/Markdown
  * 仅呈现"截止今天或已逾期"的未完成顶层任务（含其未完成子任务），顶层按截止日期倒序
@@ -594,11 +632,13 @@ function buildTodoReport(trees, opts = {}) {
   const visible = pruneDueLeaves(sorted, today);
   // 日报口径统计：基于筛选后的树，统计未完成任务数与其中逾期数（含子任务）
   const stats = statsOfReport(visible, today);
-  // 分档提醒语：按当天第几次/共几次推送，温和→强烈
-  const remind = todoRemindText(stats.pending, seq, total);
-  if (format === 'html') return buildTodoReportHTML(visible, base, token, reportToken, today, stats, remind);
-  if (format === 'markdown') return buildTodoReportMarkdown(visible, base, token, reportToken, today, stats, remind);
-  return buildTodoReportText(visible, base, token, reportToken, today, stats, remind);
+  // 分档提醒语：按当天第几次/共几次推送，温和→强烈；今日已清空(0 件)时不套提醒语
+  const remind = stats.pending > 0 ? todoRemindText(stats.pending, seq, total) : '';
+  // 明日预告：仅当天最后两次定时推送出现（text/markdown 仅一行计数，html 完整区块）；手动推送 seq=null 不显示
+  const tomorrow = todoTomorrowPreview(trees, today, seq, total);
+  if (format === 'html') return buildTodoReportHTML(visible, base, token, reportToken, today, stats, remind, tomorrow);
+  if (format === 'markdown') return buildTodoReportMarkdown(visible, base, token, reportToken, today, stats, remind, tomorrow);
+  return buildTodoReportText(visible, base, token, reportToken, today, stats, remind, tomorrow);
 }
 
 /** 统计筛选后树里的未完成任务数与逾期数
@@ -642,7 +682,7 @@ function todoDateTag(dueDate, today, kind) {
   return over ? ` ⚠️逾期 ${disp}` : ` 📌${disp}`;
 }
 
-function buildTodoReportText(trees, base, token, reportToken, today, stats, remind = '') {
+function buildTodoReportText(trees, base, token, reportToken, today, stats, remind = '', tomorrow = null) {
   // 参考微信 TODO 格式: 标题带日期后缀 + 计数句 + 🔸 分隔线包每条任务 + 叶子以 ├─/└─ 树状串接
   // 顶层任务前缀 ❇️待办N: <pri><title>(MM/DD or ⚠️逾期MM/DD)
   const bar = '🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸';
@@ -690,12 +730,14 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats, remi
       t += `${bar}\n`;
     });
   }
+  // 明日预告（仅最后两次定时推送有值）：一行计数，不列明细
+  if (tomorrow) t += `⏭️ 明日需要做 ${tomorrow.count} 件待办\n`;
   if (base && reportToken) t += `\n➕ 协作添加/勾选：${base}/tc/${reportToken}\n`;
   if (base && reportToken) t += `📋 查看全部待办：${base}/tr/${reportToken}\n`;
   return t;
 }
 
-function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, remind = '') {
+function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, remind = '', tomorrow = null) {
   // markdown 版沿用参考格式的分组结构, 但换用 markdown 语法(粗体/嵌套列表), 兼容飞书/钉钉/邮件
   const bar = '🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸🔸';
   const dateBadge = (dueDate) => {
@@ -737,12 +779,14 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, 
       m += `${bar}\n`;
     });
   }
+  // 明日预告（仅最后两次定时推送有值）：一行加粗计数，不列明细
+  if (tomorrow) m += `**⏭️ 明日需要做 ${tomorrow.count} 件待办**\n`;
   if (base && reportToken) m += `\n[➕ 协作添加/勾选](${base}/tc/${reportToken})\n`;
   if (base && reportToken) m += `[📋 查看全部待办](${base}/tr/${reportToken})\n`;
   return m;
 }
 
-function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remind = '') {
+function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remind = '', tomorrow = null) {
   // 整体字号相对之前放大: 正文 15→16, 主任务 15→18, 子任务 13→15, 更适合手机阅读
   // 层级视觉: 主任务卡片头(左 4px 品牌蓝竖条) + 子任务卡片体内以 ▸ 箭头 + 左细竖线 + 深度缩进逐级下钻
   let h = `<div style="font-family:-apple-system,sans-serif;max-width:640px;margin:0 auto;font-size:16px;line-height:1.6;color:#1f2430;">
@@ -789,6 +833,8 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remi
     h += `</div>`;
   }
   if (trees.length === 0) h += `<p style="color:#389e0d;font-size:16px;">🎉 今日无到期或逾期待办</p>`;
+  // 明日到期预告区块（仅最后两次定时推送有值）
+  if (tomorrow) h += todoTomorrowSectionHtml(tomorrow, today);
   if (base && reportToken) {
     h += `<div style="margin:14px 0;"><a href="${base}/tc/${reportToken}" target="_blank" rel="noopener" style="display:inline-block;padding:10px 18px;background:#4a6cf7;color:#fff;border-radius:6px;text-decoration:none;font-size:15px;">➕ 协作添加 / 勾选</a></div>`;
   }
@@ -799,4 +845,54 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remi
   return h;
 }
 
-export { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue };
+/**
+ * 待办日报 HTML「明日到期」预告区块（仅最后两次定时推送出现）：
+ * 复刻今日卡片结构，换青色系表达"预告、不紧急"；明日件数不计入顶部统计。
+ * @param {{date:string,count:number,trees:Array}} tomorrow - todoTomorrowPreview 结果
+ * @param {string} today - 北京时区当天 YYYY-MM-DD
+ */
+function todoTomorrowSectionHtml(tomorrow, today) {
+  // 优先级圆点色板与今日卡片一致（红=高 琥珀=中 灰=低）
+  const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#b4bccb' };
+  const dot = (p) => `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:8px;vertical-align:middle;"></span>`;
+  const catTag = (c) => c
+    ? ` <span style="background:#e6fffb;color:#08979c;border-radius:4px;padding:1px 8px;font-size:13px;">${c}</span>` : '';
+  const pill = 'display:inline-block;border-radius:11px;padding:1px 10px;font-size:12px;font-weight:600;line-height:1.7;margin-left:2px;';
+  const dayTag = (due) => ` <span style="${pill}background:#e6fffb;color:#08979c;">🗓️ ${todoDateLabel(due, today)}</span>`;
+  const md = tomorrow.date.length >= 10 ? `${tomorrow.date.slice(5, 7)}/${tomorrow.date.slice(8, 10)}` : '';
+  let h = `<div style="margin:24px 0 0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:18px;font-weight:700;color:#08979c;">⏭️ 明日到期</span>
+      <span style="display:inline-block;padding:1px 10px;border-radius:11px;background:#e6fffb;color:#08979c;font-size:12px;font-weight:600;">${md} · ${tomorrow.count} 项</span>
+    </div>
+    <p style="margin:2px 0 8px;font-size:13px;color:#8a94b0;">提前看一眼，做好安排 · 不计入今日未完成</p>`;
+  for (const root of tomorrow.trees) {
+    const rootDue = rootDueOf(root);
+    const leaves = collectReportLeaves(root).filter((it) => !it.selfRoot);
+    const subBadge = leaves.length > 0
+      ? ` <span style="display:inline-block;margin-left:6px;padding:1px 8px;background:#e6fffb;color:#08979c;border-radius:10px;font-size:12px;font-weight:500;">${leaves.length} 项子任务</span>`
+      : '';
+    // 区块固定标"明天"：组内叶子均为明日到期（rootDue 可能因主任务自带日期而为今天，故不取 rootDue）
+    h += `<div style="margin:8px 0;border:1px solid #d9f3f0;border-radius:8px;overflow:hidden;">
+      <div style="padding:11px 14px;background:#f0fdfa;border-left:4px solid #13c2c2;">
+        ${dot(root.priority)}<span style="font-size:18px;font-weight:700;color:#334b4d;vertical-align:middle;">${root.shared_cat_id != null ? '👥 ' : ''}${root.title}</span>${catTag(root.category)}${subBadge}${dayTag(tomorrow.date)}
+      </div>`;
+    if (leaves.length) {
+      h += `<div style="padding:8px 12px 10px;">`;
+      leaves.forEach((it) => {
+        const pad = 12 + it.path.length * 18;
+        // 子任务日期与主任务相同则不重复标注（与今日卡片同规则）
+        const dateTag = (it.due && it.due !== rootDue) ? dayTag(it.due) : '';
+        const crumb = it.path.length
+          ? `<span style="color:#8a94b0;font-size:13px;margin-right:6px;">${it.path.join(' / ')}</span>` : '';
+        h += `<div style="margin:4px 0;padding:6px 10px 6px ${pad}px;border-left:2px solid #b5f5ec;background:#fcfeff;">
+          <span style="color:#87d4cf;margin-right:6px;">▸</span>${dot(it.priority)}${crumb}<span style="font-size:15px;color:#556;vertical-align:middle;">${it.title}</span>${catTag(it.category)}${dateTag}
+        </div>`;
+      });
+      h += `</div>`;
+    }
+    h += `</div>`;
+  }
+  return h;
+}
+
+export { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue, todoTomorrowPreview };
