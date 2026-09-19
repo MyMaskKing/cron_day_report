@@ -5338,7 +5338,7 @@ function renderSummary(report, goal, year) {
   if (goalEdit) {
     goalEdit.textContent = year + ' 年度目标净资产';
     goalEdit.dataset.target = goal ? goal.target : '';
-￥    goalEdit.dataset.year = year || '';
+    goalEdit.dataset.year = year || '';
   }
   setAssetText('goalTarget', goal ? assetMoney(goal.target) : '未设置');
   setAssetText('goalPercent', goal ? Number(goal.progress).toFixed(1) + '%' : '—');

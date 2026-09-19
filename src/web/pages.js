@@ -828,7 +828,6 @@ function assetPage(user) {
     <div class="asset-grid asset-grid--84">
       <section class="card">
         <h2 class="asset-title">每月净资产变化 <span class="asset-small">（本月 − 上月，负值为减少）</span></h2>
-        <p class="asset-desc">这是方案 B 新增后的核心图：不叫花销、不叫严格净存，只表示家庭净资产当月增加或减少。</p>
         <div class="asset-legend">
           <span><i class="asset-dot" style="background:var(--ok);"></i>月增量</span>
           <span><i class="asset-dot" style="background:#f97316;"></i>近 6 月均线</span>
@@ -852,12 +851,11 @@ function assetPage(user) {
 
     <div class="asset-grid asset-grid--75">
       <section class="card">
-        <h2 class="asset-title">净资产趋势 <span class="asset-small">（现有图表保留）</span></h2>
-        <p class="asset-desc">仍然展示家庭净资产长期走势，但不再把它作为唯一重点。</p>
+        <h2 class="asset-title">净资产趋势</h2>
         <canvas id="netChart" class="asset-chart"></canvas>
       </section>
       <section class="card">
-        <h2 class="asset-title">最新月资产构成 <span class="asset-small">（现有类型合计保留）</span></h2>
+        <h2 class="asset-title">最新月资产构成</h2>
         <p class="asset-desc">按钱包类型汇总，信用支付单独作为负债展示。</p>
         <div class="asset-composition">
           <div id="typeDonut" class="asset-donut"></div>
