@@ -89,7 +89,9 @@ fun MeScreen(
                 pendingUrl = baseUrl
                 showUrlDialog = true
             }
-            MeItem(R.drawable.ic_chip_today, "测试通知", "发送一条本地测试通知") { onTestNotification() }
+            if (isAdmin) {
+                MeItem(R.drawable.ic_chip_today, "测试通知", "模拟发送一条待办提醒") { onTestNotification() }
+            }
         }
 
         Spacer(Modifier.height(12.dp))

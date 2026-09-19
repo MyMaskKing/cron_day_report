@@ -19,11 +19,21 @@ import kotlinx.coroutines.withContext
 class ReminderActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.getStringExtra(EXTRA_ACTION) ?: return
-        val widgetIds = intent.getIntArrayExtra(EXTRA_WIDGET_IDS) ?: return
-        if (widgetIds.isEmpty()) return
         if (action != ReminderNotifier.ACTION_COMPLETE && action != ReminderNotifier.ACTION_TOMORROW) return
 
+        val preview = intent.getBooleanExtra(EXTRA_PREVIEW, false)
+        val notificationId = intent.getIntExtra(
+            EXTRA_NOTIFICATION_ID,
+            ReminderNotifier.NOTIFICATION_MORNING
+        )
+        if (preview) {
+            ReminderNotifier.cancelNotification(context, notificationId)
+            return
+        }
         ReminderNotifier.cancelReminders(context)
+        ReminderNotifier.cancelNotification(context, notificationId)
+        val widgetIds = intent.getIntArrayExtra(EXTRA_WIDGET_IDS) ?: return
+        if (widgetIds.isEmpty()) return
         val request = OneTimeWorkRequestBuilder<ReminderActionWorker>()
             .setInputData(
                 workDataOf(
@@ -47,6 +57,8 @@ class ReminderActionReceiver : BroadcastReceiver() {
     companion object {
         const val EXTRA_ACTION = "action"
         const val EXTRA_WIDGET_IDS = "widget_ids"
+        const val EXTRA_NOTIFICATION_ID = "notification_id"
+        const val EXTRA_PREVIEW = "preview"
     }
 }
 

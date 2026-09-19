@@ -66,21 +66,38 @@ object ReminderNotifier {
 
     fun showTest(context: Context) {
         if (!hasNotificationPermission(context)) return
-        createChannel(context)
-        NotificationManagerCompat.from(context).notify(
+        val isEvening = LocalTime.now() >= reminderTime(
+            context,
+            R.integer.reminder_evening_hour,
+            R.integer.reminder_evening_minute
+        )
+        val text = if (isEvening) {
+            "明日有 3 件待办；另有 1 件逾期未完成"
+        } else {
+            "今日到期 3 件，逾期 1 件"
+        }
+        show(
+            context,
+            if (isEvening) TYPE_EVENING else TYPE_MORNING,
             NOTIFICATION_TEST,
-            buildNotification(
-                context,
-                NOTIFICATION_TEST,
-                "通知测试",
-                "如果能看到这条通知，说明待办提醒可以正常显示。"
-            ).build()
+            java.time.LocalDate.now().toString(),
+            "待办提醒",
+            text,
+            emptyList(),
+            enableComplete = true,
+            enablePostpone = !isEvening,
+            markSent = false,
+            preview = true
         )
     }
 
     fun cancelReminders(context: Context) {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_MORNING)
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_EVENING)
+    }
+
+    fun cancelNotification(context: Context, notificationId: Int) {
+        NotificationManagerCompat.from(context).cancel(notificationId)
     }
 
     fun showActionResult(context: Context, action: String, success: Boolean, count: Int, error: String? = null) {
@@ -129,27 +146,29 @@ object ReminderNotifier {
         text: String,
         accountWidgetIds: List<Int>,
         enableComplete: Boolean,
-        enablePostpone: Boolean
+        enablePostpone: Boolean,
+        markSent: Boolean = true,
+        preview: Boolean = false
     ) {
-        if (!hasNotificationPermission(context) || Prefs.getReminderSentDate(context, type) == date) return
+        if (!hasNotificationPermission(context) || (markSent && Prefs.getReminderSentDate(context, type) == date)) return
         createChannel(context)
         val builder = buildNotification(context, notificationId, title, text)
-        if (accountWidgetIds.isNotEmpty() && enableComplete) {
+        if (enableComplete && (preview || accountWidgetIds.isNotEmpty())) {
             builder.addAction(
                 R.drawable.ic_chip_today,
                 "全部完成",
-                actionPendingIntent(context, ACTION_COMPLETE, accountWidgetIds, notificationId)
+                actionPendingIntent(context, ACTION_COMPLETE, accountWidgetIds, notificationId, preview)
             )
             if (enablePostpone) {
                 builder.addAction(
                     R.drawable.ic_chip_today,
                     "放到明天",
-                    actionPendingIntent(context, ACTION_TOMORROW, accountWidgetIds, notificationId)
+                    actionPendingIntent(context, ACTION_TOMORROW, accountWidgetIds, notificationId, preview)
                 )
             }
         }
         NotificationManagerCompat.from(context).notify(notificationId, builder.build())
-        Prefs.setReminderSentDate(context, type, date)
+        if (markSent) Prefs.setReminderSentDate(context, type, date)
     }
 
     private fun buildNotification(
@@ -184,11 +203,14 @@ object ReminderNotifier {
         context: Context,
         action: String,
         widgetIds: List<Int>,
-        notificationId: Int
+        notificationId: Int,
+        preview: Boolean = false
     ): PendingIntent {
         val intent = Intent(context, ReminderActionReceiver::class.java).apply {
             putExtra(ReminderActionReceiver.EXTRA_ACTION, action)
             putExtra(ReminderActionReceiver.EXTRA_WIDGET_IDS, widgetIds.toIntArray())
+            putExtra(ReminderActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+            if (preview) putExtra(ReminderActionReceiver.EXTRA_PREVIEW, true)
         }
         val requestCode = notificationId * 10 + if (action == ACTION_COMPLETE) 1 else 2
         return PendingIntent.getBroadcast(
