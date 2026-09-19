@@ -830,6 +830,16 @@ function createD1Adapter(env) {
           parentId = parent.parent_id;
         }
       },
+      // 父任务取消完成：其全部后代（不含自身）一并恢复为未完成；自身已由 markDoneWithRecur 重置。
+      // userId 双校验：只重置同属数据 owner 的后代，避免层级异常时越权写其它用户任务。
+      async reopenDescendants(startId, userId) {
+        const ids = await this.collectDescendantIds(startId);
+        if (ids.length === 0) return;
+        const placeholders = ids.map(() => '?').join(',');
+        await db.prepare(
+          'UPDATE todos SET done=0, done_at=NULL, done_by=NULL WHERE id IN (' + placeholders + ') AND user_id=?'
+        ).bind(...ids, userId).run();
+      },
       // 内部: 递归克隆 rootOld 及其全部后代, 返回新 root id
       // 新任务全部 done=0, done_at=null, share_token=null, recur_from_id 指向原 id
       // 新根 parent_id 沿用 rootOld.parent_id(顶层为 NULL, 中层仍挂原父任务下)
