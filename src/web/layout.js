@@ -674,15 +674,18 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .asset-summary-stats .num.is-down, .asset-status-number.is-down, .asset-metric__value.is-down, .asset-delta.is-down, .asset-money.is-down, .asset-type-pill__num.is-down { color: var(--danger); }
 .asset-summary-stats .num.is-flat, .asset-status-number.is-flat, .asset-metric__value.is-flat, .asset-delta.is-flat { color: var(--muted); }
 .asset-progress { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin: 10px 0 8px; }
-.asset-progress__fill { width: 0; height: 100%; border-radius: 999px; background: var(--brand-grad); transition: width .9s cubic-bezier(.22,1,.36,1); }
-@media (prefers-reduced-motion: reduce) { .asset-progress__fill { transition: none; } }
+.asset-progress__fill { position: relative; width: 0; height: 100%; border-radius: 999px; background: var(--brand-grad); box-shadow: 0 0 16px rgba(124,58,237,.22); transition: width 1.1s cubic-bezier(.22,1,.36,1); will-change: width; }
+.asset-progress__fill::after { content: ""; position: absolute; inset: 0; transform: translateX(-120%); background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,.24) 42%, rgba(255,255,255,.58) 50%, rgba(255,255,255,.24) 58%, transparent 100%); animation: assetGoalShimmer 1.8s ease-in-out infinite; }
+@keyframes assetGoalShimmer { from { transform: translateX(-120%); } to { transform: translateX(120%); } }
+@media (prefers-reduced-motion: reduce) { .asset-progress__fill { transition: none; } .asset-progress__fill::after { animation: none; } }
 .asset-goal-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
 .asset-metric { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--th-border); font-size: 14px; }
 .asset-metric:last-child { padding-bottom: 0; border-bottom: 0; }
 .asset-metric span { color: var(--muted); min-width: 0; }
 .asset-metric b { text-align: right; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.asset-metric--goal { cursor: pointer; }
 .asset-goal-edit { cursor: pointer; }
-.asset-goal-edit:hover { color: var(--brand-strong); }
+.asset-metric--goal:hover .asset-goal-edit, .asset-goal-edit:hover { color: var(--brand-strong); }
 .asset-type-pills { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; margin-top: 14px; }
 .asset-type-pill { border: 1px solid var(--border); background: var(--surface-2); border-radius: 14px; padding: 11px; min-width: 0; }
 .asset-type-pill__num { display: block; color: var(--text-strong); font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -727,7 +730,8 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .asset-record-admin { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 @media (max-width: 900px) {
   .asset-grid--84, .asset-grid--75 { grid-template-columns: 1fr; }
-}
+}
+
 /* 全局 loading: 双环反向旋转 (珊瑚 + 蓝) + 玻璃遮罩; z-index 高于 modal, 保证 modal 内提交时用户能看到进度 */
 #globalLoading { display: none; position: fixed; inset: 0; background: var(--loading-mask); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); z-index: 10500; align-items: center; justify-content: center; }
 /* 启动阶段: display:flex 但 opacity:0, 300ms 后 fade in. 快请求 (JS 就绪 + 首屏 api <300ms 完成) 全程 opacity=0 → 无感 */

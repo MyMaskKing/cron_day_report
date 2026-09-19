@@ -5240,8 +5240,12 @@ function renderWallets(list) {
   var walletCount = document.getElementById('walletCount');
   if (walletCount) walletCount.textContent = list.length;
 
+  var typeOrder = function(t) {
+    var i = TYPE_ORDER.indexOf(t);
+    return i < 0 ? TYPE_ORDER.length : i;
+  };
   var sorted = list.slice().sort(function(a,b){
-    if (a.type !== b.type) return (a.type||'').localeCompare(b.type||'');
+    if (a.type !== b.type) return typeOrder(a.type) - typeOrder(b.type);
     if (a.name !== b.name) return (a.name||'').localeCompare(b.name||'');
     return (b.created_at||'').localeCompare(a.created_at||'');
   });
@@ -5334,6 +5338,7 @@ function renderSummary(report, goal, year) {
   if (goalEdit) {
     goalEdit.textContent = year + ' 年度目标净资产';
     goalEdit.dataset.target = goal ? goal.target : '';
+￥    goalEdit.dataset.year = year || '';
   }
   setAssetText('goalTarget', goal ? assetMoney(goal.target) : '未设置');
   setAssetText('goalPercent', goal ? Number(goal.progress).toFixed(1) + '%' : '—');
@@ -5614,8 +5619,9 @@ document.getElementById('walletAdd').addEventListener('click', function(){
 });
 function openGoalModal() {
   var edit = document.getElementById('goalEdit');
-  openModal('设置当年目标净资产',
-    '<label>目标净资产(元)</label><input id="goalModalInput" type="number" step="0.01" value="' + (edit && edit.dataset.target ? edit.dataset.target : '') + '">',
+  var goalYear = edit ? edit.dataset.year : '';
+  openModal('设置' + (goalYear ? goalYear + '年' : '当年') + '目标净资产',
+    '<label>' + (goalYear ? goalYear + '年' : '当年') + '目标净资产(元)</label><input id="goalModalInput" type="number" step="0.01" value="' + (edit && edit.dataset.target ? edit.dataset.target : '') + '">' +
     '<div style="margin-top:12px;"><button class="btn" id="goalModalSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('goalModalSave').addEventListener('click', async function(){
     try {
@@ -5625,8 +5631,9 @@ function openGoalModal() {
   });
 }
 var goalEdit = document.getElementById('goalEdit');
+var goalMetric = goalEdit ? goalEdit.closest('.asset-metric--goal') : null;
+if (goalMetric) goalMetric.addEventListener('click', openGoalModal);
 if (goalEdit) {
-  goalEdit.addEventListener('click', openGoalModal);
   goalEdit.addEventListener('keydown', function(e){
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openGoalModal(); }
   });

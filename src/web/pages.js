@@ -803,24 +803,14 @@ function assetPage(user) {
         <div id="goalBar" class="asset-progress__fill"></div>
       </div>
       <div class="asset-goal-metrics">
-        <div class="asset-metric"><span id="goalEdit" class="asset-goal-edit" role="button" tabindex="0" title="点击调整年度目标">年度目标净资产</span><b id="goalTarget">—</b></div>
+        <div class="asset-metric asset-metric--goal">
+          <span id="goalEdit" class="asset-goal-edit" role="button" tabindex="0" title="点击调整年度目标">年度目标净资产</span><b id="goalTarget">—</b>
+        </div>
         <div class="asset-metric"><span>进度</span><b id="goalPercent">—</b></div>
         <div class="asset-metric"><span>距目标还差</span><b id="goalLeft">—</b></div>
         <div class="asset-metric"><span>最新月份</span><b id="sMonth">—</b></div>
       </div>
       <div id="typeTotalBox" class="asset-type-pills"></div>
-    </div>
-
-    <div class="card">
-      <h2 class="asset-title">钱包 <span class="asset-small" id="walletMonthTag"></span><button class="btn sm asset-title__btn" id="walletAdd">+ 新建钱包</button></h2>
-      <div class="asset-notice" id="walletFormula"><strong>合计方式：</strong>普通钱包与投资钱包 − 信用支付负债 = 本月家庭净资产。</div>
-      <div class="asset-table-wrap">
-        <table class="asset-table">
-          <thead><tr><th>类型</th><th>钱包名称</th><th>本月金额</th><th>较上月</th><th>操作</th></tr></thead>
-          <tbody id="walletTbody"></tbody>
-        </table>
-      </div>
-      <p class="asset-small" style="margin-top:8px;">投资钱包保留本金/持有收益；信用支付计为负债；每个钱包仍可单独录入本月、录入其他月、查看记录和生成免密链接。</p>
     </div>
 
     <div class="card">
@@ -857,7 +847,6 @@ function assetPage(user) {
           <div class="asset-metric"><span>近 12 月累计增加</span><b id="aiTotal12" data-base-class="asset-metric__value">—</b></div>
           <div class="asset-metric"><span>最低增长月</span><b id="aiLowest" data-base-class="asset-metric__value">—</b></div>
         </div>
-        <div class="asset-notice warn" style="margin-top:14px;"><strong>限制：</strong>无法仅凭净资产变化反推出真实月花销。</div>
       </section>
     </div>
 
@@ -875,6 +864,18 @@ function assetPage(user) {
           <div id="typeLegend" class="asset-legend-list"></div>
         </div>
       </section>
+    </div>
+
+    <div class="card">
+      <h2 class="asset-title">钱包 <span class="asset-small" id="walletMonthTag"></span><button class="btn sm asset-title__btn" id="walletAdd">+ 新建钱包</button></h2>
+      <div class="asset-notice" id="walletFormula"><strong>合计方式：</strong>普通钱包与投资钱包 − 信用支付负债 = 本月家庭净资产。</div>
+      <div class="asset-table-wrap">
+        <table class="asset-table">
+          <thead><tr><th>类型</th><th>钱包名称</th><th>本月金额</th><th>较上月</th><th>操作</th></tr></thead>
+          <tbody id="walletTbody"></tbody>
+        </table>
+      </div>
+      <p class="asset-small" style="margin-top:8px;">投资钱包保留本金/持有收益；信用支付计为负债；每个钱包仍可单独录入本月、录入其他月、查看记录和生成免密链接。</p>
     </div>
 
     <div class="card">
@@ -896,17 +897,6 @@ function assetPage(user) {
           <tbody id="recTbody"></tbody>
         </table>
       </div>
-    </div>
-
-    <div class="asset-grid asset-grid--75">
-      <section class="card">
-        <h2 class="asset-title">口径说明</h2>
-        <div class="asset-notice"><strong>钱包汇总口径与现有系统一致：</strong>多个钱包的月度余额先按类型汇总，信用支付作为负债，净资产 = 普通/投资资产合计 − 信用支付负债。</div>
-      </section>
-      <section class="card">
-        <h2 class="asset-title">仍不能回答的问题</h2>
-        <div class="asset-notice warn">只录钱包余额时，不能准确知道“这个月花了多少”。如果要真实花销，需要额外录入收入/花销，或导入支付流水。</div>
-      </section>
     </div>
 
     <details class="card push-card">
