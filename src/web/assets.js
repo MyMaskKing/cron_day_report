@@ -5200,7 +5200,12 @@ function setGoalProgress(goal) {
     });
   }
   var wrap = document.getElementById('goalProgress');
-  if (wrap) wrap.setAttribute('aria-valuenow', String(Math.round(pct)));
+  if (wrap) {
+    var achieved = !!(goal && Number(goal.progress) >= 100);
+    wrap.classList.toggle('is-achieved', achieved);
+    wrap.classList.toggle('is-pending', !achieved);
+    wrap.setAttribute('aria-valuenow', String(Math.round(pct)));
+  }
 }
 
 async function loadAll() {
@@ -5342,7 +5347,7 @@ function renderSummary(report, goal, year) {
   }
   setAssetText('goalTarget', goal ? assetMoney(goal.target) : '未设置');
   setAssetText('goalPercent', goal ? Number(goal.progress).toFixed(1) + '%' : '—');
-  setAssetText('goalLeft', goal ? assetMoney(Math.max(0, goal.remaining)) : '—');
+  setAssetText('goalLeft', goal ? (Number(goal.progress) >= 100 ? '已达标' : assetMoney(Math.max(0, goal.remaining))) : '—');
   setGoalProgress(goal);
   renderTypeTotal(report.byTypeTotal || []);
   renderComposition(report, report.byTypeTotal || []);
@@ -5647,10 +5652,14 @@ function initAssetFilter() {
     document.getElementById('afStart').value = r[0];
     document.getElementById('afEnd').value = r[1];
   }
-  sel.addEventListener('change', fillPreset);
-  document.getElementById('afApply').addEventListener('click', applyAssetFilter);
-  fillPreset();
-  applyAssetFilter();
+  function applyPreset(){
+    fillPreset();
+    applyAssetFilter();
+  }
+  sel.addEventListener('change', applyPreset);
+  document.getElementById('afStart').addEventListener('change', applyAssetFilter);
+  document.getElementById('afEnd').addEventListener('change', applyAssetFilter);
+  applyPreset();
 }
 // 推送配置（资产月报）
 var aPushDayPick = null, aPushHourPick = null, aPushChannelPick = null;

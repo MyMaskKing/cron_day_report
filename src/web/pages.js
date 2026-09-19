@@ -813,21 +813,16 @@ function assetPage(user) {
       <div id="typeTotalBox" class="asset-type-pills"></div>
     </div>
 
-    <div class="card">
-      <h2 class="asset-title">时间区间</h2>
-      <div class="asset-filter-form">
-        <div class="asset-field"><label>预设</label>
-          <select id="afPreset"><option value="12m">最近 12 个月</option><option value="year">本年</option><option value="6m">最近 6 个月</option></select>
-        </div>
-        <div class="asset-field"><label>开始月份</label><input id="afStart" type="month"></div>
-        <div class="asset-field"><label>结束月份</label><input id="afEnd" type="month"></div>
-        <button class="btn" id="afApply">应用区间</button>
-      </div>
-    </div>
-
     <div class="asset-grid asset-grid--84">
       <section class="card">
         <h2 class="asset-title">每月净资产变化 <span class="asset-small">（本月 − 上月，负值为减少）</span></h2>
+        <div class="row">
+          <div><label>时间区间</label>
+            <select id="afPreset"><option value="12m">最近 12 个月</option><option value="year">本年</option><option value="6m">最近 6 个月</option></select>
+          </div>
+          <div><label>开始</label><input id="afStart" type="month"></div>
+          <div><label>结束</label><input id="afEnd" type="month"></div>
+        </div>
         <div class="asset-legend">
           <span><i class="asset-dot" style="background:var(--ok);"></i>月增量</span>
           <span><i class="asset-dot" style="background:#f97316;"></i>近 6 月均线</span>
@@ -877,18 +872,17 @@ function assetPage(user) {
     </div>
 
     <div class="card">
-      <h2 class="asset-title">月度各类型合计 <span class="asset-small">（现有表格保留并继续随时间区间联动）</span></h2>
+      <h2 class="asset-title">月度各类型合计</h2>
       <div class="scroll-box">
         <table class="asset-table">
           <thead id="mttHead"></thead>
           <tbody id="mttBody"></tbody>
         </table>
       </div>
-      <p class="asset-small" style="margin-top:6px;">每行一个月，横向为各类型钱包当月合计；净资产为负标红。随上方时间区间联动。</p>
     </div>
 
     <div class="card">
-      <h2 class="asset-title">月度记录 <span class="asset-small">（正式页保留全部钱包记录）</span></h2>
+      <h2 class="asset-title">月度记录</h2>
       <div class="scroll-box">
         <table class="asset-table">
           <thead><tr><th>月份</th><th>类型</th><th>钱包</th><th>金额</th><th>更新时间</th><th>操作</th></tr></thead>
