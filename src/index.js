@@ -57,12 +57,12 @@ import { shouldRun, nowCN } from './services/schedule.service.js';
 import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue, todoTomorrowPreview } from './services/report.service.js';
 import { buildTree, flattenPending } from './services/todo.service.js';
 import {
-  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, deleteCategory, renameCategory, getShareLink as getTodoShareLink, todoChart, todoAnalyze, reorderTodo,
+  listTodos, createTodo, updateTodo, toggleTodo, completeReminderTodos, postponeReminderTodos, removeTodo, deleteCategory, renameCategory, getShareLink as getTodoShareLink, todoChart, todoAnalyze, reorderTodo,
   todoAttachmentUpload, todoAttachmentList, todoAttachmentRemove,
   publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicReorder, publicTodoReport, publicTodoChart, publicTodoAnalyze,
   publicTodoAttachmentUpload, publicTodoAttachmentList, publicTodoAttachmentRemove,
   widgetTodo, widgetTodoAuth,
-  publicAllAdd, publicAllToggle, publicAllUpdate, publicAllReorder
+  publicAllAdd, publicAllToggle, publicAllUpdate, publicAllReminderComplete, publicAllReminderPostpone, publicAllReorder
 } from './api/todo.api.js';
 import { uploadUserFile, fileDownload, publicAttachMaxMb } from './api/file.api.js';
 import {
@@ -264,6 +264,8 @@ router.delete('/api/todo/shared-cats/:id', deleteSharedCat);
 router.delete('/api/todo/categories', deleteCategory);
 router.put('/api/todo/categories', renameCategory);
 router.get('/api/todo/:id/share-link', getTodoShareLink);
+router.put('/api/todo/reminder/complete', completeReminderTodos);
+router.put('/api/todo/reminder/tomorrow', postponeReminderTodos);
 router.put('/api/todo/:id/done', toggleTodo);
 router.put('/api/todo/:id', updateTodo);
 router.delete('/api/todo/:id', removeTodo);
@@ -281,6 +283,8 @@ router.delete('/api/public/todo-att/:token/:attId', publicTodoAttachmentRemove);
 router.get('/api/public/todo-widget/:token', widgetTodo);
 router.post('/api/public/todo-all/:token', publicAllAdd);
 router.put('/api/public/todo-all/:token/reorder', publicAllReorder);
+router.put('/api/public/todo-all/:token/reminder/complete', publicAllReminderComplete);
+router.put('/api/public/todo-all/:token/reminder/tomorrow', publicAllReminderPostpone);
 router.put('/api/public/todo-all/:token/:id/done', publicAllToggle);
 router.put('/api/public/todo-all/:token/:id', publicAllUpdate);
 

@@ -53,5 +53,10 @@
                 android:resource="@xml/todo_widget" />
         </receiver>
 
+
+        <receiver
+            android:name=".ReminderActionReceiver"
+            android:exported="false" />
+
     </application>
 </manifest>

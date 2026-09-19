@@ -11,7 +11,7 @@ import { resolveBaseUrl } from '../config.js';
 import { requireDataContext } from './share.api.js';
 import { getFileStore } from '../storage/file-store.js';
 import { attachmentJson, saveFile } from './file.api.js';
-import { countStats, buildWidgetGroups, buildChartSeries, buildAnalysis, CHART_RANGES } from '../services/todo.service.js';
+import { countStats, reminderActionTargets, buildWidgetGroups, buildChartSeries, buildAnalysis, CHART_RANGES } from '../services/todo.service.js';
 
 /** 取北京时区当天 YYYY-MM-DD */
 function todayCN() {
@@ -314,6 +314,81 @@ async function toggleTodo({ request, env, params }) {
     else await storage.todo.reopenAncestors(id, acc.ownerUid);
   }
   return json({ success: true, message: done ? '已完成' : '已取消完成', cloned: !!r.cloned, next_id: r.next_id || null, next_due: r.next_due || null });
+}
+
+/** 安卓通知「完成」：批量完成今日到期与逾期待办；返回实际处理的叶子任务数。 */
+async function completeReminderTodos({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'todo', request);
+  if (dc instanceof Response) return dc;
+  return json(await runReminderComplete(storage, dc, auth, false));
+}
+
+/** 安卓通知「放到明天」：仅改期今日到期任务；逾期任务保留原日期。 */
+async function postponeReminderTodos({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'todo', request);
+  if (dc instanceof Response) return dc;
+  return json(await runReminderPostpone(storage, dc, auth, false));
+}
+
+async function runReminderComplete(storage, dc, auth, personalOnly) {
+  const today = todayCN();
+  const rows = personalOnly
+    ? await storage.todo.listPersonalByUser(dc.uid)
+    : await storage.todo.listVisibleForUser(dc.uid);
+  const targets = reminderActionTargets(rows, today);
+  let count = 0;
+  for (const t of targets.completeRows) {
+    let ownerUid = t.user_id;
+    let doneBy = null;
+    if (!personalOnly) {
+      const acc = await todoAccess(storage, dc, t);
+      if (!acc) continue;
+      ownerUid = acc.ownerUid;
+      doneBy = acc.catId != null ? auth.user_id : null;
+    }
+    await storage.todo.markDoneWithRecur(t.id, ownerUid, true, false, today, doneBy);
+    if (await autoParentOn(storage, ownerUid)) {
+      await storage.todo.autoCompleteAncestors(t.id, ownerUid, today, doneBy);
+    }
+    count++;
+  }
+  return { success: true, count, message: count ? '已完成' : '没有需要完成的待办' };
+}
+
+async function runReminderPostpone(storage, dc, auth, personalOnly) {
+  const today = todayCN();
+  const rows = personalOnly
+    ? await storage.todo.listPersonalByUser(dc.uid)
+    : await storage.todo.listVisibleForUser(dc.uid);
+  const targets = reminderActionTargets(rows, today);
+  let count = 0;
+  for (const target of targets.postponeTargets) {
+    const t = target.row;
+    if (t.child_due) continue;
+    let ownerUid = t.user_id;
+    if (!personalOnly) {
+      const acc = await todoAccess(storage, dc, t);
+      if (!acc) continue;
+      ownerUid = acc.ownerUid;
+    }
+    const parentRow = t.parent_id == null ? null : await storage.todo.findById(t.parent_id);
+    if (!parentAllowsDate(parentRow)) continue;
+    await storage.todo.update(t.id, ownerUid, {
+      title: t.title,
+      priority: t.priority,
+      due_date: targets.tomorrow,
+      category: t.category,
+      note: t.note
+    });
+    count += target.count;
+  }
+  return { success: true, count, message: count ? '已移到明天' : '没有需要改期的今日待办' };
 }
 
 /** PUT /api/todo/reorder  子任务同级重排  body: { parent_id, ids:[...] }
@@ -958,6 +1033,22 @@ async function publicAllUpdate({ request, env, params }) {
   return json({ success: true, message: '任务已更新' });
 }
 
+/** PUT /api/public/todo-all/:token/reminder/complete 免密通知快捷完成 */
+async function publicAllReminderComplete({ env, params }) {
+  const storage = getStorage(env);
+  const userId = await resolveUserByReportToken(storage, params.token);
+  if (userId == null) return error('链接无效或已失效', 404);
+  return json(await runReminderComplete(storage, { uid: userId }, { user_id: null }, true));
+}
+
+/** PUT /api/public/todo-all/:token/reminder/tomorrow 免密通知快捷改期到明天 */
+async function publicAllReminderPostpone({ env, params }) {
+  const storage = getStorage(env);
+  const userId = await resolveUserByReportToken(storage, params.token);
+  if (userId == null) return error('链接无效或已失效', 404);
+  return json(await runReminderPostpone(storage, { uid: userId }, { user_id: null }, true));
+}
+
 /** PUT /api/public/todo/:token/reorder  免密单清单页子任务同级重排  body: { parent_id, ids:[...] }
  * 校验 ids 与 parent 都属该 share_token 对应的子树，再批量写 sort_order
  */
@@ -1008,10 +1099,10 @@ async function publicAllReorder({ request, env, params }) {
 }
 
 export {
-  listTodos, createTodo, updateTodo, toggleTodo, removeTodo, deleteCategory, renameCategory, getShareLink, todoChart, todoAnalyze, reorderTodo,
+  listTodos, createTodo, updateTodo, toggleTodo, completeReminderTodos, postponeReminderTodos, removeTodo, deleteCategory, renameCategory, getShareLink, todoChart, todoAnalyze, reorderTodo,
   todoAttachmentUpload, todoAttachmentList, todoAttachmentRemove,
   publicTodoInfo, publicAddTodo, publicToggleTodo, publicUpdateTodo, publicReorder, publicTodoReport, publicTodoChart, publicTodoAnalyze,
   publicTodoAttachmentUpload, publicTodoAttachmentList, publicTodoAttachmentRemove,
   widgetTodo, widgetTodoAuth,
-  publicAllAdd, publicAllToggle, publicAllUpdate, publicAllReorder
+  publicAllAdd, publicAllToggle, publicAllUpdate, publicAllReminderComplete, publicAllReminderPostpone, publicAllReorder
 };

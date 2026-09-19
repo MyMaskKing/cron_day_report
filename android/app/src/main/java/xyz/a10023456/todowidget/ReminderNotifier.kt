@@ -12,13 +12,18 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import java.time.LocalTime
 
-/** 本地待办提醒：复用小组件刷新结果，在 reminder_config.xml 配置的时间窗发送每日摘要。 */
+/** Local daily reminder notifications. */
 object ReminderNotifier {
     private const val CHANNEL_ID = "todo_reminder"
     private const val TYPE_MORNING = "morning"
     private const val TYPE_EVENING = "evening"
-    private const val NOTIFICATION_MORNING = 1001
-    private const val NOTIFICATION_EVENING = 1002
+    const val NOTIFICATION_MORNING = 1001
+    const val NOTIFICATION_EVENING = 1002
+    const val NOTIFICATION_TEST = 1003
+    const val NOTIFICATION_ACTION_COMPLETE = 1004
+    const val NOTIFICATION_ACTION_TOMORROW = 1005
+    const val ACTION_COMPLETE = "complete"
+    const val ACTION_TOMORROW = "tomorrow"
 
     fun check(context: Context, refreshedIds: List<Int>) {
         if (refreshedIds.isEmpty() || !hasNotificationPermission(context)) return
@@ -28,16 +33,16 @@ object ReminderNotifier {
         var overdueCount = 0
         var tomorrowCount = 0
         val seenAccounts = HashSet<String>()
+        val accountWidgetIds = mutableListOf<Int>()
 
         for (id in refreshedIds) {
             val data = WidgetRepo.cached(context, id) ?: continue
-            // 仅使用本次成功刷新且服务端日期为今天的缓存，避免离线旧数据误报。
             if (!data.success || data.today != today) continue
             val owner = data.owner_name?.takeIf { it.isNotBlank() }
                 ?: Prefs.getToken(context, id).takeLast(8)
-            // 同一服务器 + owner 去重，避免同一账号多个小组件重复提醒。
             val accountKey = Prefs.getBaseUrl(context, id) + "|" + owner
             if (!seenAccounts.add(accountKey)) continue
+            accountWidgetIds.add(id)
 
             todayCount += data.stats.today
             overdueCount += data.stats.overdue
@@ -50,13 +55,50 @@ object ReminderNotifier {
         when {
             now >= morningStart && now.isBefore(eveningStart) -> {
                 val text = morningText(todayCount, overdueCount) ?: return
-                show(context, TYPE_MORNING, NOTIFICATION_MORNING, today, "待办提醒", text)
+                show(context, TYPE_MORNING, NOTIFICATION_MORNING, today, "待办提醒", text, accountWidgetIds, true, todayCount > 0)
             }
             now >= eveningStart -> {
                 val text = eveningText(tomorrowCount, overdueCount) ?: return
-                show(context, TYPE_EVENING, NOTIFICATION_EVENING, today, "待办提醒", text)
+                show(context, TYPE_EVENING, NOTIFICATION_EVENING, today, "待办提醒", text, accountWidgetIds, overdueCount > 0, false)
             }
         }
+    }
+
+    fun showTest(context: Context) {
+        if (!hasNotificationPermission(context)) return
+        createChannel(context)
+        NotificationManagerCompat.from(context).notify(
+            NOTIFICATION_TEST,
+            buildNotification(
+                context,
+                NOTIFICATION_TEST,
+                "通知测试",
+                "如果能看到这条通知，说明待办提醒可以正常显示。"
+            ).build()
+        )
+    }
+
+    fun cancelReminders(context: Context) {
+        NotificationManagerCompat.from(context).cancel(NOTIFICATION_MORNING)
+        NotificationManagerCompat.from(context).cancel(NOTIFICATION_EVENING)
+    }
+
+    fun showActionResult(context: Context, action: String, success: Boolean, count: Int, error: String? = null) {
+        if (!hasNotificationPermission(context)) return
+        createChannel(context)
+        val title = "待办提醒"
+        val text = if (!success) {
+            "操作失败" + (error?.takeIf { it.isNotBlank() }?.let { "：$it" } ?: "")
+        } else if (action == ACTION_COMPLETE) {
+            if (count > 0) "已完成 ${count} 件待办" else "没有需要完成的待办"
+        } else {
+            if (count > 0) "已将 ${count} 件今日待办移到明天" else "没有需要改期的今日待办"
+        }
+        val notificationId = if (action == ACTION_COMPLETE) NOTIFICATION_ACTION_COMPLETE else NOTIFICATION_ACTION_TOMORROW
+        NotificationManagerCompat.from(context).notify(
+            notificationId,
+            buildNotification(context, notificationId, title, text).build()
+        )
     }
 
     private fun reminderTime(context: Context, hourRes: Int, minuteRes: Int): LocalTime =
@@ -84,35 +126,77 @@ object ReminderNotifier {
         notificationId: Int,
         date: String,
         title: String,
-        text: String
+        text: String,
+        accountWidgetIds: List<Int>,
+        enableComplete: Boolean,
+        enablePostpone: Boolean
     ) {
         if (!hasNotificationPermission(context) || Prefs.getReminderSentDate(context, type) == date) return
-        // 没有可提醒的任务时不写已发标记，当天稍后新增任务仍可补发。
         createChannel(context)
+        val builder = buildNotification(context, notificationId, title, text)
+        if (accountWidgetIds.isNotEmpty() && enableComplete) {
+            builder.addAction(
+                R.drawable.ic_chip_today,
+                "全部完成",
+                actionPendingIntent(context, ACTION_COMPLETE, accountWidgetIds, notificationId)
+            )
+            if (enablePostpone) {
+                builder.addAction(
+                    R.drawable.ic_chip_today,
+                    "放到明天",
+                    actionPendingIntent(context, ACTION_TOMORROW, accountWidgetIds, notificationId)
+                )
+            }
+        }
+        NotificationManagerCompat.from(context).notify(notificationId, builder.build())
+        Prefs.setReminderSentDate(context, type, date)
+    }
+
+    private fun buildNotification(
+        context: Context,
+        notificationId: Int,
+        title: String,
+        text: String
+    ): NotificationCompat.Builder {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
                 Intent.FLAG_ACTIVITY_SINGLE_TOP
-        } ?: return
-        val pendingIntent = PendingIntent.getActivity(
+        }
+        val pendingIntent = if (intent == null) null else PendingIntent.getActivity(
             context,
             notificationId,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_chip_today)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(pendingIntent)
+            .apply { if (pendingIntent != null) setContentIntent(pendingIntent) }
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .build()
+    }
 
-        NotificationManagerCompat.from(context).notify(notificationId, notification)
-        Prefs.setReminderSentDate(context, type, date)
+    private fun actionPendingIntent(
+        context: Context,
+        action: String,
+        widgetIds: List<Int>,
+        notificationId: Int
+    ): PendingIntent {
+        val intent = Intent(context, ReminderActionReceiver::class.java).apply {
+            putExtra(ReminderActionReceiver.EXTRA_ACTION, action)
+            putExtra(ReminderActionReceiver.EXTRA_WIDGET_IDS, widgetIds.toIntArray())
+        }
+        val requestCode = notificationId * 10 + if (action == ACTION_COMPLETE) 1 else 2
+        return PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     private fun createChannel(context: Context) {
@@ -128,7 +212,7 @@ object ReminderNotifier {
             ?.createNotificationChannel(channel)
     }
 
-    private fun hasNotificationPermission(context: Context): Boolean =
+    fun hasNotificationPermission(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(
                 context,

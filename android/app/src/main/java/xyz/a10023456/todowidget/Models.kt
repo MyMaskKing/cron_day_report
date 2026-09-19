@@ -58,6 +58,14 @@ data class DoneResponse(
     val next_due: String? = null
 )
 
+/** Reminder quick-action response. */
+@Serializable
+data class ReminderActionResponse(
+    val success: Boolean = false,
+    val message: String? = null,
+    val count: Int = 0
+)
+
 /** 通用错误体（后端失败时返回 {success:false, message}） */
 @Serializable
 data class ErrorResponse(

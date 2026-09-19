@@ -46,6 +46,7 @@ fun MeScreen(
     onChangeBaseUrl: (String) -> Unit,
     onOpenInBrowser: () -> Unit,
     onThemeClick: () -> Unit,
+    onTestNotification: () -> Unit,
     onLogout: () -> Unit
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
@@ -88,6 +89,7 @@ fun MeScreen(
                 pendingUrl = baseUrl
                 showUrlDialog = true
             }
+            MeItem(R.drawable.ic_chip_today, "测试通知", "发送一条本地测试通知") { onTestNotification() }
         }
 
         Spacer(Modifier.height(12.dp))

@@ -117,4 +117,25 @@ object ApiClient {
             return json.decodeFromString<DoneResponse>(body)
         }
     }
+    /** Notification reminder quick action. */
+    fun reminderAction(baseUrl: String, sid: String, token: String, action: String): ReminderActionResponse {
+        val base = baseUrlOf(baseUrl)
+        val url = if (sid.isNotBlank())
+            "$base/api/todo/reminder/$action"
+        else
+            "$base/api/public/todo-all/$token/reminder/$action"
+        val req = Request.Builder().url(url)
+            .put("{}".toRequestBody(JSON_MEDIA))
+            .auth(sid, token)
+            .build()
+        execute(req).use { resp ->
+            val body = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) {
+                val err = runCatching { json.decodeFromString<ErrorResponse>(body) }.getOrNull()
+                throw RuntimeException(err?.message ?: "PUT $url -> HTTP ${resp.code}")
+            }
+            return json.decodeFromString<ReminderActionResponse>(body)
+        }
+    }
+
 }

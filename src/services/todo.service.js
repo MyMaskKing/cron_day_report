@@ -189,6 +189,61 @@ function countStats(rows, today) {
 }
 
 /**
+ * 供安卓通知快捷操作收集目标：
+ * - completeRows：有效截止日期 <= 今天、未完成且不在已完成祖先下的叶子任务；
+ * - postponeTargets：今日到期叶子对应的实际持日祖先/自身（去重），count 为该次改期影响的叶子数。
+ */
+function reminderActionTargets(rows, today) {
+  const byId = new Map();
+  for (const r of rows) byId.set(r.id, r);
+  const tomorrow = (() => {
+    const d = new Date(today + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 1);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  })();
+  const hasChild = new Set();
+  for (const r of rows) if (r.parent_id != null) hasChild.add(r.parent_id);
+  const hasDoneAncestor = (r) => {
+    let cur = r;
+    while (cur.parent_id != null && byId.has(cur.parent_id)) {
+      cur = byId.get(cur.parent_id);
+      if (cur.done) return true;
+    }
+    return false;
+  };
+  const dateOwnerOf = (r) => {
+    let cur = r;
+    const guard = new Set();
+    while (cur) {
+      if (cur.due_date && !cur.child_due) return cur;
+      if (cur.parent_id == null) break;
+      if (guard.has(cur.parent_id)) break;
+      guard.add(cur.parent_id);
+      cur = byId.get(cur.parent_id);
+    }
+    return null;
+  };
+
+  const completeRows = new Array();
+  const postponeTargets = new Array();
+  for (const r of rows) {
+    if (hasChild.has(r.id) || hasDoneAncestor(r) || r.child_due || r.done) continue;
+    const due = effDueOf(r, byId);
+    if (!due) continue;
+    if (due <= today) completeRows.push(r);
+    if (due === today) {
+      const owner = dateOwnerOf(r);
+      if (owner && !owner.done) {
+        const item = postponeTargets.find((x) => x.row.id === owner.id);
+        if (item) item.count++;
+        else postponeTargets.push({ row: owner, count: 1 });
+      }
+    }
+  }
+  return { tomorrow, completeRows, postponeTargets };
+}
+
+/**
  * 构造小组件用的「顶层分组」数据（无副作用，不碰存储）
  * 口径与 countStats / 前端过滤一致：未完成叶子才计入；
  * 主任务显示日期走 rootDueOf（自身日期优先，否则取子树未完成任务有效日期最小值）；
@@ -763,4 +818,4 @@ function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr, interval, nth, 
   return dueDate;
 }
 
-export { buildTree, flattenPending, countStats, buildWidgetGroups, buildChartSeries, buildAnalysis, CHART_RANGES, shiftDate, todoDateLabel, todoDateBadge, effDueOf, rootDueOf };
+export { buildTree, flattenPending, countStats, reminderActionTargets, buildWidgetGroups, buildChartSeries, buildAnalysis, CHART_RANGES, shiftDate, todoDateLabel, todoDateBadge, effDueOf, rootDueOf };

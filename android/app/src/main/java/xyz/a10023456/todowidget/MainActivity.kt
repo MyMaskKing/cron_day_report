@@ -80,9 +80,22 @@ import kotlinx.coroutines.withContext
  */
 class MainActivity : ComponentActivity() {
 
-    // 已配置小组件的老用户打开 App 时仅自动申请一次通知权限
+    private var pendingTestNotification = false
+
     private val notificationPermissionLauncher =
-        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
+            val shouldShowTest = pendingTestNotification
+            pendingTestNotification = false
+            if (granted && shouldShowTest) ReminderNotifier.showTest(this)
+            if (!granted && shouldShowTest) {
+                android.widget.Toast.makeText(
+                    this,
+                    "请在系统设置中允许通知",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
 
     // 当前 WebView 实例引用：供 onSaveInstanceState 保存浏览状态（切后台被系统回收后恢复页面栈/表单）
     private var webViewRef: WebView? = null
@@ -115,7 +128,8 @@ class MainActivity : ComponentActivity() {
                         initialUrl = deepUrl,
                         savedWebState = savedWebState,
                         onWebView = { webViewRef = it },
-                        onThemeSelected = { appTheme = it }
+                        onThemeSelected = { appTheme = it },
+                        onTestNotification = { testNotification() }
                     )
                 }
             }
@@ -124,17 +138,19 @@ class MainActivity : ComponentActivity() {
 
     private fun maybeRequestNotificationPermission() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val widgetIds = AppWidgetManager.getInstance(this)
-            .getAppWidgetIds(ComponentName(this, TodoAppWidgetReceiver::class.java))
-        if (widgetIds.isEmpty()) return
-        if (!Prefs.isLoggedIn(this) && Prefs.allConfiguredWidgetIds(this).isEmpty()) return
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
         ) return
-        if (Prefs.isNotificationPermissionRequested(this)) return
-
-        Prefs.setNotificationPermissionRequested(this)
         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun testNotification() {
+        if (ReminderNotifier.hasNotificationPermission(this)) {
+            ReminderNotifier.showTest(this)
+        } else {
+            pendingTestNotification = true
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -198,7 +214,8 @@ private fun AppShell(
     initialUrl: String?,
     savedWebState: Bundle? = null,
     onWebView: ((WebView?) -> Unit)? = null,
-    onThemeSelected: (String) -> Unit = {}
+    onThemeSelected: (String) -> Unit = {},
+    onTestNotification: () -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var baseUrl by remember { mutableStateOf(AppConfig.getBaseUrl(context)) }
@@ -631,6 +648,7 @@ private fun AppShell(
                         }
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                     },
+                    onTestNotification = onTestNotification,
                     onThemeClick = {
                         // 主题三选一：网页 __applyTheme 统一切 data-theme 并 PUT 同步到账号；
                         // 原生 Prefs 仅记录本机最近选择，供对话框勾选
