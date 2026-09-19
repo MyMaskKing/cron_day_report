@@ -792,31 +792,23 @@ function assetPage(user) {
   const body = renderTopbar(user, 'asset') + `<div class="container">
     <div class="card">
       <div class="asset-overview-head">
-        <h2>资产总览</h2>
+        <div>
+          <h2>资产总览</h2>
+          <p class="muted asset-overview-desc">多个钱包按月录入；普通钱包与投资计入资产，信用支付计入负债。</p>
+        </div>
         <div class="asset-latest">最新月份 <b id="sMonth">—</b></div>
       </div>
       <div class="grid-stats asset-summary-stats">
         <div class="stat"><div class="num" id="sAssets">0</div><div class="lbl">资产合计</div></div>
         <div class="stat"><div class="num" id="sDebt">0</div><div class="lbl">负债(信用)</div></div>
         <div class="stat"><div class="num" id="sNet">0</div><div class="lbl">净资产</div></div>
+        <div class="stat"><div class="num" id="aiChange">—</div><div class="lbl">本月变化</div><div class="asset-stat-sub" id="aiChangeSub">最新月较上月</div></div>
       </div>
-      <div id="goalBox" style="margin-top:14px;padding:10px;background:var(--surface-3);border-radius:6px;font-size:14px;"></div>
+      <div id="goalBox" class="asset-goal-box"></div>
+      <div id="goalProgress" class="asset-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="goalBar" class="asset-progress__fill"></div>
+      </div>
       <div id="typeTotalBox" style="margin-top:14px;"></div>
-      <div class="asset-insight">
-        <div class="asset-insight__head">
-          <h3>月增量洞察</h3>
-          <p class="muted">按多个钱包的月度余额汇总，计算相邻月份净资产变化；该指标用于观察资产增减，不等同于精确花销。</p>
-        </div>
-        <div class="grid-stats">
-          <div class="stat"><div class="num" id="aiChange">—</div><div class="lbl">本月净资产变化</div><div class="asset-stat-sub" id="aiChangeSub">最新月较上月</div></div>
-          <div class="stat"><div class="num" id="aiVs6">—</div><div class="lbl">较近6月均值</div><div class="asset-stat-sub" id="aiVs6Sub">差距</div></div>
-          <div class="stat"><div class="num" id="aiAvg6">—</div><div class="lbl">近6月平均月增</div><div class="asset-stat-sub">有效差额均值</div></div>
-          <div class="stat"><div class="num" id="aiAvg12">—</div><div class="lbl">近12月平均月增</div><div class="asset-stat-sub">有效差额均值</div></div>
-          <div class="stat"><div class="num" id="aiTotal12">—</div><div class="lbl">近12月累计变化</div><div class="asset-stat-sub">累计净资产增减</div></div>
-          <div class="stat"><div class="num" id="aiLowest">—</div><div class="lbl">最低增长月</div><div class="asset-stat-sub" id="aiLowestMonth">—</div></div>
-        </div>
-        <div id="aiNote" class="asset-insight__note">至少连续录入两个月钱包余额后，才能计算月增量。</div>
-      </div>
       <div class="row" style="margin-top:12px;">
         <div style="flex:none;width:100%;">
           <label>设置当年目标净资产(元)</label>
@@ -826,6 +818,17 @@ function assetPage(user) {
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>钱包 <span id="walletMonthTag" class="muted" style="font-size:13px;font-weight:normal;"></span> <button class="btn sm" id="walletAdd" style="float:right;">+ 新建钱包</button></h2>
+      <div class="scroll-box">
+        <table>
+          <thead><tr><th>类型</th><th>名称</th><th>本月金额</th><th>操作</th></tr></thead>
+          <tbody id="walletTbody"></tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin-top:6px;">投资钱包分本金/持有收益；信用支付计为负债。每个钱包可「录入本月/其他月」或生成免密录入链接。</p>
     </div>
 
     <div class="card">
@@ -839,21 +842,38 @@ function assetPage(user) {
       </div>
     </div>
 
+    <div class="asset-split">
+      <div class="card">
+        <div class="asset-chart-head">
+          <h2>每月净资产变化</h2>
+          <span class="tag user" id="csAvgNote">区间均值 —</span>
+        </div>
+        <p class="muted asset-chart-desc">本月−上月净资产；橙色虚线为当前筛选区间均值，负值表示减少。</p>
+        <canvas id="consumeChart" style="max-height:300px;"></canvas>
+      </div>
+      <div class="card">
+        <h2>本月判断</h2>
+        <p class="muted">和近6个月平均月增量对比。</p>
+        <div id="aiVs6" class="asset-judgment__num is-flat" data-base-class="asset-judgment__num">—</div>
+        <div id="aiVs6Sub" class="asset-judgment__sub">差距</div>
+        <div id="aiNote" class="asset-insight__note">至少连续录入两个月钱包余额后，才能判断本月变化。</div>
+        <div class="grid-stats asset-judgment__stats">
+          <div class="stat"><div class="num" id="aiAvg6">—</div><div class="lbl">近6月平均月增</div></div>
+          <div class="stat"><div class="num" id="aiAvg12">—</div><div class="lbl">近12月平均月增</div></div>
+          <div class="stat"><div class="num" id="aiTotal12">—</div><div class="lbl">近12月累计变化</div></div>
+          <div class="stat"><div class="num" id="aiLowest">—</div><div class="lbl">最低增长月</div><div class="asset-stat-sub" id="aiLowestMonth">—</div></div>
+        </div>
+        <div class="asset-judgment__limit"><strong>口径限制：</strong>仅能表示净资产变化，不能仅凭余额反推出真实月花销。</div>
+      </div>
+    </div>
+
     <div class="card">
       <h2>净资产趋势</h2>
       <canvas id="netChart" style="max-height:300px;"></canvas>
     </div>
-    <div class="card">
-      <div class="asset-chart-head">
-        <h2>每月净资产变化</h2>
-        <span class="tag user" id="csAvgNote">区间均值 —</span>
-      </div>
-      <p class="muted asset-chart-desc">本月−上月净资产；橙色虚线为当前筛选区间均值，负值表示减少。</p>
-      <canvas id="consumeChart" style="max-height:300px;"></canvas>
-    </div>
 
     <details class="card push-card">
-      <summary><span class="push-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>每月推送<svg class="push-card__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+      <summary><span class="push-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>每月推送<svg class="push-card__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
       <div class="push-card__body">
       <div class="row">
         <div><label>通知渠道（可多选）</label><div id="pushCh" class="multi-pick"></div></div>
@@ -869,17 +889,6 @@ function assetPage(user) {
       <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button> <button class="btn gray" id="pushSend">立即推送</button></div>
       </div>
     </details>
-
-    <div class="card">
-      <h2>钱包 <span id="walletMonthTag" class="muted" style="font-size:13px;font-weight:normal;"></span> <button class="btn sm" id="walletAdd" style="float:right;">+ 新建钱包</button></h2>
-      <div class="scroll-box">
-        <table>
-          <thead><tr><th>类型</th><th>名称</th><th>本月金额</th><th>操作</th></tr></thead>
-          <tbody id="walletTbody"></tbody>
-        </table>
-      </div>
-      <p class="muted" style="margin-top:6px;">投资钱包分本金/持有收益；信用支付计为负债。每个钱包可「录入本月/其他月」或生成免密录入链接。</p>
-    </div>
 
     <div class="card">
       <h2>月度各类型合计</h2>

@@ -5156,12 +5156,26 @@ function signedMoney(v) {
 function setTrendNum(id, v) {
   var el = document.getElementById(id);
   if (!el) return;
+  var base = el.getAttribute('data-base-class') || 'num';
   el.textContent = signedMoney(v);
-  el.className = 'num ' + (v > 0 ? 'is-up' : (v < 0 ? 'is-down' : 'is-flat'));
+  el.className = base + ' ' + (v > 0 ? 'is-up' : (v < 0 ? 'is-down' : 'is-flat'));
 }
 function setAssetText(id, text) {
   var el = document.getElementById(id);
   if (el) el.textContent = text;
+}
+function setGoalProgress(goal) {
+  var raw = goal ? Number(goal.progress) : 0;
+  var pct = Math.max(0, Math.min(100, isFinite(raw) ? raw : 0));
+  var bar = document.getElementById('goalBar');
+  if (bar) {
+    bar.style.width = '0';
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){ bar.style.width = pct.toFixed(1) + '%'; });
+    });
+  }
+  var wrap = document.getElementById('goalProgress');
+  if (wrap) wrap.setAttribute('aria-valuenow', String(Math.round(pct)));
 }
 
 async function loadAll() {
@@ -5295,6 +5309,7 @@ function renderSummary(report, goal, year) {
   } else {
     gbox.innerHTML = '<span class="muted">未设置 ' + year + ' 年度目标</span>';
   }
+  setGoalProgress(goal);
   renderTypeTotal(report.byTypeTotal || []);
 }
 // 各类型最新月合计（投资类附本金/收益；信用类标注为负债）

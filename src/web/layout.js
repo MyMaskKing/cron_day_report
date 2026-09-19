@@ -658,27 +658,43 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .stat-nav .stat[data-nav="admin"]:hover { box-shadow: 0 6px 18px rgba(236,72,153,.14); border-color: rgba(236,72,153,.35); }
 .stat-nav .stat[data-nav="admin"]:hover .num--icon { background-color: rgba(236,72,153,.12); color: #ec4899; }
 .stat .lbl { font-size: 13px; color: var(--label); margin-top: 4px; }
-.asset-overview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.asset-overview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .asset-overview-head h2 { margin: 0; }
-.asset-latest { font-size: 13px; color: var(--label); white-space: nowrap; }
+.asset-overview-desc { margin: 6px 0 0; }
+.asset-latest { font-size: 13px; color: var(--label); white-space: nowrap; padding-top: 4px; }
 .asset-latest b { color: var(--text-strong); margin-left: 4px; }
 .asset-summary-stats .num { font-size: 24px; }
-.asset-insight { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-3); }
-.asset-insight__head h3 { margin: 0 0 4px; font-size: 15px; color: var(--text-strong); }
-.asset-insight__head p { margin: 0; }
-.asset-insight .grid-stats { margin-top: 12px; }
-.asset-insight .stat { text-align: left; padding: 14px; }
-.asset-insight .num { font-size: 22px; line-height: 1.25; }
+.asset-summary-stats #sAssets { color: #f97316; }
+.asset-summary-stats #sDebt { color: var(--danger); }
+.asset-summary-stats #sNet { color: var(--brand-strong); }
+.asset-goal-box { margin-top: 14px; padding: 10px 12px; background: var(--surface-3); border-radius: 8px; font-size: 14px; }
+.asset-progress { height: 10px; margin-top: 10px; border: 1px solid var(--th-border); border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.asset-progress__fill { width: 0; height: 100%; border-radius: 999px; background: var(--brand-grad); transition: width .9s cubic-bezier(.22,1,.36,1); }
+@media (prefers-reduced-motion: reduce) { .asset-progress__fill { transition: none; } }
 .asset-stat-sub { margin-top: 4px; font-size: 12px; color: var(--muted); min-height: 18px; }
+.asset-split { display: grid; grid-template-columns: minmax(0,2fr) minmax(280px,1fr); gap: 14px; margin-bottom: 18px; }
+.asset-split > .card { margin-bottom: 0; min-width: 0; }
+.asset-judgment__num { font-size: 34px; font-weight: 800; line-height: 1.2; margin: 8px 0 2px; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.asset-judgment__sub { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.asset-judgment__stats { margin-top: 14px; }
+.asset-judgment__stats .stat { padding: 12px; }
+.asset-judgment__limit { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-size: 13px; }
 .asset-insight__note { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--label); font-size: 13px; }
 .asset-insight__note.is-up { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
 .asset-insight__note.is-down { background: var(--danger-bg); color: var(--danger); border-color: transparent; }
-.asset-insight .num.is-up { color: var(--ok); }
-.asset-insight .num.is-down { color: var(--danger); }
-.asset-insight .num.is-flat { color: var(--muted); }
+.asset-summary-stats .num.is-up,
+.asset-judgment__num.is-up,
+.asset-judgment__stats .num.is-up { color: var(--ok); }
+.asset-summary-stats .num.is-down,
+.asset-judgment__num.is-down,
+.asset-judgment__stats .num.is-down { color: var(--danger); }
+.asset-summary-stats .num.is-flat,
+.asset-judgment__num.is-flat,
+.asset-judgment__stats .num.is-flat { color: var(--muted); }
 .asset-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .asset-chart-head h2 { margin-bottom: 0; }
 .asset-chart-desc { margin: 0 0 10px; }
+@media (max-width: 900px) { .asset-split { grid-template-columns: 1fr; } }
 /* 全局 loading: 双环反向旋转 (珊瑚 + 蓝) + 玻璃遮罩; z-index 高于 modal, 保证 modal 内提交时用户能看到进度 */
 #globalLoading { display: none; position: fixed; inset: 0; background: var(--loading-mask); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); z-index: 10500; align-items: center; justify-content: center; }
 /* 启动阶段: display:flex 但 opacity:0, 300ms 后 fade in. 快请求 (JS 就绪 + 首屏 api <300ms 完成) 全程 opacity=0 → 无感 */
@@ -1649,12 +1665,12 @@ html { scrollbar-gutter: stable; }
   .btn.sm { margin-bottom: 4px; }
   /* 汇总统计卡在窄屏两列 */
   .grid-stats { grid-template-columns: repeat(2, 1fr); }
-  .asset-overview-head { align-items: flex-start; flex-direction: column; gap: 6px; }
-  .asset-latest { white-space: normal; }
+  .asset-overview-head { gap: 4px; }
+  .asset-latest { white-space: normal; padding-top: 0; }
   .asset-summary-stats .num { font-size: 20px; }
-  .asset-insight { padding: 12px; }
-  .asset-insight .stat { padding: 12px; }
-  .asset-insight .num { font-size: 18px; }
+  .asset-judgment__num { font-size: 28px; }
+  .asset-judgment__stats .stat { padding: 12px; }
+  .asset-judgment__stats .num { font-size: 18px; }
   .asset-stat-sub { min-height: 0; }
   .asset-chart-head { align-items: flex-start; flex-direction: column; }
   /* 表头窄屏隐藏后，全选改在工具栏显示 */
