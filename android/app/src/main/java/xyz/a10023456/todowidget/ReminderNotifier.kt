@@ -233,6 +233,7 @@ object ReminderNotifier {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
                 Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(Keys.Url.name, AppConfig.getBaseUrl(context) + "/todo")
         }
         val pendingIntent = if (intent == null) null else PendingIntent.getActivity(
             context,

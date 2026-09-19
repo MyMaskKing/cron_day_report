@@ -580,9 +580,13 @@ private fun AppShell(
                             }
                             false // 不消费, WebView 正常处理并继续派发给网页
                         }
-                        // 后台回收后重建: 优先恢复保存的历史栈/页面状态(不重新 loadUrl,
-                        // 避免页面全新加载丢掉状态); restoreState 成功返回 RestoreResult、失败返回 null
-                        val restored = savedWebState?.let { restoreState(it) } != null
+                        // 后台回收后重建：普通打开优先恢复历史栈；通知/小组件深链以目标页为准，
+                        // 避免恢复到旧页面；restoreState 成功返回 RestoreResult、失败返回 null
+                        val restored = if (initialUrl == null) {
+                            savedWebState?.let { restoreState(it) } != null
+                        } else {
+                            false
+                        }
                         if (!restored) {
                             loadUrl(targetUrl, APP_HEADERS)
                         }
