@@ -353,11 +353,11 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
      压缩式浏览器(kb-resize): 系统已把容器缩到键盘上方, 只留小呼吸, 不双倍留白 */
   body.kb-on .todo-fs-main { padding-bottom: calc(12px + var(--kb-inset, 0px)); }
   body.kb-resize .todo-fs-main { padding-bottom: 14px; }
-  /* 手机完整树(非详情视图): 操作收进「⋯」弹层, 行内只留更多钮;
+  /* 手机待办树(完整树/卡片进入的子任务详情): 操作收进「⋯」弹层, 行内只留更多钮;
    标题保留完整显示；备注仍单行截断，完整内容点详情查看 */
-  body:not(.todo-detail) .todo-tree .todo-ops { opacity: 1; gap: 0; }
-  body:not(.todo-detail) .todo-tree .todo-ops .todo-op:not(.todo-more) { display: none; }
-  body:not(.todo-detail) .todo-tree .todo-op.todo-more { display: inline-flex; }
+  body .todo-tree .todo-ops { opacity: 1; gap: 0; }
+  body .todo-tree .todo-ops .todo-op:not(.todo-more) { display: none; }
+  body .todo-tree .todo-op.todo-more { display: inline-flex; }
   body:not(.todo-detail) .todo-tree .todo-title { white-space: pre-wrap; overflow: visible; text-overflow: clip; }
   /* 基金页策略浮层在底栏之上的避让规则写在 .strat-* 原媒体块旁(该处带 !important) */
 }
@@ -1068,7 +1068,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .td-subs__head span { font-weight: 500; }
 .td-sub { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 11px; }
 .td-sub:hover { background: var(--surface-2); }
-.td-sub__t { flex: 1; min-width: 0; font-size: 13.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-sub__t { flex: 1; min-width: 0; font-size: 13.5px; color: var(--text); white-space: normal; overflow: visible; text-overflow: clip; word-break: break-word; }
 .td-sub .todo-check { width: 19px; height: 19px; border-width: 1.7px; }
 .td-sub .todo-check.readonly { cursor: default; }
 .td-sub .todo-check.readonly:hover { border-color: var(--check-ring); }
