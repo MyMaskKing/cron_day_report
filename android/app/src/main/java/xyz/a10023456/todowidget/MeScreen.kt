@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -31,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,6 +53,10 @@ fun MeScreen(
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
     var pendingUrl by remember { mutableStateOf(baseUrl) }
+    val appContext = LocalContext.current.applicationContext
+    var showAlarmManager by remember { mutableStateOf(false) }
+    var taskAlarms by remember { mutableStateOf(TaskAlarmScheduler.listAlarms(appContext)) }
+    var pendingDeleteAlarm by remember { mutableStateOf<StoredTaskAlarm?>(null) }
     val scheme = MaterialTheme.colorScheme
 
     Column(
@@ -83,6 +89,10 @@ fun MeScreen(
 
         Spacer(Modifier.height(12.dp))
         MeGroup {
+            MeItem(R.drawable.ic_chip_today, "闹钟管理", "查看并删除本机待办闹钟", divider = true) {
+                taskAlarms = TaskAlarmScheduler.listAlarms(appContext)
+                showAlarmManager = true
+            }
             MeItem(R.drawable.ic_me_theme, "主题外观", "浅色 / 暗色 / 护眼，随账号同步") { onThemeClick() }
             MeItem(R.drawable.ic_me_browser, "在浏览器中打开", "用系统浏览器查看当前页面", divider = true) { onOpenInBrowser() }
             MeItem(R.drawable.ic_me_server, "服务器地址", baseUrl, divider = true) {
@@ -135,6 +145,82 @@ fun MeScreen(
             }
         )
     }
+
+    if (showAlarmManager) {
+        AlertDialog(
+            onDismissRequest = { showAlarmManager = false },
+            title = { Text("闹钟管理") },
+            text = {
+                if (taskAlarms.isEmpty()) {
+                    Text("本机暂无待办闹钟。")
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 420.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        taskAlarms.forEach { alarm ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        alarm.title,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        meAlarmSubtitle(alarm),
+                                        fontSize = 12.sp,
+                                        color = scheme.onSurfaceVariant
+                                    )
+                                }
+                                TextButton(onClick = { pendingDeleteAlarm = alarm }) {
+                                    Text("删除")
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAlarmManager = false }) { Text("关闭") }
+            }
+        )
+    }
+
+    pendingDeleteAlarm?.let { alarm ->
+        AlertDialog(
+            onDismissRequest = { pendingDeleteAlarm = null },
+            title = { Text("删除闹钟？") },
+            text = { Text("将取消“${alarm.title}”的本机响铃/震动提醒，不会删除待办本身。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    TaskAlarmScheduler.deleteAlarm(appContext, alarm.key)
+                    pendingDeleteAlarm = null
+                    taskAlarms = TaskAlarmScheduler.listAlarms(appContext)
+                }) { Text("删除", color = scheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteAlarm = null }) { Text("取消") }
+            }
+        )
+    }
+}
+
+private fun meAlarmSubtitle(alarm: StoredTaskAlarm): String {
+    val hour = alarm.minute / 60
+    val minute = alarm.minute % 60
+    val hourText = if (hour < 10) "0$hour" else hour.toString()
+    val minuteText = if (minute < 10) "0$minute" else minute.toString()
+    val server = alarm.baseUrl.removePrefix("https://").removePrefix("http://")
+    return "${alarm.dueDate} $hourText:$minuteText · #${alarm.todoId}\n$server"
 }
 
 /** 白/暗色表面的分组卡片 + 1px 描边，对齐网页 .card。 */

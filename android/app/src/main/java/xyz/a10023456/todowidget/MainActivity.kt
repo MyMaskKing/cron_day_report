@@ -593,21 +593,58 @@ private fun AppShell(
                             }
 
                             @JavascriptInterface
-                            fun setTodoAlarm(raw: String): String =
-                                TaskAlarmScheduler.setFromJson(ctx, currentBaseUrl, raw)
+                            fun setTodoAlarm(raw: String): String {
+                                val appContext = ctx.applicationContext
+                                val baseUrl = AppConfig.getBaseUrl(appContext)
+                                return try {
+                                    TaskAlarmScheduler.setFromJson(appContext, baseUrl, raw)
+                                } catch (e: Throwable) {
+                                    android.util.Log.e("TodoTaskAlarm", "setTodoAlarm failed: $raw", e)
+                                    "本地闹钟设置失败：${e.javaClass.simpleName}：${e.message ?: "未知异常"}"
+                                }
+                            }
 
                             @JavascriptInterface
-                            fun getTodoAlarm(todoId: String): Int =
-                                TaskAlarmScheduler.minuteOf(ctx, currentBaseUrl, todoId)
+                            fun getTodoAlarm(todoId: String): Int {
+                                val appContext = ctx.applicationContext
+                                return try {
+                                    TaskAlarmScheduler.minuteOf(
+                                        appContext,
+                                        AppConfig.getBaseUrl(appContext),
+                                        todoId
+                                    )
+                                } catch (e: Throwable) {
+                                    android.util.Log.e("TodoTaskAlarm", "getTodoAlarm failed", e)
+                                    -1
+                                }
+                            }
 
                             @JavascriptInterface
                             fun cancelTodoAlarm(todoId: String) {
-                                TaskAlarmScheduler.cancel(ctx, currentBaseUrl, todoId)
+                                val appContext = ctx.applicationContext
+                                try {
+                                    TaskAlarmScheduler.cancel(
+                                        appContext,
+                                        AppConfig.getBaseUrl(appContext),
+                                        todoId
+                                    )
+                                } catch (e: Throwable) {
+                                    android.util.Log.e("TodoTaskAlarm", "cancelTodoAlarm failed", e)
+                                }
                             }
 
                             @JavascriptInterface
                             fun reconcileTodoAlarms(raw: String, full: Boolean) {
-                                TaskAlarmScheduler.reconcile(ctx, currentBaseUrl, raw)
+                                val appContext = ctx.applicationContext
+                                try {
+                                    TaskAlarmScheduler.reconcile(
+                                        appContext,
+                                        AppConfig.getBaseUrl(appContext),
+                                        raw
+                                    )
+                                } catch (e: Throwable) {
+                                    android.util.Log.e("TodoTaskAlarm", "reconcileTodoAlarms failed", e)
+                                }
                             }
 
                             private fun postAlarmPickerResult(

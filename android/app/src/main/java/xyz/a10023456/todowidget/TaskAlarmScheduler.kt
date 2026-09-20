@@ -89,6 +89,13 @@ object TaskAlarmScheduler {
         TaskAlarmStore.find(context, key)?.let { cancelStored(context, it) }
     }
 
+    fun listAlarms(context: Context): List<StoredTaskAlarm> =
+        TaskAlarmStore.list(context).sortedWith(compareBy({ it.dueDate }, { it.minute }))
+
+    fun deleteAlarm(context: Context, key: String) {
+        TaskAlarmStore.find(context, key)?.let { cancelStored(context, it) }
+    }
+
     fun reconcile(context: Context, baseUrl: String, raw: String) {
         val payload = runCatching {
             json.decodeFromString<WebTaskAlarmSync>(raw)
