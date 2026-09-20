@@ -656,7 +656,58 @@ function buildAnalysis(raw, days, today) {
     // 按时完成率: 最终完成且完成日<=到期日 / 到期数（含今天，与 winRate 同窗；逾期补做不算按时）
     onTimeRate: winDue ? winOnTime / winDue : null,
     overdueRate: pastDue ? pastOver / pastDue : null,
-    daily
+    daily,
+    insight: buildInsight(daily, days)
+  };
+}
+
+/**
+ * 区间判断（报告视图）：近 7 天按时率 vs 区间均值、周/月环比、区间基准统计。纯计算。
+ * 切片口径：daily 升序、末项为 today(pending)；近 N 个「已收官日」= 排除 today 的最近 N 天。
+ *   一笔到期任务只可能是 按时完成 / 逾期补做 / 至今未完成，故某日按时数 = planned - overdue。
+ * @param {Array} daily - buildAnalysis 的逐日明细（含 today）
+ * @param {number} days - 窗口 30|60
+ * @returns {Object} 见下字段；比率为 0..1 或 null（无分母），pp 为整数百分点或 null
+ */
+function buildInsight(daily, days) {
+  const closed = daily.slice(0, days - 1); // 已收官日（不含 today）
+  // 聚合按时率：(Σplanned − Σoverdue) / Σplanned
+  const ontimeRateOf = (list) => {
+    let p = 0, ot = 0;
+    for (const x of list) { p += x.planned; ot += x.planned - x.overdue; }
+    return p ? ot / p : null;
+  };
+  const pp = (a, b) => (a == null || b == null ? null : Math.round((a - b) * 100));
+  const pick = (x) => ({ date: x.date, done: x.done, planned: x.planned });
+
+  const r7 = ontimeRateOf(daily.slice(days - 8, days - 1));       // 近 7 个已收官日
+  const rPrev7 = ontimeRateOf(daily.slice(days - 15, days - 8));  // 再前 7 天
+  const rRange = ontimeRateOf(closed);
+  const heroPp = pp(r7, rRange);
+  const fails = closed.filter(x => x.mark === 'fail');
+  const taskDays = closed.filter(x => x.planned > 0);
+  const avgOf = (key) => taskDays.length
+    ? Math.round((taskDays.reduce((s, x) => s + x[key], 0) / taskDays.length) * 10) / 10
+    : null;
+
+  return {
+    rate7: r7,
+    ratePrev7: rPrev7,
+    rateRange: rRange,
+    heroPp,
+    // ±3 个百分点以外才算高/低于基准，以内为持平
+    tone: heroPp == null ? 'flat' : (heroPp <= -3 ? 'bad' : heroPp >= 3 ? 'good' : 'flat'),
+    lastFailDate: fails.length ? fails[fails.length - 1].date : null,
+    yesterday: pick(daily[days - 2]),
+    beforeYesterday: days >= 3 && daily[days - 3] ? pick(daily[days - 3]) : null,
+    wowPp: pp(r7, rPrev7),
+    // 同比上一周期需两个 30 天窗口，30 天窗口数据不足 → null（前端置灰提示切 60 天）
+    momPp: days === 60
+      ? pp(ontimeRateOf(daily.slice(days - 31, days - 1)), ontimeRateOf(daily.slice(0, days - 31)))
+      : null,
+    avgDue: avgOf('planned'),
+    avgDone: avgOf('done'),
+    failCount: fails.length
   };
 }
 
@@ -818,4 +869,4 @@ function shiftDate(dueDate, recurrence, jumpToCurrent, todayStr, interval, nth, 
   return dueDate;
 }
 
-export { buildTree, flattenPending, countStats, reminderActionTargets, buildWidgetGroups, buildChartSeries, buildAnalysis, CHART_RANGES, shiftDate, todoDateLabel, todoDateBadge, effDueOf, rootDueOf };
+export { buildTree, flattenPending, countStats, reminderActionTargets, buildWidgetGroups, buildChartSeries, buildAnalysis, buildInsight, CHART_RANGES, shiftDate, todoDateLabel, todoDateBadge, effDueOf, rootDueOf };

@@ -417,7 +417,12 @@ function fundPage(user) {
         </select>
       </h2>
       <div id="profitEmpty" class="muted" style="display:none;text-align:center;padding:40px;">暂无每日收益数据，次日 15:00 后自动生成首条快照</div>
-      <div id="profitChartWrap" style="max-width:720px;margin:20px auto 0;"><canvas id="profitChart"></canvas></div>
+      <div class="jn-chart-legend" id="profitLegend" style="max-width:720px;margin:14px auto 0;display:none;">
+        <span class="lg"><i></i>当日总收益(元)</span>
+        <span class="lg"><i class="avg"></i>区间均值 <b id="profitAvgLg">–</b></span>
+      </div>
+      <div id="profitChartWrap" style="max-width:720px;margin:12px auto 0;"><canvas id="profitChart"></canvas></div>
+      <div id="profitInsight"></div>
       <h3 style="margin:24px 0 8px;font-size:16px;">每日明细</h3>
       <div class="scroll-box">
         <table><thead><tr style="background:var(--surface-2);"><th>日期</th><th>总收益(元)</th><th>较前一天增长(元)</th></tr></thead><tbody id="profitTbody"></tbody></table>
@@ -574,6 +579,7 @@ function weightPage(user) {
         <div><label>结束</label><input id="fEnd" type="date"></div>
       </div>
       <canvas id="weightChart" style="max-height:340px;"></canvas>
+      <div id="wInsight"></div>
     </div>
 
     <details class="card push-card">

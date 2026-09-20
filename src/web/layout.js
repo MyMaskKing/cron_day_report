@@ -1248,6 +1248,70 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 @media (max-width: 480px) {
   .ta-heat-wrap { max-width: none; }
 }
+
+/* ============ 区间判断（报告视图：待办分析/基金/体重共用） ============ */
+/* 图多解读少：各模块曲线图下方统一的「当前值 vs 区间均值」判断卡，基准=当前所选区间的平均值 */
+.jn { margin-top: 20px; padding-top: 18px; border-top: 1px dashed var(--border); }
+.jn-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.jn-head h3 { font-size: 15px; font-weight: 700; color: var(--text-strong); }
+.jn-head .jn-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+/* 成员切换 chip（体重多成员） */
+.jn-members { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.jn-members button { border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+  font-size: 12.5px; font-weight: 600; padding: 4px 12px; border-radius: 999px; cursor: pointer; font-family: inherit; }
+.jn-members button.on { background: var(--brand-tint); border-color: var(--brand-border); color: var(--brand-strong); }
+/* hero：当前值 − 区间均值 */
+.jn-hero { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
+.jn-hero__num { font-size: 32px; font-weight: 850; line-height: 1.2; color: var(--text-strong);
+  font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.jn-hero__num small { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+.jn-hero__calc { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* 一句话判断：状态底 + 状态点（不使用 color-mix，兼容微信 X5） */
+.jn-note { display: flex; gap: 9px; align-items: flex-start; border-radius: 10px; padding: 10px 13px; margin-top: 10px;
+  font-size: 13.5px; line-height: 1.75; background: var(--surface-2); border: 1px solid var(--border); }
+.jn-note::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; background: var(--brand); }
+.jn-note.good { background: var(--ok-bg); }
+.jn-note.good::before { background: var(--ok); }
+.jn-note.bad { background: var(--danger-bg); }
+.jn-note.bad::before { background: var(--danger); }
+.jn-note.flat::before { background: var(--faint); }
+/* 周期对比三格 */
+.jn-deltas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.jn-delta { background: var(--surface-3); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.jn-delta__l { font-size: 12px; color: var(--muted); }
+.jn-delta__v { font-size: 17px; font-weight: 700; color: var(--text-strong); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.jn-delta__v .ar { font-size: 12px; font-weight: 700; margin-right: 2px; }
+.jn-delta__v.is-up { color: var(--ok); }
+.jn-delta__v.is-down { color: var(--danger); }
+.jn-delta__v.is-money-pos { color: var(--danger); }   /* 基金红涨 */
+.jn-delta__v.is-money-neg { color: var(--ok); }       /* 基金绿跌 */
+.jn-delta__s { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+.jn-delta.is-off { opacity: .6; }
+.jn-delta.is-off .jn-delta__v { color: var(--faint); font-size: 13.5px; font-weight: 600; padding: 2px 0; }
+/* 基准指标行（与 .asset-metric 同语言） */
+.jn-metrics { display: grid; gap: 9px; margin-top: 14px; }
+.jn-metric { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 9px;
+  border-bottom: 1px solid var(--th-border); font-size: 13.5px; }
+.jn-metric:last-child { padding-bottom: 0; border-bottom: 0; }
+.jn-metric span { color: var(--muted); }
+.jn-metric b { text-align: right; color: var(--text-strong); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* 基准行：橙色虚线段落标识（与曲线图均值线同色，沿用资产页 #f97316） */
+.jn-metric--base span { color: var(--text); font-weight: 600; }
+.jn-metric--base span::before { content: ''; display: inline-block; width: 14px; border-top: 2px dashed #f97316;
+  margin-right: 7px; vertical-align: 3px; }
+/* 曲线图图例：数据线 + 均值基准线 */
+.jn-chart-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
+.jn-chart-legend .lg { display: inline-flex; align-items: center; gap: 6px; }
+.jn-chart-legend i { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid #667eea; border-radius: 2px; }
+.jn-chart-legend i.avg { border-top: 2px dashed #f97316; }
+.jn-chart-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .jn-hero__num { font-size: 27px; }
+  .jn-hero__calc { flex: 1 1 100%; }
+  .jn-delta__v { font-size: 15.5px; }
+  .jn-metric { font-size: 13px; }
+}
 @media (prefers-reduced-motion: reduce) { .todo-row, .todo-check, .todo-check::after, .todo-caret { transition: none; } }
 /* 子任务长按拖拽：拖动中的节点浮起，拖动期间全局禁选中并显示抓取光标 */
 /* 长按拖起: 整行"浮离"列表 —— 多层阴影(环境投影 + 品牌色晕 + 2px 光环描边, 光环用 shadow 不占布局避免位移),
