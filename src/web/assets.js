@@ -8510,11 +8510,11 @@ function todoFormHtml(t, isNew, isChild, fopts) {
     dueTip = '<p id="tfMemoTip" class="muted" style="margin:-4px 0 10px;font-size:12px;display:' + (childDueOn ? 'none' : 'block') + ';">📌 留空截止日期即作备忘录，不计入日报</p>';
   }
   // 草稿作用域标记: 编辑按任务 id, 新建统一 'new'(同时只有一份未提交新建草稿), 供 todoBindFormDraft 使用
-  var priorityField = '<div><label>优先级</label><select id="tfPri">' +
-        '<option value="2"' + (t.priority === 2 ? ' selected' : '') + '>🔴 高</option>' +
-        '<option value="1"' + (t.priority == null || t.priority === 1 ? ' selected' : '') + '>🟡 中</option>' +
-        '<option value="0"' + (t.priority === 0 ? ' selected' : '') + '>⚪ 低</option>' +
-      '</select></div>';
+  var priorityField = '<div><label>优先级</label><div style="display:flex;gap:6px;">' +
+        '<label style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:2px;margin:0;padding:7px 2px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);font-size:13px;white-space:nowrap;cursor:pointer;"><input type="radio" name="tfPri" value="2"' + (t.priority === 2 ? ' checked' : '') + ' style="width:auto;margin:0;accent-color:var(--primary,#2563eb);">🔴 高</label>' +
+        '<label style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:2px;margin:0;padding:7px 2px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);font-size:13px;white-space:nowrap;cursor:pointer;"><input type="radio" name="tfPri" value="1"' + (t.priority == null || t.priority === 1 ? ' checked' : '') + ' style="width:auto;margin:0;accent-color:var(--primary,#2563eb);">🟡 中</label>' +
+        '<label style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:2px;margin:0;padding:7px 2px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);font-size:13px;white-space:nowrap;cursor:pointer;"><input type="radio" name="tfPri" value="0"' + (t.priority === 0 ? ' checked' : '') + ' style="width:auto;margin:0;accent-color:var(--primary,#2563eb);">⚪ 低</label>' +
+      '</div></div>';
   var categoryFields = '<label>分类（可选）</label>' +
     '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
     '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;">';
@@ -8562,9 +8562,10 @@ function todoFormRead() {
   }
   // 共享分类选项 value='sc:<catId>': 归入共享分类(与文本分类互斥, category 置空)
   var sharedCatId = (catVal && catVal.indexOf('sc:') === 0) ? parseInt(catVal.slice(3), 10) : null;
+  var priEl = document.querySelector('input[name="tfPri"]:checked');
   var out = {
     title: document.getElementById('tfTitle').value.trim(),
-    priority: parseInt(document.getElementById('tfPri').value, 10),
+    priority: priEl ? parseInt(priEl.value, 10) : 1,
     due_date: dueEl ? (dueEl.value || null) : null,
     category: (!sharedCatId && catVal) ? catVal : null,
     note: document.getElementById('tfNote').value.trim() || null,
