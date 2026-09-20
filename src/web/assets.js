@@ -9467,7 +9467,7 @@ function openTodoEdit(node) {
   }
   var _doSave = async function(body){
     await api('/api/todo/' + node.id, { method:'PUT', body: body });
-    todoAlarmSaveForm(node.id);
+    if (!todoAlarmSaveForm(node.id)) return;
     closeModal(); await loadTodos(); await loadChart();
     // child_due 任一方向切换都会改动整支日期归属(勾选→自身无日期; 取消→清空整支后代日期),
     // 当前节点在"今日+逾期"等筛选下可能消失 → 按落点自动定位: 勾选→计划中; 取消无日期→备忘录
@@ -10138,7 +10138,7 @@ function openPublicEdit(node) {
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     await api('/api/public/todo/' + _token + '/' + node.id, { method:'PUT', body: body });
-    todoAlarmSaveForm(node.id);
+    if (!todoAlarmSaveForm(node.id)) return;
     closeModal(); await loadPublic();
   });
 }
@@ -10442,7 +10442,7 @@ function openReportEdit(node) {
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     await api('/api/public/todo-all/' + _token + '/' + node.id, { method:'PUT', body: body });
-    todoAlarmSaveForm(node.id);
+    if (!todoAlarmSaveForm(node.id)) return;
     closeModal(); await reloadReport();
   });
 }
@@ -10640,7 +10640,7 @@ function openPublicEdit(node) {
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     await api('/api/public/todo-all/' + _token + '/' + node.id, { method:'PUT', body: body });
-    todoAlarmSaveForm(node.id);
+    if (!todoAlarmSaveForm(node.id)) return;
     closeModal(); await loadCollab();
   });
 }
