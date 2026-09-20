@@ -53,6 +53,12 @@ object TaskAlarmScheduler {
         return upsert(context, baseUrl, payload.id, payload.title, payload.dueDate, payload.minute)
     }
 
+    fun canScheduleExactAlarms(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        val manager = context.getSystemService(AlarmManager::class.java) ?: return false
+        return manager.canScheduleExactAlarms()
+    }
+
     fun upsert(
         context: Context,
         baseUrl: String,
@@ -61,6 +67,7 @@ object TaskAlarmScheduler {
         dueDate: String,
         minute: Int
     ): String {
+        if (!canScheduleExactAlarms(context)) return "请先在系统设置中允许精确闹钟"
         if (todoId.isBlank()) return "任务标识无效"
         if (title.isBlank()) return "任务标题不能为空"
         if (minute !in 0..1439) return "闹钟时间无效"
@@ -75,7 +82,12 @@ object TaskAlarmScheduler {
             dueDate = dueDate,
             minute = minute
         )
-        schedule(context, alarm, triggerAt)
+        try {
+            schedule(context, alarm, triggerAt)
+        } catch (e: RuntimeException) {
+            TaskAlarmStore.remove(context, alarm.key)
+            throw e
+        }
         return "ok"
     }
 
@@ -154,7 +166,8 @@ object TaskAlarmScheduler {
     }
 
     private fun schedule(context: Context, alarm: StoredTaskAlarm, triggerAt: Long) {
-        val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+            ?: throw IllegalStateException("系统闹钟服务不可用")
         val operation = Intent(context, TaskAlarmReceiver::class.java).apply {
             action = TaskAlarmReceiver.ACTION_FIRE
             putExtra(EXTRA_KEY, alarm.key)
