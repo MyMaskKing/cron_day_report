@@ -8731,12 +8731,25 @@ function todoAlarmSaveForm(id) {
 function todoAlarmReconcile(rows, full) {
   var native = todoAlarmNative();
   if (!native || typeof native.reconcileTodoAlarms !== 'function') return;
+  var byId = {};
+  (rows || []).forEach(function(r) { if (r && r.id != null) byId[r.id] = r; });
+  function effectiveDone(r) {
+    var cur = r, seen = {};
+    while (cur) {
+      if (seen[cur.id]) break;
+      seen[cur.id] = 1;
+      if (cur.done) return true;
+      cur = cur.parent_id != null ? byId[cur.parent_id] : null;
+    }
+    return false;
+  }
   var tasks = (rows || []).filter(function(r) { return r && r.id != null; }).map(function(r) {
     return {
       id: String(r.id),
       title: r.title || '',
-      due_date: r.due_date || '',
-      done: !!r.done
+      due_date: todoEffDueRow(r, byId) || '',
+      done: effectiveDone(r),
+      recur_from_id: r.recur_from_id == null ? null : Number(r.recur_from_id)
     };
   });
   try { native.reconcileTodoAlarms(JSON.stringify({ tasks: tasks, full: !!full })); }
@@ -9515,12 +9528,32 @@ function openTodoEdit(node) {
 }
 // 勾选完成统一处理(列表勾选与任务详情弹窗子任务勾选共用): 二次确认 → 提交 → 刷新 → 庆祝
 // 返回 false 表示未完成(用户取消确认或请求失败), 调用方据此保留弹窗
+function todoCancelSubtreeAlarms(node, rows) {
+  var native = todoAlarmNative();
+  if (!native || typeof native.cancelTodoAlarm !== 'function' || !node || node.id == null) return;
+  var source = rows || _rows || [];
+  var ids = new Set([String(node.id)]);
+  var pending = true;
+  while (pending) {
+    pending = false;
+    source.forEach(function(r) {
+      if (r && r.id != null && r.parent_id != null && ids.has(String(r.parent_id)) && !ids.has(String(r.id))) {
+        ids.add(String(r.id));
+        pending = true;
+      }
+    });
+  }
+  ids.forEach(function(id) {
+    try { native.cancelTodoAlarm(id); } catch (e) {}
+  });
+}
 async function todoToggleDone(node, done) {
   if (!(await todoConfirmDoneIfPending(node, done))) return false;
   try {
     await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
     await loadTodos(); await loadChart();
     if (done) {
+      todoCancelSubtreeAlarms(node, _rows);
       var cc = todoCelebrationCount(todoBuildTree(_rows), true);
       todoCelebrate(cc.remaining, cc.total);
     }
@@ -9612,6 +9645,7 @@ function drawTree() {
         await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent, cloneMode: cloneMode } });
         closeModal();
         await loadTodos(); await loadChart();
+        todoCancelSubtreeAlarms(node, _rows);
         var cc = todoCelebrationCount(todoBuildTree(_rows), true);
         todoCelebrate(cc.remaining, cc.total);
       });
@@ -9636,6 +9670,7 @@ function confirmDeleteTodo(node) {
     '<div style="text-align:right;margin-top:18px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn danger" id="tdDelConfirm">删除</button></div>');
   bindClickBusy(document.getElementById('tdDelConfirm'), async function(){
     await api('/api/todo/' + node.id, { method:'DELETE' });
+    todoCancelSubtreeAlarms(node, _rows);
     closeModal(); await loadTodos(); await loadChart();
     // 若删除的是当前详情页的根节点, 退回卡片列表
     if (_todoDetailRootId === node.id) _todoDetailRootId = null;

@@ -39,7 +39,8 @@ object TaskAlarmScheduler {
         val title: String = "",
         @SerialName("due_date") val dueDate: String = "",
         val minute: Int = 0,
-        val done: Boolean = false
+        val done: Boolean = false,
+        @SerialName("recur_from_id") val recurFromId: Long? = null
     )
 
     @Serializable
@@ -192,40 +193,70 @@ object TaskAlarmScheduler {
             json.decodeFromString<WebTaskAlarmSync>(raw)
         }.getOrNull() ?: return
         val normalizedBase = baseUrl.trimEnd('/')
+        val storedAlarms = TaskAlarmStore.list(context)
+            .filter { it.baseUrl == normalizedBase }
         val byKey = payload.tasks.associateBy {
             StoredTaskAlarm.taskAlarmKey(normalizedBase, it.id)
         }
+        val now = System.currentTimeMillis()
+        val migratedOldKeys = mutableSetOf<String>()
 
-        TaskAlarmStore.list(context)
-            .filter { it.baseUrl == normalizedBase }
-            .forEach { stored ->
-                val task = byKey[stored.key]
-                when {
-                    task == null && payload.full -> cancelStored(context, stored)
-                    task != null && (task.done || task.dueDate.isBlank()) -> cancelStored(context, stored)
-                    task != null -> {
-                        val updated = stored.copy(
-                            title = task.title.ifBlank { stored.title }.take(120),
-                            dueDate = task.dueDate
-                        )
-                        TaskAlarmStore.upsert(
-                            context = context,
-                            baseUrl = updated.baseUrl,
-                            todoId = updated.todoId,
-                            title = updated.title,
-                            dueDate = updated.dueDate,
-                            minute = updated.minute
-                        )
-                        val triggerAt = triggerAtMillis(updated.dueDate, updated.minute)
-                        val now = System.currentTimeMillis()
-                        when {
-                            triggerAt != null && triggerAt > now && canScheduleExactAlarms(context) ->
-                                schedule(context, updated, triggerAt)
-                            triggerAt == null || triggerAt <= now -> cancelPending(context, updated)
-                        }
+        payload.tasks.forEach { task ->
+            val oldId = task.recurFromId ?: return@forEach
+            if (task.done || task.dueDate.isBlank()) return@forEach
+            val newKey = StoredTaskAlarm.taskAlarmKey(normalizedBase, task.id)
+            val oldKey = StoredTaskAlarm.taskAlarmKey(normalizedBase, oldId.toString())
+            if (oldKey in migratedOldKeys || storedAlarms.any { it.key == newKey }) return@forEach
+            val old = storedAlarms.firstOrNull { it.key == oldKey } ?: return@forEach
+            val triggerAt = triggerAtMillis(task.dueDate, old.minute) ?: return@forEach
+            if (triggerAt <= now) return@forEach
+
+            val migrated = TaskAlarmStore.upsert(
+                context = context,
+                baseUrl = normalizedBase,
+                todoId = task.id,
+                title = task.title.ifBlank { old.title }.take(120),
+                dueDate = task.dueDate,
+                minute = old.minute
+            )
+            if (canScheduleExactAlarms(context)) {
+                try {
+                    schedule(context, migrated, triggerAt)
+                } catch (e: RuntimeException) {
+                    TaskAlarmStore.remove(context, migrated.key)
+                    return@forEach
+                }
+            }
+            migratedOldKeys.add(oldKey)
+        }
+
+        storedAlarms.forEach { stored ->
+            val task = byKey[stored.key]
+            when {
+                task == null && payload.full -> cancelStored(context, stored)
+                task != null && (task.done || task.dueDate.isBlank()) -> cancelStored(context, stored)
+                task != null -> {
+                    val updated = stored.copy(
+                        title = task.title.ifBlank { stored.title }.take(120),
+                        dueDate = task.dueDate
+                    )
+                    TaskAlarmStore.upsert(
+                        context = context,
+                        baseUrl = updated.baseUrl,
+                        todoId = updated.todoId,
+                        title = updated.title,
+                        dueDate = updated.dueDate,
+                        minute = updated.minute
+                    )
+                    val triggerAt = triggerAtMillis(updated.dueDate, updated.minute)
+                    when {
+                        triggerAt != null && triggerAt > now && canScheduleExactAlarms(context) ->
+                            schedule(context, updated, triggerAt)
+                        triggerAt == null || triggerAt <= now -> cancelPending(context, updated)
                     }
                 }
             }
+        }
     }
 
     fun rescheduleAll(context: Context) {
