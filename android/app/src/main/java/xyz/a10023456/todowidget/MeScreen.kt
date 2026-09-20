@@ -151,30 +151,56 @@ fun MeScreen(
             onDismissRequest = { showAlarmManager = false },
             title = { Text("闹钟管理") },
             text = {
-                if (taskAlarms.isEmpty()) {
-                    Text("本机暂无待办闹钟。")
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = 420.dp)
-                            .verticalScroll(rememberScrollState())
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (!TaskAlarmScheduler.canScheduleExactAlarms(appContext)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "精确闹钟权限未开启",
-                                    modifier = Modifier.weight(1f),
-                                    color = scheme.error,
-                                    fontSize = 12.sp
-                                )
-                                TextButton(onClick = {
-                                    TaskAlarmScheduler.openExactAlarmSettings(appContext)
-                                }) { Text("去开启") }
+                        Text(
+                            "响铃、震动与音量",
+                            modifier = Modifier.weight(1f),
+                            fontWeight = FontWeight.Medium
+                        )
+                        TextButton(onClick = {
+                            if (!TaskAlarmScheduler.showTestNotification(appContext)) {
+                                android.widget.Toast.makeText(
+                                    appContext,
+                                    "请先允许通知",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
                             }
+                        }) { Text("测试") }
+                        TextButton(onClick = {
+                            if (TaskAlarmScheduler.notificationsEnabled(appContext)) {
+                                TaskAlarmScheduler.openAlarmChannelSettings(appContext)
+                            } else {
+                                TaskAlarmScheduler.openNotificationSettings(appContext)
+                            }
+                        }) { Text("设置") }
+                    }
+                    Text(
+                        "测试会播放当前闹钟铃声；铃声、震动和音量在系统渠道中设置。",
+                        fontSize = 12.sp,
+                        color = scheme.onSurfaceVariant
+                    )
+                    if (!TaskAlarmScheduler.notificationsEnabled(appContext)) {
+                        MeAlarmSettingWarning("通知权限未开启，闹钟无法响铃或震动") {
+                            TaskAlarmScheduler.openNotificationSettings(appContext)
                         }
+                    }
+                    if (!TaskAlarmScheduler.canScheduleExactAlarms(appContext)) {
+                        MeAlarmSettingWarning("精确闹钟权限未开启，提醒可能不准时") {
+                            TaskAlarmScheduler.openExactAlarmSettings(appContext)
+                        }
+                    }
+                    if (taskAlarms.isEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("本机暂无待办闹钟。")
+                    } else {
                         taskAlarms.forEach { alarm ->
                             Row(
                                 modifier = Modifier
@@ -227,6 +253,24 @@ fun MeScreen(
                 TextButton(onClick = { pendingDeleteAlarm = null }) { Text("取消") }
             }
         )
+    }
+}
+
+@Composable
+private fun MeAlarmSettingWarning(text: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text,
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.error,
+            fontSize = 12.sp
+        )
+        TextButton(onClick = onClick) { Text("去开启") }
     }
 }
 

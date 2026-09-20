@@ -26,6 +26,7 @@ object TaskAlarmScheduler {
     const val EXTRA_KEY = "task_alarm_key"
 
     private const val FULL_SCREEN_REQUEST = 15000
+    private const val TEST_NOTIFICATION_ID = 29999
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -73,6 +74,43 @@ object TaskAlarmScheduler {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         return runCatching { context.startActivity(fallback) }.isSuccess
+    }
+
+    fun notificationsEnabled(context: Context): Boolean =
+        NotificationManagerCompat.from(context).areNotificationsEnabled()
+
+    fun openNotificationSettings(context: Context): Boolean {
+        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return runCatching { context.startActivity(intent) }.isSuccess
+    }
+
+    fun openAlarmChannelSettings(context: Context): Boolean {
+        createChannel(context)
+        val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL_ID)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return runCatching { context.startActivity(intent) }.isSuccess
+    }
+
+    fun showTestNotification(context: Context): Boolean {
+        if (!notificationsEnabled(context)) return false
+        createChannel(context)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_chip_today)
+            .setContentTitle("待办闹钟测试")
+            .setContentText("如果听到铃声或感到震动，说明待办提醒正常。")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(TEST_NOTIFICATION_ID, notification)
+        return true
     }
 
     fun upsert(
