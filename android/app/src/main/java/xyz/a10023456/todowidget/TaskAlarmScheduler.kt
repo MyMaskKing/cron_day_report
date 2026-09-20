@@ -10,6 +10,7 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.serialization.SerialName
@@ -57,6 +58,21 @@ object TaskAlarmScheduler {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
         val manager = context.getSystemService(AlarmManager::class.java) ?: return false
         return manager.canScheduleExactAlarms()
+    }
+
+    fun openExactAlarmSettings(context: Context): Boolean {
+        if (canScheduleExactAlarms(context)) return true
+        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val opened = runCatching { context.startActivity(intent) }.isSuccess
+        if (opened) return true
+        val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return runCatching { context.startActivity(fallback) }.isSuccess
     }
 
     fun upsert(
@@ -138,10 +154,11 @@ object TaskAlarmScheduler {
                             minute = updated.minute
                         )
                         val triggerAt = triggerAtMillis(updated.dueDate, updated.minute)
-                        if (triggerAt != null && triggerAt > System.currentTimeMillis()) {
-                            schedule(context, updated, triggerAt)
-                        } else {
-                            cancelPending(context, updated)
+                        val now = System.currentTimeMillis()
+                        when {
+                            triggerAt != null && triggerAt > now && canScheduleExactAlarms(context) ->
+                                schedule(context, updated, triggerAt)
+                            triggerAt == null || triggerAt <= now -> cancelPending(context, updated)
                         }
                     }
                 }
@@ -149,6 +166,7 @@ object TaskAlarmScheduler {
     }
 
     fun rescheduleAll(context: Context) {
+        if (!canScheduleExactAlarms(context)) return
         TaskAlarmStore.list(context).forEach { alarm ->
             val triggerAt = triggerAtMillis(alarm.dueDate, alarm.minute)
             if (triggerAt != null && triggerAt > System.currentTimeMillis()) {

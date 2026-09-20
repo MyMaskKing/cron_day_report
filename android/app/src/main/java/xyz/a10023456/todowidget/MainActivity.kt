@@ -551,6 +551,10 @@ private fun AppShell(
                             @JavascriptInterface
                             fun pickTodoAlarm(requestId: String, dueDate: String, currentMinute: Int) {
                                 Handler(Looper.getMainLooper()).post {
+                                    if (!ensureTodoExactAlarmPermission()) {
+                                        postAlarmPickerResult(bridgeWebView, requestId, -1)
+                                        return@post
+                                    }
                                     val now = java.util.Calendar.getInstance()
                                     val initialMinute = if (currentMinute in 0..1439) {
                                         currentMinute
@@ -590,6 +594,18 @@ private fun AppShell(
                                         show()
                                     }
                                 }
+                            }
+
+                            private fun ensureTodoExactAlarmPermission(): Boolean {
+                                if (TaskAlarmScheduler.canScheduleExactAlarms(ctx.applicationContext)) return true
+
+                                android.widget.Toast.makeText(
+                                    ctx,
+                                    "请先允许精确闹钟，再选择提醒时间",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                TaskAlarmScheduler.openExactAlarmSettings(ctx.applicationContext)
+                                return false
                             }
 
                             @JavascriptInterface

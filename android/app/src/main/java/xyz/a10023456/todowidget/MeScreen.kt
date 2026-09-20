@@ -159,6 +159,22 @@ fun MeScreen(
                             .heightIn(max = 420.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
+                        if (!TaskAlarmScheduler.canScheduleExactAlarms(appContext)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "精确闹钟权限未开启",
+                                    modifier = Modifier.weight(1f),
+                                    color = scheme.error,
+                                    fontSize = 12.sp
+                                )
+                                TextButton(onClick = {
+                                    TaskAlarmScheduler.openExactAlarmSettings(appContext)
+                                }) { Text("去开启") }
+                            }
+                        }
                         taskAlarms.forEach { alarm ->
                             Row(
                                 modifier = Modifier
