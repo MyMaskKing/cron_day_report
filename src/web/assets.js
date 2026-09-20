@@ -9549,13 +9549,13 @@ function drawTree() {
         onEdit: function(n){ openTodoEdit(n); },
         onToggle: todoToggleDone,
         listAttachments: async function(id){
-       l  var r = await api('/api/todo/' + id + '/attachments');
-     $    return r.attachments || [];
+          var r = await api('/api/todo/' + id + '/attachments');
+          return r.attachments || [];
         }
       });
     },
-�   onToggleRecur: function(node){
-      var dueDate = node.duedate || todayStr();
+    onToggleRecur: function(node){
+      var dueDate = node.due_date || todayStr();
       var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, todayStr(), node.recur_interval, node.recur_nth, node.recur_weekday);
       var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, todayStr(), node.recur_interval, node.recur_nth, node.recur_weekday);
       var sameDate = defaultNext === jumpNext;
