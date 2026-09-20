@@ -1078,6 +1078,7 @@ function openModal(title, bodyHtml, maskClass, pinned) {
   if (box && box.querySelector && (box.querySelector('#tfRecur') || box.querySelector('#tfChildDue'))) todoBindRecurUI();
   // 待办表单草稿恢复/暂存(切后台进程被回收后重开表单可恢复标题/备注); 非待办弹窗无此标记, no-op
   if (box && box.querySelector && box.querySelector('#tfDraftScope') && typeof todoBindFormDraft === 'function') todoBindFormDraft();
+  if (box && box.querySelector && box.querySelector('#tfDueWrap') && typeof todoInitAlarmForm === 'function') todoInitAlarmForm(box);
 }
 function closeModal() {
   var mask = document.getElementById('modalMask');
@@ -6674,6 +6675,8 @@ function todoBindRecurUI() {
     cd.__cdBound = 1;
     function syncChildDue(){
       var on = cd.checked;
+      var advanced = document.querySelector('.todo-form-advanced');
+      if (on && advanced) advanced.open = true;
       var dueWrap = document.getElementById('tfDueWrap');
       var recurWrap = document.getElementById('tfRecurWrap');
       var memoTip = document.getElementById('tfMemoTip');
@@ -8432,7 +8435,13 @@ function todoFormHtml(t, isNew, isChild, fopts) {
     dueField = '<div style="flex:0 0 100%;width:100%;padding:7px 10px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);color:var(--muted,#888);font-size:13px;line-height:1.5;">'
       + '📅 截止日期跟随上级任务' + (fopts.inheritDue ? '：<span style="white-space:nowrap;">' + esc(fopts.inheritDue) + '</span>' : '（上级暂未设置日期）') + '</div>';
   } else if (!memoMode) {
-    dueField = '<div id="tfDueWrap" style="display:' + (childDueOn ? 'none' : 'block') + ';"><label>截止日期</label><input id="tfDue" type="date" value="' + defDue + '"></div>';
+    dueField = '<div id="tfDueWrap" style="display:' + (childDueOn ? 'none' : 'block') + ';"><label>截止日期</label>' +
+      '<div style="display:flex;gap:8px;align-items:center;">' +
+        '<input id="tfDue" type="date" value="' + defDue + '" style="flex:1;min-width:0;">' +
+        '<button type="button" id="tfAlarmBtn" class="btn sm gray" style="display:none;flex:none;white-space:nowrap;">🔔 闹钟</button>' +
+      '</div>' +
+      '<button type="button" id="tfAlarmClear" class="btn sm gray" style="display:none;margin-top:6px;width:100%;">取消闹钟</button>' +
+    '</div>';
   }
   // 重复块(主任务旧模式 / 新模式叶子子任务): 主任务侧包 #tfRecurWrap 供勾选框联动显隐
   var recurInner =
@@ -8501,25 +8510,46 @@ function todoFormHtml(t, isNew, isChild, fopts) {
     dueTip = '<p id="tfMemoTip" class="muted" style="margin:-4px 0 10px;font-size:12px;display:' + (childDueOn ? 'none' : 'block') + ';">📌 留空截止日期即作备忘录，不计入日报</p>';
   }
   // 草稿作用域标记: 编辑按任务 id, 新建统一 'new'(同时只有一份未提交新建草稿), 供 todoBindFormDraft 使用
-  return '<input type="hidden" id="tfDraftScope" value="' + (t.id ? 'edit:' + t.id : 'new') + '">' +
-    '<label>标题</label>' +
-    '<textarea id="tfTitle" rows="2" data-autogrow="1" placeholder="要做什么？（支持换行）" style="resize:vertical;">' + esc(t.title || '') + '</textarea>' +
-    childDueBox +
-    '<div class="row">' +
-      '<div><label>优先级</label><select id="tfPri">' +
+  var priorityField = '<div><label>优先级</label><select id="tfPri">' +
         '<option value="2"' + (t.priority === 2 ? ' selected' : '') + '>🔴 高</option>' +
         '<option value="1"' + (t.priority == null || t.priority === 1 ? ' selected' : '') + '>🟡 中</option>' +
         '<option value="0"' + (t.priority === 0 ? ' selected' : '') + '>⚪ 低</option>' +
-      '</select></div>' +
+      '</select></div>';
+  var categoryFields = '<label>分类（可选）</label>' +
+    '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
+    '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;">';
+  var noteField = '<label>备注（可选）</label>' +
+    '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
+  var draftScope = '<input type="hidden" id="tfDraftScope" value="' + (t.id ? 'edit:' + t.id : 'new') + '">';
+  var titleField = '<label>标题</label>' +
+    '<textarea id="tfTitle" rows="2" data-autogrow="1" placeholder="要做什么？（支持换行）" style="resize:vertical;">' + esc(t.title || '') + '</textarea>';
+  if (isNew && !lockedChild) {
+    return draftScope +
+      titleField +
+      dueField +
+      dueTip +
+      '<details class="todo-form-advanced" style="margin:4px 0 10px;border-top:1px solid var(--border,#eee);padding-top:8px;">' +
+        '<summary style="cursor:pointer;color:var(--muted,#888);font-size:13px;user-select:none;">更多选项</summary>' +
+        '<div style="margin-top:8px;">' +
+          childDueBox +
+          '<div class="row">' + priorityField + '</div>' +
+          recurBlock +
+          categoryFields +
+          noteField +
+        '</div>' +
+      '</details>';
+  }
+  return draftScope +
+    titleField +
+    childDueBox +
+    '<div class="row">' +
+      priorityField +
       dueField +
     '</div>' +
     dueTip +
     recurBlock +
-    '<label>分类（可选）</label>' +
-    '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
-    '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;">' +
-    '<label>备注（可选）</label>' +
-    '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
+    categoryFields +
+    noteField;
 }
 function todoFormRead() {
   var dueEl = document.getElementById('tfDue');
@@ -8571,6 +8601,132 @@ function todoFormRead() {
   // 始终携带: null=无分类/个人分类(编辑共享任务时即"移出共享"), 数字=移入该共享分类
   out.shared_cat_id = sharedCatId;
   return out;
+}
+function todoAlarmNative() {
+  try {
+    var n = window.AppShell;
+    if (n && typeof n.pickTodoAlarm === 'function' && typeof n.setTodoAlarm === 'function') return n;
+  } catch (e) {}
+  return null;
+}
+function todoAlarmFormat(minute) {
+  var h = Math.floor(minute / 60);
+  var m = minute % 60;
+  return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+}
+function todoInitAlarmForm(box) {
+  var native = todoAlarmNative();
+  if (!native) return;
+  var root = box && box.querySelector ? box : document;
+  var wrap = root.querySelector('#tfDueWrap');
+  var due = wrap ? wrap.querySelector('#tfDue') : null;
+  var btn = wrap ? wrap.querySelector('#tfAlarmBtn') : null;
+  var clear = wrap ? wrap.querySelector('#tfAlarmClear') : null;
+  if (!wrap || !due || !btn || !clear) return;
+  var minute = null;
+  var scope = document.getElementById('tfDraftScope');
+  if (scope && scope.value.indexOf('edit:') === 0) {
+    var existing = native.getTodoAlarm(scope.value.slice(5));
+    if (typeof existing === 'number' && existing >= 0 && existing < 1440) minute = existing;
+  }
+  function render() {
+    wrap.setAttribute('data-alarm-minute', minute == null ? '' : String(minute));
+    if (minute == null) {
+      btn.textContent = '🔔 闹钟';
+      btn.classList.add('gray');
+      clear.style.display = 'none';
+    } else {
+      btn.textContent = '🔔 ' + todoAlarmFormat(minute);
+      btn.classList.remove('gray');
+      clear.style.display = 'block';
+    }
+    btn.disabled = !due.value;
+    btn.style.opacity = due.value ? '1' : '.5';
+  }
+  btn.style.display = 'inline-flex';
+  btn.addEventListener('click', function() {
+    if (!due.value) { alertModal('请先选择截止日期', { ok: false }); return; }
+    var requestId = 'ta' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    window.__todoAlarmPickers = window.__todoAlarmPickers || {};
+    window.__todoAlarmPickers[requestId] = function(selected) {
+      if (typeof selected === 'number' && selected >= 0 && selected < 1440) {
+        minute = selected;
+        render();
+      }
+    };
+    try {
+      native.pickTodoAlarm(requestId, due.value, minute == null ? -1 : minute);
+    } catch (e) {
+      delete window.__todoAlarmPickers[requestId];
+      alertModal(e.message || '无法打开时间选择器', { ok: false });
+    }
+  });
+  clear.addEventListener('click', function() { minute = null; render(); });
+  due.addEventListener('change', function() {
+    if (minute != null && due.value) {
+      var hour = Math.floor(minute / 60);
+      var min = minute % 60;
+      var text = due.value + 'T' + (hour < 10 ? '0' : '') + hour + ':' + (min < 10 ? '0' : '') + min;
+      var pickedAt = new Date(text).getTime();
+      if (!isFinite(pickedAt) || pickedAt <= Date.now()) {
+        minute = null;
+        alertModal('原闹钟时间已过，请重新设置', { ok: false });
+      }
+    }
+    render();
+  });
+  render();
+}
+window.__todoAlarmPickResult = function(requestId, minute) {
+  var map = window.__todoAlarmPickers || {};
+  var callback = map[requestId];
+  delete map[requestId];
+  if (callback) callback(minute);
+};
+function todoAlarmSaveForm(id) {
+  if (id == null || id === '') return true;
+  var native = todoAlarmNative();
+  if (!native) return true;
+  var wrap = document.getElementById('tfDueWrap');
+  var due = document.getElementById('tfDue');
+  var childDue = document.getElementById('tfChildDue');
+  var titleEl = document.getElementById('tfTitle');
+  var rawMinute = wrap ? wrap.getAttribute('data-alarm-minute') : '';
+  var minute = parseInt(rawMinute, 10);
+  if (!due || !due.value || (childDue && childDue.checked) || !isFinite(minute)) {
+    try { native.cancelTodoAlarm(String(id)); } catch (e) {}
+    return true;
+  }
+  try {
+    var result = native.setTodoAlarm(JSON.stringify({
+      id: String(id),
+      title: (titleEl && titleEl.value ? titleEl.value : '待办提醒').trim() || '待办提醒',
+      due_date: due.value,
+      minute: minute
+    }));
+    if (result && result !== 'ok') {
+      alertModal(result, { ok: false });
+      return false;
+    }
+    return true;
+  } catch (e) {
+    alertModal(e.message || '本地闹钟设置失败', { ok: false });
+    return false;
+  }
+}
+function todoAlarmReconcile(rows, full) {
+  var native = todoAlarmNative();
+  if (!native || typeof native.reconcileTodoAlarms !== 'function') return;
+  var tasks = (rows || []).filter(function(r) { return r && r.id != null; }).map(function(r) {
+    return {
+      id: String(r.id),
+      title: r.title || '',
+      due_date: r.due_date || '',
+      done: !!r.done
+    };
+  });
+  try { native.reconcileTodoAlarms(JSON.stringify({ tasks: tasks, full: !!full })); }
+  catch (e) {}
 }
 function todoTodayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
 // 待办趋势三线图（逐天直接计数，恒非负）：
@@ -9231,6 +9387,7 @@ async function loadTodos() {
   drawTree();
   // 同步重算抽屉计数(勾选/增删改后数字立即更新, 避免已完成任务仍占计数)
   refreshTodoDrawer(_rows);
+  todoAlarmReconcile(_rows, true);
   // App 原生壳: 列表已与服务端同步(增删改/勾选/排序/共享分类变动的统一收尾),
   // 通知立即刷新桌面小组件, 不等 15 分钟周期 Worker; 普通浏览器无此函数, no-op.
   if (typeof window._appShellTodoChanged === 'function') window._appShellTodoChanged();
@@ -9310,6 +9467,7 @@ function openTodoEdit(node) {
   }
   var _doSave = async function(body){
     await api('/api/todo/' + node.id, { method:'PUT', body: body });
+    todoAlarmSaveForm(node.id);
     closeModal(); await loadTodos(); await loadChart();
     // child_due 任一方向切换都会改动整支日期归属(勾选→自身无日期; 取消→清空整支后代日期),
     // 当前节点在"今日+逾期"等筛选下可能消失 → 按落点自动定位: 勾选→计划中; 取消无日期→备忘录
@@ -9507,7 +9665,8 @@ function openAddForm(parentId, title, isChild, memo) {
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     if (parentId != null) body.parent_id = parentId;
-    await api('/api/todo', { method:'POST', body: body });
+    var d = await api('/api/todo', { method:'POST', body: body });
+    todoAlarmSaveForm(d.id);
     closeModal(); await loadTodos(); await loadChart();
     // 顶层新建后自动定位时间筛选: 任务(各自截止空容器/有日期)→计划中, 无日期备忘录→备忘录;
     // 子任务跟随父任务所在视图, 不切换
@@ -9979,6 +10138,7 @@ function openPublicEdit(node) {
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     await api('/api/public/todo/' + _token + '/' + node.id, { method:'PUT', body: body });
+    todoAlarmSaveForm(node.id);
     closeModal(); await loadPublic();
   });
 }
@@ -9995,6 +10155,7 @@ async function loadPublic() {
     var trees = visibleTrees();
     renderStats(trees);
     drawTree(trees);
+    todoAlarmReconcile(_rows, false);
     loadChart();
     // 应用视图状态(抽屉/全屏/按钮文案); onDrawTree 仅重绘可见树, 不重新 loadPublic(避免死循环)
     // 这个 fn 也会被 viewToggleFs/exitFullscreen 等按钮的幂等绑定捕获, 必须能触发实际重绘
@@ -10107,7 +10268,8 @@ function openAddForm(parentId, title) {
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     if (parentId != null) body.parent_id = parentId;
-    await api('/api/public/todo/' + _token, { method:'POST', body: body });
+    var d = await api('/api/public/todo/' + _token, { method:'POST', body: body });
+    todoAlarmSaveForm(d.id);
     closeModal(); await loadPublic();
   });
 }
@@ -10280,6 +10442,7 @@ function openReportEdit(node) {
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     await api('/api/public/todo-all/' + _token + '/' + node.id, { method:'PUT', body: body });
+    todoAlarmSaveForm(node.id);
     closeModal(); await reloadReport();
   });
 }
@@ -10304,7 +10467,8 @@ function openAddForm(parentId, title, isChild) {
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     if (parentId != null) body.parent_id = parentId;
-    await api('/api/public/todo-all/' + _token, { method:'POST', body: body });
+    var d = await api('/api/public/todo-all/' + _token, { method:'POST', body: body });
+    todoAlarmSaveForm(d.id);
     closeModal(); await reloadReport();
   });
 }
@@ -10318,6 +10482,7 @@ async function reloadReport() {
   document.getElementById('stDone').textContent = todoDoneByFilter(_rows, _filter, _today, _curRange);
   updateStatsHint(_filter, _curRange);
   drawTree();
+  todoAlarmReconcile(_rows, true);
   loadChart();
 }
 (async function(){
@@ -10475,6 +10640,7 @@ function openPublicEdit(node) {
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     await api('/api/public/todo-all/' + _token + '/' + node.id, { method:'PUT', body: body });
+    todoAlarmSaveForm(node.id);
     closeModal(); await loadCollab();
   });
 }
@@ -10489,6 +10655,7 @@ async function loadCollab() {
     var trees = visibleTrees();
     renderStats(trees);
     drawTree(trees);
+    todoAlarmReconcile(_rows, true);
     loadChart();
     // 应用视图状态; onDrawTree 仅重绘可见树, 不重新 loadCollab(避免死循环)
     // 这个 fn 也会被 viewToggleFs/exitFullscreen 等按钮的幂等绑定捕获, 必须能触发实际重绘
@@ -10613,7 +10780,8 @@ function openAddForm(parentId, title, isChild) {
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     if (parentId != null) body.parent_id = parentId;
-    await api('/api/public/todo-all/' + _token, { method:'POST', body: body });
+    var d = await api('/api/public/todo-all/' + _token, { method:'POST', body: body });
+    todoAlarmSaveForm(d.id);
     closeModal(); await loadCollab();
   });
 }

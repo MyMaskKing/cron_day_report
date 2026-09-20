@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.Manifest
 import android.appwidget.AppWidgetManager
 import android.app.DownloadManager
+import android.app.TimePickerDialog
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Environment
@@ -544,6 +545,82 @@ private fun AppShell(
                             fun todoChanged() {
                                 widgetHandler.removeCallbacks(widgetRefresh)
                                 widgetHandler.postDelayed(widgetRefresh, 800L)
+                            }
+
+                            @JavascriptInterface
+                            fun pickTodoAlarm(requestId: String, dueDate: String, currentMinute: Int) {
+                                Handler(Looper.getMainLooper()).post {
+                                    val now = java.util.Calendar.getInstance()
+                                    val initialMinute = if (currentMinute in 0..1439) {
+                                        currentMinute
+                                    } else {
+                                        now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+                                            now.get(java.util.Calendar.MINUTE)
+                                    }
+                                    TimePickerDialog(
+                                        ctx,
+                                        { _, hourOfDay, minute ->
+                                            val pickedMinute = hourOfDay * 60 + minute
+                                            val pickedAt = runCatching {
+                                                java.time.LocalDate.parse(dueDate)
+                                                    .atTime(hourOfDay, minute)
+                                                    .atZone(java.time.ZoneId.systemDefault())
+                                                    .toInstant()
+                                                    .toEpochMilli()
+                                            }.getOrNull()
+                                            if (pickedAt == null || pickedAt <= System.currentTimeMillis()) {
+                                                android.widget.Toast.makeText(
+                                                    ctx,
+                                                    "提醒时间已过，请重新选择",
+                                                    android.widget.Toast.LENGTH_SHORT
+                                                ).show()
+                                                postAlarmPickerResult(wv, requestId, -1)
+                                            } else {
+                                                postAlarmPickerResult(wv, requestId, pickedMinute)
+                                            }
+                                        },
+                                        initialMinute / 60,
+                                        initialMinute % 60,
+                                        true
+                                    ).apply {
+                                        setOnCancelListener {
+                                            postAlarmPickerResult(wv, requestId, -1)
+                                        }
+                                        show()
+                                    }
+                                }
+                            }
+
+                            @JavascriptInterface
+                            fun setTodoAlarm(raw: String): String =
+                                TaskAlarmScheduler.setFromJson(ctx, currentBaseUrl, raw)
+
+                            @JavascriptInterface
+                            fun getTodoAlarm(todoId: String): Int =
+                                TaskAlarmScheduler.minuteOf(ctx, currentBaseUrl, todoId)
+
+                            @JavascriptInterface
+                            fun cancelTodoAlarm(todoId: String) {
+                                TaskAlarmScheduler.cancel(ctx, currentBaseUrl, todoId)
+                            }
+
+                            @JavascriptInterface
+                            fun reconcileTodoAlarms(raw: String, full: Boolean) {
+                                TaskAlarmScheduler.reconcile(ctx, currentBaseUrl, raw)
+                            }
+
+                            private fun postAlarmPickerResult(
+                                webView: WebView,
+                                requestId: String,
+                                minute: Int
+                            ) {
+                                val encodedId = org.json.JSONObject.quote(requestId)
+                                webView.post {
+                                    webView.evaluateJavascript(
+                                        "window.__todoAlarmPickResult && window.__todoAlarmPickResult($encodedId, $minute);",
+                                        null
+                                    )
+                                }
                             }
                         }, "AppShell")
                         // 长按任务行拖拽排序的下拉刷新冲突, 在原生主线程同步处理:
