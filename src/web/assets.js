@@ -3836,9 +3836,8 @@ function renderProfitInsight(winRows) {
   box.innerHTML =
     '<div class="jn"><div class="jn-head"><div><h3>区间判断</h3>' +
       '<div class="jn-sub">今日表现 vs 当前区间日均，并与上一周期对比</div></div></div>' +
-      '<div class="jn-hero"><div class="jn-hero__num" style="color:' + colorOf(hero) + '">' + sign(hero) +
-        '<small>元 vs 区间日均</small></div>' +
-      '<div class="jn-hero__calc">今日 ' + sign(today.profit) + ' 元 − 区间日均 ' + sign(avg) + ' 元</div></div>' +
+      '<div class="jn-hero"><div class="jn-hero__num" style="color:' + colorOf(hero) + '">' + sign(hero) + ' 元</div>' +
+      '<div class="jn-hero__calc">今日 ' + sign(today.profit) + ' 元 · 区间日均 ' + sign(avg) + ' 元</div></div>' +
       '<div class="jn-note ' + tone + '">' + esc(msg) + '</div>' +
       '<div class="jn-deltas">' + d1 + d2 + d3 + '</div>' +
       '<div class="jn-metrics">' +
@@ -4601,13 +4600,14 @@ function drawChart(mlist, records) {
 
 // 区间判断（报告视图）当前选中的成员；多成员时卡内 chip 切换，单成员隐藏
 var wInsightMid = null, _wCtx = null;   // _wCtx 保存最近一次渲染上下文，供 chip 委托点击使用（避免持有旧闭包）
-// 多成员联动：图上只突出选中成员的实线与其均值虚线，其他成员实线淡化、虚线隐藏；单成员全部正常
+// 多成员联动：选中成员实测线用其成员色高亮，其均值基准线统一橙色虚线（与基金/资产基准线同语言）；
+// 其他成员实测线淡化、均值线隐藏。单成员时实测线正常，均值线同样为橙色虚线
 function applyWeightHighlight(mid, multi) {
   if (!wChart) return;
   wChart.data.datasets.forEach(function(ds){
     if (ds._mid == null) return;
     var on = !multi || ds._mid === mid;
-    if (ds._avg) ds.borderColor = on ? ds._color : 'transparent';
+    if (ds._avg) ds.borderColor = on ? '#f97316' : 'transparent';
     else {
       ds.borderColor = on ? ds._color : 'rgba(150,156,170,.35)';
       ds.borderWidth = on ? 2 : 1.5;
@@ -4628,15 +4628,24 @@ function renderWeightInsight(mlist, filtered) {
   if (!mlist.length || !filtered.length) { box.innerHTML = ''; wInsightMid = null; return; }
   var sortAsc = function(a){ return a.slice().sort(function(x, y){ return x.record_date < y.record_date ? -1 : 1; }); };
   var recsOf = function(list, mid){ return sortAsc(list.filter(function(r){ return r.member_id === mid; })); };
-  var withRecs = mlist.filter(function(m){ return recsOf(filtered, m.id).length; });
-  if (!withRecs.length) { box.innerHTML = ''; return; }
-  if (!mlist.some(function(m){ return m.id === wInsightMid; }) ||
-      !withRecs.some(function(m){ return m.id === wInsightMid; })) {
-    // 默认取区间内最新记录所属成员
-    var newest = filtered.slice().sort(function(a, b){ return a.record_date < b.record_date ? 1 : -1; })[0];
-    wInsightMid = newest ? newest.member_id : withRecs[0].id;
+  if (!mlist.length) { box.innerHTML = ''; wInsightMid = null; return; }
+  if (!mlist.some(function(m){ return m.id === wInsightMid; })) {
+    // 默认取区间内最新记录所属成员；都没记录则取第一个成员（显示空态，仍可切换）
+    var newest = filtered.length ? filtered.slice().sort(function(a, b){ return a.record_date < b.record_date ? 1 : -1; })[0] : null;
+    wInsightMid = newest ? newest.member_id : mlist[0].id;
   }
   var m = mlist.filter(function(x){ return x.id === wInsightMid; })[0];
+  // 选中成员在当前区间无记录：渲染空态卡（保留成员切换）
+  if (!recsOf(filtered, m.id).length) {
+    var chipsEmpty = mlist.length > 1 ? '<div class="jn-members">' + mlist.map(function(x){
+      return '<button type="button" data-mid="' + x.id + '"' + (x.id === wInsightMid ? ' class="on"' : '') + '>' + esc(x.name) + '</button>';
+    }).join('') + '</div>' : '';
+    box.innerHTML = '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(m.name) + '</h3>' +
+      '<div class="jn-sub">当前区间内暂无该成员的体重记录</div></div>' + chipsEmpty + '</div></div>';
+    bindWeightChips(box, mlist, filtered);
+    applyWeightHighlight(wInsightMid, mlist.length > 1);
+    return;
+  }
   var recs = recsOf(filtered, m.id);               // 区间内（升序）
   var allM = recsOf(allRecords, m.id);             // 全量（升序，周月对比用）
   var vals = recs.map(function(r){ return toDisplay(r.weight); });
@@ -4685,21 +4694,20 @@ function renderWeightInsight(mlist, filtered) {
       '<div class="jn-delta__v"><span class="ar" style="color:var(--muted)">' + ar + '</span>' + sign1(d) + U() + '</div>' +
       '<div class="jn-delta__s">' + md(ref.record_date) + ' · ' + toDisplay(ref.weight) + U() + '</div></div>';
   }
-  var chips = withRecs.length > 1 ? '<div class="jn-members">' + withRecs.map(function(x){
+  var chips = mlist.length > 1 ? '<div class="jn-members">' + mlist.map(function(x){
     return '<button type="button" data-mid="' + x.id + '"' + (x.id === wInsightMid ? ' class="on"' : '') + '>' + esc(x.name) + '</button>';
   }).join('') + '</div>' : '';
   var hi = vals.indexOf(Math.max.apply(null, vals)), lo = vals.indexOf(Math.min.apply(null, vals));
-  // 统计区间：上方时间区间筛选器实际命中的全部记录范围（跨成员），用于副标题说明口径
+  // 副标题：统计区间（跟随上方筛选）+ 虚线归属
   var allDates = filtered.map(function(r){ return r.record_date; }).sort();
   var rangeText = allDates.length ? md(allDates[0]) + ' – ' + md(allDates[allDates.length - 1]) : '';
-  var sub = '统计区间 ' + rangeText + '（跟随上方时间区间）· 图中同色虚线=「' + esc(m.name) + '」的区间平均体重' +
-    (withRecs.length > 1 ? '，点右侧成员切换' : '');
+  var sub = rangeText + '（跟随上方时间区间）· 图中橙色虚线=「' + esc(m.name) + '」的区间平均体重';
 
   box.innerHTML =
     '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(m.name) + '</h3>' +
       '<div class="jn-sub">' + sub + '</div></div>' + chips + '</div>' +
-      '<div class="jn-hero"><div class="jn-hero__num">' + sign1(hero) + '<small>' + U().trim() + ' vs 区间均值</small></div>' +
-      '<div class="jn-hero__calc">最新 ' + latestV + U() + '（' + md(latest.record_date) + '）− 区间均值 ' + avg + U() + '</div></div>' +
+      '<div class="jn-hero"><div class="jn-hero__num">' + sign1(hero) + U() + '</div>' +
+      '<div class="jn-hero__calc">最新 ' + latestV + U() + '（' + md(latest.record_date) + '）· 区间均值 ' + avg + U() + '</div></div>' +
       '<div class="jn-note flat">' + esc(msg) + '</div>' +
       '<div class="jn-deltas">' +
         cell('较昨日', latestV, prev) +
@@ -4714,17 +4722,18 @@ function renderWeightInsight(mlist, filtered) {
       '</div></div>';
 
   // 与曲线图联动：多成员时只突出当前成员及其均值虚线
-  applyWeightHighlight(wInsightMid, withRecs.length > 1);
+  applyWeightHighlight(wInsightMid, mlist.length > 1);
+  bindWeightChips(box, mlist, filtered);
+}
 
-  if (!box.__bound) {
-    box.__bound = 1;
-    box.addEventListener('click', function(e){
-      var b = e.target.closest('button[data-mid]');
-      if (!b || !_wCtx) return;
-      wInsightMid = parseInt(b.getAttribute('data-mid'), 10);
-      renderWeightInsight(_wCtx.mlist, _wCtx.filtered);
+// 成员 chip 直接绑定（每次 innerHTML 重建后重绑；不用委托，避免动态容器在部分 WebView 的事件差异）
+function bindWeightChips(box, mlist, filtered) {
+  Array.prototype.forEach.call(box.querySelectorAll('button[data-mid]'), function(btn){
+    btn.addEventListener('click', function(){
+      wInsightMid = parseInt(btn.getAttribute('data-mid'), 10);
+      renderWeightInsight(mlist, filtered);
     });
-  }
+  });
 }
 function renderRecordTable(mlist, records) {
   var nameOf = {}; mlist.forEach(function(m){ nameOf[m.id] = m.name; });
@@ -8832,7 +8841,7 @@ function openTodoAnalysis(buildUrl) {
     var hero = document.getElementById('taHero');
     if (x.heroPp == null) { hero.textContent = '—'; hero.style.color = ''; }
     else {
-      hero.innerHTML = signPp(x.heroPp) + '<small>个百分点 vs 区间按时率</small>';
+      hero.textContent = signPp(x.heroPp) + ' 个百分点';
       hero.style.color = x.tone === 'bad' ? 'var(--danger)' : x.tone === 'good' ? 'var(--ok)' : '';
     }
     document.getElementById('taHeroCalc').textContent =

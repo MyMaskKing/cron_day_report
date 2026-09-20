@@ -1258,7 +1258,8 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 /* 成员切换 chip（体重多成员） */
 .jn-members { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .jn-members button { border: 1px solid var(--border); background: var(--surface); color: var(--muted);
-  font-size: 12.5px; font-weight: 600; padding: 4px 12px; border-radius: 999px; cursor: pointer; font-family: inherit; }
+  font-size: 13px; font-weight: 600; padding: 6px 14px; min-height: 34px; border-radius: 999px; cursor: pointer; font-family: inherit;
+  -webkit-tap-highlight-color: transparent; transition: border-color .15s, background .15s, color .15s; }
 .jn-members button.on { background: var(--brand-tint); border-color: var(--brand-border); color: var(--brand-strong); }
 /* hero：当前值 − 区间均值 */
 .jn-hero { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
@@ -1308,9 +1309,21 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .jn-chart-legend i.avg { border-top: 2px dashed #f97316; }
 .jn-chart-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) {
-  .jn-hero__num { font-size: 27px; }
+  .jn-head { flex-direction: column; align-items: stretch; gap: 10px; }
+  .jn-members { width: 100%; }
+  .jn-members button { flex: 1 1 auto; padding: 8px 10px; }
+  .jn-hero__num { font-size: 28px; }
   .jn-hero__calc { flex: 1 1 100%; }
-  .jn-delta__v { font-size: 15.5px; }
+  /* 周期对比：三张卡片 → 三行（与基准指标同一语言，窄屏数字永不截断） */
+  .jn-deltas { grid-template-columns: 1fr; gap: 0; margin-top: 12px; }
+  .jn-delta { display: grid; grid-template-columns: minmax(0,1fr) auto;
+    grid-template-areas: "l v" "s v"; align-items: center; gap: 1px 12px;
+    background: none; border-radius: 0; padding: 10px 0; border-bottom: 1px solid var(--th-border); }
+  .jn-delta:last-child { border-bottom: 0; }
+  .jn-delta__l { grid-area: l; margin-top: 0; }
+  .jn-delta__v { grid-area: v; margin-top: 0; font-size: 15px; white-space: normal; text-align: right; }
+  .jn-delta__s { grid-area: s; margin-top: 1px; }
+  .jn-delta.is-off .jn-delta__v { font-size: 13px; }
   .jn-metric { font-size: 13px; }
 }
 @media (prefers-reduced-motion: reduce) { .todo-row, .todo-check, .todo-check::after, .todo-caret { transition: none; } }
