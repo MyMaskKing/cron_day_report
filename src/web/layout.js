@@ -524,6 +524,36 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 /* 键盘焦点环: 鼠标点击不出现, Tab/读屏导航时所有可交互元素可见 */
 :where(a, button, select, input, textarea, [tabindex]):focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
 label { display: block; font-size: 13px; color: var(--label); margin-bottom: 5px; }
+.todo-priority {
+  display: flex; gap: 4px; padding: 3px; margin: 0 0 12px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+}
+.todo-priority label {
+  flex: 1; min-width: 0; min-height: 34px; margin: 0;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 8px; color: var(--muted); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.todo-priority label:hover { color: var(--text); background: var(--hover-bg); }
+.todo-priority input {
+  position: absolute; width: 1px; height: 1px; margin: 0;
+  opacity: 0; pointer-events: none;
+}
+.todo-priority-dot { width: 8px; height: 8px; border-radius: 50%; background: #b4bccb; }
+.todo-priority-dot.pri-2 { background: #e5484d; }
+.todo-priority-dot.pri-1 { background: #e8a317; }
+.todo-priority label.is-checked,
+.todo-priority label:has(input:checked) {
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .12), 0 1px 3px rgba(15, 23, 42, .08);
+}
+.todo-priority label.is-checked[data-priority="2"],
+.todo-priority label:has(input[value="2"]:checked) { color: #e5484d; }
+.todo-priority label.is-checked[data-priority="1"],
+.todo-priority label:has(input[value="1"]:checked) { color: #d97706; }
+.todo-priority label.is-checked[data-priority="0"],
+.todo-priority label:has(input[value="0"]:checked) { color: #6b7280; }
+.todo-priority label:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--th-border); }
 th { color: var(--label); font-weight: 600; background: var(--th-bg); }

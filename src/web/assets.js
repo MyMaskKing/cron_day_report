@@ -8412,6 +8412,18 @@ function todoBindDrag(handle, wrap, node, opts) {
 //   lockChildDue  (主任务): true 时不渲染模式勾选框(/t/ 协作页根任务不允许切换模式)
 //   forceChildDue (主任务): 与 lockChildDue 配合, 强制按勾选态呈现(隐藏主任务日期/重复)
 //   memo          (新建主任务): 备忘录模式, 隐藏全部时间相关控件(截止日期/重复/子任务各自截止开关)
+function todoInitPrioritySegmented(box) {
+  var root = box && box.querySelector ? box.querySelector('.todo-priority') : document.querySelector('.todo-priority');
+  if (!root) return;
+  function sync() {
+    Array.prototype.forEach.call(root.querySelectorAll('.todo-priority-option'), function(label) {
+      label.classList.toggle('is-checked', !!label.querySelector('input:checked'));
+    });
+  }
+  root.addEventListener('change', sync);
+  sync();
+}
+
 function todoFormHtml(t, isNew, isChild, fopts) {
   t = t || {};
   fopts = fopts || {};
@@ -8510,10 +8522,10 @@ function todoFormHtml(t, isNew, isChild, fopts) {
     dueTip = '<p id="tfMemoTip" class="muted" style="margin:-4px 0 10px;font-size:12px;display:' + (childDueOn ? 'none' : 'block') + ';">📌 留空截止日期即作备忘录，不计入日报</p>';
   }
   // 草稿作用域标记: 编辑按任务 id, 新建统一 'new'(同时只有一份未提交新建草稿), 供 todoBindFormDraft 使用
-  var priorityField = '<div><label>优先级</label><div style="display:flex;gap:6px;">' +
-        '<label style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:2px;margin:0;padding:7px 2px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);font-size:13px;white-space:nowrap;cursor:pointer;"><input type="radio" name="tfPri" value="2"' + (t.priority === 2 ? ' checked' : '') + ' style="width:auto;margin:0;accent-color:var(--primary,#2563eb);">🔴 高</label>' +
-        '<label style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:2px;margin:0;padding:7px 2px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);font-size:13px;white-space:nowrap;cursor:pointer;"><input type="radio" name="tfPri" value="1"' + (t.priority == null || t.priority === 1 ? ' checked' : '') + ' style="width:auto;margin:0;accent-color:var(--primary,#2563eb);">🟡 中</label>' +
-        '<label style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:2px;margin:0;padding:7px 2px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);font-size:13px;white-space:nowrap;cursor:pointer;"><input type="radio" name="tfPri" value="0"' + (t.priority === 0 ? ' checked' : '') + ' style="width:auto;margin:0;accent-color:var(--primary,#2563eb);">⚪ 低</label>' +
+  var priorityField = '<div><label>优先级</label><div class="todo-priority">' +
+        '<label class="todo-priority-option" data-priority="2"><input type="radio" name="tfPri" value="2"' + (t.priority === 2 ? ' checked' : '') + '><i class="todo-priority-dot pri-2"></i><span>高</span></label>' +
+        '<label class="todo-priority-option" data-priority="1"><input type="radio" name="tfPri" value="1"' + (t.priority == null || t.priority === 1 ? ' checked' : '') + '><i class="todo-priority-dot pri-1"></i><span>中</span></label>' +
+        '<label class="todo-priority-option" data-priority="0"><input type="radio" name="tfPri" value="0"' + (t.priority === 0 ? ' checked' : '') + '><i class="todo-priority-dot pri-0"></i><span>低</span></label>' +
       '</div></div>';
   var categoryFields = '<label>分类（可选）</label>' +
     '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
@@ -9536,13 +9548,13 @@ function drawTree() {
         onEdit: function(n){ openTodoEdit(n); },
         onToggle: todoToggleDone,
         listAttachments: async function(id){
-          var r = await api('/api/todo/' + id + '/attachments');
-          return r.attachments || [];
+       l  var r = await api('/api/todo/' + id + '/attachments');
+     $    return r.attachments || [];
         }
       });
     },
-    onToggleRecur: function(node){
-      var dueDate = node.due_date || todayStr();
+�   onToggleRecur: function(node){
+      var dueDate = node.duedate || todayStr();
       var defaultNext = shiftDateLocal(dueDate, node.recurrence, false, todayStr(), node.recur_interval, node.recur_nth, node.recur_weekday);
       var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, todayStr(), node.recur_interval, node.recur_nth, node.recur_weekday);
       var sameDate = defaultNext === jumpNext;
