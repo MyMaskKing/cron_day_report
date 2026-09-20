@@ -2,6 +2,7 @@ package xyz.a10023456.todowidget
 
 import android.content.Context
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 @Serializable
@@ -34,7 +35,7 @@ object TaskAlarmStore {
     fun list(context: Context): List<StoredTaskAlarm> {
         val raw = prefs(context).getString(KEY_ALARMS, null) ?: return emptyList()
         return runCatching {
-            json.decodeFromString<List<StoredTaskAlarm>>(raw)
+            json.decodeFromString(ListSerializer(StoredTaskAlarm.serializer()), raw)
         }.getOrDefault(emptyList())
     }
 
@@ -83,7 +84,7 @@ object TaskAlarmStore {
 
     private fun save(context: Context, alarms: List<StoredTaskAlarm>) {
         prefs(context).edit()
-            .putString(KEY_ALARMS, json.encodeToString(alarms))
+            .putString(KEY_ALARMS, json.encodeToString(ListSerializer(StoredTaskAlarm.serializer()), alarms))
             .apply()
     }
 

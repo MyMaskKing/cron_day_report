@@ -36,7 +36,8 @@ object TaskAlarmScheduler {
         val id: String,
         val title: String = "",
         @SerialName("due_date") val dueDate: String = "",
-        val minute: Int = 0
+        val minute: Int = 0,
+        val done: Boolean = false
     )
 
     @Serializable

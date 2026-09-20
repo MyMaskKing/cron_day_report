@@ -530,6 +530,7 @@ private fun AppShell(
                         // 待办全屏/弹窗等页面在网页"内部容器"里滚动，WebView 原生 scrollY 恒为 0，
                         // SwipeRefreshLayout 会误判在顶部而拦截向下拖拽（卡片/弹窗卡死无法下滑）。
                         // 网页经 AppShell 桥实时上报"是否在顶部"，据此开关下拉刷新。
+                        val bridgeWebView: WebView = this
                         addJavascriptInterface(object {
                             @JavascriptInterface
                             fun setPullRefresh(enable: Boolean) {
@@ -574,9 +575,9 @@ private fun AppShell(
                                                     "提醒时间已过，请重新选择",
                                                     android.widget.Toast.LENGTH_SHORT
                                                 ).show()
-                                                postAlarmPickerResult(wv, requestId, -1)
+                                                postAlarmPickerResult(bridgeWebView, requestId, -1)
                                             } else {
-                                                postAlarmPickerResult(wv, requestId, pickedMinute)
+                                                postAlarmPickerResult(bridgeWebView, requestId, pickedMinute)
                                             }
                                         },
                                         initialMinute / 60,
@@ -584,7 +585,7 @@ private fun AppShell(
                                         true
                                     ).apply {
                                         setOnCancelListener {
-                                            postAlarmPickerResult(wv, requestId, -1)
+                                            postAlarmPickerResult(bridgeWebView, requestId, -1)
                                         }
                                         show()
                                     }
