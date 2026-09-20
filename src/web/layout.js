@@ -1301,7 +1301,8 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .jn-metric--base span::before { content: ''; display: inline-block; width: 14px; border-top: 2px dashed #f97316;
   margin-right: 7px; vertical-align: 3px; }
 /* 曲线图图例：数据线 + 均值基准线 */
-.jn-chart-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
+/* clear:both 防御 h2 内 float:right 控件（select/button）高度伸出标题区，把 BFC 容器挤窄 */
+.jn-chart-legend { display: flex; gap: 16px; flex-wrap: wrap; clear: both; font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
 .jn-chart-legend .lg { display: inline-flex; align-items: center; gap: 6px; }
 .jn-chart-legend i { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid #667eea; border-radius: 2px; }
 .jn-chart-legend i.avg { border-top: 2px dashed #f97316; }

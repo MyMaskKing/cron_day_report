@@ -406,7 +406,7 @@ function fundPage(user) {
 
     <div class="card">
       <h2>每日总收益曲线
-        <select id="profitRange" class="btn sm gray" style="float:right;">
+        <select id="profitRange" class="btn sm gray" style="float:right;width:auto;">
           <option value="7d">近7天</option>
           <option value="30d">近30天</option>
           <option value="month">本月</option>

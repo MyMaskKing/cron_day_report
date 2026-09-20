@@ -4577,17 +4577,20 @@ function drawChart(mlist, records) {
   records.forEach(function(r){ if (byMember[r.member_id]) { byMember[r.member_id].data[r.record_date] = toDisplay(r.weight); dates[r.record_date] = 1; } });
   var labels = Object.keys(dates).sort();
   // 每个成员：实线=实测，同色虚线=当前区间平均体重基准（随区间重算；legend 只列成员，虚线含义在报告卡说明）
+  // _mid/_avg/_color 供成员联动高亮使用（Chart.js 忽略未知字段）
   var datasets = [];
   mlist.forEach(function(m, i){
+    var color = COLORS[i % COLORS.length];
     var series = labels.map(function(d){ var v = byMember[m.id].data[d]; return v != null ? v : null; });
-    datasets.push({ label: m.name, data: series,
-      borderColor: COLORS[i % COLORS.length], backgroundColor: COLORS[i % COLORS.length], spanGaps: true, tension: .3,
+    datasets.push({ label: m.name, data: series, _mid: m.id, _avg: false, _color: color,
+      borderColor: color, backgroundColor: color, spanGaps: true, tension: .3,
       borderWidth: 2, pointRadius: 0, pointHitRadius: 14 });
     var have = series.filter(function(v){ return v != null; });
     if (have.length) {
       var mavg = Math.round(have.reduce(function(s, v){ return s + v; }, 0) / have.length * 10) / 10;
       datasets.push({ label: m.name + ' 均值', data: labels.map(function(){ return mavg; }),
-        borderColor: COLORS[i % COLORS.length], borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, fill: false });
+        _mid: m.id, _avg: true, _color: color,
+        borderColor: color, borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, fill: false });
     }
   });
   if (wChart) wChart.destroy();
@@ -4598,6 +4601,20 @@ function drawChart(mlist, records) {
 
 // 区间判断（报告视图）当前选中的成员；多成员时卡内 chip 切换，单成员隐藏
 var wInsightMid = null, _wCtx = null;   // _wCtx 保存最近一次渲染上下文，供 chip 委托点击使用（避免持有旧闭包）
+// 多成员联动：图上只突出选中成员的实线与其均值虚线，其他成员实线淡化、虚线隐藏；单成员全部正常
+function applyWeightHighlight(mid, multi) {
+  if (!wChart) return;
+  wChart.data.datasets.forEach(function(ds){
+    if (ds._mid == null) return;
+    var on = !multi || ds._mid === mid;
+    if (ds._avg) ds.borderColor = on ? ds._color : 'transparent';
+    else {
+      ds.borderColor = on ? ds._color : 'rgba(150,156,170,.35)';
+      ds.borderWidth = on ? 2 : 1.5;
+    }
+  });
+  wChart.update('none');
+}
 /**
  * 体重区间判断：最新体重 vs 区间均值 + 较昨日/上周/上月 + 区间基准。
  * 体重方向不做好坏评判，差值用中性色 + ↑/↓ 箭头；周/月对比取全量记录就近基准日。
@@ -4672,10 +4689,15 @@ function renderWeightInsight(mlist, filtered) {
     return '<button type="button" data-mid="' + x.id + '"' + (x.id === wInsightMid ? ' class="on"' : '') + '>' + esc(x.name) + '</button>';
   }).join('') + '</div>' : '';
   var hi = vals.indexOf(Math.max.apply(null, vals)), lo = vals.indexOf(Math.min.apply(null, vals));
+  // 统计区间：上方时间区间筛选器实际命中的全部记录范围（跨成员），用于副标题说明口径
+  var allDates = filtered.map(function(r){ return r.record_date; }).sort();
+  var rangeText = allDates.length ? md(allDates[0]) + ' – ' + md(allDates[allDates.length - 1]) : '';
+  var sub = '统计区间 ' + rangeText + '（跟随上方时间区间）· 图中同色虚线=「' + esc(m.name) + '」的区间平均体重' +
+    (withRecs.length > 1 ? '，点右侧成员切换' : '');
 
   box.innerHTML =
-    '<div class="jn"><div class="jn-head"><div><h3>区间判断</h3>' +
-      '<div class="jn-sub">最新体重 vs 当前区间均值，并与上一条记录 / 上周 / 上月对比（图中同色虚线为该成员区间均值）</div></div>' + chips + '</div>' +
+    '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(m.name) + '</h3>' +
+      '<div class="jn-sub">' + sub + '</div></div>' + chips + '</div>' +
       '<div class="jn-hero"><div class="jn-hero__num">' + sign1(hero) + '<small>' + U().trim() + ' vs 区间均值</small></div>' +
       '<div class="jn-hero__calc">最新 ' + latestV + U() + '（' + md(latest.record_date) + '）− 区间均值 ' + avg + U() + '</div></div>' +
       '<div class="jn-note flat">' + esc(msg) + '</div>' +
@@ -4690,6 +4712,9 @@ function renderWeightInsight(mlist, filtered) {
         metric('区间最低', vals[lo] + U() + ' · ' + md(recs[lo].record_date)) +
         metric('记录天数', recs.length + ' 天') +
       '</div></div>';
+
+  // 与曲线图联动：多成员时只突出当前成员及其均值虚线
+  applyWeightHighlight(wInsightMid, withRecs.length > 1);
 
   if (!box.__bound) {
     box.__bound = 1;
