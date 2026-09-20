@@ -1076,6 +1076,7 @@ function openModal(title, bodyHtml, maskClass, pinned) {
   Array.prototype.forEach.call(tas, function(ta){ autoGrowTextarea(ta); });
   // 待办表单: 重复下拉/child_due 勾选框联动(勾选态下无重复块, 但勾选框仍需绑定以便取消勾选)
   if (box && box.querySelector && (box.querySelector('#tfRecur') || box.querySelector('#tfChildDue'))) todoBindRecurUI();
+  if (box && box.querySelector && box.querySelector('.todo-priority') && typeof todoInitPrioritySegmented === 'function') todoInitPrioritySegmented(box);
   // 待办表单草稿恢复/暂存(切后台进程被回收后重开表单可恢复标题/备注); 非待办弹窗无此标记, no-op
   if (box && box.querySelector && box.querySelector('#tfDraftScope') && typeof todoBindFormDraft === 'function') todoBindFormDraft();
   if (box && box.querySelector && box.querySelector('#tfDueWrap') && typeof todoInitAlarmForm === 'function') todoInitAlarmForm(box);
