@@ -75,6 +75,22 @@ object TaskAlarmScheduler {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
+    fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+        val powerManager = context.getSystemService(android.os.PowerManager::class.java) ?: return false
+        return powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    fun openBatteryOptimizationSettings(context: Context): Boolean {
+        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val opened = runCatching { context.startActivity(intent) }.isSuccess
+        if (opened) return true
+        return runCatching {
+            context.startActivity(applicationDetailsSettingsIntent(context))
+        }.isSuccess
+    }
+
     fun openExactAlarmSettings(context: Context): Boolean {
         if (canScheduleExactAlarms(context)) return true
         val intent = exactAlarmSettingsIntent(context) ?: return false

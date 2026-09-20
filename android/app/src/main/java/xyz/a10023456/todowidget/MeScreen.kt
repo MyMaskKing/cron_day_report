@@ -1,5 +1,6 @@
 package xyz.a10023456.todowidget
 
+import android.content.Context
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -197,6 +198,7 @@ fun MeScreen(
                             TaskAlarmScheduler.openExactAlarmSettings(appContext)
                         }
                     }
+                    MeAlarmBackgroundCard(appContext)
                     if (taskAlarms.isEmpty()) {
                         Spacer(Modifier.height(10.dp))
                         Text("本机暂无待办闹钟。")
@@ -253,6 +255,47 @@ fun MeScreen(
                 TextButton(onClick = { pendingDeleteAlarm = null }) { Text("取消") }
             }
         )
+    }
+}
+
+@Composable
+private fun MeAlarmBackgroundCard(context: Context) {
+    val scheme = MaterialTheme.colorScheme
+    val ignored = TaskAlarmScheduler.isIgnoringBatteryOptimizations(context)
+    val message = if (ignored) {
+        "已放行系统电池优化。从最近任务划掉 App 通常仍会按时响铃；不要在系统设置中强行停止。"
+    } else {
+        "从最近任务划掉 App 通常仍会响铃，但国产 ROM 可能锁屏清理。请允许自启动、后台运行，并将电池管理设为不限制。"
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .background(scheme.secondaryContainer, RoundedCornerShape(8.dp))
+            .padding(8.dp)
+    ) {
+        Text("后台运行设置", fontWeight = FontWeight.Medium)
+        Spacer(Modifier.height(4.dp))
+        Text(message, fontSize = 12.sp, color = scheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(onClick = {
+                if (!TaskAlarmScheduler.openBatteryOptimizationSettings(context)) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "无法打开电池设置",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }) { Text("电池设置") }
+            TextButton(onClick = {
+                runCatching {
+                    context.startActivity(TaskAlarmScheduler.applicationDetailsSettingsIntent(context))
+                }
+            }) { Text("应用详情") }
+        }
     }
 }
 
