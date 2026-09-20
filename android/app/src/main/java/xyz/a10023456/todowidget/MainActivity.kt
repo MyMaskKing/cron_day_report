@@ -185,6 +185,12 @@ object DeepLinkBus {
 
 private data class Tab(val label: String, val iconRes: Int, val path: String?)
 
+private data class TodoAlarmPickRequest(
+    val requestId: String,
+    val dueDate: String,
+    val currentMinute: Int
+)
+
 private val TABS = listOf(
     Tab("待办", R.drawable.ic_tab_todo, "/todo"),
     Tab("基金", R.drawable.ic_tab_fund, "/fund"),
@@ -207,6 +213,16 @@ private fun tabIndexFor(url: String?): Int {
     val path = runCatching { Uri.parse(url).path }.getOrNull() ?: return -1
     val idx = TABS.indexOfFirst { it.path != null && (path == it.path || path.startsWith(it.path + "/")) }
     return if (idx >= 0) idx else -1
+}
+
+private fun postTodoAlarmPickResult(webView: WebView, requestId: String, minute: Int) {
+    val encodedId = org.json.JSONObject.quote(requestId)
+    webView.post {
+        webView.evaluateJavascript(
+            "window.__todoAlarmPickResult && window.__todoAlarmPickResult($encodedId, $minute);",
+            null
+        )
+    }
 }
 
 @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
@@ -240,6 +256,63 @@ private fun AppShell(
         val cb = filePathCallback
         filePathCallback = null
         cb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
+    }
+
+    var pendingTodoAlarmPick by remember { mutableStateOf<TodoAlarmPickRequest?>(null) }
+    fun showTodoAlarmTimePicker(request: TodoAlarmPickRequest) {
+        val webView = webViewRef ?: return
+        val now = java.util.Calendar.getInstance()
+        val initialMinute = if (request.currentMinute in 0..1439) {
+            request.currentMinute
+        } else {
+            now.get(java.util.Calendar.HOUR_OF_DAY) * 60 + now.get(java.util.Calendar.MINUTE)
+        }
+        TimePickerDialog(
+            context,
+            { _, hourOfDay, minute ->
+                val pickedMinute = hourOfDay * 60 + minute
+                val pickedAt = runCatching {
+                    java.time.LocalDate.parse(request.dueDate)
+                        .atTime(hourOfDay, minute)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli()
+                }.getOrNull()
+                if (pickedAt == null || pickedAt <= System.currentTimeMillis()) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "提醒时间已过，请重新选择",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                    postTodoAlarmPickResult(webView, request.requestId, -1)
+                } else {
+                    postTodoAlarmPickResult(webView, request.requestId, pickedMinute)
+                }
+            },
+            initialMinute / 60,
+            initialMinute % 60,
+            true
+        ).apply {
+            setOnCancelListener {
+                postTodoAlarmPickResult(webView, request.requestId, -1)
+            }
+            show()
+        }
+    }
+
+    val exactAlarmPermissionLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) {
+        val request = pendingTodoAlarmPick
+        pendingTodoAlarmPick = null
+        val webView = webViewRef
+        if (request != null && webView != null) {
+            if (TaskAlarmScheduler.canScheduleExactAlarms(context.applicationContext)) {
+                showTodoAlarmTimePicker(request)
+            } else {
+                postTodoAlarmPickResult(webView, request.requestId, -1)
+            }
+        }
     }
 
     // 软键盘高度（CSS px）：edge-to-edge 下 WebView 不随键盘收缩，且实测该 WebView 的
@@ -551,61 +624,46 @@ private fun AppShell(
                             @JavascriptInterface
                             fun pickTodoAlarm(requestId: String, dueDate: String, currentMinute: Int) {
                                 Handler(Looper.getMainLooper()).post {
-                                    if (!ensureTodoExactAlarmPermission()) {
-                                        postAlarmPickerResult(bridgeWebView, requestId, -1)
+                                    val request = TodoAlarmPickRequest(requestId, dueDate, currentMinute)
+                                    if (TaskAlarmScheduler.canScheduleExactAlarms(ctx.applicationContext)) {
+                                        showTodoAlarmTimePicker(request)
                                         return@post
                                     }
-                                    val now = java.util.Calendar.getInstance()
-                                    val initialMinute = if (currentMinute in 0..1439) {
-                                        currentMinute
-                                    } else {
-                                        now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
-                                            now.get(java.util.Calendar.MINUTE)
-                                    }
-                                    TimePickerDialog(
-                                        ctx,
-                                        { _, hourOfDay, minute ->
-                                            val pickedMinute = hourOfDay * 60 + minute
-                                            val pickedAt = runCatching {
-                                                java.time.LocalDate.parse(dueDate)
-                                                    .atTime(hourOfDay, minute)
-                                                    .atZone(java.time.ZoneId.systemDefault())
-                                                    .toInstant()
-                                                    .toEpochMilli()
-                                            }.getOrNull()
-                                            if (pickedAt == null || pickedAt <= System.currentTimeMillis()) {
-                                                android.widget.Toast.makeText(
-                                                    ctx,
-                                                    "提醒时间已过，请重新选择",
-                                                    android.widget.Toast.LENGTH_SHORT
-                                                ).show()
-                                                postAlarmPickerResult(bridgeWebView, requestId, -1)
+
+                                    pendingTodoAlarmPick = request
+                                    android.app.AlertDialog.Builder(ctx)
+                                        .setTitle("允许精确闹钟")
+                                        .setMessage("待办闹钟需要“闹钟和提醒”权限，才能在设置的时间准时响铃或震动。授权后会自动打开时间选择器。")
+                                        .setPositiveButton("去授权") { _, _ ->
+                                            val intent = TaskAlarmScheduler.exactAlarmSettingsIntent(ctx.applicationContext)
+                                            if (intent == null) {
+                                                pendingTodoAlarmPick = null
+                                                postTodoAlarmPickResult(bridgeWebView, requestId, -1)
                                             } else {
-                                                postAlarmPickerResult(bridgeWebView, requestId, pickedMinute)
+                                                try {
+                                                    exactAlarmPermissionLauncher.launch(intent)
+                                                } catch (e: Exception) {
+                                                    try {
+                                                        exactAlarmPermissionLauncher.launch(
+                                                            TaskAlarmScheduler.applicationDetailsSettingsIntent(ctx.applicationContext)
+                                                        )
+                                                    } catch (e2: Exception) {
+                                                        pendingTodoAlarmPick = null
+                                                        postTodoAlarmPickResult(bridgeWebView, requestId, -1)
+                                                    }
+                                                }
                                             }
-                                        },
-                                        initialMinute / 60,
-                                        initialMinute % 60,
-                                        true
-                                    ).apply {
-                                        setOnCancelListener {
-                                            postAlarmPickerResult(bridgeWebView, requestId, -1)
                                         }
-                                        show()
-                                    }
+                                        .setNegativeButton("取消") { _, _ ->
+                                            pendingTodoAlarmPick = null
+                                            postTodoAlarmPickResult(bridgeWebView, requestId, -1)
+                                        }
+                                        .setOnCancelListener {
+                                            pendingTodoAlarmPick = null
+                                            postTodoAlarmPickResult(bridgeWebView, requestId, -1)
+                                        }
+                                        .show()
                                 }
-                            }
-
-                            private fun ensureTodoExactAlarmPermission(): Boolean {
-                                if (TaskAlarmScheduler.canScheduleExactAlarms(ctx.applicationContext)) return true
-
-                                android.widget.Toast.makeText(
-                                    ctx,
-                                    "请先允许精确闹钟，再选择提醒时间",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
-                                TaskAlarmScheduler.openExactAlarmSettings(ctx.applicationContext)
-                                return false
                             }
 
                             @JavascriptInterface
@@ -663,19 +721,6 @@ private fun AppShell(
                                 }
                             }
 
-                            private fun postAlarmPickerResult(
-                                webView: WebView,
-                                requestId: String,
-                                minute: Int
-                            ) {
-                                val encodedId = org.json.JSONObject.quote(requestId)
-                                webView.post {
-                                    webView.evaluateJavascript(
-                                        "window.__todoAlarmPickResult && window.__todoAlarmPickResult($encodedId, $minute);",
-                                        null
-                                    )
-                                }
-                            }
                         }, "AppShell")
                         // 长按任务行拖拽排序的下拉刷新冲突, 在原生主线程同步处理:
                         // 网页 JS 长按检测经 bridge 关闭下拉刷新有跨线程延迟, 拖拽首帧可能已被

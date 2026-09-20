@@ -61,19 +61,28 @@ object TaskAlarmScheduler {
         return manager.canScheduleExactAlarms()
     }
 
+    fun exactAlarmSettingsIntent(context: Context): Intent? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
+        return Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+    }
+
+    fun applicationDetailsSettingsIntent(context: Context): Intent =
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
     fun openExactAlarmSettings(context: Context): Boolean {
         if (canScheduleExactAlarms(context)) return true
-        val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-            data = Uri.parse("package:${context.packageName}")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val intent = exactAlarmSettingsIntent(context) ?: return false
         val opened = runCatching { context.startActivity(intent) }.isSuccess
         if (opened) return true
-        val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.parse("package:${context.packageName}")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        return runCatching { context.startActivity(fallback) }.isSuccess
+        return runCatching {
+            context.startActivity(applicationDetailsSettingsIntent(context))
+        }.isSuccess
     }
 
     fun notificationsEnabled(context: Context): Boolean =
