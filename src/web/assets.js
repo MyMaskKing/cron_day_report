@@ -9528,6 +9528,48 @@ function openTodoEdit(node) {
 }
 // 勾选完成统一处理(列表勾选与任务详情弹窗子任务勾选共用): 二次确认 → 提交 → 刷新 → 庆祝
 // 返回 false 表示未完成(用户取消确认或请求失败), 调用方据此保留弹窗
+function todoTransferSubtreeAlarms(node, oldRows, newRows) {
+  var native = todoAlarmNative();
+  if (!native || typeof native.getTodoAlarm !== 'function' || typeof native.setTodoAlarm !== 'function' || !node || node.id == null) return;
+  var source = oldRows || _rows || [];
+  var oldIds = new Set([String(node.id)]);
+  var pending = true;
+  while (pending) {
+    pending = false;
+    source.forEach(function(r) {
+      if (r && r.id != null && r.parent_id != null && oldIds.has(String(r.parent_id)) && !oldIds.has(String(r.id))) {
+        oldIds.add(String(r.id));
+        pending = true;
+      }
+    });
+  }
+  var minutes = {};
+  oldIds.forEach(function(id) {
+    var minute = native.getTodoAlarm(id);
+    if (Number(minute) === minute && isFinite(minute) && minute >= 0 && minute < 1440) minutes[id] = minute;
+  });
+  if (!Object.keys(minutes).length) return;
+  var byId = {};
+  (newRows || []).forEach(function(r) { if (r && r.id != null) byId[r.id] = r; });
+  (newRows || []).forEach(function(r) {
+    if (!r || r.id == null || r.recur_from_id == null) return;
+    var newId = String(r.id), oldId = String(r.recur_from_id);
+    if (oldIds.has(newId) || !Object.prototype.hasOwnProperty.call(minutes, oldId)) return;
+    var due = todoEffDueRow(r, byId);
+    if (!due) return;
+    try {
+      var result = native.setTodoAlarm(JSON.stringify({
+        id: newId,
+        title: (r.title || '待办提醒').trim() || '待办提醒',
+        due_date: due,
+        minute: minutes[oldId]
+      }));
+      if (result && result !== 'ok' && window.console) console.warn('todo alarm transfer failed:', result);
+    } catch (e) {
+      if (window.console) console.warn('todo alarm transfer failed:', e && e.message);
+    }
+  });
+}
 function todoCancelSubtreeAlarms(node, rows) {
   var native = todoAlarmNative();
   if (!native || typeof native.cancelTodoAlarm !== 'function' || !node || node.id == null) return;
@@ -9550,10 +9592,12 @@ function todoCancelSubtreeAlarms(node, rows) {
 async function todoToggleDone(node, done) {
   if (!(await todoConfirmDoneIfPending(node, done))) return false;
   try {
+    var alarmRows = _rows.slice();
     await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
     await loadTodos(); await loadChart();
     if (done) {
-      todoCancelSubtreeAlarms(node, _rows);
+      todoTransferSubtreeAlarms(node, alarmRows, _rows);
+      todoCancelSubtreeAlarms(node, alarmRows);
       var cc = todoCelebrationCount(todoBuildTree(_rows), true);
       todoCelebrate(cc.remaining, cc.total);
     }
@@ -9642,10 +9686,12 @@ function drawTree() {
         var jumpToCurrent = !!(jr && jr.value === '1');
         var rm = document.querySelector('input[name="rmode"]:checked');
         var cloneMode = rm ? rm.value : 'all';
+        var alarmRows = _rows.slice();
         await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent, cloneMode: cloneMode } });
         closeModal();
         await loadTodos(); await loadChart();
-        todoCancelSubtreeAlarms(node, _rows);
+        todoTransferSubtreeAlarms(node, alarmRows, _rows);
+        todoCancelSubtreeAlarms(node, alarmRows);
         var cc = todoCelebrationCount(todoBuildTree(_rows), true);
         todoCelebrate(cc.remaining, cc.total);
       });
