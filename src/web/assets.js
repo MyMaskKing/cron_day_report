@@ -7652,10 +7652,23 @@ function todoAttachDoneLinkToTip(container, root, opts) {
     try { await opts.onToggle(root, !root.done); }
     finally { link.disabled = false; link.removeAttribute('data-busy'); }
   });
+  // "编辑主任务"与"完成主任务"同级同样式的低调文字链, 点击直接进编辑
+  var editLink = null;
+  if (opts.onEdit) {
+    editLink = document.createElement('button');
+    editLink.type = 'button';
+    editLink.className = 'todo-detail-edit';
+    editLink.textContent = '✎ 编辑主任务';
+    editLink.addEventListener('click', function(e){
+      e.stopPropagation();
+      opts.onEdit(root);
+    });
+  }
   if (tipEl) {
     // 命中提示文: 追加到文字流末尾, 与提示同段同行
     link.style.cssText = 'background:none;border:0;padding:2px 6px;margin-left:8px;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;';
     tipEl.appendChild(link);
+    if (editLink) { editLink.style.cssText = link.style.cssText; tipEl.appendChild(editLink); }
   } else {
     // 无提示文兜底: 独立一行, 靠右轻量文字链(免密页/报告页/全屏视图)
     link.style.cssText = 'background:none;border:0;padding:6px 8px;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;';
@@ -7663,6 +7676,7 @@ function todoAttachDoneLinkToTip(container, root, opts) {
     wrap.className = 'todo-detail-done-wrap';
     wrap.style.cssText = 'text-align:right;margin:12px 0 4px;';
     wrap.appendChild(link);
+    if (editLink) { editLink.style.cssText = link.style.cssText; wrap.appendChild(editLink); }
     homeBox.appendChild(wrap);
   }
 }
@@ -7713,13 +7727,15 @@ function todoRenderView(container, trees, opts) {
   if (detailRootId == null && view === 'card') detailRootId = todoMaybeRestoreDetail(trees);
   container.className = view === 'card' && detailRootId == null ? 'todo-cards' : 'todo-tree';
 
-  // 每次渲染先清理详情页"完成主任务"文字链, 由详情分支按需重新挂载
+  // 每次渲染先清理详情页"完成主任务/编辑主任务"文字链, 由详情分支按需重新挂载
   // 命中提示文时按钮挂在 .card 内的 <p> 里(homeBox.parentNode 范围), 兜底时挂在 homeBox 末尾
   var homeBox = container.parentNode;
   if (homeBox) {
     var scope = homeBox.parentNode || homeBox;
     var oldLink = scope.querySelector('.todo-detail-done');
     if (oldLink) oldLink.parentNode.removeChild(oldLink);
+    var oldEdit = scope.querySelector('.todo-detail-edit');
+    if (oldEdit) oldEdit.parentNode.removeChild(oldEdit);
     var oldWrap = scope.querySelector('.todo-detail-done-wrap');
     if (oldWrap) oldWrap.parentNode.removeChild(oldWrap);
   }
