@@ -97,17 +97,16 @@ class AlarmActivity : ComponentActivity() {
                     finish()
                 }
             )
+            // 返回键等同贪睡：避免误退后铃声继续无处可停（BackHandler 是 composable，必须在 setContent 内）
+            BackHandler {
+                sendCommand(AlarmRingingService.ACTION_SNOOZE)
+                finish()
+            }
         }
 
         // Service 超时/通知栏停铃后，页面同步关闭
         AlarmUiBus.listener = { event ->
             if (event == AlarmRingingService.EVENT_DISMISS) finish()
-        }
-
-        // 返回键等同贪睡：避免误退后铃声继续无处可停
-        BackHandler {
-            sendCommand(AlarmRingingService.ACTION_SNOOZE)
-            finish()
         }
     }
 
