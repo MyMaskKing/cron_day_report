@@ -105,7 +105,7 @@ class AlarmRingingService : Service() {
 
         startForegroundCompat(SVC_NOTIFICATION_ID, buildNotification(item.alarm))
         acquireWakeLock()
-        startSound()
+        startSound(item.alarm)
         startVibration()
         launchActivity(item.alarm)
 
@@ -121,6 +121,7 @@ class AlarmRingingService : Service() {
         releaseWakeLock()
         current = null
         NotificationManagerCompat.from(this).cancel(SVC_NOTIFICATION_ID)
+        NotificationManagerCompat.from(this).cancel(FALLBACK_NOTIFICATION_ID)
         AlarmUiBus.emit(EVENT_DISMISS)
     }
 
@@ -148,7 +149,7 @@ class AlarmRingingService : Service() {
 
     // ---------- 铃声 / 震动 / WakeLock ----------
 
-    private fun startSound() {
+    private fun startSound(alarm: StoredTaskAlarm) {
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         // 不能因静音模式不响：STREAM_ALARM 在静音、勿扰（默认允许闹钟穿透）下仍输出，
         // 与系统时钟闹钟同契约；仅用户在勿扰里明确禁用闹钟时才听不到（所有闹钟 App 皆然）
@@ -159,49 +160,97 @@ class AlarmRingingService : Service() {
         // 诊断信息（临时）：真机响铃页直接显示两个渠道真实声音 URI 与静音/勿扰状态
         lastRingDiagnostic = "ringer=${audioManager?.ringerMode} dnd=${notifManager?.currentInterruptionFilter}\n" +
             "ringCh=${channel?.sound}\nsvcCh=${notifManager?.getNotificationChannel(CHANNEL_ID)?.sound}"
-        if (channel != null && channel.sound == null) return
-
-        // 两级铃声：①「闹钟铃声设置」渠道所选（逻辑地址先解析为实际音频）
-        //          ②系统默认闹钟铃声（内置、必然可播，等同吊起系统闹铃声）
-        val candidates = buildList {
-            channel?.sound?.let { add(resolveAlarmUri(it)) }
-            (RingtoneManager.getActualDefaultRingtoneUri(
-                this@AlarmRingingService, RingtoneManager.TYPE_ALARM
-            ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))?.let { add(it) }
-        }.distinct()
-        for (uri in candidates) {
-            val mediaPlayer = runCatching {
-                MediaPlayer().apply {
-                    setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ALARM)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                    )
-                    setDataSource(this@AlarmRingingService, uri)
-                    isLooping = true
-                    prepare()
-                    start()
-                }
-            }.onFailure {
-                Log.w(TAG, "闹钟铃声播放失败: $uri", it)
-                lastRingDiagnostic += "\nfail($uri): ${it.javaClass.simpleName}: ${it.message}"
-            }.getOrNull()
-            if (mediaPlayer != null) {
-                player = mediaPlayer
-                lastRingDiagnostic += "\nplayer=OK: $uri"
-                requestAudioFocus()
-                // 铃声已启动但闹钟音量为 0 时用户仍听不到，明确提示
-                if ((audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: 0) == 0) {
-                    Toast.makeText(this, "闹钟音量为 0：请按音量键调大“闹钟音量”", Toast.LENGTH_LONG).show()
-                }
+        if (channel?.sound != null) {
+            // ① App 自己循环播放用户所选铃声
+            val userUri = resolveAlarmUri(channel.sound)
+            if (playLooping(userUri)) {
+                lastRingDiagnostic += "\nplayer=OK: $userUri"
+                checkAlarmVolumeHint(audioManager)
+                return
+            }
+            // ② 旧机制（完整闹钟前）：有声渠道发通知，由系统播放用户所选铃声（响一遍）
+            if (showFallbackNotification(alarm)) {
+                lastRingDiagnostic += "\nfallback=sysNotify(channel ring)"
                 return
             }
         }
-        // 系统内置闹铃声也播放失败（现实中几乎不可能）：保留震动并提示
-        lastRingDiagnostic += "\nplayer=FAIL(all)"
+        // ③ 兜底：系统默认闹钟铃声（各品牌各自出厂默认，本机 vivo 为 Encounter）
+        val defaultUri = RingtoneManager.getActualDefaultRingtoneUri(
+            this, RingtoneManager.TYPE_ALARM
+        ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+        if (defaultUri != null && playLooping(defaultUri)) {
+            lastRingDiagnostic += "\ndefaultAlarm=OK: $defaultUri"
+            return
+        }
+        lastRingDiagnostic += "\nall=FAIL"
         Log.e(TAG, "全部候选闹钟铃声均播放失败")
         Toast.makeText(this, "闹钟铃声启动失败，请检查系统闹钟铃声设置", Toast.LENGTH_LONG).show()
+    }
+
+    /** MediaPlayer 循环播放指定铃声；成功持有 player 并申请音频焦点，失败记录诊断。 */
+    private fun playLooping(uri: Uri): Boolean {
+        val mediaPlayer = runCatching {
+            MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                setDataSource(this@AlarmRingingService, uri)
+                isLooping = true
+                prepare()
+                start()
+            }
+        }.onFailure {
+            Log.w(TAG, "闹钟铃声播放失败: $uri", it)
+            lastRingDiagnostic += "\nfail($uri): ${it.javaClass.simpleName}: ${it.message}"
+        }.getOrNull() ?: return false
+        player = mediaPlayer
+        requestAudioFocus()
+        return true
+    }
+
+    /** 铃声启动但闹钟音量为 0 时提示用户调音量。 */
+    private fun checkAlarmVolumeHint(audioManager: AudioManager?) {
+        if ((audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: 0) == 0) {
+            Toast.makeText(this, "闹钟音量为 0：请按音量键调大“闹钟音量”", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /**
+     * ② 旧机制兜底：用有声的「闹钟铃声设置」渠道发普通通知，
+     * 系统收到后播放用户所选铃声（响一遍、不循环）；通知成功提交系统返回 true。
+     */
+    private fun showFallbackNotification(alarm: StoredTaskAlarm): Boolean {
+        val path = if (alarm.todoId == TEST_ALARM_TODO_ID) {
+            "/todo"
+        } else {
+            "/todo?edit=" + Uri.encode(alarm.todoId)
+        }
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(Keys.Url.name, alarm.baseUrl + path)
+        }
+        val pi = PendingIntent.getActivity(
+            this, alarm.requestCode, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, TaskAlarmScheduler.CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_chip_today)
+            .setContentTitle("待办闹钟")
+            .setContentText(alarm.title)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(alarm.title))
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setContentIntent(pi)
+            .build()
+        return runCatching {
+            NotificationManagerCompat.from(this).notify(FALLBACK_NOTIFICATION_ID, notification)
+        }.isSuccess
     }
 
     /**
@@ -381,6 +430,7 @@ class AlarmRingingService : Service() {
         const val ACTION_SNOOZE = "xyz.a10023456.todowidget.ALARM_SNOOZE"
         const val EXTRA_ALARM_JSON = "alarm_json"
         const val SVC_NOTIFICATION_ID = 40000
+        const val FALLBACK_NOTIFICATION_ID = SVC_NOTIFICATION_ID + 10
         const val EVENT_DISMISS = "dismiss"
 
         const val TEST_ALARM_TODO_ID = "__alarm_test__"
