@@ -42,7 +42,8 @@ class AlarmRingingService : Service() {
 
     private data class RingingItem(
         val alarm: StoredTaskAlarm,
-        val startedAtMs: Long
+        val startedAtMs: Long,
+        val launchActivity: Boolean
     )
 
     private val queue = ArrayDeque<RingingItem>()
@@ -85,7 +86,13 @@ class AlarmRingingService : Service() {
                     if (current == null && queue.isEmpty()) stopSelf()
                     return START_REDELIVER_INTENT
                 }
-                queue.add(RingingItem(alarm, System.currentTimeMillis()))
+                queue.add(
+                    RingingItem(
+                        alarm,
+                        System.currentTimeMillis(),
+                        intent.getBooleanExtra(EXTRA_LAUNCH_ACTIVITY, true)
+                    )
+                )
                 if (current == null) beginNext()
             }
         }
@@ -107,7 +114,8 @@ class AlarmRingingService : Service() {
         acquireWakeLock()
         startSound(item.alarm)
         startVibration()
-        launchActivity(item.alarm)
+        // 仅测试路径（App 在前台）由 Service 启动页面；真实闹钟已由 Receiver 在豁免窗口拉起
+        if (item.launchActivity) launchActivity(item.alarm)
 
         mainHandler.removeCallbacks(timeoutRunnable)
         mainHandler.postDelayed(timeoutRunnable, RINGING_TIMEOUT_MS)
@@ -379,8 +387,10 @@ class AlarmRingingService : Service() {
             .setOngoing(true)
             .setContentIntent(openPi)
             .addAction(R.drawable.ic_chip_today, "停止", commandPendingIntent(ACTION_STOP, 1))
-            .addAction(R.drawable.ic_chip_today, "贪睡 5 分钟", commandPendingIntent(ACTION_SNOOZE, 2))
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(R.drawable.ic_chip_today, "再等一会", commandPendingIntent(ACTION_SNOOZE, 2))
+            // 全屏 Intent：屏幕锁定时由系统直接拉起闹钟页，绕过后台启动限制（国产 ROM 支持最可靠）
+            .setFullScreenIntent(openPi, true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .build()
     }
 
@@ -430,6 +440,7 @@ class AlarmRingingService : Service() {
         const val ACTION_STOP = "xyz.a10023456.todowidget.ALARM_STOP"
         const val ACTION_SNOOZE = "xyz.a10023456.todowidget.ALARM_SNOOZE"
         const val EXTRA_ALARM_JSON = "alarm_json"
+        const val EXTRA_LAUNCH_ACTIVITY = "launch_activity"
         const val SVC_NOTIFICATION_ID = 40000
         const val FALLBACK_NOTIFICATION_ID = SVC_NOTIFICATION_ID + 10
         const val EVENT_DISMISS = "dismiss"
@@ -441,14 +452,17 @@ class AlarmRingingService : Service() {
         const val RINGING_TIMEOUT_MS = 5 * 60 * 1000L
         const val SNOOZE_DELAY_MS = 5 * 60 * 1000L
 
-        /** 闹钟到点：以前台服务方式启动响铃。 */
-        fun start(context: Context, alarm: StoredTaskAlarm) {
+        /** 闹钟到点：以前台服务方式启动响铃。
+         *  launchActivity=true 时由 Service 启动闹钟页（测试/App 前台路径）；
+         *  false 时页面已由闹钟 Receiver 在后台启动豁免窗口拉起。 */
+        fun start(context: Context, alarm: StoredTaskAlarm, launchActivity: Boolean = true) {
             val payload = Json {
                 ignoreUnknownKeys = true
                 encodeDefaults = true
             }.encodeToString(StoredTaskAlarm.serializer(), alarm)
             val intent = Intent(context, AlarmRingingService::class.java).apply {
                 putExtra(EXTRA_ALARM_JSON, payload)
+                putExtra(EXTRA_LAUNCH_ACTIVITY, launchActivity)
             }
             ContextCompat.startForegroundService(context, intent)
         }

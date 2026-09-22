@@ -364,12 +364,16 @@ object TaskAlarmScheduler {
 
     fun fire(context: Context, key: String) {
         val alarm = TaskAlarmStore.find(context, key) ?: return
-        // 闹钟已由服务端 alarm_minute 成为事实源、重复滚动由后端复制，触发即删本地记录
+        // 在 AlarmManager 广播的豁免窗口内（本函数由 Receiver.onReceive 同步调用）
+        // 直接拉起全屏闹钟页：解决锁屏/后台时 Service 稍后启动 Activity 被系统拦截的问题
+        AlarmActivity.start(context, alarm)
+        // 触发即删本地记录（重复滚动由后端 alarm_minute 复制，不依赖本地迁移）
         TaskAlarmStore.remove(context, key)
         val firedAt = System.currentTimeMillis()
         context.getSharedPreferences(META_PREFS, Context.MODE_PRIVATE)
             .edit().putLong(KEY_LAST_FIRE, firedAt).apply()
-        AlarmRingingService.start(context, alarm)
+        // 启动响铃服务；真实闹钟路径由 Receiver 已拉起页面，Service 不再重复启动 Activity
+        AlarmRingingService.start(context, alarm, launchActivity = false)
     }
 
     /**

@@ -73,7 +73,13 @@ class AlarmActivity : ComponentActivity() {
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
             )
         }
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // 全屏闹钟窗口：解锁屏幕、保持亮屏、窗口置于锁屏之上且可在锁屏时获得焦点
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+        )
 
         alarm = readAlarm()
 
@@ -135,6 +141,26 @@ class AlarmActivity : ComponentActivity() {
     override fun onDestroy() {
         if (AlarmUiBus.listener != null) AlarmUiBus.listener = null
         super.onDestroy()
+    }
+
+    companion object {
+        /** 构造打开闹钟页的 Intent（携带序列化闹钟）。 */
+        fun alarmIntent(context: android.content.Context, alarm: StoredTaskAlarm): Intent {
+            val payload = Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = true
+            }.encodeToString(StoredTaskAlarm.serializer(), alarm)
+            return Intent(context, AlarmActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(AlarmRingingService.EXTRA_ALARM_JSON, payload)
+            }
+        }
+
+        /** 从闹钟 Receiver（豁免上下文）直接拉起全屏闹钟页。 */
+        fun start(context: android.content.Context, alarm: StoredTaskAlarm) {
+            runCatching { context.startActivity(alarmIntent(context, alarm)) }
+        }
     }
 }
 
