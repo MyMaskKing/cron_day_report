@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,8 +33,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,8 +43,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -53,7 +56,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-/** 闹钟全屏响铃页：强制深色大字，可在锁屏之上显示。 */
+/** 闹钟全屏响铃页：深色玻璃风（A 方案），可在锁屏之上显示。 */
 class AlarmActivity : ComponentActivity() {
 
     private var alarm: StoredTaskAlarm? = null
@@ -103,7 +106,7 @@ class AlarmActivity : ComponentActivity() {
                     finish()
                 }
             )
-            // 返回键等同贪睡：避免误退后铃声继续无处可停（BackHandler 是 composable，必须在 setContent 内）
+            // 返回键等同再等一会：避免误退后铃声继续无处可停（BackHandler 是 composable，必须在 setContent 内）
             BackHandler {
                 sendCommand(AlarmRingingService.ACTION_SNOOZE)
                 finish()
@@ -135,14 +138,17 @@ class AlarmActivity : ComponentActivity() {
     }
 }
 
-// ---------- 颜色（强制深色，不随用户主题，保证锁屏可读） ----------
+// ---------- A 方案配色（强制深色，不随用户主题，保证锁屏可读） ----------
 
-private val AlarmBg = Color(0xFF0E0E14)
-private val AlarmSurface = Color(0xFF1A1B24)
-private val AlarmText = Color(0xFFEDEDF2)
-private val AlarmMuted = Color(0xFF9AA0B0)
-private val AlarmAccent = Color(0xFFB97BFF)
-private val AlarmDanger = Color(0xFFE5484D)
+private val AlarmBg = Color(0xFF14141E)
+private val GlassColor = Color(0xFF1E2230).copy(alpha = .62f)
+private val GlassBorder = Color.White.copy(alpha = .08f)
+private val AlarmText = Color(0xFFF2F3F8)
+private val AlarmMuted = Color(0xFF8A90A6)
+private val AccentText = Color(0xFFC9A4FF)
+private val AccentBorder = Color(0xFFB97BFF).copy(alpha = .5f)
+private val ChipColor = Color(0xFFA855F7).copy(alpha = .18f)
+private val DangerBrush = Brush.horizontalGradient(listOf(Color(0xFFDC2626), Color(0xFFB91C1C)))
 
 @Composable
 private fun AlarmScreen(
@@ -151,12 +157,49 @@ private fun AlarmScreen(
     onSnooze: () -> Unit,
     onDetail: (StoredTaskAlarm) -> Unit
 ) {
-    Surface(color = AlarmBg, contentColor = AlarmText) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AlarmBg)
+    ) {
+        // 背景氛围光（径向渐变模拟，无需 RenderEffect）
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.radialGradient(
+                    listOf(Color(0xFFA855F7).copy(alpha = .30f), Color.Transparent),
+                    center = Offset(maxWidth.toPx() * .85f, maxHeight.toPx() * .10f),
+                    radius = 420.dp.toPx()
+                )
+            )
+        )
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.radialGradient(
+                    listOf(Color(0xFF3B82F6).copy(alpha = .18f), Color.Transparent),
+                    center = Offset(maxWidth.toPx() * .05f, maxHeight.toPx() * .62f),
+                    radius = 420.dp.toPx()
+                )
+            )
+        )
+        Box(
+            Modifier.matchParentSize().background(
+                Brush.radialGradient(
+                    listOf(Color(0xFFFF7A59).copy(alpha = .13f), Color.Transparent),
+                    center = Offset(maxWidth.toPx() * .10f, maxHeight.toPx() * .30f),
+                    radius = 380.dp.toPx()
+                )
+            )
+        )
+
+        // 玻璃面板
         Column(
             modifier = Modifier
+                .padding(14.dp)
                 .fillMaxSize()
+                .background(GlassColor, RoundedCornerShape(26.dp))
+                .border(1.dp, GlassBorder, RoundedCornerShape(26.dp))
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 22.dp, vertical = 28.dp),
+                .padding(horizontal = 20.dp, vertical = 22.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             var now by remember { mutableStateOf(LocalTime.now()) }
@@ -166,64 +209,106 @@ private fun AlarmScreen(
                     delay(1000L)
                 }
             }
+
+            // 顶栏：闹钟徽章 + 日期
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier
+                        .background(ChipColor, RoundedCornerShape(999.dp))
+                        .padding(horizontal = 11.dp, vertical = 5.dp)
+                ) {
+                    Text("⏰ 待办闹钟", color = AccentText, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Text(
+                    LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日 EEEE")),
+                    color = AlarmMuted,
+                    fontSize = 12.sp
+                )
+            }
+
+            Spacer(Modifier.height(18.dp))
+
+            // 当前时间（大字，C 方案样式）
             Text(
-                now.format(DateTimeFormatter.ofPattern("HH:mm:ss")),
-                fontSize = 46.sp,
+                now.format(DateTimeFormatter.ofPattern("HH:mm")),
+                fontSize = 54.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                color = AlarmAccent
+                color = AlarmText,
+                lineHeight = 56.sp
             )
-            Spacer(Modifier.height(20.dp))
+
+            Spacer(Modifier.height(18.dp))
+
             Text(
                 alarm?.title ?: "待办提醒",
-                fontSize = 30.sp,
+                fontSize = 21.sp,
                 fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
+                color = AlarmText,
+                textAlign = TextAlign.Center,
+                lineHeight = 28.sp
             )
-            Spacer(Modifier.height(14.dp))
-            MetaChips(alarm)
-            Spacer(Modifier.height(22.dp))
-            ChildrenSection(alarm)
-            Spacer(Modifier.height(28.dp))
 
+            Spacer(Modifier.height(13.dp))
+
+            if (alarm != null) MetaChips(alarm)
+
+            Spacer(Modifier.height(20.dp))
+
+            ChildrenSection(alarm)
+
+            Spacer(Modifier.height(24.dp))
+
+            // 停止（红色渐变，主操作）
             Button(
                 onClick = onStop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
-                shape = RoundedCornerShape(16.dp),
+                    .height(60.dp)
+                    .background(DangerBrush, RoundedCornerShape(14.dp)),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = AlarmDanger,
+                    containerColor = Color.Transparent,
                     contentColor = Color.White
                 )
             ) {
-                Text("停止", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text("停止", fontSize = 19.sp, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(12.dp))
+
+            Spacer(Modifier.height(10.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // 再等一会（贪睡 5 分钟）
                 OutlinedButton(
                     onClick = onSnooze,
                     modifier = Modifier
                         .weight(1f)
-                        .height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, AlarmMuted)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, AccentBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = AccentText
+                    )
                 ) {
-                    Text("贪睡 5 分钟", color = AlarmText, fontSize = 15.sp)
+                    Text("再等一会", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
+                // 查看详情（弱化为纯文字）
                 if (alarm != null) {
-                    OutlinedButton(
+                    TextButton(
                         onClick = { onDetail(alarm) },
                         modifier = Modifier
                             .weight(1f)
-                            .height(52.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, AlarmMuted)
+                            .height(50.dp)
                     ) {
-                        Text("查看详情", color = AlarmText, fontSize = 15.sp)
+                        Text("查看详情", color = AlarmMuted, fontSize = 13.sp)
                     }
                 }
             }
@@ -233,8 +318,7 @@ private fun AlarmScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun MetaChips(alarm: StoredTaskAlarm?) {
-    if (alarm == null) return
+private fun MetaChips(alarm: StoredTaskAlarm) {
     val today = LocalDate.now()
     val chips = mutableListOf<String>()
 
@@ -268,10 +352,10 @@ private fun MetaChips(alarm: StoredTaskAlarm?) {
         chips.forEach { chip ->
             Box(
                 modifier = Modifier
-                    .background(AlarmSurface, RoundedCornerShape(999.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .background(ChipColor, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 11.dp, vertical = 5.dp)
             ) {
-                Text(chip, color = AlarmMuted, fontSize = 14.sp)
+                Text(chip, color = AccentText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -308,13 +392,13 @@ private fun ChildrenSection(alarm: StoredTaskAlarm?) {
         }
         Text(
             (if (focusOne) "最近到期" else "子任务") + headMeta,
-            color = AlarmText,
-            fontSize = 16.sp,
+            color = AlarmMuted,
+            fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         if (viewList.isEmpty()) {
-            Text("🎉 子任务已全部完成", color = AlarmMuted, fontSize = 16.sp)
+            Text("🎉 子任务已全部完成", color = AlarmMuted, fontSize = 15.sp)
         } else {
             viewList.forEach { child -> ChildRow(child, today) }
         }
@@ -331,14 +415,14 @@ private fun ChildRow(child: TaskAlarmChild, today: LocalDate) {
     ) {
         Box(
             modifier = Modifier
-                .size(20.dp)
-                .border(1.5.dp, AlarmMuted, CircleShape)
+                .size(19.dp)
+                .border(1.5.dp, Color(0xFF5A6280), CircleShape)
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(11.dp))
         Text(
             child.title,
-            color = AlarmText,
-            fontSize = 17.sp,
+            color = Color(0xFFD6D9E6),
+            fontSize = 14.sp,
             modifier = Modifier.weight(1f)
         )
         val due = child.dueDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
@@ -348,7 +432,7 @@ private fun ChildRow(child: TaskAlarmChild, today: LocalDate) {
                 today.plusDays(1) -> "明天"
                 else -> due.format(DateTimeFormatter.ofPattern("MM-dd"))
             }
-            Text(label, color = AlarmMuted, fontSize = 14.sp)
+            Text(label, color = AlarmMuted, fontSize = 12.sp)
         }
     }
 }
