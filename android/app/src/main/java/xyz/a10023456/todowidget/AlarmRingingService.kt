@@ -105,7 +105,7 @@ class AlarmRingingService : Service() {
 
         startForegroundCompat(SVC_NOTIFICATION_ID, buildNotification(item.alarm))
         acquireWakeLock()
-        startSound()
+        startSound(item.alarm)
         startVibration()
         launchActivity(item.alarm)
 
@@ -121,6 +121,7 @@ class AlarmRingingService : Service() {
         releaseWakeLock()
         current = null
         NotificationManagerCompat.from(this).cancel(SVC_NOTIFICATION_ID)
+        NotificationManagerCompat.from(this).cancel(FALLBACK_NOTIFICATION_ID)
         AlarmUiBus.emit(EVENT_DISMISS)
     }
 
@@ -148,7 +149,7 @@ class AlarmRingingService : Service() {
 
     // ---------- 铃声 / 震动 / WakeLock ----------
 
-    private fun startSound() {
+    private fun startSound(alarm: StoredTaskAlarm) {
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         // 完全静音模式不响铃（震动由 startVibration 单独决定）
         if (audioManager?.ringerMode == AudioManager.RINGER_MODE_SILENT) return
@@ -196,8 +197,43 @@ class AlarmRingingService : Service() {
                 return
             }
         }
-        Log.e(TAG, "全部候选闹钟铃声均播放失败")
-        Toast.makeText(this, "闹钟铃声播放失败，已改为仅震动；请在系统设置中改用系统铃声", Toast.LENGTH_LONG).show()
+        // 播放器整体失败：降级为有声渠道普通通知，由系统播铃声（响一遍），保证至少听得到
+        Log.e(TAG, "全部候选闹钟铃声均播放失败，降级为系统通知铃声")
+        showFallbackNotification(alarm)
+        Toast.makeText(this, "循环铃声启动失败，已降级为普通通知铃声", Toast.LENGTH_LONG).show()
+    }
+
+    /**
+     * 降级兜底：用有声的「闹钟铃声设置」渠道发一条普通通知，系统收到后自动播放渠道铃声
+     * （与完整闹钟前的旧机制一致，响一遍、不循环）。仅在 MediaPlayer 全失败时调用，故不会双响。
+     */
+    private fun showFallbackNotification(alarm: StoredTaskAlarm) {
+        val path = if (alarm.todoId == TEST_ALARM_TODO_ID) {
+            "/todo"
+        } else {
+            "/todo?edit=" + Uri.encode(alarm.todoId)
+        }
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(Keys.Url.name, alarm.baseUrl + path)
+        }
+        val pi = PendingIntent.getActivity(
+            this, alarm.requestCode, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, TaskAlarmScheduler.CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_chip_today)
+            .setContentTitle("待办闹钟")
+            .setContentText(alarm.title)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(alarm.title))
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setContentIntent(pi)
+            .build()
+        NotificationManagerCompat.from(this).notify(FALLBACK_NOTIFICATION_ID, notification)
     }
 
     /**
@@ -373,6 +409,7 @@ class AlarmRingingService : Service() {
         const val ACTION_SNOOZE = "xyz.a10023456.todowidget.ALARM_SNOOZE"
         const val EXTRA_ALARM_JSON = "alarm_json"
         const val SVC_NOTIFICATION_ID = 40000
+        const val FALLBACK_NOTIFICATION_ID = SVC_NOTIFICATION_ID + 10
         const val EVENT_DISMISS = "dismiss"
 
         const val TEST_ALARM_TODO_ID = "__alarm_test__"
