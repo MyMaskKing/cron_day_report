@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -160,34 +162,19 @@ private fun AlarmScreen(
             .fillMaxSize()
             .background(AlarmBg)
     ) {
-        // 背景氛围光（径向渐变，Alignment 定位，无需像素换算）
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.radialGradient(
-                    listOf(Color(0xFFA855F7).copy(alpha = .30f), Color.Transparent),
-                    center = Alignment.TopEnd,
-                    radius = 320.dp
-                )
-            )
-        )
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.radialGradient(
-                    listOf(Color(0xFF3B82F6).copy(alpha = .18f), Color.Transparent),
-                    center = Alignment.CenterStart,
-                    radius = 320.dp
-                )
-            )
-        )
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.radialGradient(
-                    listOf(Color(0xFFFF7A59).copy(alpha = .13f), Color.Transparent),
-                    center = Alignment.TopStart,
-                    radius = 280.dp
-                )
-            )
-        )
+        // 背景氛围光：drawWithCache 在尺寸确定后按比例定位（Offset/Float 为 radialGradient 真实签名）
+        Box(Modifier.matchParentSize().alarmGlow(
+            Color(0xFFA855F7).copy(alpha = .30f),
+            centerRatioX = .85f, centerRatioY = .08f, radiusRatio = .7f
+        ))
+        Box(Modifier.matchParentSize().alarmGlow(
+            Color(0xFF3B82F6).copy(alpha = .18f),
+            centerRatioX = .05f, centerRatioY = .62f, radiusRatio = .7f
+        ))
+        Box(Modifier.matchParentSize().alarmGlow(
+            Color(0xFFFF7A59).copy(alpha = .13f),
+            centerRatioX = .10f, centerRatioY = .30f, radiusRatio = .6f
+        ))
 
         // 玻璃面板
         Column(
@@ -401,6 +388,24 @@ private fun ChildrenSection(alarm: StoredTaskAlarm?) {
             viewList.forEach { child -> ChildRow(child, today) }
         }
     }
+}
+
+/**
+ * 在当前节点范围内绘制一团径向氛围光：中心按画布尺寸比例定位，
+ * 半径取较短边的 radiusRatio；drawWithCache 使尺寸变化时才重建 Brush。
+ */
+private fun Modifier.alarmGlow(
+    glowColor: Color,
+    centerRatioX: Float,
+    centerRatioY: Float,
+    radiusRatio: Float
+): Modifier = drawWithCache {
+    val brush = Brush.radialGradient(
+        colors = listOf(glowColor, Color.Transparent),
+        center = Offset(size.width * centerRatioX, size.height * centerRatioY),
+        radius = size.minDimension * radiusRatio
+    )
+    onDrawBehind { drawRect(brush) }
 }
 
 @Composable
