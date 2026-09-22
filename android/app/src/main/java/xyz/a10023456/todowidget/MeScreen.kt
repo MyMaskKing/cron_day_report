@@ -331,6 +331,10 @@ private fun meAlarmSubtitle(alarm: StoredTaskAlarm): String {
     val hourText = if (hour < 10) "0$hour" else hour.toString()
     val minuteText = if (minute < 10) "0$minute" else minute.toString()
     val server = alarm.baseUrl.removePrefix("https://").removePrefix("http://")
+    // 贪睡瞬态记录：标注再响时间，不显示内部 id
+    if (TaskAlarmScheduler.isSnoozeAlarm(alarm)) {
+        return "贪睡中 · ${alarm.dueDate} $hourText:$minuteText 再响\n$server"
+    }
     return "${alarm.dueDate} $hourText:$minuteText · #${alarm.todoId}\n$server"
 }
 

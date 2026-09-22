@@ -261,12 +261,16 @@ object TaskAlarmScheduler {
     }
 
     fun listAlarms(context: Context): List<StoredTaskAlarm> {
-        // 打开闹钟管理先清掉过期记录（含未真正响起、错过的），再列出待响项
+        // 打开闹钟管理先清掉过期记录（含未真正响起、错过的贪睡），再列出待响项
         pruneExpired(context)
+        // 未触发的贪睡记录也显示（副标题标注"贪睡中 HH:MM 再响"），可手动取消
         return TaskAlarmStore.list(context)
-            .filter { !it.todoId.startsWith(SNOOZE_TODO_PREFIX) }
             .sortedWith(compareBy({ it.dueDate }, { it.minute }))
     }
+
+    /** 是否贪睡瞬态记录。 */
+    fun isSnoozeAlarm(alarm: StoredTaskAlarm): Boolean =
+        alarm.todoId.startsWith(SNOOZE_TODO_PREFIX)
 
     fun deleteAlarm(context: Context, key: String) {
         TaskAlarmStore.find(context, key)?.let { cancelStored(context, it) }
@@ -328,6 +332,21 @@ object TaskAlarmScheduler {
             }
             if (gone) cancelStored(context, stored)
         }
+
+        // ③ 取消未触发的贪睡：其原任务已完成 / 闹钟被移除（full 缺席同取消）；
+        //    避免任务完成后贪睡还响一次、重复任务贪睡与新周期双响
+        TaskAlarmStore.list(context)
+            .filter { it.baseUrl == normalizedBase && it.todoId.startsWith(SNOOZE_TODO_PREFIX) }
+            .forEach { snoozeRec ->
+                val origId = snoozeRec.todoId.removePrefix(SNOOZE_TODO_PREFIX)
+                val origTask = byKey[StoredTaskAlarm.taskAlarmKey(normalizedBase, origId)]
+                val cancel = when {
+                    origTask == null -> payload.full
+                    origTask.done || origTask.alarmMinute == null -> true
+                    else -> false
+                }
+                if (cancel) cancelStored(context, snoozeRec)
+            }
     }
 
     fun rescheduleAll(context: Context) {
