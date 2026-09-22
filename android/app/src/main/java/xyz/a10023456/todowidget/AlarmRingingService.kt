@@ -188,8 +188,10 @@ class AlarmRingingService : Service() {
                     prepare()
                     start()
                 }
-            }.onFailure { Log.w(TAG, "闹钟铃声播放失败: $uri", it) }
-                .getOrNull()
+            }.onFailure {
+                Log.w(TAG, "闹钟铃声播放失败: $uri", it)
+                lastRingDiagnostic += "\nfail($uri): ${it.javaClass.simpleName}: ${it.message}"
+            }.getOrNull()
             if (mediaPlayer != null) {
                 player = mediaPlayer
                 lastRingDiagnostic += "\nplayer=OK: $uri"

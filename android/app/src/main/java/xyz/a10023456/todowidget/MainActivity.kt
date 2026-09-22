@@ -83,6 +83,10 @@ class MainActivity : ComponentActivity() {
 
     private var pendingTestNotification = false
 
+    // 音频读取权限：App 自己的 MediaPlayer 播放用户选择的自定义铃声需要
+    private val audioPermissionLauncher =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+
     private val notificationPermissionLauncher =
         registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
             val shouldShowTest = pendingTestNotification
@@ -107,6 +111,7 @@ class MainActivity : ComponentActivity() {
         TaskAlarmScheduler.createChannel(this)
         AlarmRingingService.ensureChannel(this)
         ReminderNotifier.createChannel(this)
+        maybeRequestAudioPermission()
         maybeRequestNotificationPermission()
         // 保持 targetSdk 35 默认 edge-to-edge：WebView 不随软键盘收缩，visualViewport 如实反映
         // 键盘高度（innerHeight 不变、vv.height 缩小），由网页 COMMON_JS 据 vv 把弹窗几何对齐到
@@ -139,6 +144,19 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun maybeRequestAudioPermission() {
+        // Android 13+ 用细分的 READ_MEDIA_AUDIO；12 及以下用 READ_EXTERNAL_STORAGE
+        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            android.Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        if (ContextCompat.checkSelfPermission(this, permission) ==
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        audioPermissionLauncher.launch(permission)
     }
 
     private fun maybeRequestNotificationPermission() {
