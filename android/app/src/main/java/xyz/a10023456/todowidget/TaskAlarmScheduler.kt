@@ -24,6 +24,7 @@ import java.time.ZoneId
 object TaskAlarmScheduler {
     const val CHANNEL_ID = "todo_task_alarm"
     const val EXTRA_KEY = "task_alarm_key"
+    private const val CHANNEL_NAME = "闹钟铃声设置"
 
     private const val FULL_SCREEN_REQUEST = 15000
 
@@ -151,7 +152,12 @@ object TaskAlarmScheduler {
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
+        // 一次性改名迁移：名字不符（旧"待办闹钟"）则删除重建；之后复用渠道、保留用户自定义
+        val existing = manager.getNotificationChannel(CHANNEL_ID)
+        if (existing != null) {
+            if (existing.name?.toString() == CHANNEL_NAME) return
+            manager.deleteNotificationChannel(CHANNEL_ID)
+        }
 
         val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
@@ -161,10 +167,10 @@ object TaskAlarmScheduler {
             .build()
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "待办闹钟",
+            CHANNEL_NAME,
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "待办闹钟的铃声与震动；响铃时循环播放直到停止"
+            description = "闹钟的铃声与震动在此设置；响铃时循环播放直到停止"
             enableVibration(true)
             vibrationPattern = longArrayOf(0, 800, 600, 800, 600)
             setSound(sound, attributes)

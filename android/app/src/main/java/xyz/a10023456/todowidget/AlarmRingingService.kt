@@ -323,13 +323,18 @@ class AlarmRingingService : Service() {
     private fun createChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
+        // 一次性改名迁移：旧"闹钟服务"名字不符则删除重建
+        val existing = manager.getNotificationChannel(CHANNEL_ID)
+        if (existing != null) {
+            if (existing.name?.toString() == CHANNEL_NAME) return
+            manager.deleteNotificationChannel(CHANNEL_ID)
+        }
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "闹钟服务",
+            CHANNEL_NAME,
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "闹钟响铃期间的控制通知（铃声由闹钟单独播放）"
+            description = "响铃时出现在通知栏并拉起响铃页，提供停止/贪睡按钮；本渠道无声，无需改铃声"
             setShowBadge(false)
         }
         manager.createNotificationChannel(channel)
@@ -353,6 +358,7 @@ class AlarmRingingService : Service() {
 
         const val TEST_ALARM_TODO_ID = "__alarm_test__"
         private const val TEST_NOTIFICATION_ID = 29999
+        private const val CHANNEL_NAME = "闹钟通知栏及页面设置"
 
         const val RINGING_TIMEOUT_MS = 5 * 60 * 1000L
         const val SNOOZE_DELAY_MS = 5 * 60 * 1000L
