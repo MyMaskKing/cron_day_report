@@ -248,17 +248,33 @@ object TaskAlarmScheduler {
         TaskAlarmStore.find(context, key)?.let { cancelStored(context, it) }
     }
 
-    fun listAlarms(context: Context): List<StoredTaskAlarm> =
-        // 过滤贪睡瞬态记录；正常闹钟触发即删，无残留
-        TaskAlarmStore.list(context)
+    /**
+     * 删除所有触发时间已过（或无法解析）的本地闹钟，含贪睡瞬态；
+     * 打开闹钟管理、对账前调用，避免列表里残留错过的闹钟。
+     */
+    fun pruneExpired(context: Context) {
+        val now = System.currentTimeMillis()
+        TaskAlarmStore.list(context).forEach { a ->
+            val t = triggerAtMillis(a.dueDate, a.minute)
+            if (t == null || t <= now) cancelStored(context, a)
+        }
+    }
+
+    fun listAlarms(context: Context): List<StoredTaskAlarm> {
+        // 打开闹钟管理先清掉过期记录（含未真正响起、错过的），再列出待响项
+        pruneExpired(context)
+        return TaskAlarmStore.list(context)
             .filter { !it.todoId.startsWith(SNOOZE_TODO_PREFIX) }
             .sortedWith(compareBy({ it.dueDate }, { it.minute }))
+    }
 
     fun deleteAlarm(context: Context, key: String) {
         TaskAlarmStore.find(context, key)?.let { cancelStored(context, it) }
     }
 
     fun reconcile(context: Context, baseUrl: String, raw: String) {
+        // 先清过期记录：兜底本地有但本次 payload 不含（非 full）的错过闹钟
+        pruneExpired(context)
         val payload = runCatching {
             json.decodeFromString<WebTaskAlarmSync>(raw)
         }.getOrNull() ?: return
