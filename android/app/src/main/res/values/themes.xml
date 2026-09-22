@@ -22,7 +22,7 @@
         <item name="android:activityOpenEnterAnimation">@anim/sheet_slide_in</item>
         <item name="android:activityOpenExitAnimation">@android:anim/fade_out</item>
         <item name="android:activityCloseEnterAnimation">@android:anim/fade_in</item>
-        <item name="android:activityCloseExitAnimation">@android:anim/sheet_slide_out</item>
+        <item name="android:activityCloseExitAnimation">@anim/sheet_slide_out</item>
     </style>
 
     <!-- 闹钟响铃页：全屏深色（实际底色由 Compose 填充） -->
