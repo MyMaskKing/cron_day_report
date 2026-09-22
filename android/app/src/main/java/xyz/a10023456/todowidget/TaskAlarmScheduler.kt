@@ -28,6 +28,9 @@ object TaskAlarmScheduler {
     private const val FULL_SCREEN_REQUEST = 15000
     private const val TEST_NOTIFICATION_ID = 29999
 
+    private const val META_PREFS = "task_alarm_meta"
+    private const val KEY_LAST_FIRE = "last_fire_ms"
+
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
@@ -274,8 +277,15 @@ object TaskAlarmScheduler {
     fun fire(context: Context, key: String) {
         val alarm = TaskAlarmStore.find(context, key) ?: return
         TaskAlarmStore.remove(context, key)
+        context.getSharedPreferences(META_PREFS, Context.MODE_PRIVATE)
+            .edit().putLong(KEY_LAST_FIRE, System.currentTimeMillis()).apply()
         showNotification(context, alarm)
     }
+
+    /** 最近一次任务闹钟到点触发的时间戳（毫秒）；从未触发过返回 0。 */
+    fun lastFireAtMillis(context: Context): Long =
+        context.getSharedPreferences(META_PREFS, Context.MODE_PRIVATE)
+            .getLong(KEY_LAST_FIRE, 0L)
 
     private fun schedule(context: Context, alarm: StoredTaskAlarm, triggerAt: Long) {
         val alarmManager = context.getSystemService(AlarmManager::class.java)

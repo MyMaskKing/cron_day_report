@@ -29,8 +29,13 @@ object ReminderNotifier {
     const val ACTION_COMPLETE = "complete"
     const val ACTION_TOMORROW = "tomorrow"
 
+    // 任务闹钟刚响后的避让窗口：窗口内不发每日提醒，避免与闹钟铃声/抬头通知互相打断
+    private const val FIRE_GUARD_MS = 5 * 60 * 1000L
+
     fun check(context: Context, refreshedIds: List<Int>) {
         if (refreshedIds.isEmpty() || !hasNotificationPermission(context)) return
+        // 本次跳过且不标记已发，等下一次刷新（15 分钟周期或打开 App）自动补发
+        if (System.currentTimeMillis() - TaskAlarmScheduler.lastFireAtMillis(context) < FIRE_GUARD_MS) return
 
         val snapshot = reminderSnapshot(context, refreshedIds)
         val now = LocalTime.now()

@@ -154,7 +154,12 @@ Android 端二次开发先读 **`android/DEV_GUIDE.md`**：构建环境（JDK 17
 
 ## 代码分析工具
 
-仓库根有 `.codegraph/` 索引。定位符号、调用链、影响面时优先使用 CodeGraph MCP（`mcp__codegraph__codegraph_explore`）或 `codegraph explore` 命令，再用 LSP/grep 兜底。
+仓库根有 `.codegraph/` 索引。检索先走 CodeGraph（用户级 hook 已强制执行），禁止首选 grep/read：
+
+1. **CodeGraph 首查**：业务自然语言，`mcp__codegraph__codegraph_explore` 或 `codegraph explore "<问题>"`；不中改用技术词（DOM id、class 名、函数名片段）重查一次——首查不中是查询词不精确，不是「无法定位」。
+2. **两次都不中**（索引缺失、文件未入库等）才允许 grep/read 精准兜底，并在交付说明里讲清降级原因；符号引用查找与重命名也在此阶段完成。
+
+定位之后，改动点若是函数内局部逻辑，仍用 Edit 做最小范围替换，不为凑工具而整函数替换（最小修改优先）。
 
 ## Claude Code 插件（项目级）
 
