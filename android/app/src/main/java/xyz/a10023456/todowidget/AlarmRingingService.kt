@@ -164,16 +164,17 @@ class AlarmRingingService : Service() {
                 checkAlarmVolumeHint(audioManager)
                 return
             }
-            // ② 旧机制（完整闹钟前）：有声渠道发通知，由系统播放用户所选铃声（响一遍）
-            if (showFallbackNotification(alarm)) {
-                return
-            }
         }
-        // ③ 兜底：系统默认闹钟铃声（各品牌各自出厂默认，本机 vivo 为 Encounter）
+        // ② 用户铃声播放失败：循环播放系统默认闹钟铃声（各品牌出厂默认，本机 vivo 为 Encounter；
+        //    仍只保留控制通知一条，不产生第二条通知）
         val defaultUri = RingtoneManager.getActualDefaultRingtoneUri(
             this, RingtoneManager.TYPE_ALARM
         ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         if (defaultUri != null && playLooping(defaultUri)) {
+            return
+        }
+        // ③ 所有 MediaPlayer 均失败（极罕见）：最后才发降级通知，由系统响一遍铃声
+        if (channel?.sound != null && showFallbackNotification(alarm)) {
             return
         }
         Log.e(TAG, "全部候选闹钟铃声均播放失败")
@@ -211,8 +212,8 @@ class AlarmRingingService : Service() {
     }
 
     /**
-     * ② 旧机制兜底：用有声的「闹钟铃声设置」渠道发普通通知，
-     * 系统收到后播放用户所选铃声（响一遍、不循环）；通知成功提交系统返回 true。
+     * ③ 最后手段：用有声的「闹钟铃声设置」渠道发普通通知，
+     * 系统收到后播放铃声（响一遍、不循环）；仅在两级 MediaPlayer 都失败时调用。
      */
     private fun showFallbackNotification(alarm: StoredTaskAlarm): Boolean {
         val path = when {
