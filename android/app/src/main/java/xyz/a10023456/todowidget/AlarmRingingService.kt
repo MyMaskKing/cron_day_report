@@ -271,10 +271,22 @@ class AlarmRingingService : Service() {
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
-        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
             .setAudioAttributes(attrs)
-            .setAcceptsDelayedFocusGain(false)
-            .setOnAudioFocusChangeListener({ }, mainHandler)
+            .setAcceptsDelayedFocusGain(true)
+            // 下拉通知栏等操作可能使系统临时收回焦点：丢失时暂停，重新获得即恢复，避免铃声永久停掉
+            .setOnAudioFocusChangeListener({ change ->
+                when (change) {
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK ->
+                        runCatching { player?.pause() }
+                    AudioManager.AUDIOFOCUS_GAIN ->
+                        runCatching {
+                            val p = player
+                            if (p != null && !p.isPlaying) { p.start() }
+                        }
+                }
+            }, mainHandler)
             .build()
         if (audioManager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             audioFocusRequest = request
