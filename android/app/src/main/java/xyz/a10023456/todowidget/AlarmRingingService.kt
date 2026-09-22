@@ -40,10 +40,6 @@ object AlarmUiBus {
  */
 class AlarmRingingService : Service() {
 
-    private companion object {
-        const val TAG = "TodoAlarm"
-    }
-
     private data class RingingItem(
         val alarm: StoredTaskAlarm,
         val startedAtMs: Long
@@ -351,6 +347,7 @@ class AlarmRingingService : Service() {
     }
 
     companion object {
+        private const val TAG = "TodoAlarm"
         const val CHANNEL_ID = "todo_task_alarm_svc"
         const val ACTION_STOP = "xyz.a10023456.todowidget.ALARM_STOP"
         const val ACTION_SNOOZE = "xyz.a10023456.todowidget.ALARM_SNOOZE"
