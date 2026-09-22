@@ -173,6 +173,16 @@ private fun AlarmScreen(
                 fontFamily = FontFamily.Monospace,
                 color = AlarmAccent
             )
+            // 临时诊断行：定位铃声链路问题后移除
+            if (AlarmRingingService.lastRingDiagnostic.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    AlarmRingingService.lastRingDiagnostic,
+                    fontSize = 10.sp,
+                    color = AlarmMuted,
+                    textAlign = TextAlign.Start
+                )
+            }
             Spacer(Modifier.height(20.dp))
             Text(
                 alarm?.title ?: "待办提醒",

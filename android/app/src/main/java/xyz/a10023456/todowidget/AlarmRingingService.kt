@@ -151,12 +151,15 @@ class AlarmRingingService : Service() {
 
     private fun startSound(alarm: StoredTaskAlarm) {
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-        // 完全静音模式不响铃（震动由 startVibration 单独决定）
-        if (audioManager?.ringerMode == AudioManager.RINGER_MODE_SILENT) return
+        // 不能因静音模式不响：STREAM_ALARM 在静音、勿扰（默认允许闹钟穿透）下仍输出，
+        // 与系统时钟闹钟同契约；仅用户在勿扰里明确禁用闹钟时才听不到（所有闹钟 App 皆然）
 
         // 铃声取自系统「闹钟铃声设置」渠道；用户在渠道里选"无声"时 sound==null，闹钟只震动
-        val channel = getSystemService(NotificationManager::class.java)
-            ?.getNotificationChannel(TaskAlarmScheduler.CHANNEL_ID)
+        val notifManager = getSystemService(NotificationManager::class.java)
+        val channel = notifManager?.getNotificationChannel(TaskAlarmScheduler.CHANNEL_ID)
+        // 诊断信息（临时）：真机响铃页直接显示两个渠道真实声音 URI 与静音/勿扰状态
+        lastRingDiagnostic = "ringer=${audioManager?.ringerMode} dnd=${notifManager?.currentInterruptionFilter}\n" +
+            "ringCh=${channel?.sound}\nsvcCh=${notifManager?.getNotificationChannel(CHANNEL_ID)?.sound}"
         if (channel != null && channel.sound == null) return
 
         // 候选铃声逐个尝试：渠道所选 → 默认闹钟音 → 默认通知音。
@@ -189,6 +192,7 @@ class AlarmRingingService : Service() {
                 .getOrNull()
             if (mediaPlayer != null) {
                 player = mediaPlayer
+                lastRingDiagnostic += "\nplayer=OK: $uri"
                 requestAudioFocus()
                 // 铃声已启动但闹钟音量为 0 时用户仍听不到，明确提示
                 if ((audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: 0) == 0) {
@@ -198,6 +202,7 @@ class AlarmRingingService : Service() {
             }
         }
         // 播放器整体失败：降级为有声渠道普通通知，由系统播铃声（响一遍），保证至少听得到
+        lastRingDiagnostic += "\nplayer=FAIL(all), fallback"
         Log.e(TAG, "全部候选闹钟铃声均播放失败，降级为系统通知铃声")
         showFallbackNotification(alarm)
         Toast.makeText(this, "循环铃声启动失败，已降级为普通通知铃声", Toast.LENGTH_LONG).show()
@@ -405,6 +410,10 @@ class AlarmRingingService : Service() {
     companion object {
         private const val TAG = "TodoAlarm"
         const val CHANNEL_ID = "todo_task_alarm_svc"
+
+        // 临时诊断：响铃页显示真机的真实铃声链路，问题定位后移除
+        @Volatile
+        var lastRingDiagnostic = ""
         const val ACTION_STOP = "xyz.a10023456.todowidget.ALARM_STOP"
         const val ACTION_SNOOZE = "xyz.a10023456.todowidget.ALARM_SNOOZE"
         const val EXTRA_ALARM_JSON = "alarm_json"
