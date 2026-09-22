@@ -730,7 +730,7 @@ private fun AppShell(
                             }
 
                             @JavascriptInterface
-                            fun reconcileTodoAlarms(raw: String, full: Boolean) {
+                            fun reconcileTodoAlarms(raw: String) {
                                 val appContext = ctx.applicationContext
                                 try {
                                     TaskAlarmScheduler.reconcile(
