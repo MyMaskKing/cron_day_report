@@ -31,6 +31,9 @@ object TaskAlarmScheduler {
     private const val META_PREFS = "task_alarm_meta"
     private const val KEY_LAST_FIRE = "last_fire_ms"
 
+    // 已响记录保留期：覆盖重复任务"响后数天才补勾选"的迁移窗口，超期自动清理
+    private const val FIRED_RETENTION_MS = 72 * 60 * 60 * 1000L
+
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
@@ -245,7 +248,10 @@ object TaskAlarmScheduler {
     }
 
     fun listAlarms(context: Context): List<StoredTaskAlarm> =
-        TaskAlarmStore.list(context).sortedWith(compareBy({ it.dueDate }, { it.minute }))
+        // 已响记录不再是待响闹钟，不显示（完成任务后随 reconcile 自动清理）
+        TaskAlarmStore.list(context)
+            .filter { it.firedAtMs == null }
+            .sortedWith(compareBy({ it.dueDate }, { it.minute }))
 
     fun deleteAlarm(context: Context, key: String) {
         TaskAlarmStore.find(context, key)?.let { cancelStored(context, it) }
@@ -335,7 +341,9 @@ object TaskAlarmScheduler {
                         category = updated.category,
                         recurrence = updated.recurrence,
                         sharedCat = updated.sharedCat,
-                        snoozeFromMs = updated.snoozeFromMs
+                        snoozeFromMs = updated.snoozeFromMs,
+                        // 保留已响标记：该更新不能让一条响过的记录"复活"为待响
+                        firedAtMs = updated.firedAtMs
                     )
                     val triggerAt = triggerAtMillis(updated.dueDate, updated.minute)
                     when {
@@ -350,6 +358,7 @@ object TaskAlarmScheduler {
 
     fun rescheduleAll(context: Context) {
         if (!canScheduleExactAlarms(context)) return
+        pruneFiredAlarms(context)
         TaskAlarmStore.list(context).forEach { alarm ->
             val triggerAt = triggerAtMillis(alarm.dueDate, alarm.minute)
             if (triggerAt != null && triggerAt > System.currentTimeMillis()) {
@@ -362,10 +371,39 @@ object TaskAlarmScheduler {
 
     fun fire(context: Context, key: String) {
         val alarm = TaskAlarmStore.find(context, key) ?: return
-        TaskAlarmStore.remove(context, key)
+        // 不立即删除：重复任务稍后完成时 reconcile 要靠旧记录把闹钟迁移到滚动出的下一周期
+        // （recur_from_id）；改为标记已响，防止重响并供过期清理
+        val firedAt = System.currentTimeMillis()
+        TaskAlarmStore.upsert(
+            context = context,
+            baseUrl = alarm.baseUrl,
+            todoId = alarm.todoId,
+            title = alarm.title,
+            dueDate = alarm.dueDate,
+            minute = alarm.minute,
+            children = alarm.children,
+            childDue = alarm.childDue,
+            priority = alarm.priority,
+            category = alarm.category,
+            recurrence = alarm.recurrence,
+            sharedCat = alarm.sharedCat,
+            snoozeFromMs = alarm.snoozeFromMs,
+            firedAtMs = firedAt
+        )
+        pruneFiredAlarms(context)
         context.getSharedPreferences(META_PREFS, Context.MODE_PRIVATE)
-            .edit().putLong(KEY_LAST_FIRE, System.currentTimeMillis()).apply()
+            .edit().putLong(KEY_LAST_FIRE, firedAt).apply()
         AlarmRingingService.start(context, alarm)
+    }
+
+    /** 清理已响且超过保留期仍未被 reconcile 迁移/随任务清理的闹钟记录。 */
+    private fun pruneFiredAlarms(context: Context) {
+        val deadline = System.currentTimeMillis() - FIRED_RETENTION_MS
+        TaskAlarmStore.list(context).forEach { a ->
+            if (a.firedAtMs != null && a.firedAtMs < deadline) {
+                TaskAlarmStore.remove(context, a.key)
+            }
+        }
     }
 
     /** 贪睡：按 delayMs 后的绝对时间重新注册同一任务闹钟；连续贪睡保留首次触发时间。 */

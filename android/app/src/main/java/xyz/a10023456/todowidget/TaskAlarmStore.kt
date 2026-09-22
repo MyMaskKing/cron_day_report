@@ -29,7 +29,8 @@ data class StoredTaskAlarm(
     val category: String? = null,
     val recurrence: String? = null,
     @SerialName("shared_cat") val sharedCat: Boolean = false,
-    @SerialName("snooze_from_ms") val snoozeFromMs: Long? = null
+    @SerialName("snooze_from_ms") val snoozeFromMs: Long? = null,
+    @SerialName("fired_at_ms") val firedAtMs: Long? = null
 ) {
     val key: String get() = taskAlarmKey(baseUrl, todoId)
 
@@ -72,7 +73,8 @@ object TaskAlarmStore {
         category: String? = null,
         recurrence: String? = null,
         sharedCat: Boolean = false,
-        snoozeFromMs: Long? = null
+        snoozeFromMs: Long? = null,
+        firedAtMs: Long? = null
     ): StoredTaskAlarm {
         val key = StoredTaskAlarm.taskAlarmKey(baseUrl, todoId)
         val current = list(context).toMutableList()
@@ -88,7 +90,8 @@ object TaskAlarmStore {
                 category = category,
                 recurrence = recurrence,
                 sharedCat = sharedCat,
-                snoozeFromMs = snoozeFromMs
+                snoozeFromMs = snoozeFromMs,
+                firedAtMs = firedAtMs
             )
             current[index] = updated
             save(context, current)
@@ -109,7 +112,8 @@ object TaskAlarmStore {
             category = category,
             recurrence = recurrence,
             sharedCat = sharedCat,
-            snoozeFromMs = snoozeFromMs
+            snoozeFromMs = snoozeFromMs,
+            firedAtMs = firedAtMs
         )
         current.add(alarm)
         save(context, current)
