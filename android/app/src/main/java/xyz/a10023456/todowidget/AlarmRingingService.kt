@@ -63,6 +63,7 @@ class AlarmRingingService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        TaskAlarmScheduler.createChannel(this)
         createChannel()
     }
 
@@ -123,8 +124,11 @@ class AlarmRingingService : Service() {
 
     private fun snoozeCurrent() {
         val item = current ?: return
-        runCatching {
-            TaskAlarmScheduler.snooze(this, item.alarm, item.startedAtMs, SNOOZE_DELAY_MS)
+        // 测试闹钟不写真实闹钟表，贪睡对它无意义：仅停铃
+        if (item.alarm.todoId != TEST_ALARM_TODO_ID) {
+            runCatching {
+                TaskAlarmScheduler.snooze(this, item.alarm, item.startedAtMs, SNOOZE_DELAY_MS)
+            }
         }
         stopCurrent()
     }
@@ -146,32 +150,32 @@ class AlarmRingingService : Service() {
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         // 完全静音模式不响铃（震动由 startVibration 单独决定）
         if (audioManager?.ringerMode == AudioManager.RINGER_MODE_SILENT) return
-        val uris = listOf(
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        )
-        for (uri in uris) {
-            uri ?: continue
-            val mediaPlayer = runCatching {
-                MediaPlayer().apply {
-                    setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ALARM)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                    )
-                    setDataSource(this@AlarmRingingService, uri)
-                    isLooping = true
-                    prepare()
-                    start()
-                }
-            }.getOrNull()
-            if (mediaPlayer != null) {
-                player = mediaPlayer
-                requestAudioFocus()
-                return
+        // 铃声取自系统「待办闹钟」渠道：用户在系统通知设置里换铃声、选无声即生效；
+        // 渠道不存在时回退默认闹钟音
+        val channel = getSystemService(NotificationManager::class.java)
+            ?.getNotificationChannel(TaskAlarmScheduler.CHANNEL_ID)
+        val soundUri = when {
+            channel == null -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            channel.sound == null -> return
+            else -> channel.sound
+        } ?: return
+        val mediaPlayer = runCatching {
+            MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                setDataSource(this@AlarmRingingService, soundUri)
+                isLooping = true
+                prepare()
+                start()
             }
-        }
+        }.getOrNull() ?: return
+        player = mediaPlayer
+        requestAudioFocus()
     }
 
     /**
@@ -211,6 +215,10 @@ class AlarmRingingService : Service() {
             getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         }
         if (vib == null || !vib.hasVibrator()) return
+        // 是否震动跟随系统「待办闹钟」渠道
+        val alarmChannel = getSystemService(NotificationManager::class.java)
+            ?.getNotificationChannel(TaskAlarmScheduler.CHANNEL_ID)
+        if (alarmChannel != null && !alarmChannel.enableVibration) return
         val pattern = longArrayOf(0, 800, 600, 800, 600)
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -314,8 +322,6 @@ class AlarmRingingService : Service() {
     private fun createChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java) ?: return
-        // 清理旧的有声渠道：闹钟铃声已统一由 MediaPlayer 播放，避免系统设置里残留两个闹钟渠道
-        manager.deleteNotificationChannel("todo_task_alarm")
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         val channel = NotificationChannel(
             CHANNEL_ID,
@@ -344,6 +350,9 @@ class AlarmRingingService : Service() {
         const val SVC_NOTIFICATION_ID = 40000
         const val EVENT_DISMISS = "dismiss"
 
+        const val TEST_ALARM_TODO_ID = "__alarm_test__"
+        private const val TEST_NOTIFICATION_ID = 29999
+
         const val RINGING_TIMEOUT_MS = 5 * 60 * 1000L
         const val SNOOZE_DELAY_MS = 5 * 60 * 1000L
 
@@ -357,6 +366,23 @@ class AlarmRingingService : Service() {
                 putExtra(EXTRA_ALARM_JSON, payload)
             }
             ContextCompat.startForegroundService(context, intent)
+        }
+
+        /**
+         * 立即按真实闹钟方式响一次测试铃：同样走前台服务、循环铃声、震动与响铃页，
+         * 点响铃页「停止」结束（不写入本机闹钟表）。
+         */
+        fun startTest(context: Context) {
+            val baseUrl = AppConfig.getBaseUrl(context)
+            val alarm = StoredTaskAlarm(
+                baseUrl = baseUrl,
+                todoId = TEST_ALARM_TODO_ID,
+                title = "闹钟测试：铃声与震动正常即 OK，请点「停止」结束",
+                dueDate = "2099-01-01",
+                minute = 0,
+                requestCode = TEST_NOTIFICATION_ID
+            )
+            start(context, alarm)
         }
     }
 }

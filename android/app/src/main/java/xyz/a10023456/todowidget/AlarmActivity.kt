@@ -87,11 +87,17 @@ class AlarmActivity : ComponentActivity() {
                 },
                 onDetail = { data ->
                     sendCommand(AlarmRingingService.ACTION_STOP)
+                    // 测试闹钟没有真实任务，查看详情只回到待办页
+                    val path = if (data.todoId == AlarmRingingService.TEST_ALARM_TODO_ID) {
+                        "/todo"
+                    } else {
+                        "/todo?edit=" + Uri.encode(data.todoId)
+                    }
                     val deep = Intent(this@AlarmActivity, MainActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                             Intent.FLAG_ACTIVITY_CLEAR_TOP or
                             Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        putExtra(Keys.Url.name, data.baseUrl + "/todo?edit=" + Uri.encode(data.todoId))
+                        putExtra(Keys.Url.name, data.baseUrl + path)
                     }
                     startActivity(deep)
                     finish()

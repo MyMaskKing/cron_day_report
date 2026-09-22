@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -157,6 +158,8 @@ fun MeScreen(
                         .heightIn(max = 420.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    // 确保系统通知设置里存在「待办闹钟」渠道（幂等，已存在立即返回）
+                    TaskAlarmScheduler.createChannel(appContext)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -167,11 +170,16 @@ fun MeScreen(
                             fontWeight = FontWeight.Medium
                         )
                         TextButton(onClick = {
-                            TaskAlarmScheduler.openNotificationSettings(appContext)
+                            AlarmRingingService.startTest(appContext)
+                        }) { Text("测试") }
+                        TextButton(onClick = {
+                            if (!TaskAlarmScheduler.openAlarmChannelSettings(appContext)) {
+                                TaskAlarmScheduler.openNotificationSettings(appContext)
+                            }
                         }) { Text("设置") }
                     }
                     Text(
-                        "闹钟铃声音量用手机音量键的“闹钟音量”调节；震动等在系统通知设置中设置。",
+                        "测试按真实闹钟试听；铃声、震动点「设置」修改；音量用手机的“闹钟音量”调节。",
                         fontSize = 12.sp,
                         color = scheme.onSurfaceVariant
                     )
@@ -186,6 +194,19 @@ fun MeScreen(
                         }
                     }
                     MeAlarmBackgroundCard(appContext)
+                    OutlinedButton(
+                        onClick = {
+                            // 闹钟必须挂在具体任务上：跳到待办页，新建/编辑任务时用 🔔 按钮设置
+                            val intent = android.content.Intent(appContext, MainActivity::class.java).apply {
+                                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                                    android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                putExtra(Keys.Url.name, AppConfig.getBaseUrl(appContext) + "/todo")
+                            }
+                            appContext.startActivity(intent)
+                            showAlarmManager = false
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("＋ 去待办页设置闹钟") }
                     if (taskAlarms.isEmpty()) {
                         Spacer(Modifier.height(10.dp))
                         Text("本机暂无待办闹钟。")

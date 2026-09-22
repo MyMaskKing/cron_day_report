@@ -1,12 +1,17 @@
 package xyz.a10023456.todowidget
 
 import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -17,6 +22,7 @@ import java.time.ZoneId
 
 /** 任务级本地闹钟：由 Android AlarmManager 唤醒本 App，不写入系统时钟 App。 */
 object TaskAlarmScheduler {
+    const val CHANNEL_ID = "todo_task_alarm"
     const val EXTRA_KEY = "task_alarm_key"
 
     private const val FULL_SCREEN_REQUEST = 15000
@@ -133,6 +139,46 @@ object TaskAlarmScheduler {
     fun openNotificationSettings(context: Context): Boolean {
         val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
             putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        return runCatching { context.startActivity(intent) }.isSuccess
+    }
+
+    /**
+     * 创建「待办闹钟」系统渠道：用户在系统通知设置里改铃声、关震动即对真实闹钟生效
+     * （铃声由 Service 的 MediaPlayer 读取渠道声音循环播放，不用该渠道直接发通知）。
+     */
+    fun createChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
+
+        val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "待办闹钟",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "待办闹钟的铃声与震动；响铃时循环播放直到停止"
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 800, 600, 800, 600)
+            setSound(sound, attributes)
+            lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+        }
+        manager.createNotificationChannel(channel)
+    }
+
+    /** 打开系统设置中「待办闹钟」渠道详情（铃声/震动在此设置）。 */
+    fun openAlarmChannelSettings(context: Context): Boolean {
+        createChannel(context)
+        val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL_ID)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         return runCatching { context.startActivity(intent) }.isSuccess
