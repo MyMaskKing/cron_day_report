@@ -30,6 +30,13 @@ function normPriority(v) {
   const n = parseInt(v, 10);
   return (n === 0 || n === 1 || n === 2) ? n : 1;
 }
+/** 闹钟分钟：null/空→null；0-1439 整数→值；非法抛错 */
+function normAlarmMinute(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0 || n > 1439) throw new Error('闹钟时间无效');
+  return n;
+}
 /** 规范化重复间隔: null / <1 归一为 null(等价 1); [1..99] clamp; 非法返回 null */
 function normRecurInterval(v) {
   if (v == null || v === '') return null;
@@ -162,6 +169,12 @@ async function createTodo({ request, env }) {
   const dueDate = allowsOwnDate ? ((body.due_date || '').trim() || null) : null;
   // 重复: 允许自设日期即可设(任意层级; 带子女的重复任务完成时整树克隆到下一周期)
   const recFields = readRecurFields(body, allowsOwnDate);
+  // 闹钟: 允许自设日期且日期非空才接受
+  let alarmMinute = null;
+  if (allowsOwnDate && dueDate) {
+    try { alarmMinute = normAlarmMinute(body.alarm_minute); }
+    catch (e) { return error(e.message); }
+  }
   // 共享分类归属: 子任务继承父任务所在分类; 顶层任务可显式指定 shared_cat_id(在分类视图下新建)
   // 行归属分类 owner(ownerUid), shared_cat_id 为分类 id, created_by 记真实操作人;
   // 个人任务: 归属 dc.uid, shared_cat_id NULL, created_by=dc.uid
@@ -188,7 +201,8 @@ async function createTodo({ request, env }) {
     recur_nth: recFields.recur_nth,
     recur_weekday: recFields.recur_weekday,
     shared_cat_id: catId,
-    created_by: catId != null ? auth.user_id : dc.uid
+    created_by: catId != null ? auth.user_id : dc.uid,
+    alarm_minute: alarmMinute
   });
   return json({ success: true, message: '任务已添加', id });
 }
@@ -240,6 +254,14 @@ async function updateTodo({ request, env, params }) {
     category: (body.category || '').trim() || null,
     note: (body.note || '').trim() || null
   };
+  // 闹钟: 勾选态清空; 允许自设日期且 body 显式携带才写入; 未携带沿用原值
+  if (selfChildDue) {
+    payload.alarm_minute = null;
+  } else if (allowsDate && dueDate &&
+    Object.prototype.hasOwnProperty.call(body, 'alarm_minute')) {
+    try { payload.alarm_minute = normAlarmMinute(body.alarm_minute); }
+    catch (e) { return error(e.message); }
+  }
   // 开关逐级有效: 仅直接父允许且 body 显式携带时写入(跟随态保存标题等不触及其值)
   if (allowsDate && Object.prototype.hasOwnProperty.call(body, 'child_due')) {
     payload.child_due = selfChildDue ? 1 : 0;

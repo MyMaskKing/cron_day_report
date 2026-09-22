@@ -19,6 +19,7 @@ import sql0003 from '../../migrations/0003_todo_attachments.sql';
 import sql0004 from '../../migrations/0004_files.sql';
 import sql0005 from '../../migrations/0005_motto.sql';
 import sql0006 from '../../migrations/0006_motto_freq.sql';
+import sql0007 from '../../migrations/0007_todo_alarm_minute.sql';
 
 // 显式迁移登记表：[文件名, SQL 文本]，数组顺序即执行顺序（新增 000N 时在此追加）
 const MIGRATIONS = [
@@ -27,7 +28,8 @@ const MIGRATIONS = [
   ['0003_todo_attachments.sql', sql0003],
   ['0004_files.sql', sql0004],
   ['0005_motto.sql', sql0005],
-  ['0006_motto_freq.sql', sql0006]
+  ['0006_motto_freq.sql', sql0006],
+  ['0007_todo_alarm_minute.sql', sql0007]
 ];
 
 const MIGRATIONS_TABLE_SQL = `

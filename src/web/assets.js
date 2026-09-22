@@ -8630,6 +8630,10 @@ function todoFormRead() {
   if (cdEl) out.child_due = cdEl.checked ? 1 : 0;
   // 始终携带: null=无分类/个人分类(编辑共享任务时即"移出共享"), 数字=移入该共享分类
   out.shared_cat_id = sharedCatId;
+  // 闹钟时间: 取 🔔 按钮维护在 #tfDueWrap 上的 data-alarm-minute；无值=null
+  var alarmWrap = document.getElementById('tfDueWrap');
+  var alarmRaw = alarmWrap ? alarmWrap.getAttribute('data-alarm-minute') : null;
+  out.alarm_minute = (alarmRaw === null || alarmRaw === '') ? null : parseInt(alarmRaw, 10);
   return out;
 }
 function todoAlarmNative() {
@@ -8713,36 +8717,10 @@ window.__todoAlarmPickResult = function(requestId, minute) {
   delete map[requestId];
   if (callback) callback(minute);
 };
+// 闹钟现由保存接口随任务提交（alarm_minute），本地闹钟注册/取消全部由列表 reconcile
+// 对账驱动；本函数保留为保存链上的校验占位，恒通过
 function todoAlarmSaveForm(id) {
-  if (id == null || id === '') return true;
-  var native = todoAlarmNative();
-  if (!native) return true;
-  var wrap = document.getElementById('tfDueWrap');
-  var due = document.getElementById('tfDue');
-  var childDue = document.getElementById('tfChildDue');
-  var titleEl = document.getElementById('tfTitle');
-  var rawMinute = wrap ? wrap.getAttribute('data-alarm-minute') : '';
-  var minute = parseInt(rawMinute, 10);
-  if (!due || !due.value || (childDue && childDue.checked) || !isFinite(minute)) {
-    try { native.cancelTodoAlarm(String(id)); } catch (e) {}
-    return true;
-  }
-  try {
-    var result = native.setTodoAlarm(JSON.stringify({
-      id: String(id),
-      title: (titleEl && titleEl.value ? titleEl.value : '待办提醒').trim() || '待办提醒',
-      due_date: due.value,
-      minute: minute
-    }));
-    if (result && result !== 'ok') {
-      alertModal(result, { ok: false });
-      return false;
-    }
-    return true;
-  } catch (e) {
-    alertModal(e.message || '本地闹钟设置失败', { ok: false });
-    return false;
-  }
+  return true;
 }
 function todoAlarmReconcile(rows, full) {
   var native = todoAlarmNative();
@@ -8790,7 +8768,8 @@ function todoAlarmReconcile(rows, full) {
       priority: r.priority == null ? null : Number(r.priority),
       category: r.category || null,
       recurrence: r.recurrence || null,
-      shared_cat: r.shared_cat_id != null
+      shared_cat: r.shared_cat_id != null,
+      alarm_minute: r.alarm_minute == null ? null : Number(r.alarm_minute)
     };
   });
   try { native.reconcileTodoAlarms(JSON.stringify({ tasks: tasks, full: !!full })); }

@@ -28,9 +28,7 @@ data class StoredTaskAlarm(
     val priority: Int? = null,
     val category: String? = null,
     val recurrence: String? = null,
-    @SerialName("shared_cat") val sharedCat: Boolean = false,
-    @SerialName("snooze_from_ms") val snoozeFromMs: Long? = null,
-    @SerialName("fired_at_ms") val firedAtMs: Long? = null
+    @SerialName("shared_cat") val sharedCat: Boolean = false
 ) {
     val key: String get() = taskAlarmKey(baseUrl, todoId)
 
@@ -39,7 +37,7 @@ data class StoredTaskAlarm(
     }
 }
 
-/** 任务级本地闹钟存储；仅保存在本机，不进入服务端待办数据。 */
+/** 任务级本地闹钟存储；仅保存在本机，作为 AlarmManager 的运行时注册数据，事实源在服务端 alarm_minute。 */
 object TaskAlarmStore {
     private const val PREFS = "task_alarms"
     private const val KEY_ALARMS = "alarms"
@@ -72,9 +70,7 @@ object TaskAlarmStore {
         priority: Int? = null,
         category: String? = null,
         recurrence: String? = null,
-        sharedCat: Boolean = false,
-        snoozeFromMs: Long? = null,
-        firedAtMs: Long? = null
+        sharedCat: Boolean = false
     ): StoredTaskAlarm {
         val key = StoredTaskAlarm.taskAlarmKey(baseUrl, todoId)
         val current = list(context).toMutableList()
@@ -89,9 +85,7 @@ object TaskAlarmStore {
                 priority = priority,
                 category = category,
                 recurrence = recurrence,
-                sharedCat = sharedCat,
-                snoozeFromMs = snoozeFromMs,
-                firedAtMs = firedAtMs
+                sharedCat = sharedCat
             )
             current[index] = updated
             save(context, current)
@@ -111,9 +105,7 @@ object TaskAlarmStore {
             priority = priority,
             category = category,
             recurrence = recurrence,
-            sharedCat = sharedCat,
-            snoozeFromMs = snoozeFromMs,
-            firedAtMs = firedAtMs
+            sharedCat = sharedCat
         )
         current.add(alarm)
         save(context, current)

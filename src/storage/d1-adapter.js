@@ -657,22 +657,23 @@ function createD1Adapter(env) {
         const catId = t.shared_cat_id != null ? t.shared_cat_id : null;
         const createdBy = t.created_by !== undefined ? (t.created_by || null) : userId;
         const res = await db.prepare(
-          'INSERT INTO todos (user_id, parent_id, title, priority, due_date, category, note, sort_order, child_due, recurrence, recur_interval, recur_nth, recur_weekday, shared_cat_id, created_by) ' +
-          'VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM todos WHERE user_id = ? AND parent_id IS ?)), ?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO todos (user_id, parent_id, title, priority, due_date, category, note, sort_order, child_due, recurrence, recur_interval, recur_nth, recur_weekday, shared_cat_id, created_by, alarm_minute) ' +
+          'VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM todos WHERE user_id = ? AND parent_id IS ?)), ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
           userId, parentId, t.title,
           t.priority != null ? t.priority : 1,
           t.due_date || null, t.category || null, t.note || null,
           t.sort_order != null ? t.sort_order : null,
           userId, parentId,
-          childDue, rec, iv, nth, wd, catId, createdBy
+          childDue, rec, iv, nth, wd, catId, createdBy,
+          t.alarm_minute != null ? t.alarm_minute : null
         ).run();
         return res.meta.last_row_id;
       },
       async update(id, userId, t) {
         // 先读当前行: recurrence / child_due 未显式传入时保留原值, 避免编辑标题等字段时误清空
         const cur = await db.prepare(
-          'SELECT parent_id, child_due, recurrence, recur_interval, recur_nth, recur_weekday FROM todos WHERE id=? AND user_id=?'
+          'SELECT parent_id, child_due, recurrence, recur_interval, recur_nth, recur_weekday, alarm_minute FROM todos WHERE id=? AND user_id=?'
         ).bind(id, userId).first();
         if (!cur) return;
         const hasRec = Object.prototype.hasOwnProperty.call(t, 'recurrence');
@@ -687,13 +688,17 @@ function createD1Adapter(env) {
         const wdSrc = t.recur_weekday != null ? t.recur_weekday : (!hasRec ? cur.recur_weekday : null);
         const nth = (rec === 'monthly_nth_weekday' && nthSrc != null) ? parseInt(nthSrc, 10) : null;
         const wd = (rec === 'monthly_nth_weekday' && wdSrc != null) ? parseInt(wdSrc, 10) : null;
+        // alarm_minute 未显式传入时保留原值，避免编辑标题等误清空；非整数归一为 null
+        const alarmMinute = t.alarm_minute !== undefined
+          ? (Number.isInteger(t.alarm_minute) ? t.alarm_minute : null)
+          : (cur.alarm_minute ?? null);
         // child_due 逐级有效(任意层均可勾选); 是否允许切换由 API 层按直接父门控
         const childDue = hasChildDue ? (t.child_due ? 1 : 0) : (cur.child_due || 0);
         await db.prepare(
-          'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=?, child_due=?, recurrence=?, recur_interval=?, recur_nth=?, recur_weekday=? WHERE id=? AND user_id=?'
+          'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=?, child_due=?, recurrence=?, recur_interval=?, recur_nth=?, recur_weekday=?, alarm_minute=? WHERE id=? AND user_id=?'
         ).bind(
           t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, t.note || null,
-          childDue, rec, iv, nth, wd, id, userId
+          childDue, rec, iv, nth, wd, alarmMinute, id, userId
         ).run();
       },
       // 删除个人文本分类: 该用户下同分类名的任务(含父子任务)一律摘为未分类;
@@ -775,7 +780,7 @@ function createD1Adapter(env) {
         }
         // 单行克隆(叶子重复任务): 继承 shared_cat_id; created_by 取本次操作人, 匿名/个人场景沿用原实例
         const ins = await db.prepare(
-          'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by) VALUES (?, ?, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by, alarm_minute) VALUES (?, ?, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
           userId, self.parent_id != null ? self.parent_id : null, self.title,
           self.priority != null ? self.priority : 1,
@@ -789,7 +794,8 @@ function createD1Adapter(env) {
           self.recur_weekday != null ? self.recur_weekday : null,
           self.id,
           self.shared_cat_id != null ? self.shared_cat_id : null,
-          doneBy != null ? doneBy : (self.created_by != null ? self.created_by : null)
+          doneBy != null ? doneBy : (self.created_by != null ? self.created_by : null),
+          self.alarm_minute ?? null
         ).run();
         return { cloned: true, next_id: ins.meta.last_row_id, next_due: nextDue };
       },
@@ -851,7 +857,7 @@ function createD1Adapter(env) {
         //    parent_id 沿用原层级; 继承 shared_cat_id(共享分类内克隆不脱离分类); created_by 取操作人, 匿名/个人沿用原实例
         const rootCreatedBy = doneBy != null ? doneBy : (rootOld.created_by != null ? rootOld.created_by : null);
         const rootRes = await db.prepare(
-          'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by) VALUES (?, ?, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by, alarm_minute) VALUES (?, ?, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
           userId, rootOld.parent_id != null ? rootOld.parent_id : null, rootOld.title,
           rootOld.priority != null ? rootOld.priority : 1,
@@ -865,7 +871,8 @@ function createD1Adapter(env) {
           rootOld.recur_weekday != null ? rootOld.recur_weekday : null,
           rootOld.id,
           rootOld.shared_cat_id != null ? rootOld.shared_cat_id : null,
-          rootCreatedBy
+          rootCreatedBy,
+          rootOld.alarm_minute ?? null
         ).run();
         const newRootId = rootRes.meta.last_row_id;
         // 2. 递归子孙: 读原子树(不含 root 本身), 按 sort_order+id 顺序 clone
@@ -889,7 +896,7 @@ function createD1Adapter(env) {
             const newParent = idMap.get(r.parent_id);
             if (newParent == null) { next.push(r); continue; }
             const res = await db.prepare(
-              'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by) VALUES (?, ?, ?, 0, ?, NULL, ?, ?, NULL, ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?)'
+              'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by, alarm_minute) VALUES (?, ?, ?, 0, ?, NULL, ?, ?, NULL, ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, NULL)'
             ).bind(
               userId, newParent, r.title,
               r.priority != null ? r.priority : 1,

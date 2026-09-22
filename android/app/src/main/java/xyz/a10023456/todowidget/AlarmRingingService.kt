@@ -215,10 +215,10 @@ class AlarmRingingService : Service() {
      * 系统收到后播放用户所选铃声（响一遍、不循环）；通知成功提交系统返回 true。
      */
     private fun showFallbackNotification(alarm: StoredTaskAlarm): Boolean {
-        val path = if (alarm.todoId == TEST_ALARM_TODO_ID) {
-            "/todo"
-        } else {
-            "/todo?edit=" + Uri.encode(alarm.todoId)
+        val path = when {
+            alarm.todoId == TEST_ALARM_TODO_ID ||
+                alarm.todoId.startsWith(TaskAlarmScheduler.SNOOZE_TODO_PREFIX) -> "/todo"
+            else -> "/todo?edit=" + Uri.encode(alarm.todoId)
         }
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or

@@ -307,6 +307,7 @@ CREATE TABLE IF NOT EXISTS todos (
   recur_interval INTEGER,
   recur_nth     INTEGER,
   recur_weekday INTEGER,
+  alarm_minute  INTEGER,
   child_due     INTEGER NOT NULL DEFAULT 0,
   shared_cat_id INTEGER,
   created_by    INTEGER,

@@ -28,11 +28,11 @@ object TaskAlarmScheduler {
 
     private const val FULL_SCREEN_REQUEST = 15000
 
+    // 贪睡瞬态闹钟的 todoId 前缀：与服务端任务闹钟区分，reconcile 不对账
+    const val SNOOZE_TODO_PREFIX = "__snooze__"
+
     private const val META_PREFS = "task_alarm_meta"
     private const val KEY_LAST_FIRE = "last_fire_ms"
-
-    // 已响记录保留期：覆盖重复任务"响后数天才补勾选"的迁移窗口，超期自动清理
-    private const val FIRED_RETENTION_MS = 72 * 60 * 60 * 1000L
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -60,7 +60,8 @@ object TaskAlarmScheduler {
         val priority: Int? = null,
         val category: String? = null,
         val recurrence: String? = null,
-        @SerialName("shared_cat") val sharedCat: Boolean = false
+        @SerialName("shared_cat") val sharedCat: Boolean = false,
+        @SerialName("alarm_minute") val alarmMinute: Int? = null
     )
 
     private fun WebTaskAlarm.toChildren(): List<TaskAlarmChild> =
@@ -248,9 +249,9 @@ object TaskAlarmScheduler {
     }
 
     fun listAlarms(context: Context): List<StoredTaskAlarm> =
-        // 已响记录不再是待响闹钟，不显示（完成任务后随 reconcile 自动清理）
+        // 过滤贪睡瞬态记录；正常闹钟触发即删，无残留
         TaskAlarmStore.list(context)
-            .filter { it.firedAtMs == null }
+            .filter { !it.todoId.startsWith(SNOOZE_TODO_PREFIX) }
             .sortedWith(compareBy({ it.dueDate }, { it.minute }))
 
     fun deleteAlarm(context: Context, key: String) {
@@ -262,31 +263,26 @@ object TaskAlarmScheduler {
             json.decodeFromString<WebTaskAlarmSync>(raw)
         }.getOrNull() ?: return
         val normalizedBase = baseUrl.trimEnd('/')
-        val storedAlarms = TaskAlarmStore.list(context)
-            .filter { it.baseUrl == normalizedBase }
         val byKey = payload.tasks.associateBy {
             StoredTaskAlarm.taskAlarmKey(normalizedBase, it.id)
         }
         val now = System.currentTimeMillis()
-        val migratedOldKeys = mutableSetOf<String>()
 
+        // 贪睡瞬态记录（__snooze__ 前缀）不参与对账，由其自身触发/过期管理
+        val storedAlarms = TaskAlarmStore.list(context)
+            .filter { it.baseUrl == normalizedBase && !it.todoId.startsWith(SNOOZE_TODO_PREFIX) }
+
+        // ① 服务端带闹钟的任务全部 upsert 并按未来时间注册（含新增、重装/多设备恢复、重复滚动）
         payload.tasks.forEach { task ->
-            val oldId = task.recurFromId ?: return@forEach
+            val alarmMinute = task.alarmMinute ?: return@forEach
             if (task.done || task.dueDate.isBlank()) return@forEach
-            val newKey = StoredTaskAlarm.taskAlarmKey(normalizedBase, task.id)
-            val oldKey = StoredTaskAlarm.taskAlarmKey(normalizedBase, oldId.toString())
-            if (oldKey in migratedOldKeys || storedAlarms.any { it.key == newKey }) return@forEach
-            val old = storedAlarms.firstOrNull { it.key == oldKey } ?: return@forEach
-            val triggerAt = triggerAtMillis(task.dueDate, old.minute) ?: return@forEach
-            if (triggerAt <= now) return@forEach
-
-            val migrated = TaskAlarmStore.upsert(
+            val stored = TaskAlarmStore.upsert(
                 context = context,
                 baseUrl = normalizedBase,
                 todoId = task.id,
-                title = task.title.ifBlank { old.title }.take(120),
+                title = task.title.ifBlank { "待办提醒" }.take(120),
                 dueDate = task.dueDate,
-                minute = old.minute,
+                minute = alarmMinute,
                 children = task.toChildren(),
                 childDue = task.childDue,
                 priority = task.priority,
@@ -294,71 +290,28 @@ object TaskAlarmScheduler {
                 recurrence = task.recurrence,
                 sharedCat = task.sharedCat
             )
-            if (canScheduleExactAlarms(context)) {
-                try {
-                    schedule(context, migrated, triggerAt)
-                } catch (e: RuntimeException) {
-                    TaskAlarmStore.remove(context, migrated.key)
-                    return@forEach
-                }
+            val triggerAt = triggerAtMillis(task.dueDate, alarmMinute)
+            if (triggerAt != null && triggerAt > now && canScheduleExactAlarms(context)) {
+                schedule(context, stored, triggerAt)
+            } else {
+                cancelPending(context, stored)
             }
-            migratedOldKeys.add(oldKey)
         }
 
+        // ② 本地有、但已不该存在的记录：任务 full 缺席 / done / 无日期 / 闹钟被取消 → 删除
         storedAlarms.forEach { stored ->
             val task = byKey[stored.key]
-            // 贪睡中的记录：不被 reconcile 改期/覆盖；仅当任务被删除(full 缺席)或完成时取消
-            if (stored.snoozeFromMs != null) {
-                val gone = (task == null && payload.full) ||
-                    (task != null && (task.done || task.dueDate.isBlank()))
-                if (gone) cancelStored(context, stored)
-                return@forEach
+            val gone = when {
+                task == null -> payload.full
+                task.done || task.dueDate.isBlank() || task.alarmMinute == null -> true
+                else -> false
             }
-            when {
-                task == null && payload.full -> cancelStored(context, stored)
-                task != null && (task.done || task.dueDate.isBlank()) -> cancelStored(context, stored)
-                task != null -> {
-                    val updated = stored.copy(
-                        title = task.title.ifBlank { stored.title }.take(120),
-                        dueDate = task.dueDate,
-                        children = task.toChildren(),
-                        childDue = task.childDue,
-                        priority = task.priority,
-                        category = task.category,
-                        recurrence = task.recurrence,
-                        sharedCat = task.sharedCat
-                    )
-                    TaskAlarmStore.upsert(
-                        context = context,
-                        baseUrl = updated.baseUrl,
-                        todoId = updated.todoId,
-                        title = updated.title,
-                        dueDate = updated.dueDate,
-                        minute = updated.minute,
-                        children = updated.children,
-                        childDue = updated.childDue,
-                        priority = updated.priority,
-                        category = updated.category,
-                        recurrence = updated.recurrence,
-                        sharedCat = updated.sharedCat,
-                        snoozeFromMs = updated.snoozeFromMs,
-                        // 保留已响标记：该更新不能让一条响过的记录"复活"为待响
-                        firedAtMs = updated.firedAtMs
-                    )
-                    val triggerAt = triggerAtMillis(updated.dueDate, updated.minute)
-                    when {
-                        triggerAt != null && triggerAt > now && canScheduleExactAlarms(context) ->
-                            schedule(context, updated, triggerAt)
-                        triggerAt == null || triggerAt <= now -> cancelPending(context, updated)
-                    }
-                }
-            }
+            if (gone) cancelStored(context, stored)
         }
     }
 
     fun rescheduleAll(context: Context) {
         if (!canScheduleExactAlarms(context)) return
-        pruneFiredAlarms(context)
         TaskAlarmStore.list(context).forEach { alarm ->
             val triggerAt = triggerAtMillis(alarm.dueDate, alarm.minute)
             if (triggerAt != null && triggerAt > System.currentTimeMillis()) {
@@ -371,42 +324,19 @@ object TaskAlarmScheduler {
 
     fun fire(context: Context, key: String) {
         val alarm = TaskAlarmStore.find(context, key) ?: return
-        // 不立即删除：重复任务稍后完成时 reconcile 要靠旧记录把闹钟迁移到滚动出的下一周期
-        // （recur_from_id）；改为标记已响，防止重响并供过期清理
+        // 闹钟已由服务端 alarm_minute 成为事实源、重复滚动由后端复制，触发即删本地记录
+        TaskAlarmStore.remove(context, key)
         val firedAt = System.currentTimeMillis()
-        TaskAlarmStore.upsert(
-            context = context,
-            baseUrl = alarm.baseUrl,
-            todoId = alarm.todoId,
-            title = alarm.title,
-            dueDate = alarm.dueDate,
-            minute = alarm.minute,
-            children = alarm.children,
-            childDue = alarm.childDue,
-            priority = alarm.priority,
-            category = alarm.category,
-            recurrence = alarm.recurrence,
-            sharedCat = alarm.sharedCat,
-            snoozeFromMs = alarm.snoozeFromMs,
-            firedAtMs = firedAt
-        )
-        pruneFiredAlarms(context)
         context.getSharedPreferences(META_PREFS, Context.MODE_PRIVATE)
             .edit().putLong(KEY_LAST_FIRE, firedAt).apply()
         AlarmRingingService.start(context, alarm)
     }
 
-    /** 清理已响且超过保留期仍未被 reconcile 迁移/随任务清理的闹钟记录。 */
-    private fun pruneFiredAlarms(context: Context) {
-        val deadline = System.currentTimeMillis() - FIRED_RETENTION_MS
-        TaskAlarmStore.list(context).forEach { a ->
-            if (a.firedAtMs != null && a.firedAtMs < deadline) {
-                TaskAlarmStore.remove(context, a.key)
-            }
-        }
-    }
-
-    /** 贪睡：按 delayMs 后的绝对时间重新注册同一任务闹钟；连续贪睡保留首次触发时间。 */
+    /**
+     * 贪睡：本次停铃，注册 delayMs 后触发的**本地瞬态闹钟**（不写服务端）。
+     * 瞬态记录 todoId 带 __snooze__ 前缀，reconcile 不对账，到点触发后即删；
+     * 渲染快照（标题/子任务）沿用原闹钟记录。
+     */
     fun snooze(
         context: Context,
         alarm: StoredTaskAlarm,
@@ -417,10 +347,11 @@ object TaskAlarmScheduler {
         val triggerAt = System.currentTimeMillis() + delayMs
         val zoned = java.time.Instant.ofEpochMilli(triggerAt)
             .atZone(java.time.ZoneId.systemDefault())
+        val origTodoId = alarm.todoId.removePrefix(SNOOZE_TODO_PREFIX)
         val stored = TaskAlarmStore.upsert(
             context = context,
             baseUrl = alarm.baseUrl,
-            todoId = alarm.todoId,
+            todoId = SNOOZE_TODO_PREFIX + origTodoId,
             title = alarm.title,
             dueDate = zoned.toLocalDate().toString(),
             minute = zoned.hour * 60 + zoned.minute,
@@ -428,9 +359,8 @@ object TaskAlarmScheduler {
             childDue = alarm.childDue,
             priority = alarm.priority,
             category = alarm.category,
-            recurrence = alarm.recurrence,
-            sharedCat = alarm.sharedCat,
-            snoozeFromMs = alarm.snoozeFromMs ?: originalFireAtMs
+            recurrence = null,
+            sharedCat = false
         )
         schedule(context, stored, triggerAt)
     }
