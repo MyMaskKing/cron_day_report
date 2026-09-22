@@ -159,12 +159,17 @@ class AlarmRingingService : Service() {
         if (channel != null && channel.sound == null) return
 
         // 候选铃声逐个尝试：渠道所选 → 默认闹钟音 → 默认通知音。
-        // 自定义铃声可能因 URI 权限/文件不可读而失败，不能一次失败就静默没声
+        // 注意：系统默认铃声是逻辑 URI（content://settings/system/alarm_alert，指"当前所选"），
+        // MediaPlayer 在部分 ROM 上无法直接打开，必须先解析为实际音频地址
         val candidates = buildList {
-            channel?.sound?.let { add(it) }
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.let { add(it) }
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)?.let { add(it) }
-        }
+            channel?.sound?.let { add(resolveAlarmUri(it)) }
+            (RingtoneManager.getActualDefaultRingtoneUri(
+                this@AlarmRingingService, RingtoneManager.TYPE_ALARM
+            ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))?.let { add(it) }
+            (RingtoneManager.getActualDefaultRingtoneUri(
+                this@AlarmRingingService, RingtoneManager.TYPE_NOTIFICATION
+            ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))?.let { add(it) }
+        }.distinct()
         for (uri in candidates) {
             val mediaPlayer = runCatching {
                 MediaPlayer().apply {
@@ -193,6 +198,21 @@ class AlarmRingingService : Service() {
         }
         Log.e(TAG, "全部候选闹钟铃声均播放失败")
         Toast.makeText(this, "闹钟铃声播放失败，已改为仅震动；请在系统设置中改用系统铃声", Toast.LENGTH_LONG).show()
+    }
+
+    /**
+     * 把系统默认铃声的逻辑 URI（content://settings/system/...）解析为实际音频地址；
+     * 已是具体铃声（媒体/文件/resource）时原样返回。
+     */
+    private fun resolveAlarmUri(uri: Uri): Uri {
+        if (uri.authority != "settings") return uri
+        val type = when (uri.lastPathSegment) {
+            "alarm_alert" -> RingtoneManager.TYPE_ALARM
+            "notification_sound" -> RingtoneManager.TYPE_NOTIFICATION
+            "ringtone" -> RingtoneManager.TYPE_RINGTONE
+            else -> return uri
+        }
+        return RingtoneManager.getActualDefaultRingtoneUri(this, type) ?: uri
     }
 
     /**
