@@ -157,20 +157,15 @@ class AlarmRingingService : Service() {
         // 铃声取自系统「闹钟铃声设置」渠道；用户在渠道里选"无声"时 sound==null，闹钟只震动
         val notifManager = getSystemService(NotificationManager::class.java)
         val channel = notifManager?.getNotificationChannel(TaskAlarmScheduler.CHANNEL_ID)
-        // 诊断信息（临时）：真机响铃页直接显示两个渠道真实声音 URI 与静音/勿扰状态
-        lastRingDiagnostic = "ringer=${audioManager?.ringerMode} dnd=${notifManager?.currentInterruptionFilter}\n" +
-            "ringCh=${channel?.sound}\nsvcCh=${notifManager?.getNotificationChannel(CHANNEL_ID)?.sound}"
         if (channel?.sound != null) {
             // ① App 自己循环播放用户所选铃声
             val userUri = resolveAlarmUri(channel.sound)
             if (playLooping(userUri)) {
-                lastRingDiagnostic += "\nplayer=OK: $userUri"
                 checkAlarmVolumeHint(audioManager)
                 return
             }
             // ② 旧机制（完整闹钟前）：有声渠道发通知，由系统播放用户所选铃声（响一遍）
             if (showFallbackNotification(alarm)) {
-                lastRingDiagnostic += "\nfallback=sysNotify(channel ring)"
                 return
             }
         }
@@ -179,15 +174,13 @@ class AlarmRingingService : Service() {
             this, RingtoneManager.TYPE_ALARM
         ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         if (defaultUri != null && playLooping(defaultUri)) {
-            lastRingDiagnostic += "\ndefaultAlarm=OK: $defaultUri"
             return
         }
-        lastRingDiagnostic += "\nall=FAIL"
         Log.e(TAG, "全部候选闹钟铃声均播放失败")
         Toast.makeText(this, "闹钟铃声启动失败，请检查系统闹钟铃声设置", Toast.LENGTH_LONG).show()
     }
 
-    /** MediaPlayer 循环播放指定铃声；成功持有 player 并申请音频焦点，失败记录诊断。 */
+    /** MediaPlayer 循环播放指定铃声；成功持有 player 并申请音频焦点，失败仅记录日志。 */
     private fun playLooping(uri: Uri): Boolean {
         val mediaPlayer = runCatching {
             MediaPlayer().apply {
@@ -204,7 +197,6 @@ class AlarmRingingService : Service() {
             }
         }.onFailure {
             Log.w(TAG, "闹钟铃声播放失败: $uri", it)
-            lastRingDiagnostic += "\nfail($uri): ${it.javaClass.simpleName}: ${it.message}"
         }.getOrNull() ?: return false
         player = mediaPlayer
         requestAudioFocus()
@@ -422,10 +414,6 @@ class AlarmRingingService : Service() {
     companion object {
         private const val TAG = "TodoAlarm"
         const val CHANNEL_ID = "todo_task_alarm_svc"
-
-        // 临时诊断：响铃页显示真机的真实铃声链路，问题定位后移除
-        @Volatile
-        var lastRingDiagnostic = ""
         const val ACTION_STOP = "xyz.a10023456.todowidget.ALARM_STOP"
         const val ACTION_SNOOZE = "xyz.a10023456.todowidget.ALARM_SNOOZE"
         const val EXTRA_ALARM_JSON = "alarm_json"
