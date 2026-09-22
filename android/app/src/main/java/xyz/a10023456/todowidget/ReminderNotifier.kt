@@ -277,7 +277,8 @@ object ReminderNotifier {
         )
     }
 
-    private fun createChannel(context: Context) {
+    /** 确保系统通知设置里存在每日「待办提醒」渠道（幂等）。 */
+    fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val channel = NotificationChannel(
             CHANNEL_ID,

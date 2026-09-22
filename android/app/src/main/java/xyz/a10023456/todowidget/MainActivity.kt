@@ -103,6 +103,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 启动即建好全部通知渠道，系统通知设置里立即可见，不必等对应功能首次运行
+        TaskAlarmScheduler.createChannel(this)
+        AlarmRingingService.ensureChannel(this)
+        ReminderNotifier.createChannel(this)
         maybeRequestNotificationPermission()
         // 保持 targetSdk 35 默认 edge-to-edge：WebView 不随软键盘收缩，visualViewport 如实反映
         // 键盘高度（innerHeight 不变、vv.height 缩小），由网页 COMMON_JS 据 vv 把弹窗几何对齐到

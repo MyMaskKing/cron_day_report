@@ -64,7 +64,7 @@ class AlarmRingingService : Service() {
     override fun onCreate() {
         super.onCreate()
         TaskAlarmScheduler.createChannel(this)
-        createChannel()
+        ensureChannel(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -320,25 +320,6 @@ class AlarmRingingService : Service() {
         NotificationManagerCompat.from(this).notify(alarm.requestCode, notification)
     }
 
-    private fun createChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = getSystemService(NotificationManager::class.java) ?: return
-        // 一次性改名迁移：旧"闹钟服务"名字不符则删除重建
-        val existing = manager.getNotificationChannel(CHANNEL_ID)
-        if (existing != null) {
-            if (existing.name?.toString() == CHANNEL_NAME) return
-            manager.deleteNotificationChannel(CHANNEL_ID)
-        }
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "响铃时出现在通知栏并拉起响铃页，提供停止/贪睡按钮；本渠道无声，无需改铃声"
-            setShowBadge(false)
-        }
-        manager.createNotificationChannel(channel)
-    }
 
     override fun onDestroy() {
         mainHandler.removeCallbacks(timeoutRunnable)
@@ -390,6 +371,29 @@ class AlarmRingingService : Service() {
                 requestCode = TEST_NOTIFICATION_ID
             )
             start(context, alarm)
+        }
+
+        /**
+         * 确保系统通知设置里存在「闹钟通知栏及页面设置」渠道（幂等）：
+         * App 启动时即调用，不必等首次响铃；含旧名"闹钟服务"的一次性改名迁移。
+         */
+        fun ensureChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            val manager = context.getSystemService(NotificationManager::class.java) ?: return
+            val existing = manager.getNotificationChannel(CHANNEL_ID)
+            if (existing != null) {
+                if (existing.name?.toString() == CHANNEL_NAME) return
+                manager.deleteNotificationChannel(CHANNEL_ID)
+            }
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "响铃时出现在通知栏并拉起响铃页，提供停止/贪睡按钮；本渠道无声，无需改铃声"
+                setShowBadge(false)
+            }
+            manager.createNotificationChannel(channel)
         }
     }
 }
