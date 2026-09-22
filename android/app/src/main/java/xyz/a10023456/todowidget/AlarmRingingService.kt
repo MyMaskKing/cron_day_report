@@ -21,6 +21,8 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -37,6 +39,10 @@ object AlarmUiBus {
  * 响铃页被划掉也不影响响铃，可通过通知栏返回或通知动作操作。
  */
 class AlarmRingingService : Service() {
+
+    private companion object {
+        const val TAG = "TodoAlarm"
+    }
 
     private data class RingingItem(
         val alarm: StoredTaskAlarm,
@@ -150,32 +156,47 @@ class AlarmRingingService : Service() {
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         // 完全静音模式不响铃（震动由 startVibration 单独决定）
         if (audioManager?.ringerMode == AudioManager.RINGER_MODE_SILENT) return
-        // 铃声取自系统「待办闹钟」渠道：用户在系统通知设置里换铃声、选无声即生效；
-        // 渠道不存在时回退默认闹钟音
+
+        // 铃声取自系统「闹钟铃声设置」渠道；用户在渠道里选"无声"时 sound==null，闹钟只震动
         val channel = getSystemService(NotificationManager::class.java)
             ?.getNotificationChannel(TaskAlarmScheduler.CHANNEL_ID)
-        val soundUri = when {
-            channel == null -> RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-            channel.sound == null -> return
-            else -> channel.sound
-        } ?: return
-        val mediaPlayer = runCatching {
-            MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                setDataSource(this@AlarmRingingService, soundUri)
-                isLooping = true
-                prepare()
-                start()
+        if (channel != null && channel.sound == null) return
+
+        // 候选铃声逐个尝试：渠道所选 → 默认闹钟音 → 默认通知音。
+        // 自定义铃声可能因 URI 权限/文件不可读而失败，不能一次失败就静默没声
+        val candidates = buildList {
+            channel?.sound?.let { add(it) }
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.let { add(it) }
+            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)?.let { add(it) }
+        }
+        for (uri in candidates) {
+            val mediaPlayer = runCatching {
+                MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
+                    setDataSource(this@AlarmRingingService, uri)
+                    isLooping = true
+                    prepare()
+                    start()
+                }
+            }.onFailure { Log.w(TAG, "闹钟铃声播放失败: $uri", it) }
+                .getOrNull()
+            if (mediaPlayer != null) {
+                player = mediaPlayer
+                requestAudioFocus()
+                // 铃声已启动但闹钟音量为 0 时用户仍听不到，明确提示
+                if ((audioManager?.getStreamVolume(AudioManager.STREAM_ALARM) ?: 0) == 0) {
+                    Toast.makeText(this, "闹钟音量为 0：请按音量键调大“闹钟音量”", Toast.LENGTH_LONG).show()
+                }
+                return
             }
-        }.getOrNull() ?: return
-        player = mediaPlayer
-        requestAudioFocus()
+        }
+        Log.e(TAG, "全部候选闹钟铃声均播放失败")
+        Toast.makeText(this, "闹钟铃声播放失败，已改为仅震动；请在系统设置中改用系统铃声", Toast.LENGTH_LONG).show()
     }
 
     /**
