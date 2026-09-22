@@ -218,7 +218,8 @@ class AlarmRingingService : Service() {
         // 是否震动跟随系统「待办闹钟」渠道
         val alarmChannel = getSystemService(NotificationManager::class.java)
             ?.getNotificationChannel(TaskAlarmScheduler.CHANNEL_ID)
-        if (alarmChannel != null && !alarmChannel.enableVibration) return
+        // NotificationChannel 无 isVibrationEnabled 读属性：震动关闭时 vibrationPattern 为 null
+        if (alarmChannel != null && alarmChannel.vibrationPattern == null) return
         val pattern = longArrayOf(0, 800, 600, 800, 600)
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
