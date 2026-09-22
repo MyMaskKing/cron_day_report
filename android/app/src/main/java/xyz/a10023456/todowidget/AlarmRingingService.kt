@@ -105,7 +105,7 @@ class AlarmRingingService : Service() {
 
         startForegroundCompat(SVC_NOTIFICATION_ID, buildNotification(item.alarm))
         acquireWakeLock()
-        startSound(item.alarm)
+        startSound()
         startVibration()
         launchActivity(item.alarm)
 
@@ -121,7 +121,6 @@ class AlarmRingingService : Service() {
         releaseWakeLock()
         current = null
         NotificationManagerCompat.from(this).cancel(SVC_NOTIFICATION_ID)
-        NotificationManagerCompat.from(this).cancel(FALLBACK_NOTIFICATION_ID)
         AlarmUiBus.emit(EVENT_DISMISS)
     }
 
@@ -149,7 +148,7 @@ class AlarmRingingService : Service() {
 
     // ---------- 铃声 / 震动 / WakeLock ----------
 
-    private fun startSound(alarm: StoredTaskAlarm) {
+    private fun startSound() {
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         // 不能因静音模式不响：STREAM_ALARM 在静音、勿扰（默认允许闹钟穿透）下仍输出，
         // 与系统时钟闹钟同契约；仅用户在勿扰里明确禁用闹钟时才听不到（所有闹钟 App 皆然）
@@ -162,17 +161,13 @@ class AlarmRingingService : Service() {
             "ringCh=${channel?.sound}\nsvcCh=${notifManager?.getNotificationChannel(CHANNEL_ID)?.sound}"
         if (channel != null && channel.sound == null) return
 
-        // 候选铃声逐个尝试：渠道所选 → 默认闹钟音 → 默认通知音。
-        // 注意：系统默认铃声是逻辑 URI（content://settings/system/alarm_alert，指"当前所选"），
-        // MediaPlayer 在部分 ROM 上无法直接打开，必须先解析为实际音频地址
+        // 两级铃声：①「闹钟铃声设置」渠道所选（逻辑地址先解析为实际音频）
+        //          ②系统默认闹钟铃声（内置、必然可播，等同吊起系统闹铃声）
         val candidates = buildList {
             channel?.sound?.let { add(resolveAlarmUri(it)) }
             (RingtoneManager.getActualDefaultRingtoneUri(
                 this@AlarmRingingService, RingtoneManager.TYPE_ALARM
             ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))?.let { add(it) }
-            (RingtoneManager.getActualDefaultRingtoneUri(
-                this@AlarmRingingService, RingtoneManager.TYPE_NOTIFICATION
-            ) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))?.let { add(it) }
         }.distinct()
         for (uri in candidates) {
             val mediaPlayer = runCatching {
@@ -203,44 +198,10 @@ class AlarmRingingService : Service() {
                 return
             }
         }
-        // 播放器整体失败：降级为有声渠道普通通知，由系统播铃声（响一遍），保证至少听得到
-        lastRingDiagnostic += "\nplayer=FAIL(all), fallback"
-        Log.e(TAG, "全部候选闹钟铃声均播放失败，降级为系统通知铃声")
-        showFallbackNotification(alarm)
-        Toast.makeText(this, "循环铃声启动失败，已降级为普通通知铃声", Toast.LENGTH_LONG).show()
-    }
-
-    /**
-     * 降级兜底：用有声的「闹钟铃声设置」渠道发一条普通通知，系统收到后自动播放渠道铃声
-     * （与完整闹钟前的旧机制一致，响一遍、不循环）。仅在 MediaPlayer 全失败时调用，故不会双响。
-     */
-    private fun showFallbackNotification(alarm: StoredTaskAlarm) {
-        val path = if (alarm.todoId == TEST_ALARM_TODO_ID) {
-            "/todo"
-        } else {
-            "/todo?edit=" + Uri.encode(alarm.todoId)
-        }
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(Keys.Url.name, alarm.baseUrl + path)
-        }
-        val pi = PendingIntent.getActivity(
-            this, alarm.requestCode, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val notification = NotificationCompat.Builder(this, TaskAlarmScheduler.CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_chip_today)
-            .setContentTitle("待办闹钟")
-            .setContentText(alarm.title)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(alarm.title))
-            .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setContentIntent(pi)
-            .build()
-        NotificationManagerCompat.from(this).notify(FALLBACK_NOTIFICATION_ID, notification)
+        // 系统内置闹铃声也播放失败（现实中几乎不可能）：保留震动并提示
+        lastRingDiagnostic += "\nplayer=FAIL(all)"
+        Log.e(TAG, "全部候选闹钟铃声均播放失败")
+        Toast.makeText(this, "闹钟铃声启动失败，请检查系统闹钟铃声设置", Toast.LENGTH_LONG).show()
     }
 
     /**
@@ -420,7 +381,6 @@ class AlarmRingingService : Service() {
         const val ACTION_SNOOZE = "xyz.a10023456.todowidget.ALARM_SNOOZE"
         const val EXTRA_ALARM_JSON = "alarm_json"
         const val SVC_NOTIFICATION_ID = 40000
-        const val FALLBACK_NOTIFICATION_ID = SVC_NOTIFICATION_ID + 10
         const val EVENT_DISMISS = "dismiss"
 
         const val TEST_ALARM_TODO_ID = "__alarm_test__"
