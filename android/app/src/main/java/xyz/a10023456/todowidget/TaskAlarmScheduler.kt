@@ -272,10 +272,19 @@ object TaskAlarmScheduler {
         val storedAlarms = TaskAlarmStore.list(context)
             .filter { it.baseUrl == normalizedBase && !it.todoId.startsWith(SNOOZE_TODO_PREFIX) }
 
-        // ① 服务端带闹钟的任务全部 upsert 并按未来时间注册（含新增、重装/多设备恢复、重复滚动）
+        // ① 服务端带闹钟且未过期的任务 upsert 并注册（含新增、重装/多设备恢复、重复滚动）；
+        //    过期的不构建、本地旧记录删除
         payload.tasks.forEach { task ->
             val alarmMinute = task.alarmMinute ?: return@forEach
             if (task.done || task.dueDate.isBlank()) return@forEach
+            val triggerAt = triggerAtMillis(task.dueDate, alarmMinute)
+            val taskKey = StoredTaskAlarm.taskAlarmKey(normalizedBase, task.id)
+            // 已过期（或无法解析时间）：不构建本地闹钟；本地若有旧记录一并删除
+            if (triggerAt == null || triggerAt <= now) {
+                TaskAlarmStore.find(context, taskKey)?.let { cancelStored(context, it) }
+                return@forEach
+            }
+            if (!canScheduleExactAlarms(context)) return@forEach
             val stored = TaskAlarmStore.upsert(
                 context = context,
                 baseUrl = normalizedBase,
@@ -290,12 +299,7 @@ object TaskAlarmScheduler {
                 recurrence = task.recurrence,
                 sharedCat = task.sharedCat
             )
-            val triggerAt = triggerAtMillis(task.dueDate, alarmMinute)
-            if (triggerAt != null && triggerAt > now && canScheduleExactAlarms(context)) {
-                schedule(context, stored, triggerAt)
-            } else {
-                cancelPending(context, stored)
-            }
+            schedule(context, stored, triggerAt)
         }
 
         // ② 本地有、但已不该存在的记录：任务 full 缺席 / done / 无日期 / 闹钟被取消 → 删除
@@ -317,7 +321,8 @@ object TaskAlarmScheduler {
             if (triggerAt != null && triggerAt > System.currentTimeMillis()) {
                 schedule(context, alarm, triggerAt)
             } else {
-                cancelPending(context, alarm)
+                // 过期记录不再保留：取消可能存在的系统闹钟并删除本地记录
+                cancelStored(context, alarm)
             }
         }
     }
