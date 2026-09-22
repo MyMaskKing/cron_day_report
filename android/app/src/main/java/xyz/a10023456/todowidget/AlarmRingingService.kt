@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
@@ -46,6 +47,7 @@ class AlarmRingingService : Service() {
     private var current: RingingItem? = null
 
     private var player: MediaPlayer? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -166,8 +168,29 @@ class AlarmRingingService : Service() {
             }.getOrNull()
             if (mediaPlayer != null) {
                 player = mediaPlayer
+                requestAudioFocus()
                 return
             }
+        }
+    }
+
+    /**
+     * 申请闹钟音频焦点：部分 ROM（vivo OriginOS）会对未持焦点的闹钟声在震动节拍里压停，
+     * 持焦点后铃声可与震动并行。minSdk 26，AudioFocusRequest 直接可用。
+     */
+    private fun requestAudioFocus() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            .setAudioAttributes(attrs)
+            .setAcceptsDelayedFocusGain(false)
+            .setOnAudioFocusChangeListener({ }, mainHandler)
+            .build()
+        if (audioManager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            audioFocusRequest = request
         }
     }
 
@@ -175,6 +198,9 @@ class AlarmRingingService : Service() {
         runCatching { player?.stop() }
         player?.release()
         player = null
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+        audioFocusRequest = null
     }
 
     private fun startVibration() {
@@ -288,6 +314,8 @@ class AlarmRingingService : Service() {
     private fun createChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java) ?: return
+        // 清理旧的有声渠道：闹钟铃声已统一由 MediaPlayer 播放，避免系统设置里残留两个闹钟渠道
+        manager.deleteNotificationChannel("todo_task_alarm")
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         val channel = NotificationChannel(
             CHANNEL_ID,

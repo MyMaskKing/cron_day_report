@@ -1,17 +1,12 @@
 package xyz.a10023456.todowidget
 
 import android.app.AlarmManager
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -22,11 +17,9 @@ import java.time.ZoneId
 
 /** 任务级本地闹钟：由 Android AlarmManager 唤醒本 App，不写入系统时钟 App。 */
 object TaskAlarmScheduler {
-    const val CHANNEL_ID = "todo_task_alarm"
     const val EXTRA_KEY = "task_alarm_key"
 
     private const val FULL_SCREEN_REQUEST = 15000
-    private const val TEST_NOTIFICATION_ID = 29999
 
     private const val META_PREFS = "task_alarm_meta"
     private const val KEY_LAST_FIRE = "last_fire_ms"
@@ -143,32 +136,6 @@ object TaskAlarmScheduler {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         return runCatching { context.startActivity(intent) }.isSuccess
-    }
-
-    fun openAlarmChannelSettings(context: Context): Boolean {
-        createChannel(context)
-        val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS).apply {
-            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-            putExtra(Settings.EXTRA_CHANNEL_ID, CHANNEL_ID)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        return runCatching { context.startActivity(intent) }.isSuccess
-    }
-
-    fun showTestNotification(context: Context): Boolean {
-        if (!notificationsEnabled(context)) return false
-        createChannel(context)
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_chip_today)
-            .setContentTitle("待办闹钟测试")
-            .setContentText("如果听到铃声或感到震动，说明待办提醒正常。")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(true)
-            .build()
-        NotificationManagerCompat.from(context).notify(TEST_NOTIFICATION_ID, notification)
-        return true
     }
 
     fun upsert(
@@ -436,31 +403,6 @@ object TaskAlarmScheduler {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-    }
-
-    private fun createChannel(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-
-        val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        val attributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "待办闹钟",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "待办截止时间响铃或震动提醒"
-            enableVibration(true)
-            vibrationPattern = longArrayOf(0, 500, 500, 500)
-            setSound(sound, attributes)
-            lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
-        }
-        manager.createNotificationChannel(channel)
     }
 
     private fun triggerAtMillis(dueDate: String, minute: Int): Long? {

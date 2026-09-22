@@ -167,24 +167,11 @@ fun MeScreen(
                             fontWeight = FontWeight.Medium
                         )
                         TextButton(onClick = {
-                            if (!TaskAlarmScheduler.showTestNotification(appContext)) {
-                                android.widget.Toast.makeText(
-                                    appContext,
-                                    "请先允许通知",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }) { Text("测试") }
-                        TextButton(onClick = {
-                            if (TaskAlarmScheduler.notificationsEnabled(appContext)) {
-                                TaskAlarmScheduler.openAlarmChannelSettings(appContext)
-                            } else {
-                                TaskAlarmScheduler.openNotificationSettings(appContext)
-                            }
+                            TaskAlarmScheduler.openNotificationSettings(appContext)
                         }) { Text("设置") }
                     }
                     Text(
-                        "测试会播放当前闹钟铃声；铃声、震动和音量在系统渠道中设置。",
+                        "闹钟铃声音量用手机音量键的“闹钟音量”调节；震动等在系统通知设置中设置。",
                         fontSize = 12.sp,
                         color = scheme.onSurfaceVariant
                     )
