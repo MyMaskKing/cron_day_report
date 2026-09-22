@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,7 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -162,13 +160,13 @@ private fun AlarmScreen(
             .fillMaxSize()
             .background(AlarmBg)
     ) {
-        // 背景氛围光（径向渐变模拟，无需 RenderEffect）
+        // 背景氛围光（径向渐变，Alignment 定位，无需像素换算）
         Box(
             Modifier.matchParentSize().background(
                 Brush.radialGradient(
                     listOf(Color(0xFFA855F7).copy(alpha = .30f), Color.Transparent),
-                    center = Offset(maxWidth.toPx() * .85f, maxHeight.toPx() * .10f),
-                    radius = 420.dp.toPx()
+                    center = Alignment.TopEnd,
+                    radius = 320.dp
                 )
             )
         )
@@ -176,8 +174,8 @@ private fun AlarmScreen(
             Modifier.matchParentSize().background(
                 Brush.radialGradient(
                     listOf(Color(0xFF3B82F6).copy(alpha = .18f), Color.Transparent),
-                    center = Offset(maxWidth.toPx() * .05f, maxHeight.toPx() * .62f),
-                    radius = 420.dp.toPx()
+                    center = Alignment.CenterStart,
+                    radius = 320.dp
                 )
             )
         )
@@ -185,8 +183,8 @@ private fun AlarmScreen(
             Modifier.matchParentSize().background(
                 Brush.radialGradient(
                     listOf(Color(0xFFFF7A59).copy(alpha = .13f), Color.Transparent),
-                    center = Offset(maxWidth.toPx() * .10f, maxHeight.toPx() * .30f),
-                    radius = 380.dp.toPx()
+                    center = Alignment.TopStart,
+                    radius = 280.dp
                 )
             )
         )
