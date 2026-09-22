@@ -37,14 +37,31 @@ object TaskAlarmScheduler {
     }
 
     @Serializable
+    private data class WebTaskChild(
+        val id: String,
+        val title: String = "",
+        @SerialName("due_date") val dueDate: String? = null,
+        val done: Boolean = false
+    )
+
+    @Serializable
     private data class WebTaskAlarm(
         val id: String,
         val title: String = "",
         @SerialName("due_date") val dueDate: String = "",
         val minute: Int = 0,
         val done: Boolean = false,
-        @SerialName("recur_from_id") val recurFromId: Long? = null
+        @SerialName("recur_from_id") val recurFromId: Long? = null,
+        val children: List<WebTaskChild> = emptyList(),
+        @SerialName("child_due") val childDue: Boolean = false,
+        val priority: Int? = null,
+        val category: String? = null,
+        val recurrence: String? = null,
+        @SerialName("shared_cat") val sharedCat: Boolean = false
     )
+
+    private fun WebTaskAlarm.toChildren(): List<TaskAlarmChild> =
+        children.map { TaskAlarmChild(it.id, it.title, it.dueDate, it.done) }
 
     @Serializable
     private data class WebTaskAlarmSync(
@@ -56,7 +73,19 @@ object TaskAlarmScheduler {
         val payload = runCatching {
             json.decodeFromString<WebTaskAlarm>(raw)
         }.getOrElse { return "本地闹钟数据无效" }
-        return upsert(context, baseUrl, payload.id, payload.title, payload.dueDate, payload.minute)
+        return upsert(
+            context, baseUrl,
+            todoId = payload.id,
+            title = payload.title,
+            dueDate = payload.dueDate,
+            minute = payload.minute,
+            children = payload.toChildren(),
+            childDue = payload.childDue,
+            priority = payload.priority,
+            category = payload.category,
+            recurrence = payload.recurrence,
+            sharedCat = payload.sharedCat
+        )
     }
 
     fun canScheduleExactAlarms(context: Context): Boolean {
@@ -148,7 +177,13 @@ object TaskAlarmScheduler {
         todoId: String,
         title: String,
         dueDate: String,
-        minute: Int
+        minute: Int,
+        children: List<TaskAlarmChild> = emptyList(),
+        childDue: Boolean = false,
+        priority: Int? = null,
+        category: String? = null,
+        recurrence: String? = null,
+        sharedCat: Boolean = false
     ): String {
         if (!canScheduleExactAlarms(context)) return "请先在系统设置中允许精确闹钟"
         if (todoId.isBlank()) return "任务标识无效"
@@ -163,7 +198,13 @@ object TaskAlarmScheduler {
             todoId = todoId,
             title = title.take(120),
             dueDate = dueDate,
-            minute = minute
+            minute = minute,
+            children = children,
+            childDue = childDue,
+            priority = priority,
+            category = category,
+            recurrence = recurrence,
+            sharedCat = sharedCat
         )
         try {
             schedule(context, alarm, triggerAt)
@@ -220,7 +261,13 @@ object TaskAlarmScheduler {
                 todoId = task.id,
                 title = task.title.ifBlank { old.title }.take(120),
                 dueDate = task.dueDate,
-                minute = old.minute
+                minute = old.minute,
+                children = task.toChildren(),
+                childDue = task.childDue,
+                priority = task.priority,
+                category = task.category,
+                recurrence = task.recurrence,
+                sharedCat = task.sharedCat
             )
             if (canScheduleExactAlarms(context)) {
                 try {
@@ -235,13 +282,26 @@ object TaskAlarmScheduler {
 
         storedAlarms.forEach { stored ->
             val task = byKey[stored.key]
+            // 贪睡中的记录：不被 reconcile 改期/覆盖；仅当任务被删除(full 缺席)或完成时取消
+            if (stored.snoozeFromMs != null) {
+                val gone = (task == null && payload.full) ||
+                    (task != null && (task.done || task.dueDate.isBlank()))
+                if (gone) cancelStored(context, stored)
+                return@forEach
+            }
             when {
                 task == null && payload.full -> cancelStored(context, stored)
                 task != null && (task.done || task.dueDate.isBlank()) -> cancelStored(context, stored)
                 task != null -> {
                     val updated = stored.copy(
                         title = task.title.ifBlank { stored.title }.take(120),
-                        dueDate = task.dueDate
+                        dueDate = task.dueDate,
+                        children = task.toChildren(),
+                        childDue = task.childDue,
+                        priority = task.priority,
+                        category = task.category,
+                        recurrence = task.recurrence,
+                        sharedCat = task.sharedCat
                     )
                     TaskAlarmStore.upsert(
                         context = context,
@@ -249,7 +309,14 @@ object TaskAlarmScheduler {
                         todoId = updated.todoId,
                         title = updated.title,
                         dueDate = updated.dueDate,
-                        minute = updated.minute
+                        minute = updated.minute,
+                        children = updated.children,
+                        childDue = updated.childDue,
+                        priority = updated.priority,
+                        category = updated.category,
+                        recurrence = updated.recurrence,
+                        sharedCat = updated.sharedCat,
+                        snoozeFromMs = updated.snoozeFromMs
                     )
                     val triggerAt = triggerAtMillis(updated.dueDate, updated.minute)
                     when {
@@ -279,7 +346,36 @@ object TaskAlarmScheduler {
         TaskAlarmStore.remove(context, key)
         context.getSharedPreferences(META_PREFS, Context.MODE_PRIVATE)
             .edit().putLong(KEY_LAST_FIRE, System.currentTimeMillis()).apply()
-        showNotification(context, alarm)
+        AlarmRingingService.start(context, alarm)
+    }
+
+    /** 贪睡：按 delayMs 后的绝对时间重新注册同一任务闹钟；连续贪睡保留首次触发时间。 */
+    fun snooze(
+        context: Context,
+        alarm: StoredTaskAlarm,
+        originalFireAtMs: Long,
+        delayMs: Long
+    ) {
+        if (!canScheduleExactAlarms(context)) return
+        val triggerAt = System.currentTimeMillis() + delayMs
+        val zoned = java.time.Instant.ofEpochMilli(triggerAt)
+            .atZone(java.time.ZoneId.systemDefault())
+        val stored = TaskAlarmStore.upsert(
+            context = context,
+            baseUrl = alarm.baseUrl,
+            todoId = alarm.todoId,
+            title = alarm.title,
+            dueDate = zoned.toLocalDate().toString(),
+            minute = zoned.hour * 60 + zoned.minute,
+            children = alarm.children,
+            childDue = alarm.childDue,
+            priority = alarm.priority,
+            category = alarm.category,
+            recurrence = alarm.recurrence,
+            sharedCat = alarm.sharedCat,
+            snoozeFromMs = alarm.snoozeFromMs ?: originalFireAtMs
+        )
+        schedule(context, stored, triggerAt)
     }
 
     /** 最近一次任务闹钟到点触发的时间戳（毫秒）；从未触发过返回 0。 */
@@ -325,23 +421,6 @@ object TaskAlarmScheduler {
             pending.cancel()
         }
         NotificationManagerCompat.from(context).cancel(alarm.requestCode)
-    }
-
-    private fun showNotification(context: Context, alarm: StoredTaskAlarm) {
-        createChannel(context)
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_chip_today)
-            .setContentTitle("待办提醒")
-            .setContentText(alarm.title)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(alarm.title))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(true)
-            .setContentIntent(showIntent(context, alarm))
-            .setFullScreenIntent(showIntent(context, alarm), true)
-            .build()
-        NotificationManagerCompat.from(context).notify(alarm.requestCode, notification)
     }
 
     private fun showIntent(context: Context, alarm: StoredTaskAlarm): PendingIntent {

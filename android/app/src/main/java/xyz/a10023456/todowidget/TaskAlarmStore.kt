@@ -1,9 +1,19 @@
 package xyz.a10023456.todowidget
 
 import android.content.Context
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+
+/** 闹钟携带的第一子层级子任务快照（随网页 reconcile 刷新）。 */
+@Serializable
+data class TaskAlarmChild(
+    val id: String,
+    val title: String = "",
+    @SerialName("due_date") val dueDate: String? = null,
+    val done: Boolean = false
+)
 
 @Serializable
 data class StoredTaskAlarm(
@@ -12,7 +22,14 @@ data class StoredTaskAlarm(
     val title: String,
     val dueDate: String,
     val minute: Int,
-    val requestCode: Int
+    val requestCode: Int,
+    val children: List<TaskAlarmChild> = emptyList(),
+    @SerialName("child_due") val childDue: Boolean = false,
+    val priority: Int? = null,
+    val category: String? = null,
+    val recurrence: String? = null,
+    @SerialName("shared_cat") val sharedCat: Boolean = false,
+    @SerialName("snooze_from_ms") val snoozeFromMs: Long? = null
 ) {
     val key: String get() = taskAlarmKey(baseUrl, todoId)
 
@@ -48,7 +65,14 @@ object TaskAlarmStore {
         todoId: String,
         title: String,
         dueDate: String,
-        minute: Int
+        minute: Int,
+        children: List<TaskAlarmChild> = emptyList(),
+        childDue: Boolean = false,
+        priority: Int? = null,
+        category: String? = null,
+        recurrence: String? = null,
+        sharedCat: Boolean = false,
+        snoozeFromMs: Long? = null
     ): StoredTaskAlarm {
         val key = StoredTaskAlarm.taskAlarmKey(baseUrl, todoId)
         val current = list(context).toMutableList()
@@ -57,7 +81,14 @@ object TaskAlarmStore {
             val updated = current[index].copy(
                 title = title,
                 dueDate = dueDate,
-                minute = minute
+                minute = minute,
+                children = children,
+                childDue = childDue,
+                priority = priority,
+                category = category,
+                recurrence = recurrence,
+                sharedCat = sharedCat,
+                snoozeFromMs = snoozeFromMs
             )
             current[index] = updated
             save(context, current)
@@ -71,7 +102,14 @@ object TaskAlarmStore {
             title = title,
             dueDate = dueDate,
             minute = minute,
-            requestCode = requestCode
+            requestCode = requestCode,
+            children = children,
+            childDue = childDue,
+            priority = priority,
+            category = category,
+            recurrence = recurrence,
+            sharedCat = sharedCat,
+            snoozeFromMs = snoozeFromMs
         )
         current.add(alarm)
         save(context, current)

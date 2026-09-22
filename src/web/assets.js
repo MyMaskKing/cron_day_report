@@ -8747,8 +8747,18 @@ function todoAlarmSaveForm(id) {
 function todoAlarmReconcile(rows, full) {
   var native = todoAlarmNative();
   if (!native || typeof native.reconcileTodoAlarms !== 'function') return;
+  // todoBuildTree 生成带 children 的新节点（不回写原 rows），展平为 id->树节点 映射：
+  // 子任务快照必须取自树节点；effectiveDue/effectiveDone 沿 parent_id 仍可工作
   var byId = {};
-  (rows || []).forEach(function(r) { if (r && r.id != null) byId[r.id] = r; });
+  todoBuildTree(rows || []).forEach(function(root) {
+    var stack = [root];
+    while (stack.length) {
+      var n = stack.pop();
+      byId[n.id] = n;
+      (n.children || []).forEach(function(c) { stack.push(c); });
+    }
+  });
+  var treeRows = Object.keys(byId).map(function(k) { return byId[k]; });
   function effectiveDone(r) {
     var cur = r, seen = {};
     while (cur) {
@@ -8759,13 +8769,28 @@ function todoAlarmReconcile(rows, full) {
     }
     return false;
   }
-  var tasks = (rows || []).filter(function(r) { return r && r.id != null; }).map(function(r) {
+  var tasks = treeRows.filter(function(r) { return r && r.id != null; }).map(function(r) {
+    // 第一子层级快照：树节点 children 含全部直接子任务（已完成项用于完成计数）
+    var childArr = (r.children || []).map(function(c) {
+      return {
+        id: String(c.id),
+        title: c.title || '',
+        due_date: c.due_date || null,
+        done: !!c.done
+      };
+    });
     return {
       id: String(r.id),
       title: r.title || '',
       due_date: todoEffDueRow(r, byId) || '',
       done: effectiveDone(r),
-      recur_from_id: r.recur_from_id == null ? null : Number(r.recur_from_id)
+      recur_from_id: r.recur_from_id == null ? null : Number(r.recur_from_id),
+      children: childArr,
+      child_due: r.child_due === 1,
+      priority: r.priority == null ? null : Number(r.priority),
+      category: r.category || null,
+      recurrence: r.recurrence || null,
+      shared_cat: r.shared_cat_id != null
     };
   });
   try { native.reconcileTodoAlarms(JSON.stringify({ tasks: tasks, full: !!full })); }
