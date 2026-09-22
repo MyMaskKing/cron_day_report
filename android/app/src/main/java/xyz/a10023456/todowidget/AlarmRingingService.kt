@@ -459,13 +459,23 @@ class AlarmRingingService : Service() {
          */
         fun startTest(context: Context) {
             val baseUrl = AppConfig.getBaseUrl(context)
+            // 用示例任务呈现真实排版（chips + 子任务），测试铃声所见即所得；不写入本机闹钟表
+            val today = java.time.LocalDate.now().toString()
             val alarm = StoredTaskAlarm(
                 baseUrl = baseUrl,
                 todoId = TEST_ALARM_TODO_ID,
-                title = "闹钟测试：铃声与震动正常即 OK，请点「停止」结束",
-                dueDate = "2099-01-01",
-                minute = 0,
-                requestCode = TEST_NOTIFICATION_ID
+                title = "闹钟试听 · 示例任务",
+                dueDate = today,
+                minute = java.time.LocalTime.now().let { it.hour * 60 + it.minute },
+                requestCode = TEST_NOTIFICATION_ID,
+                children = listOf(
+                    TaskAlarmChild("1", "已完成的子任务", null, true),
+                    TaskAlarmChild("2", "待办子任务示例", today, false),
+                    TaskAlarmChild("3", "再添加一项也可以", null, false)
+                ),
+                priority = 1,
+                recurrence = "daily",
+                sharedCat = false
             )
             start(context, alarm)
         }

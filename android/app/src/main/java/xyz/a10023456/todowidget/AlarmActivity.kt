@@ -141,14 +141,17 @@ class AlarmActivity : ComponentActivity() {
 // ---------- A 方案配色（强制深色，不随用户主题，保证锁屏可读） ----------
 
 private val AlarmBg = Color(0xFF14141E)
-private val GlassColor = Color(0xFF1E2230).copy(alpha = .62f)
-private val GlassBorder = Color.White.copy(alpha = .08f)
+// 玻璃底略带紫、透明度提高：让背景光透得更明显，层次更接近 demo
+private val GlassColor = Color(0xFF222236).copy(alpha = .74f)
+private val GlassBorder = Color.White.copy(alpha = .12f)
+// 面板顶部微高光
+private val GlassHighlight = Color.White.copy(alpha = .14f)
 private val AlarmText = Color(0xFFF2F3F8)
 private val AlarmMuted = Color(0xFF8A90A6)
-private val AccentText = Color(0xFFC9A4FF)
-private val AccentBorder = Color(0xFFB97BFF).copy(alpha = .5f)
-private val ChipColor = Color(0xFFA855F7).copy(alpha = .18f)
-private val DangerBrush = Brush.horizontalGradient(listOf(Color(0xFFDC2626), Color(0xFFB91C1C)))
+private val AccentText = Color(0xFFD3B4FF)
+private val AccentBorder = Color(0xFFB97BFF).copy(alpha = .62f)
+private val ChipColor = Color(0xFFA855F7).copy(alpha = .22f)
+private val StopRed = Color(0xFFFF3B30)
 
 @Composable
 private fun AlarmScreen(
@@ -163,137 +166,148 @@ private fun AlarmScreen(
             .background(AlarmBg)
     ) {
         // 背景氛围光：drawWithCache 在尺寸确定后按比例定位（Offset/Float 为 radialGradient 真实签名）
+        // 光亮度与半径加大，保证在 OLED 深底 / 投屏降配下仍可见
         Box(Modifier.matchParentSize().alarmGlow(
-            Color(0xFFA855F7).copy(alpha = .30f),
-            centerRatioX = .85f, centerRatioY = .08f, radiusRatio = .7f
+            Color(0xFFB46BFF).copy(alpha = .45f),
+            centerRatioX = .85f, centerRatioY = .05f, radiusRatio = .95f
         ))
         Box(Modifier.matchParentSize().alarmGlow(
-            Color(0xFF3B82F6).copy(alpha = .18f),
-            centerRatioX = .05f, centerRatioY = .62f, radiusRatio = .7f
+            Color(0xFF4E8DF8).copy(alpha = .28f),
+            centerRatioX = .05f, centerRatioY = .62f, radiusRatio = .9f
         ))
         Box(Modifier.matchParentSize().alarmGlow(
-            Color(0xFFFF7A59).copy(alpha = .13f),
-            centerRatioX = .10f, centerRatioY = .30f, radiusRatio = .6f
+            Color(0xFFFF8A66).copy(alpha = .20f),
+            centerRatioX = .08f, centerRatioY = .28f, radiusRatio = .75f
         ))
 
-        // 玻璃面板
+        // 玻璃面板：整体下移（避开顶部系统状态栏图标），左右/底部留白
         Column(
             modifier = Modifier
-                .padding(14.dp)
+                .padding(start = 14.dp, end = 14.dp, bottom = 14.dp, top = 64.dp)
                 .fillMaxSize()
                 .background(GlassColor, RoundedCornerShape(26.dp))
                 .border(1.dp, GlassBorder, RoundedCornerShape(26.dp))
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 22.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            var now by remember { mutableStateOf(LocalTime.now()) }
-            LaunchedEffect(Unit) {
-                while (true) {
-                    now = LocalTime.now()
-                    delay(1000L)
-                }
-            }
-
-            // 顶栏：闹钟徽章 + 日期
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // 内容区：独立滚动，不影响底部按钮位置
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
-                    Modifier
-                        .background(ChipColor, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 11.dp, vertical = 5.dp)
-                ) {
-                    Text("⏰ 待办闹钟", color = AccentText, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                var now by remember { mutableStateOf(LocalTime.now()) }
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        now = LocalTime.now()
+                        delay(1000L)
+                    }
                 }
+
+                // 顶栏：闹钟徽章 + 日期
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        Modifier
+                            .background(ChipColor, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 11.dp, vertical = 5.dp)
+                    ) {
+                        Text("⏰ 待办闹钟", color = AccentText, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text(
+                        LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日 EEEE")),
+                        color = AlarmMuted,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Spacer(Modifier.height(18.dp))
+
+                // 当前时间（大字）
                 Text(
-                    LocalDate.now().format(DateTimeFormatter.ofPattern("M月d日 EEEE")),
-                    color = AlarmMuted,
-                    fontSize = 12.sp
+                    now.format(DateTimeFormatter.ofPattern("HH:mm")),
+                    fontSize = 54.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AlarmText,
+                    lineHeight = 56.sp
                 )
+
+                Spacer(Modifier.height(18.dp))
+
+                Text(
+                    alarm?.title ?: "待办提醒",
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AlarmText,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 28.sp
+                )
+
+                Spacer(Modifier.height(13.dp))
+
+                if (alarm != null) MetaChips(alarm)
+
+                Spacer(Modifier.height(20.dp))
+
+                ChildrenSection(alarm)
             }
 
-            Spacer(Modifier.height(18.dp))
-
-            // 当前时间（大字，C 方案样式）
-            Text(
-                now.format(DateTimeFormatter.ofPattern("HH:mm")),
-                fontSize = 54.sp,
-                fontWeight = FontWeight.Bold,
-                color = AlarmText,
-                lineHeight = 56.sp
-            )
-
-            Spacer(Modifier.height(18.dp))
-
-            Text(
-                alarm?.title ?: "待办提醒",
-                fontSize = 21.sp,
-                fontWeight = FontWeight.Bold,
-                color = AlarmText,
-                textAlign = TextAlign.Center,
-                lineHeight = 28.sp
-            )
-
-            Spacer(Modifier.height(13.dp))
-
-            if (alarm != null) MetaChips(alarm)
-
-            Spacer(Modifier.height(20.dp))
-
-            ChildrenSection(alarm)
-
-            Spacer(Modifier.height(24.dp))
-
-            // 停止（红色渐变，主操作）
-            Button(
-                onClick = onStop,
+            // 底部操作栏：固定不滚动
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(60.dp)
-                    .background(DangerBrush, RoundedCornerShape(14.dp)),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = Color.White
-                )
+                    .padding(horizontal = 18.dp, vertical = 14.dp)
             ) {
-                Text("停止", fontSize = 19.sp, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 再等一会（贪睡 5 分钟）
-                OutlinedButton(
-                    onClick = onSnooze,
+                // 停止：亮红色实色（不透明、最醒目）
+                Button(
+                    onClick = onStop,
                     modifier = Modifier
-                        .weight(1f)
-                        .height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, AccentBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = AccentText
+                        .fillMaxWidth()
+                        .height(58.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = StopRed,
+                        contentColor = Color.White
                     )
                 ) {
-                    Text("再等一会", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("停止", fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
-                // 查看详情（弱化为纯文字）
-                if (alarm != null) {
-                    TextButton(
-                        onClick = { onDetail(alarm) },
+
+                Spacer(Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 再等一会（贪睡 5 分钟）
+                    OutlinedButton(
+                        onClick = onSnooze,
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, AccentBorder),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = AccentText
+                        )
                     ) {
-                        Text("查看详情", color = AlarmMuted, fontSize = 13.sp)
+                        Text("再等一会", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    // 查看详情（弱化为纯文字）
+                    if (alarm != null) {
+                        TextButton(
+                            onClick = { onDetail(alarm) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            Text("查看详情", color = AlarmMuted, fontSize = 13.sp)
+                        }
                     }
                 }
             }
