@@ -198,6 +198,7 @@ fun MeScreen(
                             TaskAlarmScheduler.openFullScreenIntentSettings(appContext)
                         }
                     }
+                    MeAlarmPermissionCard(appContext)
                     MeAlarmBackgroundCard(appContext)
                     OutlinedButton(
                         onClick = {
@@ -268,6 +269,47 @@ fun MeScreen(
                 TextButton(onClick = { pendingDeleteAlarm = null }) { Text("取消") }
             }
         )
+    }
+}
+
+@Composable
+private fun MeAlarmPermissionCard(context: Context) {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .background(scheme.secondaryContainer, RoundedCornerShape(8.dp))
+            .padding(8.dp)
+    ) {
+        Text("锁屏与通知权限说明", fontWeight = FontWeight.Medium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "1. 应用设置 → 全部权限：请将「悬浮窗」「锁屏显示」「后台弹出界面」均设为允许；" +
+                "锁屏时不弹闹钟页，多为这三项被系统禁止。",
+            fontSize = 12.sp,
+            color = scheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "2. 应用设置 → 通知设置：允许本 App 通知；其中「闹钟铃声设置」渠道管铃声与震动，" +
+                "「闹钟通知栏及页面设置」渠道管锁屏页面与通知按钮，两者均需保持开启。",
+            fontSize = 12.sp,
+            color = scheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(onClick = {
+                runCatching {
+                    context.startActivity(TaskAlarmScheduler.applicationDetailsSettingsIntent(context))
+                }
+            }) { Text("全部权限") }
+            TextButton(onClick = {
+                TaskAlarmScheduler.openNotificationSettings(context)
+            }) { Text("通知设置") }
+        }
     }
 }
 
