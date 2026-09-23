@@ -816,7 +816,20 @@ private fun AppShell(
                         lastLoadedUrl = targetUrl
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                onRelease = { swipe ->
+                    // 组合永久离开（Activity 销毁）时释放 WebView native 内存；
+                    // 浏览状态已在 onSaveInstanceState 保存，destroy 不影响回收后恢复
+                    for (i in 0 until swipe.childCount) {
+                        val child = swipe.getChildAt(i)
+                        if (child is WebView) {
+                            swipe.removeView(child)
+                            child.destroy()
+                            break
+                        }
+                    }
+                    onWebView?.(null)
+                }
             )
             if (showMe) {
                 Surface(modifier = Modifier.fillMaxSize()) {
