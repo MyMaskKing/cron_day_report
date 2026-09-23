@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -172,6 +173,10 @@ private val GlassColor = Color(0xFF222236).copy(alpha = .74f)
 private val GlassBorder = Color.White.copy(alpha = .12f)
 // 面板顶部微高光
 private val GlassHighlight = Color.White.copy(alpha = .14f)
+// 任务聚焦卡：液态玻璃材质（demo 变体①）
+private val FocusCardBg = Color.White.copy(alpha = .08f)
+private val FocusCardBorder = Color.White.copy(alpha = .14f)
+private val FocusCardHighlight = Color.White.copy(alpha = .22f)
 private val AlarmText = Color(0xFFF2F3F8)
 private val AlarmMuted = Color(0xFF8A90A6)
 private val AccentText = Color(0xFFD3B4FF)
@@ -263,22 +268,42 @@ private fun AlarmScreen(
 
                 Spacer(Modifier.height(18.dp))
 
-                Text(
-                    alarm?.title ?: "待办提醒",
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AlarmText,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 28.sp
-                )
-
-                Spacer(Modifier.height(13.dp))
-
-                if (alarm != null) MetaChips(alarm)
-
-                Spacer(Modifier.height(20.dp))
-
-                ChildrenSection(alarm)
+                // 任务聚焦卡：液态玻璃材质，标题为画面焦点
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(14.dp, RoundedCornerShape(22.dp))
+                        .border(1.dp, FocusCardBorder, RoundedCornerShape(22.dp))
+                        .background(FocusCardBg, RoundedCornerShape(22.dp))
+                ) {
+                    // 顶部微高光（两端淡出，贴合圆角）
+                    Box(
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(Color.Transparent, FocusCardHighlight, Color.Transparent)
+                                )
+                            )
+                    )
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            alarm?.title ?: "待办提醒",
+                            fontSize = 25.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AlarmText,
+                            lineHeight = 33.sp
+                        )
+                        if (alarm != null) {
+                            Spacer(Modifier.height(12.dp))
+                            MetaChips(alarm)
+                            Spacer(Modifier.height(16.dp))
+                            ChildrenSection(alarm)
+                        }
+                    }
+                }
             }
 
             // 底部操作栏：固定不滚动
@@ -456,12 +481,6 @@ private fun ChildRow(child: TaskAlarmChild, today: LocalDate) {
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(19.dp)
-                .border(1.5.dp, Color(0xFF5A6280), CircleShape)
-        )
-        Spacer(Modifier.width(11.dp))
         Text(
             child.title,
             color = Color(0xFFD6D9E6),
