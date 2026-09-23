@@ -10,6 +10,9 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- 闹钟应用身份标记：系统据此默认授予「全屏通知」权限（Android14+ 锁屏直拉闹钟页），
+         安装即授予、无需运行时申请；与 SCHEDULE_EXACT_ALARM 并存兼容 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />

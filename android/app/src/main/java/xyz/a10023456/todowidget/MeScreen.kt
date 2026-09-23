@@ -193,6 +193,11 @@ fun MeScreen(
                             TaskAlarmScheduler.openExactAlarmSettings(appContext)
                         }
                     }
+                    if (!TaskAlarmScheduler.canUseFullScreenIntent(appContext)) {
+                        MeAlarmSettingWarning("锁屏全屏闹钟权限未开启，锁屏时只显示普通通知") {
+                            TaskAlarmScheduler.openFullScreenIntentSettings(appContext)
+                        }
+                    }
                     MeAlarmBackgroundCard(appContext)
                     OutlinedButton(
                         onClick = {

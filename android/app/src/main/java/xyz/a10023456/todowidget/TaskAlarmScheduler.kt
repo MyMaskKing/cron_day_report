@@ -112,6 +112,29 @@ object TaskAlarmScheduler {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
+    /**
+     * 是否可使用全屏 Intent（Android 14+）：闹钟应用凭 USE_EXACT_ALARM 默认获得；
+     * 未获得时 setFullScreenIntent 会降级为普通通知（锁屏只剩一行）。低版本无需此授权。
+     */
+    fun canUseFullScreenIntent(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return false
+        return manager.canUseFullScreenIntent()
+    }
+
+    /** 打开本 App 的「全屏通知」授权页（Android 14+）；打不开则回退应用详情页。 */
+    fun openFullScreenIntentSettings(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return false
+        val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (runCatching { context.startActivity(intent) }.isSuccess) return true
+        return runCatching {
+            context.startActivity(applicationDetailsSettingsIntent(context))
+        }.isSuccess
+    }
+
     fun isIgnoringBatteryOptimizations(context: Context): Boolean {
         val powerManager = context.getSystemService(android.os.PowerManager::class.java) ?: return false
         return powerManager.isIgnoringBatteryOptimizations(context.packageName)
