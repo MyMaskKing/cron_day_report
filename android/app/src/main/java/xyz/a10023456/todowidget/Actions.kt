@@ -8,6 +8,7 @@ import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 /**
@@ -47,11 +48,14 @@ class TodoAppWidgetReceiver : GlanceAppWidgetReceiver() {
         }
         super.onDeleted(context, appWidgetIds)
         // 已无剩余小组件：取消周期刷新，避免每 30 分钟空跑；枚举失败按仍有组件处理（下次 doWork 判空兜底）
-        val empty = runCatching {
-            GlanceAppWidgetManager(context)
-                .getGlanceIds(TodoAppWidget::class.java)
-                .isEmpty()
-        }.getOrDefault(false)
+        // getGlanceIds 是 suspend，onDeleted 非协程上下文，runBlocking 同步完成（轻量 IPC）
+        val empty = runBlocking {
+            runCatching {
+                GlanceAppWidgetManager(context)
+                    .getGlanceIds(TodoAppWidget::class.java)
+                    .isEmpty()
+            }.getOrDefault(false)
+        }
         if (empty) RefreshWorker.cancelPeriodic(context)
     }
 }
