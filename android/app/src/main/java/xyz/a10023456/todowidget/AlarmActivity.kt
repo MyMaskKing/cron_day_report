@@ -25,8 +25,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -272,9 +272,9 @@ private fun AlarmScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(14.dp, RoundedCornerShape(22.dp))
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(FocusCardBg)
                         .border(1.dp, FocusCardBorder, RoundedCornerShape(22.dp))
-                        .background(FocusCardBg, RoundedCornerShape(22.dp))
                 ) {
                     // 顶部微高光（两端淡出，贴合圆角）
                     Box(
@@ -481,6 +481,13 @@ private fun ChildRow(child: TaskAlarmChild, today: LocalDate) {
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // 勾选框仅作展示（无 clickable），不可点击
+        Box(
+            modifier = Modifier
+                .size(19.dp)
+                .border(1.5.dp, Color(0xFF5A6280), CircleShape)
+        )
+        Spacer(Modifier.width(11.dp))
         Text(
             child.title,
             color = Color(0xFFD6D9E6),
