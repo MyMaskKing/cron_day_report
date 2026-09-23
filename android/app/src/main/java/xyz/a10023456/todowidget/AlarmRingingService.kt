@@ -495,24 +495,28 @@ class AlarmRingingService : Service() {
         }
 
         /**
-         * 确保存在「闹钟通知栏及页面设置」渠道且**真正无声**（幂等）：
+         * 确保存在「闹钟通知栏及页面设置」渠道：**真正无声 + HIGH 重要性**（幂等）。
          * 不写 setSound(null,null) 时渠道会带系统默认通知音，故检测到任何声音就删旧重建；
-         * 旧名"闹钟服务"同样在此迁移。App 启动时调用，无需用户手动关声音。
+         * fullScreenIntent 只在 HIGH 渠道上生效（LOW 渠道会被系统静默忽略，锁屏只剩普通通知），
+         * 故旧的 LOW 渠道同样在此升级重建；旧名"闹钟服务"一并迁移。
          */
         fun ensureChannel(context: Context) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
             val manager = context.getSystemService(NotificationManager::class.java) ?: return
             val existing = manager.getNotificationChannel(CHANNEL_ID)
             if (existing != null) {
-                if (existing.name?.toString() == CHANNEL_NAME && existing.sound == null) return
+                if (existing.name?.toString() == CHANNEL_NAME &&
+                    existing.sound == null &&
+                    existing.importance >= NotificationManager.IMPORTANCE_HIGH
+                ) return
                 manager.deleteNotificationChannel(CHANNEL_ID)
             }
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "响铃时出现在通知栏并拉起响铃页，提供停止/贪睡按钮；本渠道强制无声，铃声请看「闹钟铃声设置」"
+                description = "响铃时在锁屏拉起响铃页并出现在通知栏，提供停止/贪睡按钮；本渠道强制无声，铃声请看「闹钟铃声设置」"
                 setShowBadge(false)
                 enableVibration(false)
                 // 必须显式置空：否则系统会给渠道挂默认通知铃声
