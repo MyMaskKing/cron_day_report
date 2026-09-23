@@ -92,36 +92,32 @@ class AlarmActivity : ComponentActivity() {
                     finish()
                 },
                 onComplete = { data ->
-                    if (data == null) {
+                    val base = data?.baseUrl
+                    val id = data?.todoId?.toLongOrNull()
+                    // 测试闹钟/贪睡瞬态无真实任务（id 非数字）：完成等同停止
+                    if (base == null || id == null) {
                         sendCommand(AlarmRingingService.ACTION_STOP)
                         finish()
-                        return@onComplete
-                    }
-                    val id = data.todoId.toLongOrNull()
-                    // 测试闹钟/贪睡瞬态 id 非数字：无真实任务可标记，完成等同停止
-                    if (id == null) {
-                        sendCommand(AlarmRingingService.ACTION_STOP)
-                        finish()
-                        return@onComplete
-                    }
-                    // 网络标记在独立线程：页面等待结果，成功才停铃；失败保留响铃并提示
-                    Thread {
-                        val ok = runCatching {
-                            ApiClient.markDone(data.baseUrl, Prefs.getSid(this@AlarmActivity), "", id)
-                        }.isSuccess
-                        runOnUiThread {
-                            if (ok) {
-                                sendCommand(AlarmRingingService.ACTION_STOP)
-                                finish()
-                            } else {
-                                android.widget.Toast.makeText(
-                                    this@AlarmActivity,
-                                    "标记失败，请重试或停止后手动完成",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
+                    } else {
+                        // 网络标记在独立线程：成功才停铃；失败保留响铃并提示
+                        Thread {
+                            val ok = runCatching {
+                                ApiClient.markDone(base, Prefs.getSid(this@AlarmActivity), "", id)
+                            }.isSuccess
+                            runOnUiThread {
+                                if (ok) {
+                                    sendCommand(AlarmRingingService.ACTION_STOP)
+                                    finish()
+                                } else {
+                                    android.widget.Toast.makeText(
+                                        this@AlarmActivity,
+                                        "标记失败，请重试或停止后手动完成",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             }
-                        }
-                    }.start()
+                        }.start()
+                    }
                 },
                 onDetail = { data ->
                     sendCommand(AlarmRingingService.ACTION_STOP)
