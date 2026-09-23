@@ -23,11 +23,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -93,6 +90,38 @@ class AlarmActivity : ComponentActivity() {
                 onSnooze = {
                     sendCommand(AlarmRingingService.ACTION_SNOOZE)
                     finish()
+                },
+                onComplete = { data ->
+                    if (data == null) {
+                        sendCommand(AlarmRingingService.ACTION_STOP)
+                        finish()
+                        return@onComplete
+                    }
+                    val id = data.todoId.toLongOrNull()
+                    // 测试闹钟/贪睡瞬态 id 非数字：无真实任务可标记，完成等同停止
+                    if (id == null) {
+                        sendCommand(AlarmRingingService.ACTION_STOP)
+                        finish()
+                        return@onComplete
+                    }
+                    // 网络标记在独立线程：页面等待结果，成功才停铃；失败保留响铃并提示
+                    Thread {
+                        val ok = runCatching {
+                            ApiClient.markDone(data.baseUrl, Prefs.getSid(this@AlarmActivity), "", id)
+                        }.isSuccess
+                        runOnUiThread {
+                            if (ok) {
+                                sendCommand(AlarmRingingService.ACTION_STOP)
+                                finish()
+                            } else {
+                                android.widget.Toast.makeText(
+                                    this@AlarmActivity,
+                                    "标记失败，请重试或停止后手动完成",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    }.start()
                 },
                 onDetail = { data ->
                     sendCommand(AlarmRingingService.ACTION_STOP)
@@ -177,15 +206,20 @@ private val AlarmMuted = Color(0xFF8A90A6)
 private val AccentText = Color(0xFFD3B4FF)
 private val AccentBorder = Color(0xFFB97BFF).copy(alpha = .62f)
 private val ChipColor = Color(0xFFA855F7).copy(alpha = .22f)
-private val StopRed = Color(0xFFFF3B30)
+// 亮红（原 #FF3B30 偏暗）：暗色锁屏上更醒目；按钮高度/圆角保持不变
+private val StopRed = Color(0xFFFF4A40)
+// 完成：亮绿，与停止按钮同规格（58dp/14dp）仅颜色不同
+private val DoneGreen = Color(0xFF2FD666)
 
 @Composable
 private fun AlarmScreen(
     alarm: StoredTaskAlarm?,
     onStop: () -> Unit,
     onSnooze: () -> Unit,
+    onComplete: (StoredTaskAlarm?) -> Unit,
     onDetail: (StoredTaskAlarm) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -261,7 +295,7 @@ private fun AlarmScreen(
                     lineHeight = 56.sp
                 )
 
-                Spacer(Modifier.height(18.dp))
+                CompleteProgress(context)
 
                 Text(
                     alarm?.title ?: "待办提醒",
@@ -287,6 +321,23 @@ private fun AlarmScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 18.dp, vertical = 14.dp)
             ) {
+                // 完成：亮绿色，与停止按钮完全同款规格（58dp/14dp/19sp）
+                Button(
+                    onClick = { onComplete(alarm) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = DoneGreen,
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("完成", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(Modifier.height(10.dp))
+
                 // 停止：亮红色实色（不透明、最醒目）
                 Button(
                     onClick = onStop,
@@ -456,12 +507,7 @@ private fun ChildRow(child: TaskAlarmChild, today: LocalDate) {
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(19.dp)
-                .border(1.5.dp, Color(0xFF5A6280), CircleShape)
-        )
-        Spacer(Modifier.width(11.dp))
+        // 只展示未完成子任务，无可勾选语义，不显示圆圈装饰
         Text(
             child.title,
             color = Color(0xFFD6D9E6),
@@ -477,5 +523,66 @@ private fun ChildRow(child: TaskAlarmChild, today: LocalDate) {
             }
             Text(label, color = AlarmMuted, fontSize = 12.sp)
         }
+    }
+}
+
+/**
+ * 完成进度条：数据取小组件最近一次缓存的 stats（叶子口径 done/total），
+ * 无缓存或总数为 0 时不显示内容、仅保留与原布局一致的 18dp 间距；
+ * 已登录时后台静默刷新一次第一个小组件后再重读。
+ */
+@Composable
+private fun CompleteProgress(context: android.content.Context) {
+    var pair by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    LaunchedEffect(Unit) {
+        val ids = Prefs.allConfiguredWidgetIds(context)
+        fun readStats() = ids.firstNotNullOfOrNull { id ->
+            WidgetRepo.cached(context, id)?.stats?.takeIf { it.total > 0 }
+        }
+        pair = readStats()?.let { it.done to it.total }
+        if (Prefs.isLoggedIn(context)) {
+            ids.firstOrNull()?.let { WidgetRepo.refresh(context, it, maxAttempts = 1) }
+            pair = readStats()?.let { it.done to it.total }
+        }
+    }
+    val p = pair
+    if (p == null) {
+        Spacer(Modifier.height(18.dp))
+        return
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("完成进度", color = AlarmMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                "${p.first} / ${p.second}",
+                color = AccentText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        Spacer(Modifier.height(7.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .background(Color.White.copy(alpha = .08f), RoundedCornerShape(99.dp))
+        ) {
+            val fraction = if (p.second == 0) 0f else p.first.toFloat() / p.second
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction)
+                    .height(6.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(Color(0xFFA855F7), Color(0xFFEC4899))
+                        ),
+                        RoundedCornerShape(99.dp)
+                    )
+            )
+        }
+        Spacer(Modifier.height(18.dp))
     }
 }
