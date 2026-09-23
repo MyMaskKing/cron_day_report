@@ -2,6 +2,7 @@ package xyz.a10023456.todowidget
 
 import android.content.Context
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.CoroutineScope
@@ -40,7 +41,17 @@ class TodoAppWidgetReceiver : GlanceAppWidgetReceiver() {
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
-        appWidgetIds.forEach { Prefs.clear(context, it) }
+        appWidgetIds.forEach {
+            Prefs.clear(context, it)
+            WidgetStateStore.remove(it)
+        }
         super.onDeleted(context, appWidgetIds)
+        // 已无剩余小组件：取消周期刷新，避免每 30 分钟空跑；枚举失败按仍有组件处理（下次 doWork 判空兜底）
+        val empty = runCatching {
+            GlanceAppWidgetManager(context)
+                .getGlanceIds(TodoAppWidget::class.java)
+                .isEmpty()
+        }.getOrDefault(false)
+        if (empty) RefreshWorker.cancelPeriodic(context)
     }
 }

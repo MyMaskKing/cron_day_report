@@ -142,6 +142,12 @@ class ConfigActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        // 拖滑块后立即退出：清掉未执行的防抖重绘，避免一次多余的全量重绘
+        opacityHandler.removeCallbacks(opacityUpdate)
+        super.onDestroy()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

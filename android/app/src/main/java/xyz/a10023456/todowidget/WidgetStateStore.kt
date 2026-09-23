@@ -47,6 +47,11 @@ object WidgetStateStore {
             .value = readFrame(context, widgetId)
     }
 
+    /** 删除小组件时清掉其进程级状态流（含持有的缓存数据），防止反复增删造成积累。 */
+    fun remove(widgetId: Int) {
+        flows.remove(widgetId)
+    }
+
     /** 遮罩/结果状态：写 SP（进程死亡兜底）+ 发布到流（驱动重组）。 */
     fun setUiState(context: Context, widgetId: Int, state: String, msg: String) {
         Prefs.setUiState(context, widgetId, state, msg)

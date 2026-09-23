@@ -138,8 +138,8 @@ class TodoAppWidget : GlanceAppWidget() {
     }
 }
 
-/** 初始化自动刷新的缓存过期阈值：对齐 RefreshWorker 周期（15 分钟）。 */
-private const val AUTO_REFRESH_STALE_MS = 15L * 60 * 1000
+/** 初始化自动刷新的缓存过期阈值：对齐 RefreshWorker 周期（30 分钟）。 */
+private const val AUTO_REFRESH_STALE_MS = 30L * 60 * 1000
 
 /** 已配置但无缓存或缓存过期时，入队一次静默刷新 Worker（失败不弹遮罩）。 */
 private fun maybeAutoRefresh(context: Context, appWidgetId: Int) {

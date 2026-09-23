@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-/** 周期拉取所有已添加小组件数据并更新。系统最小周期约 15 分钟。 */
+/** 周期拉取所有已添加小组件数据并更新。周期 30 分钟（待办类信息无需更高频率）。 */
 class RefreshWorker(
     appContext: Context,
     params: WorkerParameters
@@ -30,6 +30,12 @@ class RefreshWorker(
             .getGlanceIds(TodoAppWidget::class.java)
             .map { it.resolveAppWidgetId(applicationContext) }
             .filter { it >= 0 }
+        // 桌面已无小组件：取消周期任务，避免删光后仍每 30 分钟空跑
+        // （覆盖旧版本注册的残留周期；正常删除路径在 onDeleted 已取消）
+        if (ids.isEmpty()) {
+            cancelPeriodic(applicationContext)
+            return Result.success()
+        }
         val refreshedIds = mutableListOf<Int>()
         ids.forEach { id ->
             if (WidgetRepo.refresh(applicationContext, id)) refreshedIds.add(id)
@@ -43,19 +49,25 @@ class RefreshWorker(
         private const val WORK_NAME = "todo_widget_refresh"
         private const val WORK_NAME_NOW = "todo_widget_refresh_now"
 
-        /** 周期刷新（15 分钟，系统调度，App 关闭也能跑）。 */
+        /** 周期刷新（30 分钟，系统调度，App 关闭也能跑）。 */
         fun enqueue(context: Context) {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
-            val request = PeriodicWorkRequestBuilder<RefreshWorker>(15, TimeUnit.MINUTES)
+            val request = PeriodicWorkRequestBuilder<RefreshWorker>(30, TimeUnit.MINUTES)
                 .setConstraints(constraints)
                 .build()
+            // UPDATE（非 KEEP）：老版本 15 分钟周期在升级后替换为 30 分钟（WorkManager 2.8+）
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 request
             )
+        }
+
+        /** 取消周期刷新（删除最后一个小组件时调用）。 */
+        fun cancelPeriodic(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
         }
 
         /** 立即刷新一次（登录/手动刷新后调用）。 */
