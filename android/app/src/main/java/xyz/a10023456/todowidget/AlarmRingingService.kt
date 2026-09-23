@@ -90,7 +90,7 @@ class AlarmRingingService : Service() {
                     RingingItem(
                         alarm,
                         System.currentTimeMillis(),
-                        intent.getBooleanExtra(EXTRA_LAUNCH_ACTIVITY, true)
+                        intent!!.getBooleanExtra(EXTRA_LAUNCH_ACTIVITY, true)
                     )
                 )
                 if (current == null) beginNext()
