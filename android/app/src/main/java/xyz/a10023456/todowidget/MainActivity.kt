@@ -828,7 +828,7 @@ private fun AppShell(
                             break
                         }
                     }
-                    onWebView?.(null)
+                    onWebView?.invoke(null)
                 }
             )
             if (showMe) {
