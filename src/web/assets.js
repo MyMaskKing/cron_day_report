@@ -8032,12 +8032,10 @@ function renderTodoFlat(container, trees, opts) {
   // 单个主任务组
   function group(root) {
     var all = collect(root);
-    var items = opts.onlyDone ? all.filter(function(i){ return i.node.done; }) : all;
-    if (opts.onlyDone) {
-      if (items.length === 0) return null;
-    } else if (opts.hideDone && !todoSubtreePending(root)) {
-      return null; // 隐藏已完成整组
-    }
+    var items = all;
+    if (opts.onlyDone) items = items.filter(function(i){ return i.node.done; });
+    else if (opts.hideDone) items = items.filter(function(i){ return !i.node.done; }); // 组内逐个剔除已完成叶子
+    if (items.length === 0) return null; // 无可见叶子：整组隐藏（已完成筛选 / 隐藏已完成）
     var groupWrap = document.createElement('div');
     groupWrap.className = 'todo-node flat-group';
     groupWrap.setAttribute('data-id', root.id);
