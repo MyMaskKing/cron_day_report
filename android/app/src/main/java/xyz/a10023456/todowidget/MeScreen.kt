@@ -158,6 +158,8 @@ fun MeScreen(
                         .heightIn(max = 420.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    // 说明性内容默认折叠
+                    var ringTipExpanded by remember { mutableStateOf(false) }
                     // 确保系统通知设置里存在「待办闹钟」渠道（幂等，已存在立即返回）
                     TaskAlarmScheduler.createChannel(appContext)
                     Row(
@@ -179,9 +181,14 @@ fun MeScreen(
                         }) { Text("设置") }
                     }
                     Text(
-                        "测试按真实闹钟试听；铃声、震动点「设置」修改；音量用手机的“闹钟音量”调节。",
+                        if (ringTipExpanded)
+                            "▾ 测试按真实闹钟试听；铃声、震动点「设置」修改；音量用手机的“闹钟音量”调节。"
+                        else "▸ 试听与铃声说明",
                         fontSize = 12.sp,
-                        color = scheme.onSurfaceVariant
+                        color = scheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .padding(vertical = 3.dp)
+                            .clickable { ringTipExpanded = !ringTipExpanded }
                     )
                     if (!TaskAlarmScheduler.notificationsEnabled(appContext)) {
                         MeAlarmSettingWarning("通知权限未开启，闹钟无法响铃或震动") {
@@ -275,6 +282,7 @@ fun MeScreen(
 @Composable
 private fun MeAlarmPermissionCard(context: Context) {
     val scheme = MaterialTheme.colorScheme
+    var expanded by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -282,33 +290,52 @@ private fun MeAlarmPermissionCard(context: Context) {
             .background(scheme.secondaryContainer, RoundedCornerShape(8.dp))
             .padding(8.dp)
     ) {
-        Text("锁屏与通知权限说明", fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "1. 应用设置 → 全部权限：请将「悬浮窗」「锁屏显示」「后台弹出界面」均设为允许；" +
-                "锁屏时不弹闹钟页，多为这三项被系统禁止。",
-            fontSize = 12.sp,
-            color = scheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "2. 应用设置 → 通知设置：允许本 App 通知；其中「闹钟铃声设置」渠道管铃声与震动，" +
-                "「闹钟通知栏及页面设置」渠道管锁屏页面与通知按钮，两者均需保持开启。",
-            fontSize = 12.sp,
-            color = scheme.onSurfaceVariant
-        )
+        // 标题行点击折叠/展开，默认折叠
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = {
-                runCatching {
-                    context.startActivity(TaskAlarmScheduler.applicationDetailsSettingsIntent(context))
-                }
-            }) { Text("全部权限") }
-            TextButton(onClick = {
-                TaskAlarmScheduler.openNotificationSettings(context)
-            }) { Text("通知设置") }
+            Text(
+                "锁屏与通知权限说明",
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                if (expanded) "▾" else "▸",
+                fontSize = 13.sp,
+                color = scheme.onSurfaceVariant
+            )
+        }
+        if (expanded) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "1. 应用设置 → 全部权限：请将「悬浮窗」「锁屏显示」「后台弹出界面」均设为允许；" +
+                    "锁屏时不弹闹钟页，多为这三项被系统禁止。",
+                fontSize = 12.sp,
+                color = scheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "2. 应用设置 → 通知设置：允许本 App 通知；其中「闹钟铃声设置」渠道管铃声与震动，" +
+                    "「闹钟通知栏及页面设置」渠道管锁屏页面与通知按钮，两者均需保持开启。",
+                fontSize = 12.sp,
+                color = scheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = {
+                    runCatching {
+                        context.startActivity(TaskAlarmScheduler.applicationDetailsSettingsIntent(context))
+                    }
+                }) { Text("全部权限") }
+                TextButton(onClick = {
+                    TaskAlarmScheduler.openNotificationSettings(context)
+                }) { Text("通知设置") }
+            }
         }
     }
 }
@@ -316,6 +343,7 @@ private fun MeAlarmPermissionCard(context: Context) {
 @Composable
 private fun MeAlarmBackgroundCard(context: Context) {
     val scheme = MaterialTheme.colorScheme
+    var expanded by remember { mutableStateOf(false) }
     val ignored = TaskAlarmScheduler.isIgnoringBatteryOptimizations(context)
     val message = if (ignored) {
         "已放行系统电池优化。从最近任务划掉 App 通常仍会按时响铃；不要在系统设置中强行停止。"
@@ -329,27 +357,46 @@ private fun MeAlarmBackgroundCard(context: Context) {
             .background(scheme.secondaryContainer, RoundedCornerShape(8.dp))
             .padding(8.dp)
     ) {
-        Text("后台运行设置", fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(4.dp))
-        Text(message, fontSize = 12.sp, color = scheme.onSurfaceVariant)
+        // 标题行点击折叠/展开，默认折叠
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = {
-                if (!TaskAlarmScheduler.openBatteryOptimizationSettings(context)) {
-                    android.widget.Toast.makeText(
-                        context,
-                        "无法打开电池设置",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }) { Text("电池设置") }
-            TextButton(onClick = {
-                runCatching {
-                    context.startActivity(TaskAlarmScheduler.applicationDetailsSettingsIntent(context))
-                }
-            }) { Text("应用详情") }
+            Text(
+                "后台运行设置",
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                if (expanded) "▾" else "▸",
+                fontSize = 13.sp,
+                color = scheme.onSurfaceVariant
+            )
+        }
+        if (expanded) {
+            Spacer(Modifier.height(4.dp))
+            Text(message, fontSize = 12.sp, color = scheme.onSurfaceVariant)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = {
+                    if (!TaskAlarmScheduler.openBatteryOptimizationSettings(context)) {
+                        android.widget.Toast.makeText(
+                            context,
+                            "无法打开电池设置",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }) { Text("电池设置") }
+                TextButton(onClick = {
+                    runCatching {
+                        context.startActivity(TaskAlarmScheduler.applicationDetailsSettingsIntent(context))
+                    }
+                }) { Text("应用详情") }
+            }
         }
     }
 }

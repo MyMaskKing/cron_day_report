@@ -2213,11 +2213,16 @@ bindModal();
       editable: true,
       // 复杂编辑去待办页(openTodoEdit 仅待办页脚本有)
       onEdit: function(n){ location.href = '/todo?edit=' + n.id; },
-      // 子任务勾选: 完成后关闭详情(openTodoDetail 内部处理)并重拉仪表盘 KPI/列表
+      // 子任务勾选: 完成后关闭详情(openTodoDetail 内部处理)并重拉仪表盘 KPI/列表;
+      // 完成时复用待办页同款撒花+激励 toast(todoCelebrate 定义在 todo-core)
       onToggle: async function(n, done){
         try {
           await api('/api/todo/' + n.id + '/done', { method: 'PUT', body: { done: done } });
           await loadDashTodos();
+          if (done) {
+            var cc0 = todoCelebrationCount(todoBuildTree(dashTodoRows), true);
+            todoCelebrate(cc0.remaining, cc0.total);
+          }
           return true;
         } catch (err) { alertModal(err.message, { ok: false }); return false; }
       },
@@ -2243,7 +2248,12 @@ bindModal();
       e.preventDefault();
       e.stopPropagation();
       api('/api/todo/' + chk.dataset.check + '/done', { method: 'PUT', body: { done: true } })
-        .then(loadDashTodos)
+        .then(function(){ return loadDashTodos(); })
+        .then(function(){
+          // 与待办页一致: 撒花+分级激励 toast
+          var cc0 = todoCelebrationCount(todoBuildTree(dashTodoRows), true);
+          todoCelebrate(cc0.remaining, cc0.total);
+        })
         .catch(function(err){ alertModal(err.message, { ok: false }); });
       return;
     }
