@@ -493,7 +493,8 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .dash-row .d-tag { font-size: 11.5px; color: var(--muted-2); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .dash-row .d-tag.od { color: var(--danger); font-weight: 600; }
 /* 仪表盘今日待办：手风琴行（圆点主任务行 + 就地展开子任务勾选行，行间细分隔线，无卡片框） */
-.dash-todo .dash-groups { display: flex; flex-direction: column; max-height: 360px; overflow-y: auto; padding: 2px 0; }
+.dash-todo .dash-groups { display: flex; flex-direction: column; max-height: 360px; overflow-y: auto; padding: 2px 0; scrollbar-width: none; }
+.dash-todo .dash-groups::-webkit-scrollbar { width: 0; height: 0; }
 .dash-todo .dash-acc { border-bottom: 1px solid var(--th-border); }
 .dash-todo .dash-acc:last-child { border-bottom: none; }
 .dash-todo .dash-arow { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 2px; }
@@ -539,6 +540,11 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .dash-todo .dash-akids { padding: 0 2px 8px 16px; }
   .dash-todo .dash-achild { gap: 10px; padding: 6px 2px; }
   .dash-todo .dash-actitle { font-size: 14px; }
+}
+/* 手机视图：所有滚动条透明隐藏（触屏滑动不受影响） */
+@media (max-width: 640px) {
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+  *::-webkit-scrollbar { width: 0; height: 0; }
 }
 /* 主按钮: 品牌双色紫渐变 + 内高光, hover 提亮 + 品牌柔光, 点击涟漪 */
 .btn {
