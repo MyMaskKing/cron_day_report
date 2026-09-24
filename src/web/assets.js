@@ -7427,9 +7427,8 @@ function todoBuildTree(rows) {
   //   已完成沉底, 内部按完成时间倒序(刚完成在上), 无完成日期再回退创建序。
   // 旧模式子任务均无自身日期, effDue 沿父链继承到同一日期, 恒走回退键 = 原创建序, 行为不变。
   function childCmp(a, b){
-    var ad2 = todoEffDone(a), bd2 = todoEffDone(b);
-    if (ad2 !== bd2) return ad2 ? 1 : -1;
-    if (!ad2) {
+    if (!!a.done !== !!b.done) return a.done ? 1 : -1;
+    if (!a.done) {
       var ad = todoEffDueRow(a, byId) || '', bd = todoEffDueRow(b, byId) || '';
       if (ad !== bd) {
         if (!ad) return 1;
@@ -8004,20 +8003,21 @@ function renderTodoFlat(container, trees, opts) {
   function collect(root, pruneDone) {
     if (root.children.length === 0) {
       if (pruneDone && root.done) return [];
-      return [{ node: root, path: [], effDue: root.due_date, done: todoEffDone(root) }];
+      return [{ node: root, path: [], effDue: root.due_date, done: !!root.done, ancDone: false }];
     }
     var items = [];
-    (function walk(n, path, inheritedDue) {
+    // ancDone=是否已有完成祖先（完成父整支结算）；叶子 done=自身或祖先完成（行视觉按完成）
+    (function walk(n, path, inheritedDue, ancDone) {
       var ownDue = n.due_date || inheritedDue;
       if (n.children.length === 0) {
-        items.push({ node: n, path: path, effDue: ownDue, done: todoEffDone(n) });
+        items.push({ node: n, path: path, effDue: ownDue, done: ancDone || !!n.done, ancDone: ancDone });
         return;
       }
       n.children.forEach(function(c){
         if (pruneDone && c.done) return; // 已完成的中间父节点：整枝隐藏
-        walk(c, path.concat(n.title), ownDue);
+        walk(c, path.concat(n.title), ownDue, ancDone || !!n.done);
       });
-    })(root, [], null);
+    })(root, [], null, false);
     return items;
   }
 
@@ -8110,12 +8110,20 @@ function renderTodoFlat(container, trees, opts) {
     var titleEl = document.createElement('span');
     titleEl.className = 'flat-group__title';
     titleEl.textContent = (root.shared_cat_id != null ? '👥 ' : '') + root.title;
+    if (opts.onDetail || opts.onEdit) titleEl.addEventListener('click', function(){
+      (opts.onDetail || opts.onEdit)(root);
+    });
     head.appendChild(titleEl);
-    var doneN = items.filter(function(i){ return i.done; }).length;
-    var cnt = document.createElement('span');
-    cnt.className = 'flat-group__count';
-    cnt.textContent = doneN + '/' + items.length;
-    head.appendChild(cnt);
+    // 进度计数同卡片/完整树 todoLeafCount 口径：已完成祖先整支结算剔除（不计入 total）；
+    // 未结算枝 total=0 时不显示计数（与完整树 lc.total>0 才显示一致）
+    var activeItems = items.filter(function(i){ return !i.ancDone; });
+    if (activeItems.length) {
+      var activeDone = activeItems.filter(function(i){ return i.node.done; }).length;
+      var cnt = document.createElement('span');
+      cnt.className = 'flat-group__count';
+      cnt.textContent = activeDone + '/' + activeItems.length;
+      head.appendChild(cnt);
+    }
     // 组内存在重复任务：组头给 🔁（拍平后节点级重复标记收口到组级）
     if (root.recurrence || all.some(function(i){ return i.node.recurrence; })) {
       var rep = document.createElement('span');

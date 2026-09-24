@@ -1218,7 +1218,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 }
 .todo-acc__leafname:hover { color: var(--brand); }
 .todo-acc__leafrow.done .todo-acc__leafname { color: var(--muted); text-decoration: line-through; }
-.todo-acc__leafrow .todo-acc__date { margin-top: 3px; }
+.todo-acc__leafrow .todo-chip.due { align-self: center; }
 /* 桌面：操作组绝对定位贴右（不占流，标题空间最大化），平时透明，悬停行才浮现 */
 @media (min-width: 641px) {
   .todo-acc .todo-ops {
@@ -1268,7 +1268,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   transition: background .13s;
 }
 .flat-group__head:hover { background: var(--hover-bg); }
-.flat-group__title { font-size: 15px; font-weight: 700; color: var(--text-strong); }
+.flat-group__title { font-size: 15px; font-weight: 700; color: var(--text-strong); cursor: pointer; }
+.flat-group__title:hover { color: var(--brand); }
 .flat-group__count { font-size: 12px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
 .flat-group__repeat { font-size: 11px; line-height: 1; }
 /* 叶子行：勾选圆 + 文本列（面包屑/标题）+ 日期 */
