@@ -1260,7 +1260,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .todo-tree .todo-detail-adder .todo-detail-adder__placeholder { display: none; }
 }
 /* ============ 速览视图（flat-view：叶子拍平 + 祖先面包屑，与桌面小组件同源） ============ */
-.flat-group { position: relative; padding: 10px 0 4px; }
+.flat-group { position: relative; padding: 8px 0 2px; }
 .flat-group__head {
   position: relative; display: flex; align-items: center; gap: 8px;
   padding: 4px 10px; border-radius: 9px;
@@ -1313,8 +1313,9 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .flat-item .todo-op.todo-more { display: inline-flex; }
   body .flat-item, body .flat-group__head { padding-left: 8px; padding-right: 8px; }
   body .flat-item .todo-ops { margin-top: 1px; }
-  /* 添加子任务只走⋯菜单：隐藏组底常驻占位行（editing 展开的编辑器照常显示） */
-  body .flat-group .todo-detail-adder__placeholder { display: none; }
+  /* 组间距收紧；添加子任务走 ⋯ 菜单：手机端整个收起组底 adder（编辑器无入口，不会被打开） */
+  body .flat-group { padding: 5px 0 1px; }
+  body .flat-group .todo-detail-adder { display: none; }
 }
 /* 概览统计条 */
 .todo-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
@@ -1788,10 +1789,20 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; gap: 3px;
 }
 .fs-segbtn svg { width: 15px; height: 15px; }
-/* 当前视图小指示：淡色小图标，不抢眼（hover 略加深，名称走 title） */
-.fs-viewcur { flex: none; display: inline-flex; align-items: center; color: var(--faint); opacity: .6; line-height: 1; transition: opacity .13s, color .13s; }
+/* 当前视图小指示：淡色小图标，点击弹小浮窗给视图名（PC/手机通用，浮层高 z-index 不被列表压住） */
+.fs-viewcur { flex: none; position: relative; display: inline-flex; align-items: center; color: var(--faint); opacity: .6; line-height: 1; cursor: pointer; transition: opacity .13s, color .13s; }
 .fs-viewcur:hover { opacity: 1; color: var(--muted-2); }
 .fs-viewcur svg { width: 14px; height: 14px; display: block; }
+.fs-viewcur-pop {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
+  padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text);
+  font-size: 12px; font-weight: 600; line-height: 1.4; white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0,0,0,.15); pointer-events: none;
+  opacity: 0; visibility: hidden; transform: translateY(-2px);
+  transition: opacity .15s, transform .15s, visibility .15s;
+}
+.fs-viewcur-pop.show { opacity: 1; visibility: visible; transform: translateY(0); }
 .fs-exitbtn {
   height: 36px; padding: 0 12px; flex-shrink: 0;
   border: 1px solid var(--danger); border-radius: 10px;

@@ -7119,16 +7119,30 @@ function applyTodoView(getRowsFn, onDrawTree) {
     var vi = _todoViewCycle.indexOf(_todoView);
     var vnext = TODO_VIEW_LABELS[_todoViewCycle[vi >= 0 ? (vi + 1) % _todoViewCycle.length : 0]] || TODO_VIEW_LABELS.card;
     vBtnFs.innerHTML = vnext.icon + vnext.name;
-    // 当前视图小指示（不显眼：淡色小图标，hover 给视图名）；动态插入，4 个待办页通用
+    // 当前视图小指示（不显眼：淡色小图标，点击弹小浮窗给视图名，PC/手机通用）；动态插入，4 个待办页通用
     var curEl = document.getElementById('viewCurrent');
     if (!curEl) {
       curEl = document.createElement('span');
       curEl.id = 'viewCurrent'; curEl.className = 'fs-viewcur';
+      var curIco = document.createElement('span');
+      var curPop = document.createElement('span');
+      curPop.className = 'fs-viewcur-pop';
+      curEl.appendChild(curIco);
+      curEl.appendChild(curPop);
       vBtnFs.parentNode.insertBefore(curEl, vBtnFs);
+      // 点击切换浮窗：再次点击/点别处关闭，另带 1.8s 自动消失（手机上不挂着）
+      curEl.addEventListener('click', function(e){
+        e.stopPropagation();
+        if (curPop.classList.contains('show')) { curPop.classList.remove('show'); return; }
+        curPop.classList.add('show');
+        clearTimeout(curEl.__popTimer);
+        curEl.__popTimer = setTimeout(function(){ curPop.classList.remove('show'); }, 1800);
+      });
+      document.addEventListener('click', function(){ curPop.classList.remove('show'); });
     }
     var vcur = TODO_VIEW_LABELS[_todoView] || TODO_VIEW_LABELS.card;
-    curEl.innerHTML = vcur.icon;
-    curEl.title = '当前：' + vcur.name;
+    curEl.children[0].innerHTML = vcur.icon;
+    curEl.children[1].textContent = '当前：' + vcur.name;
     // 循环仅 1 项时没有可切换视图，隐藏按钮
     vBtnFs.style.display = _todoViewCycle.length > 1 ? '' : 'none';
     if (!vBtnFs.__fsBound) {
@@ -7975,8 +7989,10 @@ function renderTodoFlat(container, trees, opts) {
   }
 
   // root → 拍平叶子：{ node, path（祖先标题链，不含 root/自身）, effDue（继承最近祖先日期） }
-  function collect(root) {
+  // pruneDone=隐藏已完成时，与手风琴 walk 同口径：任一中间节点 done 整枝不进入
+  function collect(root, pruneDone) {
     if (root.children.length === 0) {
+      if (pruneDone && root.done) return [];
       return [{ node: root, path: [], effDue: root.due_date }];
     }
     var items = [];
@@ -7986,9 +8002,34 @@ function renderTodoFlat(container, trees, opts) {
         items.push({ node: n, path: path, effDue: ownDue });
         return;
       }
-      n.children.forEach(function(c){ walk(c, path.concat(n.title), ownDue); });
+      n.children.forEach(function(c){
+        if (pruneDone && c.done) return; // 已完成的中间父节点：整枝隐藏
+        walk(c, path.concat(n.title), ownDue);
+      });
     })(root, [], null);
     return items;
+  }
+
+  // 叶子排序：口径同 todoBuildTree 的 childCmp——未完成在前按有效日期升序
+  // （逾期→今天→未来，无日期沉底）；已完成沉底按完成时间倒序；同序回退 sort_order+id。
+  function itemCmp(a, b) {
+    if (!!a.node.done !== !!b.node.done) return a.node.done ? 1 : -1;
+    if (!a.node.done) {
+      var ad = a.effDue || '', bd = b.effDue || '';
+      if (ad !== bd) {
+        if (!ad) return 1;
+        if (!bd) return -1;
+        return ad < bd ? -1 : 1;
+      }
+    } else {
+      var aa = a.node.done_at || '', bb = b.node.done_at || '';
+      if (aa !== bb) {
+        if (!aa) return 1;
+        if (!bb) return -1;
+        return aa < bb ? 1 : -1;
+      }
+    }
+    return (a.node.sort_order - b.node.sort_order) || (a.node.id - b.node.id);
   }
 
   // 单个叶子行
@@ -8041,11 +8082,12 @@ function renderTodoFlat(container, trees, opts) {
 
   // 单个主任务组
   function group(root) {
-    var all = collect(root);
+    if (opts.hideDone && root.done) return null; // 整组已完成（手风琴 root 级同口径）
+    var all = collect(root, !!opts.hideDone);
     var items = all;
     if (opts.onlyDone) items = items.filter(function(i){ return i.node.done; });
-    else if (opts.hideDone) items = items.filter(function(i){ return !i.node.done; }); // 组内逐个剔除已完成叶子
     if (items.length === 0) return null; // 无可见叶子：整组隐藏（已完成筛选 / 隐藏已完成）
+    items.sort(itemCmp); // 组内叶子按有效日期排序
     var groupWrap = document.createElement('div');
     groupWrap.className = 'todo-node flat-group';
     groupWrap.setAttribute('data-id', root.id);
