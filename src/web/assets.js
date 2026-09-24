@@ -7145,24 +7145,21 @@ function applyTodoView(getRowsFn, onDrawTree) {
   var mask = document.getElementById('todoDrawerMask');
   var vBtn = document.getElementById('viewToggle');
   var vBtnFs = document.getElementById('viewSwitchBtn');
-  var vCurLbl = document.getElementById('viewCurrentLbl');
   var exitBtn = document.getElementById('exitFullscreen');
   var dBtn = document.getElementById('drawerToggle');
 
-  // 视图按钮分工（两位置职责互换）:
+  // 视图按钮分工:
   //   vBtn (默认页外壳): 进入全屏, 文案 = 循环首项（账号默认视图）
-  //   vBtnFs (全屏顶栏): fs-iconbtn 方按钮(固定循环图标, 与分类/添加钮同款), 点击在视图循环内前进一步
-  //   vCurLbl (全屏顶栏): 无框纯文本, 只显示当前视图完整名称(不带图标, 避免与切换图标混淆), 不承担切换
+  //   vBtnFs (全屏顶栏): 与分类/添加钮同款的带文字按钮, 固定循环图标 + 当前视图名, 点击在循环内前进一步
   //   exitBtn (全屏顶栏): 任意全屏态下点一下直接回默认页
   var vDefault = TODO_VIEW_LABELS[_todoViewCycle[0]] || TODO_VIEW_LABELS.card;
   if (vBtn) vBtn.innerHTML = vDefault.icon + vDefault.name;
   var vcur = TODO_VIEW_LABELS[_todoView] || TODO_VIEW_LABELS.card;
-  if (vCurLbl) vCurLbl.innerHTML = '<span class="fs-viewcur-text-name">' + vcur.name + '</span>';
   if (vBtnFs) {
     var vi = _todoViewCycle.indexOf(_todoView);
     var vnext = TODO_VIEW_LABELS[_todoViewCycle[vi >= 0 ? (vi + 1) % _todoViewCycle.length : 0]] || TODO_VIEW_LABELS.card;
-    // 固定循环图标，点击即切；悬停 title / 读屏给出"下一视图"去向名
-    vBtnFs.innerHTML = TODO_VIEW_SWITCH_ICON;
+    // 固定循环图标 + 当前视图名；悬停 title / 读屏给出"下一视图"去向名
+    vBtnFs.innerHTML = TODO_VIEW_SWITCH_ICON + '<span class="fs-segbtn-name">' + vcur.name + '</span>';
     vBtnFs.title = '切换到' + vnext.name;
     vBtnFs.setAttribute('aria-label', '切换到' + vnext.name);
     // 循环仅 1 项时没有可切换视图，隐藏图标按钮

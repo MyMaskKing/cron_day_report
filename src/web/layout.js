@@ -1801,14 +1801,17 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .fs-iconbtn svg { width: 18px; height: 18px; }
-/* 视图切换钮直接复用 .fs-iconbtn（与分类/添加钮同款方按钮），固定循环图标见 assets.js TODO_VIEW_SWITCH_ICON */
-/* 当前视图：无框纯文本，不可点击（占满中段，名称过长省略号收尾） */
-.fs-viewcur-text {
-  flex: 1; min-width: 0;
-  display: inline-flex; align-items: center; gap: 6px;
-  color: var(--muted-2); font-size: 13px; font-weight: 600; white-space: nowrap;
+/* 视图切换：带文字的图标按钮，底色/边框/圆角与分类/添加钮同款；
+   固定循环图标(见 assets.js TODO_VIEW_SWITCH_ICON) + 当前视图名，点击在循环内前进一步 */
+.fs-segbtn {
+  height: 38px; padding: 0 12px; flex: 1; min-width: 0;
+  border: 1px solid var(--border); border-radius: 11px;
+  background: var(--surface); color: var(--label);
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; gap: 5px;
 }
-.fs-viewcur-text-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fs-segbtn svg { width: 18px; height: 18px; flex: none; }
+.fs-segbtn-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .fs-exitbtn {
   height: 36px; padding: 0 12px; flex-shrink: 0;
   border: 1px solid var(--danger); border-radius: 10px;
@@ -2150,10 +2153,10 @@ html { scrollbar-gutter: stable; }
     /* 手机贴边全宽：去掉 PC 的圆角外框 */
     border: none; border-radius: 0; padding-bottom: 10px;
     border-bottom: 1px solid var(--border);
-    /* 收紧间距，三个同款方按钮 + 当前视图文本放得下（不与"隐藏已完成"重叠） */
+    /* 收紧间距，三个同款按钮(第三个带当前视图名)放得下（不与"隐藏已完成"重叠） */
     gap: 6px;
   }
-  .fs-viewcur-text { font-size: 12.5px; }
+  .fs-segbtn { padding-left: 8px; padding-right: 8px; gap: 4px; font-size: 12.5px; }
   .fs-exitbtn { padding-left: 10px; padding-right: 10px; }
   .todo-fs-top--hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
 }
