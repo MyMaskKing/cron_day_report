@@ -1272,6 +1272,13 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .flat-group__title:hover { color: var(--brand); }
 .flat-group__count { font-size: 12px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
 .flat-group__repeat { font-size: 11px; line-height: 1; }
+/* 「各自截止」标识（child_due），样式与手风琴 .todo-acc__cdmark 一致 */
+.flat-group__cdmark {
+  flex: none; width: 16px; height: 16px; color: var(--muted-2);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.flat-group__cdmark svg { width: 15px; height: 15px; display: block; }
+.flat-group__cdmark:hover { color: var(--brand); }
 /* 叶子行：勾选圆 + 文本列（面包屑/标题）+ 日期 */
 .flat-item {
   position: relative; display: flex; align-items: flex-start; gap: 9px;

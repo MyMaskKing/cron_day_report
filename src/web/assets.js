@@ -8124,6 +8124,13 @@ function renderTodoFlat(container, trees, opts) {
       cnt.textContent = activeDone + '/' + activeItems.length;
       head.appendChild(cnt);
     }
+    // 「各自截止」（child_due）小图标，与手风琴视图同口径
+    if (root.child_due) {
+      var cdEl = document.createElement('span');
+      cdEl.className = 'flat-group__cdmark'; cdEl.title = '子任务各自设置截止日期';
+      cdEl.innerHTML = ICONS.branch;
+      head.appendChild(cdEl);
+    }
     // 组内存在重复任务：组头给 🔁（拍平后节点级重复标记收口到组级）
     if (root.recurrence || all.some(function(i){ return i.node.recurrence; })) {
       var rep = document.createElement('span');
