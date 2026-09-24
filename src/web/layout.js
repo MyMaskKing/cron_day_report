@@ -517,14 +517,17 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .dash-todo .dash-atag.od { color: var(--danger); font-weight: 600; }
 .dash-todo .dash-akids { padding: 0 2px 7px 19px; }
 .dash-todo .dash-acc.collapsed .dash-akids { display: none; }
-.dash-todo .dash-achild { display: flex; align-items: center; gap: 9px; padding: 5px 2px; }
+.dash-todo .dash-achild { display: flex; align-items: flex-start; gap: 9px; padding: 5px 2px; }
 /* 勾选圆复用待办页 .todo-card__check，尺寸收紧 */
 .dash-todo .dash-achild .todo-card__check { width: 20px; height: 20px; flex: none; z-index: 1; }
 .dash-todo .dash-achild .todo-card__check::after { font-size: 12px; }
 .dash-todo .dash-actitle {
   flex: 1; min-width: 0; font-size: 13.5px; color: var(--text);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  word-break: break-word;
 }
+/* 多行标题时勾选圆/日期与首行文字对齐 */
+.dash-todo .dash-achild .todo-card__check { margin-top: 1px; }
+.dash-todo .dash-acdate { margin-top: 3px; }
 .dash-todo .dash-actitle:hover { color: var(--brand); }
 .dash-todo .dash-acdate { flex: none; font-size: 11.5px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
 .dash-todo .dash-acdate.od { color: var(--danger); font-weight: 600; }
