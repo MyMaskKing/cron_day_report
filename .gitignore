@@ -11,3 +11,5 @@ wrangler.toml
 docs/
 test/
 node_modules/
+# Impeccable 设计评审工具产物
+.impeccable/

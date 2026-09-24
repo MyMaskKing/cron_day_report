@@ -420,6 +420,8 @@ var ICONS = {
   repeat: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
   // 分支线: 用于 child_due「子任务各自设置截止日期」模式标识(尺寸由 .todo-cd-* 类控制)
   branch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>',
+  // 折叠箭头(细线 chevron): 手风琴分组行, 折叠态由 CSS 旋转 svg
+  chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
   // 更多(三个点): 手机完整树的操作收纳
   more:   '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>',
   // 逾期警告 (三角+感叹号): 用于 overdue chip
@@ -7778,7 +7780,9 @@ function renderTodoAccordion(container, trees, opts) {
     var caret = document.createElement('button');
     caret.type = 'button';
     caret.className = 'todo-acc__caret' + (solo ? ' leaf' : (folded ? ' is-collapsed' : ''));
-    caret.textContent = solo ? '•' : '▼';
+    // solo 占位保留「•」；可折叠组用细线 SVG chevron 替代字符 ▼
+    if (solo) caret.textContent = '•';
+    else caret.innerHTML = ICONS.chevron;
     if (!solo) caret.addEventListener('click', function(e){
       e.stopPropagation();
       _todoCollapsed[node.id] = !_todoCollapsed[node.id];

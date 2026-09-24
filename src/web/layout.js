@@ -1163,25 +1163,30 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-row.is-root { background: var(--surface-2); border-color: var(--border); border-left: 4px solid var(--brand); padding-left: 12px; }
 .todo-row.is-root .todo-title { font-weight: 700; font-size: 15px; }
 .todo-count { font-size: 12px; color: var(--muted-2); margin-left: 6px; }
-/* ============ 手风琴视图（accordion：仪表盘式圆点行，行间细分隔线，悬停浮现操作组） ============ */
+/* ============ 手风琴视图（accordion：Things 风留白行，无行间分隔线，悬停浮现操作组） ============ */
 .todo-acc__row {
   position: relative; display: flex; align-items: center; gap: 9px;
-  padding: 8px 2px; border-bottom: 1px solid var(--th-border);
+  padding: 7px 10px; border-radius: 9px;
+  transition: background .13s;
 }
+.todo-acc__row:hover { background: var(--hover-bg); }
 .todo-acc__caret {
-  flex: none; width: 18px; height: 18px; padding: 0; border: 0; background: transparent;
-  color: var(--muted-2); font-size: 9px; cursor: pointer; border-radius: 4px;
+  flex: none; width: 18px; height: 20px; padding: 0; border: 0; background: transparent;
+  color: var(--faint); cursor: pointer; border-radius: 5px;
   display: inline-flex; align-items: center; justify-content: center;
+  transition: color .15s, background .13s;
 }
-.todo-acc__caret:hover { color: var(--brand); }
-.todo-acc__caret.leaf { cursor: default; }
+.todo-acc__caret svg { width: 12px; height: 12px; display: block; transition: transform .2s cubic-bezier(.4,0,.2,1); }
+.todo-acc__caret:hover { color: var(--brand); background: var(--brand-tint); }
+.todo-acc__caret.leaf { cursor: default; font-size: 10px; }
+.todo-acc__caret.leaf:hover { color: var(--faint); background: transparent; }
 /* 状态圆点编码优先级（同 .todo-dot 配色） */
 .todo-acc__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
 .todo-acc__dot.pri-2 { background: #e5484d; }
 .todo-acc__dot.pri-1 { background: #e8a317; }
 .todo-acc__dot.pri-0 { background: #b4bccb; }
 .todo-acc__name {
-  flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--text-strong);
+  flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text-strong);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
 }
 .todo-acc__name:hover { color: var(--brand); }
@@ -1198,9 +1203,10 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-acc__kids { padding-left: 22px; }
 /* 叶子行：标题自然换行 */
 .todo-acc__leafrow {
-  display: flex; align-items: flex-start; gap: 9px; padding: 6px 2px;
-  border-bottom: 1px solid var(--th-border);
+  display: flex; align-items: flex-start; gap: 9px; padding: 6px 10px;
+  border-radius: 9px; transition: background .13s;
 }
+.todo-acc__leafrow:hover { background: var(--hover-bg); }
 .todo-acc__leafrow .todo-check { margin-top: 1px; }
 .todo-acc__leafname {
   flex: 1; min-width: 0; font-size: 13.5px; color: var(--text);
@@ -1220,14 +1226,14 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   box-shadow: 0 22px 44px rgba(31,35,41,.26), 0 8px 18px rgba(168,85,247,.26), 0 0 0 2px rgba(168,85,247,.28);
 }
 /* 折叠态：箭头旋转 + 子树隐藏 */
-.todo-acc__caret.is-collapsed { transform: rotate(-90deg); }
+.todo-acc__caret.is-collapsed svg { transform: rotate(-90deg); }
 .todo-acc__kids.collapsed { display: none; }
 /* 手机「⋯」弹层打开时抬层（行 class 由 todoOpMenuToggle 添加） */
 .todo-node:has(> .todo-acc__row.op-menu-open),
 .todo-node:has(> .todo-acc__leafrow.op-menu-open) { position: relative; z-index: 200; }
 .todo-acc__row.op-menu-open, .todo-acc__leafrow.op-menu-open { z-index: 210; }
 @media (max-width: 640px) {
-  .todo-acc__kids { padding-left: 16px; }
+  .todo-acc__kids { padding-left: 14px; }
   /* 手机：操作组只留「⋯」，与老树 .todo-tree 同口径 */
   body .todo-acc .todo-ops { opacity: 1; gap: 0; }
   body .todo-acc .todo-ops .todo-op:not(.todo-more) { display: none; }
