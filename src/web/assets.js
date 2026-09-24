@@ -95,8 +95,9 @@ const COMMON_JS = `
         var maxUp = r.top - br.top - GAP;
         if (delta > maxUp) delta = maxUp;
         if (delta > 4) box.scrollTop += delta;
-      } else if (delta < -GAP && box.scrollTop > 0) {
-        // 输入框离键盘过远(上方有留白)且容器可下滚: 适度回滚贴近, 不强行拉到底
+      } else if (delta < -GAP && box.scrollTop > 0 && kbOn && !kbClosing) {
+        // 输入框离键盘过远(上方有留白)且容器可下滚: 适度回滚贴近, 不强行拉到底。
+        // 仅键盘【稳定弹出】时; 键盘关闭动画中(kbClosing)不追, 由 syncKb 恢复避让前位置。
         box.scrollTop += Math.max(delta, -box.scrollTop);
       }
       return;
@@ -105,6 +106,11 @@ const COMMON_JS = `
     var d = r.bottom - target;
     if (d > 4) window.scrollBy(0, d);
   }
+  // 键盘会话状态: 开键盘时记录避让前滚动位置, 收起时恢复;
+  // kbClosing=关闭动画方向, 期间禁止 liftFocused 追逐键盘(否则框追随键盘落屏幕底部)。
+  var kbOn = false, kbClosing = false;
+  var savedBox = null, savedTop = 0;
+  var prevInset = -999, prevVisBottom = -999;
   function syncKb(){
     if (!isEditable(document.activeElement)) baseInnerH = Math.max(baseInnerH, window.innerHeight);
     var m = measure();
@@ -113,6 +119,25 @@ const COMMON_JS = `
     // resize 看模式(系统已压缩视口)。纯聚焦(键盘未起/已关)不加——否则弹窗会在 click 派发前
     // 就从居中跳到靠顶, 点击点落到遮罩上触发"点遮罩关闭"; FAB 也可能卡在隐藏态。
     var on = m.inset > 80 || m.mode === 'resize';
+    // 键盘会话状态机:
+    //  开键盘(on false→true): 记录当前聚焦框滚动容器的避让前 scrollTop;
+    //  关闭方向: inset 递减(覆盖式)或可见底边增大(压缩式)/直接关闭 → kbClosing,
+    //           liftFocused 停止追逐, 框不再追随键盘下移;
+    //  键盘关尽(on true→false): 两帧(等 --kb-inset 留白收回)后恢复避让前 scrollTop, 框回原位。
+    if (on && !kbOn) {
+      kbClosing = false;
+      var kbEl = document.activeElement;
+      savedBox = isEditable(kbEl) ? scrollBoxOf(kbEl) : null;
+      savedTop = savedBox ? savedBox.scrollTop : 0;
+    }
+    kbClosing = kbOn && (!on || m.inset + 4 < prevInset || m.visBottom > prevVisBottom + 4);
+    if (!on && kbOn && savedBox) {
+      var restBox = savedBox, restTop = savedTop;
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){
+        if (restBox.isConnected) restBox.scrollTop = restTop;
+      }); });
+    }
+    kbOn = on; prevInset = m.inset; prevVisBottom = m.visBottom;
     document.body.classList.toggle('kb-on', on);
     document.body.classList.toggle('kb-resize', on && m.mode === 'resize');
     var masks = document.querySelectorAll('.modal-mask');
