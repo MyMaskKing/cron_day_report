@@ -1327,7 +1327,11 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .flat-item .todo-op.todo-more { display: inline-flex; }
   body .flat-item, body .flat-group__head { padding-left: 8px; padding-right: 8px; }
   /* 无面包屑的单行叶子：行高随内容收紧，避免与两行（面包屑+标题）同高显得空 */
-  body .flat-item--nocrumb { padding-top: 2px; padding-bottom: 2px; }
+  /* 无面包屑单行叶子：最小行高贴近两行(面包屑)行、内容居中，避免过矮显局促 */
+  body .flat-item--nocrumb {
+    min-height: 40px; align-items: center; padding-top: 2px; padding-bottom: 2px;
+  }
+  body .flat-item--nocrumb .todo-check { margin-top: 0; }
   /* 组间距收紧；添加子任务走 ⋯ 菜单：手机端整个收起组底 adder（编辑器无入口，不会被打开） */
   body .flat-group { padding: 5px 0 1px; }
   body .flat-group--solo { padding-top: 3px; padding-bottom: 0; }

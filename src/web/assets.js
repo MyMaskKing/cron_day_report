@@ -6537,11 +6537,46 @@ function todoDoneRootCmp(a, b) {
   }
   return (a.sort_order - b.sort_order) || (a.id - b.id);
 }
+// 叶子级日期剪枝(与日报 pruneDueLeaves 同口径): cur/today/overdue/future 筛选下,
+//   未完成叶子的有效日期(自身 due_date 优先, 否则继承最近有日期祖先)须符合当前筛选才保留;
+//   孩子被剪空的中间父整支隐藏。done 节点原样保留, 由"隐藏已完成"开关与渲染器收口。
+//   all/planned/memo/done 不剪, 主任务内子任务全貌保留。返回新树, 不改原树。
+function todoPruneLeavesByFilter(trees, filter, t) {
+  if (filter !== 'cur' && filter !== 'today' && filter !== 'overdue' && filter !== 'future') return trees;
+  function leafPass(own) {
+    if (filter === 'cur')     return !!(own && own <= t);
+    if (filter === 'today')   return own === t;
+    if (filter === 'overdue') return !!(own && own < t);
+    return !!(own && own > t); // future
+  }
+  function prune(n, inherited) {
+    var own = n.due_date || inherited;
+    if (n.children.length > 0) {
+      var kids = [];
+      for (var i = 0; i < n.children.length; i++) {
+        var c = prune(n.children[i], own);
+        if (c) kids.push(c);
+      }
+      return kids.length ? Object.assign({}, n, { children: kids }) : null;
+    }
+    if (n.done) return Object.assign({}, n);
+    if (n.child_due) return null; // child_due 分组壳不用继承日期冒充叶子
+    return leafPass(own) ? Object.assign({}, n) : null;
+  }
+  var out = [];
+  trees.forEach(function(n){
+    var p = prune(n, null);
+    if (p) out.push(p);
+  });
+  return out;
+}
 // 按筛选归类顶层任务（日期取顶层显示日期 todoRootDue: 旧模式=自身 due_date; 新模式=最早到期子任务）
 // 各待办页面(登录态/公开报告/协作)共用, 依赖各页面自有的全局 _filter
 function todoFilterTrees(trees, today) {
   var t = today || todayStr();
   var out = trees.filter(function(n){ return todoRootPassFilter(n, _filter, t); });
+  // 再按叶子口径剪枝: cur/today/overdue/future 下隐藏树内不符合日期的子任务(与日报一致)
+  out = todoPruneLeavesByFilter(out, _filter, t);
   // 已完成 tab: 覆盖卡片默认的"显示日期倒序", 改按最近完成时间倒序(刚完成的清单/任务在最前)
   if (_filter === 'done') out.sort(todoDoneRootCmp);
   return out;
