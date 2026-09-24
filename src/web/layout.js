@@ -1801,16 +1801,7 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .fs-iconbtn svg { width: 18px; height: 18px; }
-/* 视图切换：无框纯图标（不占额外宽度），点击在视图循环内前进一步；悬停变紫、按下轻缩给反馈 */
-.fs-viewswitch {
-  width: 30px; height: 38px; flex-shrink: 0; padding: 0; border: 0;
-  background: transparent; color: var(--muted-2);
-  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
-  transition: color .13s, transform .1s;
-}
-.fs-viewswitch:hover { color: var(--brand); }
-.fs-viewswitch:active { transform: scale(.85); }
-.fs-viewswitch svg { width: 19px; height: 19px; display: block; }
+/* 视图切换钮直接复用 .fs-iconbtn（与分类/添加钮同款方按钮），固定循环图标见 assets.js TODO_VIEW_SWITCH_ICON */
 /* 当前视图：无框纯文本，不可点击（占满中段，名称过长省略号收尾） */
 .fs-viewcur-text {
   flex: 1; min-width: 0;
@@ -2159,11 +2150,9 @@ html { scrollbar-gutter: stable; }
     /* 手机贴边全宽：去掉 PC 的圆角外框 */
     border: none; border-radius: 0; padding-bottom: 10px;
     border-bottom: 1px solid var(--border);
-    /* 收紧间距，无框切换图标 + 当前视图文本放得下（不与"隐藏已完成"重叠） */
+    /* 收紧间距，三个同款方按钮 + 当前视图文本放得下（不与"隐藏已完成"重叠） */
     gap: 6px;
   }
-  .fs-viewswitch { width: 24px; }
-  .fs-viewswitch svg { width: 17px; height: 17px; }
   .fs-viewcur-text { font-size: 12.5px; }
   .fs-exitbtn { padding-left: 10px; padding-right: 10px; }
   .todo-fs-top--hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
