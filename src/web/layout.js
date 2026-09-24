@@ -1361,10 +1361,11 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
     min-height: 40px; align-items: center; padding-top: 2px; padding-bottom: 2px;
   }
   body .flat-item--nocrumb .todo-check { margin-top: 0; }
-  /* 组间距收紧；添加子任务走 ⋯ 菜单：手机端整个收起组底 adder（编辑器无入口，不会被打开） */
+  /* 组间距收紧；添加子任务走 ⋯ 菜单：手机端收起组底占位行，⋯ 菜单点开后 adder 进入 editing 放行 */
   body .flat-group { padding: 5px 0 1px; }
   body .flat-group--solo { padding-top: 3px; padding-bottom: 0; }
   body .flat-group .todo-detail-adder { display: none; }
+  body .flat-group .todo-detail-adder.editing { display: block; }
 }
 /* 概览统计条 */
 .todo-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
