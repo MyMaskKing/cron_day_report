@@ -8141,8 +8141,13 @@ function renderTodoFlat(container, trees, opts) {
     items.sort(itemCmp); // 组内叶子按有效日期排序
     var groupWrap = document.createElement('div');
     // 无子任务的顶层主任务: 标 solo, 供 CSS 收紧组头/叶子间距与组底空隙
-    groupWrap.className = 'todo-node flat-group' + (root.children.length === 0 ? ' flat-group--solo' : '');
+    // A 方案：顶层主任务卡片化，等级由顶部色带编码（与卡片/手风琴视图同源）
+    groupWrap.className = 'todo-node flat-group todo-bandcard pri-' + (root.priority != null ? root.priority : 1)
+      + (root.children.length === 0 ? ' flat-group--solo' : '');
     groupWrap.setAttribute('data-id', root.id);
+    var bandEl = document.createElement('div');
+    bandEl.className = 'todo-card__band';
+    groupWrap.appendChild(bandEl);
 
     var head = document.createElement('div');
     head.className = 'flat-group__head';

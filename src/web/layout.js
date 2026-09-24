@@ -1282,6 +1282,12 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-bandcard > .todo-acc__row--root { padding: 10px 10px 4px; }
 .todo-bandcard > .todo-acc__row--root:hover { background: transparent; }
 .todo-bandcard > .todo-acc__kids { padding-right: 10px; padding-bottom: 6px; }
+/* 速览（flat）卡内：组 padding 归零、组头去底部分隔线，叶子与底部添加行横向对齐 */
+.todo-bandcard.flat-group { padding: 0; }
+.todo-bandcard .flat-group__head { border-bottom: 0; padding: 9px 12px 5px; }
+.todo-bandcard .flat-group__head:hover { background: transparent; }
+.todo-bandcard .flat-item { padding-left: 12px; padding-right: 12px; }
+.todo-bandcard > .todo-detail-adder { margin-left: 12px; margin-right: 12px; }
 /* ============ 速览视图（flat-view：叶子拍平 + 祖先面包屑，与桌面小组件同源） ============ */
 .flat-group { position: relative; padding: 8px 0 2px; }
 /* solo 组（无子任务的顶层主任务）：收紧组头与叶子、组与组之间的空隙 */
