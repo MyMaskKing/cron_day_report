@@ -1185,6 +1185,13 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
 }
 .todo-acc__name:hover { color: var(--brand); }
+/* 「各自截止」标识小图标（child_due） */
+.todo-acc__cdmark {
+  flex: none; width: 16px; height: 16px; color: var(--muted-2);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.todo-acc__cdmark svg { width: 15px; height: 15px; display: block; }
+.todo-acc__cdmark:hover { color: var(--brand); }
 .todo-acc__repeat { flex: none; font-size: 11px; line-height: 1; }
 .todo-acc__date { flex: none; font-size: 11.5px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
 .todo-acc__date.od { color: var(--danger); font-weight: 600; }
@@ -1225,6 +1232,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .todo-acc .todo-ops { opacity: 1; gap: 0; }
   body .todo-acc .todo-ops .todo-op:not(.todo-more) { display: none; }
   body .todo-acc .todo-op.todo-more { display: inline-flex; }
+  /* 添加子任务只走⋯菜单：隐藏分组底部常驻占位行（editing 展开的编辑器不受影响，照常显示） */
+  body .todo-acc .todo-detail-adder .todo-detail-adder__placeholder { display: none; }
 }
 /* 概览统计条 */
 .todo-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }

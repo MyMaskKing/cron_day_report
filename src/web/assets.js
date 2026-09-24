@@ -7745,7 +7745,9 @@ function renderTodoAccordion(container, trees, opts) {
     // onlyDone：只留已完成节点（与老树同口径）
     if (opts.onlyDone && !node.done && !todoSubtreeDoneInfo(node).any) return null;
     var effDue = node.due_date || rootDue;
-    if (node.children.length === 0) return leafNode(node, depth, effDue);
+    // 顶层主任务无子任务 → solo 组（标题行 + 子位自身行，同仪表盘）；中间层叶子仍走叶子行
+    var solo = node.children.length === 0 && depth === 0 && !isDetail;
+    if (node.children.length === 0 && !solo) return leafNode(node, depth, effDue);
 
     var wrap = document.createElement('div');
     wrap.className = 'todo-node todo-acc';
@@ -7755,9 +7757,10 @@ function renderTodoAccordion(container, trees, opts) {
     rowEl.className = 'todo-acc__row';
     var folded = !!_todoCollapsed[node.id];
     var caret = document.createElement('button');
-    caret.type = 'button'; caret.className = 'todo-acc__caret' + (folded ? ' is-collapsed' : '');
-    caret.textContent = '▼';
-    caret.addEventListener('click', function(e){
+    caret.type = 'button';
+    caret.className = 'todo-acc__caret' + (solo ? ' leaf' : (folded ? ' is-collapsed' : ''));
+    caret.textContent = solo ? '•' : '▼';
+    if (!solo) caret.addEventListener('click', function(e){
       e.stopPropagation();
       _todoCollapsed[node.id] = !_todoCollapsed[node.id];
       caret.classList.toggle('is-collapsed');
@@ -7776,6 +7779,13 @@ function renderTodoAccordion(container, trees, opts) {
       if (opts.onDetail || opts.onEdit) (opts.onDetail || opts.onEdit)(node);
     });
     rowEl.appendChild(nameEl);
+    // 「各自截止」（child_due）小图标，悬浮给说明
+    if (node.child_due) {
+      var cdEl = document.createElement('span');
+      cdEl.className = 'todo-acc__cdmark'; cdEl.title = '子任务各自设置截止日期';
+      cdEl.innerHTML = ICONS.branch;
+      rowEl.appendChild(cdEl);
+    }
     if (node.recurrence) {
       var repEl = document.createElement('span');
       repEl.className = 'todo-acc__repeat'; repEl.textContent = '🔁';
@@ -7795,14 +7805,47 @@ function renderTodoAccordion(container, trees, opts) {
     }
     wrap.appendChild(rowEl);
     var kidsEl = document.createElement('div');
-    kidsEl.className = 'todo-acc__kids' + (folded ? ' collapsed' : '');
-    node.children.forEach(function(c){
-      var el = walk(c, depth + 1, effDue);
-      if (el) kidsEl.appendChild(el);
-    });
+    kidsEl.className = 'todo-acc__kids' + (solo ? '' : (folded ? ' collapsed' : ''));
+    if (solo) {
+      // 子位唯一行 = 主任务自身（勾选 = 完成主任务，同仪表盘 solo 组）
+      var srow = document.createElement('div');
+      srow.className = 'todo-acc__leafrow' + (node.done ? ' done' : '');
+      var scheck = document.createElement('button');
+      scheck.type = 'button'; scheck.className = 'todo-check' + (node.done ? ' done' : '');
+      scheck.title = node.done ? '取消完成' : '标记完成';
+      if (opts.onToggle) scheck.addEventListener('click', async function(e){
+        e.stopPropagation();
+        if (scheck.disabled) return;
+        if (node.recurrence && !node.done && opts.onToggleRecur) { opts.onToggleRecur(node); return; }
+        scheck.disabled = true; scheck.setAttribute('data-busy', '1');
+        try { await opts.onToggle(node, !node.done); }
+        finally { scheck.disabled = false; scheck.removeAttribute('data-busy'); }
+      });
+      srow.appendChild(scheck);
+      var sname = document.createElement('span');
+      sname.className = 'todo-acc__leafname'; sname.textContent = node.title;
+      sname.addEventListener('click', function(e){
+        e.stopPropagation();
+        if (opts.onDetail || opts.onEdit) (opts.onDetail || opts.onEdit)(node);
+      });
+      srow.appendChild(sname);
+      // 逾期日期（今天/未来不重复显示，右侧标题行已有）
+      if (!node.done && effDue && today && effDue < today) {
+        var sdEl = document.createElement('span');
+        sdEl.className = 'todo-acc__date od'; sdEl.title = effDue;
+        sdEl.textContent = Number(effDue.slice(5, 7)) + '月' + Number(effDue.slice(8, 10)) + '日';
+        srow.appendChild(sdEl);
+      }
+      kidsEl.appendChild(srow);
+    } else {
+      node.children.forEach(function(c){
+        var el = walk(c, depth + 1, effDue);
+        if (el) kidsEl.appendChild(el);
+      });
+    }
     wrap.appendChild(kidsEl);
-    // 底部常驻「添加子任务」（同卡片视图详情）
-    if (opts.onAddChildSubmit) {
+    // 底部常驻「添加子任务」（同卡片视图详情；solo 组不挂，添加走标题行 ＋ / ⋯ 菜单）
+    if (!solo && opts.onAddChildSubmit) {
       mountDetailAdder(kidsEl, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
     }
     // 拖拽绑定
