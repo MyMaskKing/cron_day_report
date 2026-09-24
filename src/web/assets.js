@@ -7141,16 +7141,20 @@ function applyTodoView(getRowsFn, onDrawTree) {
   var drawer = document.getElementById('todoDrawer');
   var mask = document.getElementById('todoDrawerMask');
   var vBtn = document.getElementById('viewToggle');
-  var vBtnFs = document.getElementById('viewToggleFs');
+  var vBtnFs = document.getElementById('viewSwitchBtn');
+  var vCurLbl = document.getElementById('viewCurrentLbl');
   var exitBtn = document.getElementById('exitFullscreen');
   var dBtn = document.getElementById('drawerToggle');
 
-  // 视图按钮分工:
+  // 视图按钮分工（两位置职责互换）:
   //   vBtn (默认页外壳): 进入全屏, 文案 = 循环首项（账号默认视图）
-  //   vBtnFs (全屏顶栏): 仅"下一视图"图标, 点击在视图循环内前进一步; 其后常驻当前视图完整名称
+  //   vBtnFs (全屏顶栏): 仅"下一视图"图标, 点击在视图循环内前进一步
+  //   vCurLbl (全屏顶栏): 沿用原切换按钮的 fs-segbtn 宽按钮样式, 只显示当前视图图标+完整名称, 不承担切换
   //   exitBtn (全屏顶栏): 任意全屏态下点一下直接回默认页
   var vDefault = TODO_VIEW_LABELS[_todoViewCycle[0]] || TODO_VIEW_LABELS.card;
   if (vBtn) vBtn.innerHTML = vDefault.icon + vDefault.name;
+  var vcur = TODO_VIEW_LABELS[_todoView] || TODO_VIEW_LABELS.card;
+  if (vCurLbl) vCurLbl.innerHTML = vcur.icon + vcur.name;
   if (vBtnFs) {
     var vi = _todoViewCycle.indexOf(_todoView);
     var vnext = TODO_VIEW_LABELS[_todoViewCycle[vi >= 0 ? (vi + 1) % _todoViewCycle.length : 0]] || TODO_VIEW_LABELS.card;
@@ -7158,23 +7162,7 @@ function applyTodoView(getRowsFn, onDrawTree) {
     vBtnFs.innerHTML = vnext.icon;
     vBtnFs.title = '切换到' + vnext.name;
     vBtnFs.setAttribute('aria-label', '切换到' + vnext.name);
-    // 当前视图：常驻"图标 + 完整名称"，位置换到切换按钮之后；动态插入，4 个待办页通用
-    var curEl = document.getElementById('viewCurrent');
-    if (!curEl) {
-      curEl = document.createElement('span');
-      curEl.id = 'viewCurrent'; curEl.className = 'fs-viewcur';
-      var curIco = document.createElement('span');
-      curIco.className = 'fs-viewcur-ico';
-      var curName = document.createElement('span');
-      curName.className = 'fs-viewcur-name';
-      curEl.appendChild(curIco);
-      curEl.appendChild(curName);
-      vBtnFs.parentNode.insertBefore(curEl, vBtnFs.nextSibling);
-    }
-    var vcur = TODO_VIEW_LABELS[_todoView] || TODO_VIEW_LABELS.card;
-    curEl.children[0].innerHTML = vcur.icon;
-    curEl.children[1].textContent = vcur.name;
-    // 循环仅 1 项时没有可切换视图，隐藏按钮
+    // 循环仅 1 项时没有可切换视图，隐藏图标按钮
     vBtnFs.style.display = _todoViewCycle.length > 1 ? '' : 'none';
     if (!vBtnFs.__fsBound) {
       vBtnFs.__fsBound = 1;
@@ -7340,7 +7328,7 @@ function enterTodoFullscreen(getRowsFn, onDrawTree) {
   try { localStorage.setItem('todoView', _todoView); } catch(e){}
   applyTodoView(getRowsFn, onDrawTree);
 }
-// 全屏内在视图循环内前进一步(不出全屏): 用于全屏顶栏的 viewToggleFs 按钮
+// 全屏内在视图循环内前进一步(不出全屏): 用于全屏顶栏的 viewSwitchBtn 图标按钮
 function swapTodoFullscreenMode(getRowsFn, onDrawTree) {
   var idx = _todoViewCycle.indexOf(_todoView);
   _todoView = _todoViewCycle[idx >= 0 ? (idx + 1) % _todoViewCycle.length : 0] || 'card';
@@ -11056,7 +11044,7 @@ async function loadPublic() {
     todoAlarmReconcile(_rows, false);
     loadChart();
     // 应用视图状态(抽屉/全屏/按钮文案); onDrawTree 仅重绘可见树, 不重新 loadPublic(避免死循环)
-    // 这个 fn 也会被 viewToggleFs/exitFullscreen 等按钮的幂等绑定捕获, 必须能触发实际重绘
+    // 这个 fn 也会被 viewSwitchBtn/exitFullscreen 等按钮的幂等绑定捕获, 必须能触发实际重绘
     applyTodoView(_todoGetRows, function(){ drawTree(visibleTrees()); });
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
 }
@@ -11556,7 +11544,7 @@ async function loadCollab() {
     todoAlarmReconcile(_rows, true);
     loadChart();
     // 应用视图状态; onDrawTree 仅重绘可见树, 不重新 loadCollab(避免死循环)
-    // 这个 fn 也会被 viewToggleFs/exitFullscreen 等按钮的幂等绑定捕获, 必须能触发实际重绘
+    // 这个 fn 也会被 viewSwitchBtn/exitFullscreen 等按钮的幂等绑定捕获, 必须能触发实际重绘
     applyTodoView(_todoGetRows, function(){ drawTree(visibleTrees()); });
   } catch(e) { showMsg(msg, e.message || '链接无效', false); }
 }

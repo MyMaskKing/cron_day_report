@@ -1809,16 +1809,6 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; gap: 3px;
 }
 .fs-segbtn svg { width: 15px; height: 15px; }
-/* 当前视图常驻标签：图标 + 完整名称，占满顶栏中段（切换图标按钮在其左） */
-.fs-viewcur {
-  flex: 1; min-width: 0; height: 36px; padding: 0 12px;
-  border: 1px solid var(--border); border-radius: 10px;
-  background: var(--surface-2); color: var(--label);
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap;
-}
-.fs-viewcur svg { width: 15px; height: 15px; flex: none; display: block; }
-.fs-viewcur-name { overflow: hidden; text-overflow: ellipsis; }
 .fs-exitbtn {
   height: 36px; padding: 0 12px; flex-shrink: 0;
   border: 1px solid var(--danger); border-radius: 10px;
