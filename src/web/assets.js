@@ -8048,7 +8048,7 @@ function renderTodoFlat(container, trees, opts) {
   function leafItem(item) {
     var n = item.node;
     var rowEl = document.createElement('div');
-    rowEl.className = 'flat-item' + (item.done ? ' done' : '');
+    rowEl.className = 'flat-item' + (item.done ? ' done' : '') + (item.path.length ? '' : ' flat-item--nocrumb');
     // 备忘录叶子（自身与祖先均无有效日期）不显示勾选框
     if (item.effDue) {
       var check = document.createElement('button');
