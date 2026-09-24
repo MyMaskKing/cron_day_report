@@ -6361,6 +6361,9 @@ var TODO_VIEW_LABELS = {
   flat: { icon: ICONS.flat, name: '速览视图' },
   tree: { icon: ICONS.tree, name: '完整树' }
 };
+// 全屏顶栏切换钮的固定图标：循环切换的动作语义，不随视图变化
+// （若显示"下一视图"图标，会与旁边"当前视图"名称指代不一致、看着搭不上）
+var TODO_VIEW_SWITCH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
 var _todoView = 'card';
 try {
   var _v = localStorage.getItem('todoView');
@@ -7148,7 +7151,7 @@ function applyTodoView(getRowsFn, onDrawTree) {
 
   // 视图按钮分工（两位置职责互换）:
   //   vBtn (默认页外壳): 进入全屏, 文案 = 循环首项（账号默认视图）
-  //   vBtnFs (全屏顶栏): 无框纯图标, 点击在视图循环内前进一步
+  //   vBtnFs (全屏顶栏): 无框固定循环图标, 点击在视图循环内前进一步
   //   vCurLbl (全屏顶栏): 无框纯文本, 只显示当前视图完整名称(不带图标, 避免与切换图标混淆), 不承担切换
   //   exitBtn (全屏顶栏): 任意全屏态下点一下直接回默认页
   var vDefault = TODO_VIEW_LABELS[_todoViewCycle[0]] || TODO_VIEW_LABELS.card;
@@ -7158,8 +7161,8 @@ function applyTodoView(getRowsFn, onDrawTree) {
   if (vBtnFs) {
     var vi = _todoViewCycle.indexOf(_todoView);
     var vnext = TODO_VIEW_LABELS[_todoViewCycle[vi >= 0 ? (vi + 1) % _todoViewCycle.length : 0]] || TODO_VIEW_LABELS.card;
-    // 切换按钮只留"下一视图"图标，点击即切；悬停 title / 读屏给出去向名
-    vBtnFs.innerHTML = vnext.icon;
+    // 固定循环图标，点击即切；悬停 title / 读屏给出"下一视图"去向名
+    vBtnFs.innerHTML = TODO_VIEW_SWITCH_ICON;
     vBtnFs.title = '切换到' + vnext.name;
     vBtnFs.setAttribute('aria-label', '切换到' + vnext.name);
     // 循环仅 1 项时没有可切换视图，隐藏图标按钮
