@@ -2130,55 +2130,87 @@ bindModal();
     if (el && me.user) el.textContent = '欢迎，' + (me.user.nickname || me.user.username);
   }).catch(function(){});
 
-  // 待办: KPI 直接用后端 stats 口径; 列表取今日到期+逾期的主任务前 5;
-  // 全量 rows 缓存供点击行时构造任务树、在仪表盘原地弹出详情(不跳转, 复用 todo-core 的 openTodoDetail)
+  // 待办: KPI 直接用后端 stats 口径; 列表按分组卡片展示(对齐安卓小组件):
+  // 一个主任务一张卡, 卡内列今日/逾期的叶子子任务勾选行, 主任务标题可折叠; 组限前 5, 超出卡内滚动
   var dashTodoRows = [];
+  var lastGroups = [];
+  var dashFolded = {};
+  // 叶子日期标签: 逾期显示月日, 其余为今天(调用前已过滤 <= today)
+  function dueLabel(d){
+    return d < today ? (Number(d.slice(5, 7)) + '月' + Number(d.slice(8, 10)) + '日') : '今天';
+  }
+  // 收集主任务子树内今日/逾期的未完成叶子; path 为中间层祖先标题链(不含主任务和自身), 对齐后端 buildWidgetGroups
+  function collectLeaves(root){
+    var leaves = [];
+    (function walk(n, ancestors, inheritedDue){
+      if (n.done) return;
+      var ownDue = n.due_date || inheritedDue;
+      if (n.children.length > 0) {
+        n.children.forEach(function(c){
+          walk(c, n === root ? [] : ancestors.concat(n.title), ownDue);
+        });
+        return;
+      }
+      // child_due 空壳是分组容器, 不用继承日期冒充叶子(与 todoRootDue 口径一致)
+      if (!n.child_due && ownDue && ownDue <= today) {
+        leaves.push({ node: n, due: ownDue, path: ancestors.slice() });
+      }
+    })(root, [], null);
+    return leaves;
+  }
+  function renderDash(groups){
+    var box = document.getElementById('dashTodo');
+    if (!box) return;
+    if (!groups.length) { box.innerHTML = '<p class="muted" style="margin:0;">今天没有到期任务。</p>'; return; }
+    box.innerHTML = '<div class="dash-groups">' + groups.map(function(gp){
+      var od = gp.gdue < today;
+      var folded = !gp.solo && !!dashFolded[gp.root.id];
+      var arrow = gp.solo
+        ? '<span class="dash-arrow" aria-hidden="true">•</span>'
+        : '<button type="button" class="dash-arrow" data-fold="' + gp.root.id + '" aria-label="折叠">' + (folded ? '▶' : '▼') + '</button>';
+      return '<div class="dash-group' + (folded ? ' collapsed' : '') + '">'
+        + '<div class="dash-gtitle">' + arrow
+        + '<a class="dash-gname" href="/todo?root=' + gp.root.id + '">' + esc(gp.root.title) + '</a>'
+        + '<span class="dash-gdate' + (od ? ' od' : '') + '">' + dueLabel(gp.gdue) + '</span></div>'
+        + '<div class="dash-children">' + gp.leaves.map(function(lf){
+            var lod = lf.due < today;
+            return '<div class="dash-child">'
+              + '<button type="button" class="todo-card__check" data-check="' + lf.node.id + '" aria-label="完成"></button>'
+              + '<a class="dash-ctitle" href="/todo?root=' + gp.root.id + '&edit=' + lf.node.id + '">'
+              + (lf.path.length ? '<span class="dash-cpath">' + esc(lf.path.join(' → ')) + '</span>' : '')
+              + '<span>' + esc(lf.node.title) + '</span></a>'
+              + '<span class="dash-cdate' + (lod ? ' od' : '') + '">' + dueLabel(lf.due) + '</span></div>';
+          }).join('') + '</div></div>';
+    }).join('') + '</div>';
+  }
   function loadDashTodos(){
     return api('/api/todo/list').then(function(d){
       var s = d.stats || {};
       document.getElementById('kpiToday').textContent = s.today || 0;
       document.getElementById('kpiOverdue').textContent = s.overdue || 0;
       dashTodoRows = d.todos || [];
-      // 树口径: 主任务自身有日期(旧模式)或子树内存在今日/逾期叶子(child_due 新模式, 日期取自任务叶子)
-      // 都按顶层任务展示; 显示日期与待办页/小组件一致走 todoRootDue
-      var rows = [];
+      var groups = [];
       todoBuildTree(dashTodoRows).forEach(function(root){
         if (root.done) return;
-        var d0 = todoRootDue(root);
-        if (d0 && d0 <= today) rows.push({ id: root.id, title: root.title, due: d0 });
+        var leaves = collectLeaves(root);
+        // 旧模式: 主任务自身是叶子且今日/逾期, 回退为唯一一行(solo, 不可折叠)
+        if (!leaves.length && root.due_date && root.due_date <= today) {
+          leaves = [{ node: root, due: root.due_date, path: [] }];
+        }
+        if (!leaves.length) return;
+        leaves.sort(function(a, b){ return a.due < b.due ? -1 : 1; });
+        groups.push({ root: root, leaves: leaves, gdue: todoRootDue(root) || leaves[0].due, solo: root.children.length === 0 });
       });
-      rows.sort(function(a, b){ return a.due < b.due ? -1 : 1; });
-      rows = rows.slice(0, 5);
-      var box = document.getElementById('dashTodo');
-      if (!box) return;
-      if (!rows.length) { box.innerHTML = '<p class="muted" style="margin:0;">今天没有到期任务。</p>'; return; }
-      box.innerHTML = rows.map(function(r){
-        var od = r.due < today;
-        var label = od ? (Number(r.due.slice(5, 7)) + '月' + Number(r.due.slice(8, 10)) + '日') : '今天';
-        return '<div class="dash-row"><span class="d-dot' + (od ? ' od' : '') + '"></span>'
-          + '<a href="/todo?edit=' + r.id + '">' + esc(r.title) + '</a>'
-          + '<span class="d-tag' + (od ? ' od' : '') + '">' + label + '</span></div>';
-      }).join('');
+      groups.sort(function(a, b){ return a.gdue < b.gdue ? -1 : 1; });
+      lastGroups = groups.slice(0, 5);
+      renderDash(lastGroups);
     }).catch(function(){});
   }
   loadDashTodos();
 
-  // 点行原地弹任务详情(等同待办页眼睛图标); href 保留作无 JS/中键新标签的降级跳转
-  var dashBox = document.getElementById('dashTodo');
-  if (dashBox) dashBox.addEventListener('click', function(e){
-    var a = e.target.closest && e.target.closest('a[href^="/todo?edit="]');
-    if (!a) return;
-    e.preventDefault();
-    var id = Number(String(a.getAttribute('href')).split('edit=')[1]);
-    var node = null;
-    (function walk(list){
-      list.forEach(function(n){
-        if (node) return;
-        if (n.id === id) { node = n; return; }
-        walk(n.children || []);
-      });
-    })(todoBuildTree(dashTodoRows));
-    if (!node) return;
+  // 点击委托: 折叠箭头/勾选圆就地处理; 主任务与子任务标题原地弹详情(等同待办页眼睛图标);
+  // href 保留作无 JS/中键新标签的降级跳转
+  function openDashDetail(node){
     openTodoDetail(node, {
       today: today,
       editable: true,
@@ -2197,6 +2229,46 @@ bindModal();
         return r.attachments || [];
       }
     });
+  }
+  var dashBox = document.getElementById('dashTodo');
+  if (dashBox) dashBox.addEventListener('click', function(e){
+    if (!e.target.closest) return;
+    var fold = e.target.closest('[data-fold]');
+    if (fold) {
+      e.preventDefault();
+      var fid = Number(fold.dataset.fold);
+      dashFolded[fid] = !dashFolded[fid];
+      renderDash(lastGroups);
+      return;
+    }
+    var chk = e.target.closest('[data-check]');
+    if (chk) {
+      e.preventDefault();
+      e.stopPropagation();
+      api('/api/todo/' + chk.dataset.check + '/done', { method: 'PUT', body: { done: true } })
+        .then(loadDashTodos)
+        .catch(function(err){ alertModal(err.message, { ok: false }); });
+      return;
+    }
+    var ga = e.target.closest('a.dash-gname');
+    if (ga) {
+      e.preventDefault();
+      var gid = Number(String(ga.getAttribute('href')).split('root=')[1]);
+      var gn = null;
+      lastGroups.forEach(function(gp){ if (gp.root.id === gid) gn = gp.root; });
+      if (gn) openDashDetail(gn);
+      return;
+    }
+    var ca = e.target.closest('a.dash-ctitle');
+    if (ca) {
+      e.preventDefault();
+      var cid = Number(String(ca.getAttribute('href')).split('edit=')[1]);
+      var cn = null;
+      lastGroups.forEach(function(gp){
+        gp.leaves.forEach(function(lf){ if (lf.node.id === cid) cn = lf.node; });
+      });
+      if (cn) openDashDetail(cn);
+    }
   });
 
   // 体重: 取第一位成员(通常是本人)的最新一条记录, 库内 kg 按用户单位换算

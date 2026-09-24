@@ -492,6 +492,46 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .dash-row a::after { content: ''; position: absolute; inset: 0; }
 .dash-row .d-tag { font-size: 11.5px; color: var(--muted-2); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .dash-row .d-tag.od { color: var(--danger); font-weight: 600; }
+/* 仪表盘今日待办：分组卡片（一个主任务一张卡，标题可折叠，卡内列今日/逾期叶子勾选行，对齐安卓小组件） */
+.dash-todo .dash-groups { display: flex; flex-direction: column; gap: 8px; padding: 2px 0 4px; max-height: 360px; overflow-y: auto; }
+.dash-todo .dash-group { border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); overflow: hidden; }
+.dash-todo .dash-gtitle { position: relative; display: flex; align-items: center; gap: 8px; padding: 7px 10px; }
+.dash-todo .dash-arrow {
+  flex: none; width: 18px; height: 18px; padding: 0; border: 0; background: transparent;
+  color: var(--muted-2); font-size: 9px; cursor: pointer; border-radius: 4px; z-index: 1;
+}
+.dash-todo .dash-arrow:hover { color: var(--brand); }
+.dash-todo .dash-gname {
+  flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; color: var(--text-strong);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dash-todo .dash-gname:hover { color: var(--brand); }
+/* 标题链接热区铺满标题行；折叠箭头靠 z-index 独立点击 */
+.dash-todo .dash-gname::after { content: ''; position: absolute; inset: 0; }
+.dash-todo .dash-gdate { flex: none; font-size: 11.5px; color: var(--muted-2); font-variant-numeric: tabular-nums; z-index: 1; }
+.dash-todo .dash-gdate.od { color: var(--danger); font-weight: 600; }
+.dash-todo .dash-children { padding: 1px 10px 5px 28px; }
+.dash-todo .dash-group.collapsed .dash-children { display: none; }
+.dash-todo .dash-child { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+/* 勾选圆复用待办页 .todo-card__check，尺寸收紧；关掉 44px 扩大热区避免密排行里误触相邻标题 */
+.dash-todo .dash-child .todo-card__check { width: 20px; height: 20px; flex: none; z-index: 1; }
+.dash-todo .dash-child .todo-card__check::after { font-size: 12px; }
+.dash-todo .dash-ctitle { flex: 1; min-width: 0; font-size: 13px; color: var(--text); }
+.dash-todo .dash-ctitle:hover { color: var(--brand); }
+.dash-todo .dash-ctitle span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-todo .dash-cpath { font-size: 10.5px; color: var(--muted-2); }
+.dash-todo .dash-cdate { flex: none; font-size: 11px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.dash-todo .dash-cdate.od { color: var(--danger); font-weight: 600; }
+/* 手机端适配：限高收缩、触控热区放大、缩进/内边距收紧 */
+@media (max-width: 640px) {
+  .dash-todo .dash-groups { max-height: 300px; -webkit-overflow-scrolling: touch; }
+  .dash-todo .dash-gtitle { gap: 4px; padding: 9px 8px; }
+  .dash-todo .dash-arrow { width: 28px; height: 28px; flex: none; }
+  .dash-todo .dash-gname { font-size: 14px; }
+  .dash-todo .dash-children { padding: 1px 8px 6px 24px; }
+  .dash-todo .dash-child { gap: 10px; padding: 5px 0; }
+  .dash-todo .dash-ctitle { font-size: 13.5px; }
+}
 /* 主按钮: 品牌双色紫渐变 + 内高光, hover 提亮 + 品牌柔光, 点击涟漪 */
 .btn {
   position: relative; overflow: hidden;
