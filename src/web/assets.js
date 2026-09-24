@@ -7148,7 +7148,7 @@ function applyTodoView(getRowsFn, onDrawTree) {
 
   // 视图按钮分工（两位置职责互换）:
   //   vBtn (默认页外壳): 进入全屏, 文案 = 循环首项（账号默认视图）
-  //   vBtnFs (全屏顶栏): 白底描边方块(紫图标), 点击在视图循环内前进一步
+  //   vBtnFs (全屏顶栏): 无框纯图标, 点击在视图循环内前进一步
   //   vCurLbl (全屏顶栏): 无框纯文本, 只显示当前视图图标+完整名称, 不承担切换
   //   exitBtn (全屏顶栏): 任意全屏态下点一下直接回默认页
   var vDefault = TODO_VIEW_LABELS[_todoViewCycle[0]] || TODO_VIEW_LABELS.card;
