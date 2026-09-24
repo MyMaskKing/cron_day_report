@@ -422,6 +422,8 @@ var ICONS = {
   branch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>',
   // 折叠箭头(细线 chevron): 手风琴分组行, 折叠态由 CSS 旋转 svg
   chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+  // 手风琴视图图标：三条等距折叠面板条（与 child_due 的 branch 分支线、速览的散点行区分）
+  accordion: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3.5" width="18" height="4.5" rx="1.2"/><rect x="3" y="9.75" width="18" height="4.5" rx="1.2"/><rect x="3" y="16" width="18" height="4.5" rx="1.2"/></svg>',
   // 速览视图图标：拍平的行（左小圆点 + 横线），表达"所有任务提到同一层"
   flat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="6" r="1.5" stroke="none" fill="currentColor"/><line x1="9.5" y1="6" x2="19" y2="6"/><circle cx="5" cy="12" r="1.5" stroke="none" fill="currentColor"/><line x1="9.5" y1="12" x2="19" y2="12"/><circle cx="5" cy="18" r="1.5" stroke="none" fill="currentColor"/><line x1="9.5" y1="18" x2="19" y2="18"/></svg>',
   // 更多(三个点): 手机完整树的操作收纳
@@ -2387,7 +2389,7 @@ if (tapEl) tapEl.addEventListener('change', async function(){
 var VIEW_META = { card: '卡片视图', accordion: '手风琴', flat: '速览视图', tree: '完整树' };
 var viewCycle = [];
 function renderViewCycle() {
-  var eff = viewCycle.length ? viewCycle : ['card', 'accordion', 'flat', 'tree'];
+  var eff = viewCycle.length ? viewCycle : ['card', 'tree', 'accordion', 'flat'];
   var custom = viewCycle.length > 0;
   document.getElementById('viewCycleList').innerHTML = eff.map(function(v, i){
     return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;">'
@@ -2429,7 +2431,7 @@ if (addBtn) addBtn.addEventListener('click', async function(){
   var v = document.getElementById('addViewChoice').value;
   if (!v || viewCycle.indexOf(v) >= 0) return;
   // 首次自定义：从系统三循环当前配置开始（保留全部视图，用户再按需删/排）
-  if (!viewCycle.length) viewCycle = ['card', 'accordion', 'flat', 'tree'];
+  if (!viewCycle.length) viewCycle = ['card', 'tree', 'accordion', 'flat'];
   viewCycle.push(v);
   renderViewCycle();
   try { await saveViewCycle(); showMsg(msg, '视图循环已保存', true); }
@@ -6347,15 +6349,15 @@ function todoBindFormDraft() {
   if (box) { box.addEventListener('input', save); box.addEventListener('change', save); }
   window.__todoDraftClose = function () { window.__todoDraftClose = null; todoDraftClear(); };
 }
-// 视图循环: card(卡片) → accordion(手风琴) → flat(速览) → tree(完整树) → card
+// 视图循环: card(卡片) → tree(完整树) → accordion(手风琴) → flat(速览) → card
 // 系统默认循环；账号在设置页自定义后由 todoApplyViewCycle 覆盖（首项=进入待办的默认视图）
 // 初始化: localStorage 记录合法视图时沿用, 否则暂落 card(保首帧), profile 到达后再按账号循环校正
-var TODO_DEFAULT_VIEW_CYCLE = ['card', 'accordion', 'flat', 'tree'];
+var TODO_DEFAULT_VIEW_CYCLE = ['card', 'tree', 'accordion', 'flat'];
 var _todoViewCycle = TODO_DEFAULT_VIEW_CYCLE.slice();
 // 视图切换按钮文案
 var TODO_VIEW_LABELS = {
   card: { icon: ICONS.cards, name: '卡片视图' },
-  accordion: { icon: ICONS.branch, name: '手风琴' },
+  accordion: { icon: ICONS.accordion, name: '手风琴' },
   flat: { icon: ICONS.flat, name: '速览视图' },
   tree: { icon: ICONS.tree, name: '完整树' }
 };
