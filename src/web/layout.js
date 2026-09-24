@@ -1228,6 +1228,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   }
 }
 .todo-acc .todo-ops { opacity: 0; }
+.todo-acc__leafrow .todo-ops { align-self: center; }
 .todo-acc__row:hover .todo-ops,
 .todo-acc__leafrow:hover .todo-ops { opacity: 1; }
 /* 桌面悬停：右侧日期让位淡出，避免与浮起的操作组重叠（手机日期保留） */
@@ -1252,7 +1253,6 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   .todo-acc__kids { padding-left: 14px; }
   /* 手机：操作组只留「⋯」，与老树 .todo-tree 同口径 */
   body .todo-acc .todo-ops { opacity: 1; gap: 0; }
-  body .todo-acc__leafrow .todo-ops { margin-top: 1px; }
   body .todo-acc .todo-ops .todo-op:not(.todo-more) { display: none; }
   body .todo-acc .todo-op.todo-more { display: inline-flex; }
   /* 添加子任务只走⋯菜单：隐藏分组底部常驻占位行（editing 展开的编辑器不受影响，照常显示） */
