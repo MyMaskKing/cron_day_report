@@ -7146,40 +7146,34 @@ function applyTodoView(getRowsFn, onDrawTree) {
   var dBtn = document.getElementById('drawerToggle');
 
   // 视图按钮分工:
-  //   vBtn (默认页外壳): 永远只做"进入卡片全屏", 文案固定 "🗂️ 卡片视图"
-  //   vBtnFs (全屏顶栏): 在卡片全屏 ↔ 完整树全屏之间切换; 卡片态下显示 "🌳 完整树", 树态下显示 "🗂️ 卡片视图"
+  //   vBtn (默认页外壳): 进入全屏, 文案 = 循环首项（账号默认视图）
+  //   vBtnFs (全屏顶栏): 仅"下一视图"图标, 点击在视图循环内前进一步; 其后常驻当前视图完整名称
   //   exitBtn (全屏顶栏): 任意全屏态下点一下直接回默认页
-  // 默认页入口文案 = 循环首项（账号默认）；全屏按钮文案 = 下一视图
   var vDefault = TODO_VIEW_LABELS[_todoViewCycle[0]] || TODO_VIEW_LABELS.card;
   if (vBtn) vBtn.innerHTML = vDefault.icon + vDefault.name;
   if (vBtnFs) {
     var vi = _todoViewCycle.indexOf(_todoView);
     var vnext = TODO_VIEW_LABELS[_todoViewCycle[vi >= 0 ? (vi + 1) % _todoViewCycle.length : 0]] || TODO_VIEW_LABELS.card;
-    vBtnFs.innerHTML = vnext.icon + vnext.name;
-    // 当前视图小指示（不显眼：淡色小图标，点击弹小浮窗给视图名，PC/手机通用）；动态插入，4 个待办页通用
+    // 切换按钮只留"下一视图"图标，点击即切；悬停 title / 读屏给出去向名
+    vBtnFs.innerHTML = vnext.icon;
+    vBtnFs.title = '切换到' + vnext.name;
+    vBtnFs.setAttribute('aria-label', '切换到' + vnext.name);
+    // 当前视图：常驻"图标 + 完整名称"，位置换到切换按钮之后；动态插入，4 个待办页通用
     var curEl = document.getElementById('viewCurrent');
     if (!curEl) {
       curEl = document.createElement('span');
       curEl.id = 'viewCurrent'; curEl.className = 'fs-viewcur';
       var curIco = document.createElement('span');
-      var curPop = document.createElement('span');
-      curPop.className = 'fs-viewcur-pop';
+      curIco.className = 'fs-viewcur-ico';
+      var curName = document.createElement('span');
+      curName.className = 'fs-viewcur-name';
       curEl.appendChild(curIco);
-      curEl.appendChild(curPop);
-      vBtnFs.parentNode.insertBefore(curEl, vBtnFs);
-      // 点击切换浮窗：再次点击/点别处关闭，另带 1.8s 自动消失（手机上不挂着）
-      curEl.addEventListener('click', function(e){
-        e.stopPropagation();
-        if (curPop.classList.contains('show')) { curPop.classList.remove('show'); return; }
-        curPop.classList.add('show');
-        clearTimeout(curEl.__popTimer);
-        curEl.__popTimer = setTimeout(function(){ curPop.classList.remove('show'); }, 1800);
-      });
-      document.addEventListener('click', function(){ curPop.classList.remove('show'); });
+      curEl.appendChild(curName);
+      vBtnFs.parentNode.insertBefore(curEl, vBtnFs.nextSibling);
     }
     var vcur = TODO_VIEW_LABELS[_todoView] || TODO_VIEW_LABELS.card;
     curEl.children[0].innerHTML = vcur.icon;
-    curEl.children[1].textContent = '当前：' + vcur.name;
+    curEl.children[1].textContent = vcur.name;
     // 循环仅 1 项时没有可切换视图，隐藏按钮
     vBtnFs.style.display = _todoViewCycle.length > 1 ? '' : 'none';
     if (!vBtnFs.__fsBound) {

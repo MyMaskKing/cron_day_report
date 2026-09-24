@@ -1809,20 +1809,16 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; gap: 3px;
 }
 .fs-segbtn svg { width: 15px; height: 15px; }
-/* 当前视图小指示：淡色小图标，点击弹小浮窗给视图名（PC/手机通用，浮层高 z-index 不被列表压住） */
-.fs-viewcur { flex: none; position: relative; display: inline-flex; align-items: center; color: var(--faint); opacity: .6; line-height: 1; cursor: pointer; transition: opacity .13s, color .13s; }
-.fs-viewcur:hover { opacity: 1; color: var(--muted-2); }
-.fs-viewcur svg { width: 14px; height: 14px; display: block; }
-.fs-viewcur-pop {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
-  padding: 5px 9px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface); color: var(--text);
-  font-size: 12px; font-weight: 600; line-height: 1.4; white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(0,0,0,.15); pointer-events: none;
-  opacity: 0; visibility: hidden; transform: translateY(-2px);
-  transition: opacity .15s, transform .15s, visibility .15s;
+/* 当前视图常驻标签：图标 + 完整名称，占满顶栏中段（切换图标按钮在其左） */
+.fs-viewcur {
+  flex: 1; min-width: 0; height: 36px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-2); color: var(--label);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap;
 }
-.fs-viewcur-pop.show { opacity: 1; visibility: visible; transform: translateY(0); }
+.fs-viewcur svg { width: 15px; height: 15px; flex: none; display: block; }
+.fs-viewcur-name { overflow: hidden; text-overflow: ellipsis; }
 .fs-exitbtn {
   height: 36px; padding: 0 12px; flex-shrink: 0;
   border: 1px solid var(--danger); border-radius: 10px;
