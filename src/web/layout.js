@@ -1190,6 +1190,10 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   word-break: break-word; cursor: pointer;
 }
 .todo-acc__name:hover { color: var(--brand); }
+/* 顶层主任务：更大更粗 + 圆点略大，与中间层分组行区分（中间层=14px/600） */
+.todo-acc__row--root { padding-top: 9px; padding-bottom: 8px; }
+.todo-acc__row--root .todo-acc__name { font-size: 15px; font-weight: 700; }
+.todo-acc__row--root .todo-acc__dot { width: 9px; height: 9px; }
 /* 「各自截止」标识小图标（child_due） */
 .todo-acc__cdmark {
   flex: none; width: 16px; height: 16px; color: var(--muted-2);

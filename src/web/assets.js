@@ -7792,7 +7792,8 @@ function renderTodoAccordion(container, trees, opts) {
     wrap.setAttribute('data-depth', depth);
     wrap.setAttribute('data-id', node.id);
     var rowEl = document.createElement('div');
-    rowEl.className = 'todo-acc__row';
+    // 顶层主任务(非详情态)加 root 修饰，与中间层分组行拉开层级
+    rowEl.className = 'todo-acc__row' + (depth === 0 && !isDetail ? ' todo-acc__row--root' : '');
     var folded = !!_todoCollapsed[node.id];
     var caret = document.createElement('button');
     caret.type = 'button';
