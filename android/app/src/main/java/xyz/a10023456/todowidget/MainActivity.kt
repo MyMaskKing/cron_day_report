@@ -486,6 +486,9 @@ private fun AppShell(
                         // 标记原生壳环境：服务端据此隐藏顶部网站导航，底部由原生 Tab 提供导航
                         CookieManager.getInstance().setCookie(currentBaseUrl, "app_shell=1; Path=/")
                         setBackgroundColor(Color.TRANSPARENT)
+                        // 关闭系统滚动条：网页 CSS 在 WebView 内不可靠，滚动时浮现的系统条会遮挡内容
+                        isVerticalScrollBarEnabled = false
+                        isHorizontalScrollBarEnabled = false
                         webViewClient = object : WebViewClient() {
                             override fun shouldOverrideUrlLoading(
                                 view: WebView, request: WebResourceRequest

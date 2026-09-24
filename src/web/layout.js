@@ -540,10 +540,11 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .dash-todo .dash-achild { gap: 10px; padding: 6px 2px; }
   .dash-todo .dash-actitle { font-size: 14px; }
 }
-/* 手机视图：所有滚动条透明隐藏（触屏滑动不受影响） */
+/* 手机视图：所有滚动条强制透明隐藏（触屏滑动不受影响）。
+   !important 必须保留——极光滚动条全局规则在本文件后段, 同特异性会反覆盖此规则 */
 @media (max-width: 640px) {
-  * { scrollbar-width: none; -ms-overflow-style: none; }
-  *::-webkit-scrollbar { width: 0; height: 0; }
+  * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+  *::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
 }
 /* 主按钮: 品牌双色紫渐变 + 内高光, hover 提亮 + 品牌柔光, 点击涟漪 */
 .btn {
@@ -1670,9 +1671,11 @@ body { padding-bottom: var(--kb-inset, 0px); }
 }
 /* 主区域顶部一行：抽屉按钮 + 标题 + 视图切换按钮 */
 /* transition + 背景色: 为手机端 sticky 时的过渡隐藏做铺垫; PC 无影响 */
+/* 手风琴视图：行无白底，主区铺白避免整页露出 body 暖白 --bg 显黄（手机大面积尤其明显） */
+.todo-fs-main.fs-main--acc { background: var(--surface); }
 .todo-fs-top {
   display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-  padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px;
   background: var(--surface);
   transition: transform .22s ease, opacity .22s ease;
 }
@@ -1981,25 +1984,6 @@ html { scrollbar-gutter: stable; }
   /* 长列表窄屏限高滚动: 让分页按钮始终在屏内, 避免用户长滑找不到"下一页"
      max-height 用 vh 而非固定 px, 适应不同屏幕. 底部渐隐提示还有内容可滚 */
   .table-scroll-mobile { max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; position: relative; }
-  /* 固定限高滚动区: 手机端保留 4px 细版极光条, 其余区域仍走全局无感隐藏 */
-  .scroll-box, .dash-todo .dash-groups, .table-scroll-mobile,
-  .announce-md, .mde-text, .mde-preview, .strat-body, .mp-menu, .todo-drawer__list { scrollbar-width: thin; }
-  .scroll-box::-webkit-scrollbar, .dash-todo .dash-groups::-webkit-scrollbar,
-  .table-scroll-mobile::-webkit-scrollbar, .announce-md::-webkit-scrollbar,
-  .mde-text::-webkit-scrollbar, .mde-preview::-webkit-scrollbar,
-  .strat-body::-webkit-scrollbar, .mp-menu::-webkit-scrollbar,
-  .todo-drawer__list::-webkit-scrollbar { width: 4px; height: 4px; }
-  .scroll-box::-webkit-scrollbar-thumb, .dash-todo .dash-groups::-webkit-scrollbar-thumb,
-  .table-scroll-mobile::-webkit-scrollbar-thumb, .announce-md::-webkit-scrollbar-thumb,
-  .mde-text::-webkit-scrollbar-thumb, .mde-preview::-webkit-scrollbar-thumb,
-  .strat-body::-webkit-scrollbar-thumb, .mp-menu::-webkit-scrollbar-thumb,
-  .todo-drawer__list::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background-image: linear-gradient(180deg,
-      #FF7A59 0%, #A855F7 25%, #3B82F6 50%, #A855F7 75%, #FF7A59 100%);
-    background-size: 100% 400%;
-    animation: scrollbarAurora 6s ease-in-out infinite;
-  }
   /* 待办树：缩进收窄, 操作按钮常显 */
   .todo-row { margin-left: calc(var(--depth, 0) * 16px); gap: 8px; padding: 8px 10px; }
   .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
@@ -2052,6 +2036,9 @@ html { scrollbar-gutter: stable; }
     position: sticky; top: 0; z-index: 5;
     padding-top: 12px; margin-left: -12px; margin-right: -12px;
     padding-left: 12px; padding-right: 12px;
+    /* 手机贴边全宽：去掉 PC 的圆角外框 */
+    border: none; border-radius: 0; padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
   }
   .todo-fs-top--hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
 }

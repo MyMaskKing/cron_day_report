@@ -7622,8 +7622,19 @@ function renderTodoAccordion(container, trees, opts) {
   // 详情态（forcedRootDue 显式传入，同老树判定）
   var isDetail = Object.prototype.hasOwnProperty.call(opts, 'forcedRootDue');
 
+  // 打开「添加子任务」（同卡片视图详情：mountDetailAdder 常驻占位，点＋程序化展开）；
+  // 分组 adder 在 kidsEl 底部，叶子首次动态挂载到 wrap
+  function accOpenAdder(wrap, node) {
+    var adder = wrap.querySelector('.todo-detail-adder');
+    if (!adder) {
+      mountDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+      adder = wrap.querySelector('.todo-detail-adder');
+    }
+    var ph = adder && adder.querySelector('.todo-detail-adder__placeholder');
+    if (ph) ph.click();
+  }
   // 悬停操作组：拖拽(可选) / 添加子任务 / 详情 / 协作(仅顶层) / 删除 / 更多(手机弹层)
-  function buildOps(node, depth, rowEl) {
+  function buildOps(node, depth, rowEl, onAddClick) {
     if (opts.readOnly) return null;
     var opsEl = document.createElement('div');
     opsEl.className = 'todo-ops';
@@ -7640,8 +7651,7 @@ function renderTodoAccordion(container, trees, opts) {
       b1.type = 'button'; b1.className = 'todo-op'; b1.title = '添加子任务'; b1.innerHTML = ICONS.plus;
       b1.addEventListener('click', function(e){
         e.stopPropagation();
-        openInlineAddChild(b1, node, function(payload){ return opts.onAddChildSubmit(node, payload); },
-          { isDetail: isDetail, onAddForRoot: opts.onAddForRoot });
+        onAddClick();
       });
       opsEl.appendChild(b1);
     }
@@ -7711,7 +7721,7 @@ function renderTodoAccordion(container, trees, opts) {
       if (opts.onDetail || opts.onEdit) (opts.onDetail || opts.onEdit)(node);
     });
     rowEl.appendChild(nameEl);
-    var opsEl = buildOps(node, depth, rowEl);
+    var opsEl = buildOps(node, depth, rowEl, function(){ accOpenAdder(wrap, node); });
     if (opsEl) rowEl.appendChild(opsEl);
     // 仅逾期叶子显示红色日期（今天不显示，与方案约定一致）
     if (!node.done && node.due_date && today && node.due_date < today) {
@@ -7771,7 +7781,7 @@ function renderTodoAccordion(container, trees, opts) {
       repEl.className = 'todo-acc__repeat'; repEl.textContent = '🔁';
       rowEl.appendChild(repEl);
     }
-    var opsEl = buildOps(node, depth, rowEl);
+    var opsEl = buildOps(node, depth, rowEl, function(){ accOpenAdder(wrap, node); });
     if (opsEl) rowEl.appendChild(opsEl);
     // 右侧日期：顶层同 todoRootDue，其余节点只显示自身日期
     var chipDue = (depth === 0 && !isDetail) ? todoRootDue(node) : node.due_date;
@@ -7791,6 +7801,10 @@ function renderTodoAccordion(container, trees, opts) {
       if (el) kidsEl.appendChild(el);
     });
     wrap.appendChild(kidsEl);
+    // 底部常驻「添加子任务」（同卡片视图详情）
+    if (opts.onAddChildSubmit) {
+      mountDetailAdder(kidsEl, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+    }
     // 拖拽绑定
     if (!opts.readOnly && opts.onReorder) {
       var handle = opsEl ? opsEl.querySelector('.todo-drag') : null;
@@ -8097,6 +8111,9 @@ function todoRenderView(container, trees, opts) {
   if (detailRootId == null && view === 'card') detailRootId = todoMaybeRestoreDetail(trees);
   container.className = view === 'accordion' ? 'todo-acc'
     : (view === 'card' && detailRootId == null ? 'todo-cards' : 'todo-tree');
+  // 手风琴主区铺白底（避免露出 body 暖白显黄），其余视图移除
+  var _accFm = container.closest && container.closest('.todo-fs-main');
+  if (_accFm) _accFm.classList.toggle('fs-main--acc', view === 'accordion');
 
   // 每次渲染先清理详情页"完成主任务/编辑主任务"文字链, 由详情分支按需重新挂载
   // 命中提示文时按钮挂在 .card 内的 <p> 里(homeBox.parentNode 范围), 兜底时挂在 homeBox 末尾
