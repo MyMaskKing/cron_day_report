@@ -1818,6 +1818,8 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; gap: 3px;
 }
 .fs-segbtn svg { width: 15px; height: 15px; }
+/* 当前视图：纯文本展示，沿用宽按钮外观但不可点击 */
+.fs-viewcur-text { cursor: default; }
 .fs-exitbtn {
   height: 36px; padding: 0 12px; flex-shrink: 0;
   border: 1px solid var(--danger); border-radius: 10px;
