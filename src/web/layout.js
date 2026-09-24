@@ -1259,6 +1259,29 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .todo-acc .todo-detail-adder .todo-detail-adder__placeholder,
   body .todo-tree .todo-detail-adder .todo-detail-adder__placeholder { display: none; }
 }
+/* ============ 速览/手风琴：顶层主任务卡片化（A 方案，与卡片视图同源：3px 等级色带封边） ============ */
+.todo-bandcard {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; margin: 0 0 12px;
+  transition: box-shadow .18s, border-color .18s;
+}
+.todo-bandcard:hover { box-shadow: 0 8px 24px rgba(124,58,237,.12); border-color: var(--brand-border); }
+.todo-bandcard.pri-2 > .todo-card__band { background: #E0453E; }
+.todo-bandcard.pri-1 > .todo-card__band { background: #E5A113; }
+/* 卡内主任务行：去边框/灰底/左紫条，透明融入白卡 */
+.todo-bandcard > .todo-row.is-root {
+  background: transparent; border: 0; border-radius: 0; margin: 0;
+  padding: 10px 14px 6px;
+}
+.todo-bandcard > .todo-row.is-root:hover { box-shadow: none; transform: none; }
+/* 卡内子任务行：去行卡片框，保留 depth 缩进与层级引导线 */
+.todo-bandcard .todo-row { background: transparent; border: 0; }
+.todo-bandcard .todo-row:hover { box-shadow: none; transform: none; }
+.todo-bandcard > .todo-children { padding: 0 10px 5px; }
+/* 手风琴卡内：主行与叶子区收紧 */
+.todo-bandcard > .todo-acc__row--root { padding: 10px 10px 4px; }
+.todo-bandcard > .todo-acc__row--root:hover { background: transparent; }
+.todo-bandcard > .todo-acc__kids { padding-right: 10px; padding-bottom: 6px; }
 /* ============ 速览视图（flat-view：叶子拍平 + 祖先面包屑，与桌面小组件同源） ============ */
 .flat-group { position: relative; padding: 8px 0 2px; }
 /* solo 组（无子任务的顶层主任务）：收紧组头与叶子、组与组之间的空隙 */

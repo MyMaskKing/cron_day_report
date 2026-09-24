@@ -7498,8 +7498,15 @@ function renderTodoTree(container, trees, opts) {
     // 否则 depth=0 取到子任务自身 null 会让孙任务继承到 null 被判成备忘录而不显示勾选框。
     var isDetail = Object.prototype.hasOwnProperty.call(opts, 'forcedRootDue');
     var effDue = node.due_date || rootDue;
+    // A 方案：真顶层主任务（非详情子树）卡片化，等级由顶部色带编码（与卡片视图同源）
+    var cardRoot = depth === 0 && !isDetail;
     var wrap = document.createElement('div');
-    wrap.className = 'todo-node';
+    wrap.className = 'todo-node' + (cardRoot ? ' todo-bandcard pri-' + (node.priority != null ? node.priority : 1) : '');
+    if (cardRoot) {
+      var bandEl = document.createElement('div');
+      bandEl.className = 'todo-card__band';
+      wrap.appendChild(bandEl);
+    }
     wrap.setAttribute('data-depth', depth);
     wrap.setAttribute('data-id', node.id);
     wrap.style.setProperty('--depth', depth);
@@ -7541,10 +7548,13 @@ function renderTodoTree(container, trees, opts) {
     }
 
     // 优先级圆点：标题前克制点缀（红=高 琥珀=中 灰=低），不占左色带
-    var dot = document.createElement('span');
-    dot.className = 'todo-dot pri-' + (node.priority != null ? node.priority : 1);
-    dot.title = PRI_TEXT[node.priority != null ? node.priority : 1] + '优先级';
-    row.appendChild(dot);
+    // 卡片化主任务的等级已由顶部色带编码，不再重复圆点
+    if (!cardRoot) {
+      var dot = document.createElement('span');
+      dot.className = 'todo-dot pri-' + (node.priority != null ? node.priority : 1);
+      dot.title = PRI_TEXT[node.priority != null ? node.priority : 1] + '优先级';
+      row.appendChild(dot);
+    }
 
     // 主体：标题 + 元信息
     var main = document.createElement('div');
@@ -7841,13 +7851,20 @@ function renderTodoAccordion(container, trees, opts) {
     var solo = node.children.length === 0 && depth === 0 && !isDetail;
     if (node.children.length === 0 && !solo) return leafNode(node, depth, effDue);
 
+    // A 方案：真顶层主任务（非详情子树）卡片化，等级由顶部色带编码（与卡片视图同源）
+    var cardRoot = depth === 0 && !isDetail;
     var wrap = document.createElement('div');
-    wrap.className = 'todo-node todo-acc';
+    wrap.className = 'todo-node todo-acc' + (cardRoot ? ' todo-bandcard pri-' + (node.priority != null ? node.priority : 1) : '');
     wrap.setAttribute('data-depth', depth);
     wrap.setAttribute('data-id', node.id);
+    if (cardRoot) {
+      var bandEl = document.createElement('div');
+      bandEl.className = 'todo-card__band';
+      wrap.appendChild(bandEl);
+    }
     var rowEl = document.createElement('div');
     // 顶层主任务(非详情态)加 root 修饰，与中间层分组行拉开层级
-    rowEl.className = 'todo-acc__row' + (depth === 0 && !isDetail ? ' todo-acc__row--root' : '');
+    rowEl.className = 'todo-acc__row' + (cardRoot ? ' todo-acc__row--root' : '');
     var folded = !!_todoCollapsed[node.id];
     var caret = document.createElement('button');
     caret.type = 'button';
@@ -7862,10 +7879,13 @@ function renderTodoAccordion(container, trees, opts) {
       kidsEl.classList.toggle('collapsed');
     });
     rowEl.appendChild(caret);
-    var dot = document.createElement('span');
-    dot.className = 'todo-acc__dot pri-' + (node.priority != null ? node.priority : 1);
-    dot.title = PRI_TEXT[node.priority != null ? node.priority : 1] + '优先级';
-    rowEl.appendChild(dot);
+    // 卡片化主任务的等级已由顶部色带编码，不再重复圆点
+    if (!cardRoot) {
+      var dot = document.createElement('span');
+      dot.className = 'todo-acc__dot pri-' + (node.priority != null ? node.priority : 1);
+      dot.title = PRI_TEXT[node.priority != null ? node.priority : 1] + '优先级';
+      rowEl.appendChild(dot);
+    }
     var nameEl = document.createElement('span');
     nameEl.className = 'todo-acc__name';
     nameEl.textContent = (depth === 0 && node.shared_cat_id != null ? '👥 ' : '') + node.title;
