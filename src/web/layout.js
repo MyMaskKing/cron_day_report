@@ -1788,6 +1788,10 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; gap: 3px;
 }
 .fs-segbtn svg { width: 15px; height: 15px; }
+/* 当前视图小指示：淡色小图标，不抢眼（hover 略加深，名称走 title） */
+.fs-viewcur { flex: none; display: inline-flex; align-items: center; color: var(--faint); opacity: .6; line-height: 1; transition: opacity .13s, color .13s; }
+.fs-viewcur:hover { opacity: 1; color: var(--muted-2); }
+.fs-viewcur svg { width: 14px; height: 14px; display: block; }
 .fs-exitbtn {
   height: 36px; padding: 0 12px; flex-shrink: 0;
   border: 1px solid var(--danger); border-radius: 10px;

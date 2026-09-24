@@ -7119,6 +7119,16 @@ function applyTodoView(getRowsFn, onDrawTree) {
     var vi = _todoViewCycle.indexOf(_todoView);
     var vnext = TODO_VIEW_LABELS[_todoViewCycle[vi >= 0 ? (vi + 1) % _todoViewCycle.length : 0]] || TODO_VIEW_LABELS.card;
     vBtnFs.innerHTML = vnext.icon + vnext.name;
+    // 当前视图小指示（不显眼：淡色小图标，hover 给视图名）；动态插入，4 个待办页通用
+    var curEl = document.getElementById('viewCurrent');
+    if (!curEl) {
+      curEl = document.createElement('span');
+      curEl.id = 'viewCurrent'; curEl.className = 'fs-viewcur';
+      vBtnFs.parentNode.insertBefore(curEl, vBtnFs);
+    }
+    var vcur = TODO_VIEW_LABELS[_todoView] || TODO_VIEW_LABELS.card;
+    curEl.innerHTML = vcur.icon;
+    curEl.title = '当前：' + vcur.name;
     // 循环仅 1 项时没有可切换视图，隐藏按钮
     vBtnFs.style.display = _todoViewCycle.length > 1 ? '' : 'none';
     if (!vBtnFs.__fsBound) {
