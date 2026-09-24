@@ -7643,19 +7643,20 @@ function renderTodoTree(container, trees, opts) {
   todoRestoreInlineAdd(container);
 }
 // 手风琴专用截止日期 chip（手机空间有限的精简口径）:
-// 未完成逾期=红"逾期 N 天"; 未完成今天=紫"今天"; 明天=灰"明天";
-// 其余一律灰"M月D日"——不显示"N天后"/"本周X"、不带日历图标；已完成恒中性。无日期返回 null。
+// 未完成逾期=红"逾期 N 天"; 其余 label 复用 todoDateLabel——今天/明天、本周X、
+// 本年 MM/DD、跨年 YY/MM/DD；配色同卡片视图(今天紫、明天/本周X琥珀)；
+// 不显示"N天后"、不带日历图标；已完成恒中性。无日期返回 null。
 function todoAccDueChip(dueDate, today, done) {
   if (!dueDate) return null;
   var diff = todoDateDiff(dueDate, today);
   if (!done && diff != null && diff < 0) {
     return { cls: 'todo-chip due overdue', html: '逾期 ' + (-diff) + ' 天' };
   }
-  var label;
-  if (!done && diff === 0) label = '今天';
-  else if (diff === 1) label = '明天';
-  else label = Number(dueDate.slice(5, 7)) + '月' + Number(dueDate.slice(8, 10)) + '日';
-  var cls = 'todo-chip due' + (!done && diff === 0 ? ' today' : '');
+  var label = todoDateLabel(dueDate, today);
+  // 配色与卡片视图 todoDueChip 对齐：今天=today 紫；明天/本周X=soon 琥珀；其余中性灰
+  var cls = 'todo-chip due';
+  if (!done && diff === 0) cls += ' today';
+  else if (!done && (diff === 1 || label.charAt(0) === '本')) cls += ' soon';
   return { cls: cls, html: esc(label) };
 }
 // 手风琴视图：仪表盘式圆点行（行间细分隔线、无卡片框），悬停浮现操作组；
