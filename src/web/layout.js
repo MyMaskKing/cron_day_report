@@ -1288,8 +1288,10 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .flat-title { font-size: 13.5px; color: var(--text); word-break: break-word; cursor: pointer; }
 .flat-title:hover { color: var(--brand); }
 .flat-item.done .flat-title { color: var(--muted-2); text-decoration: line-through; }
+.flat-item .todo-chip.due { align-self: center; }
 /* 操作组：平时透明，悬停行才浮现 */
 .flat-group .todo-ops, .flat-item .todo-ops { opacity: 0; transition: opacity .13s; }
+.flat-item .todo-ops { align-self: center; }
 .flat-group__head:hover .todo-ops, .flat-item:hover .todo-ops { opacity: 1; }
 /* 桌面：操作组绝对定位贴右浮起（不占流）；悬停时日期让位淡出（手机日期保留） */
 @media (min-width: 641px) {
@@ -1313,7 +1315,6 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .flat-group .todo-op.todo-more,
   body .flat-item .todo-op.todo-more { display: inline-flex; }
   body .flat-item, body .flat-group__head { padding-left: 8px; padding-right: 8px; }
-  body .flat-item .todo-ops { margin-top: 1px; }
   /* 组间距收紧；添加子任务走 ⋯ 菜单：手机端整个收起组底 adder（编辑器无入口，不会被打开） */
   body .flat-group { padding: 5px 0 1px; }
   body .flat-group .todo-detail-adder { display: none; }
