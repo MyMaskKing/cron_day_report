@@ -1801,6 +1801,15 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .fs-iconbtn svg { width: 18px; height: 18px; }
+/* 无框视图切换钮：纯图标无外框（区别于有框的分类/添加钮），点击在视图循环内前进一步 */
+.fs-viewswitch {
+  width: 30px; height: 38px; flex-shrink: 0; padding: 0; border: 0;
+  background: transparent; color: var(--muted-2);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: color .13s;
+}
+.fs-viewswitch:hover { color: var(--brand); }
+.fs-viewswitch svg { width: 19px; height: 19px; display: block; }
 .fs-segbtn {
   height: 36px; padding: 0 12px; flex-shrink: 0; flex: 1; min-width: 0;
   border: 1px solid var(--border); border-radius: 10px;
@@ -2150,7 +2159,14 @@ html { scrollbar-gutter: stable; }
     /* 手机贴边全宽：去掉 PC 的圆角外框 */
     border: none; border-radius: 0; padding-bottom: 10px;
     border-bottom: 1px solid var(--border);
+    /* 多一个无框切换图标后收紧间距，保证当前视图宽按钮放得下（不与"隐藏已完成"重叠） */
+    gap: 6px;
   }
+  .fs-viewswitch { width: 24px; }
+  .fs-viewswitch svg { width: 17px; height: 17px; }
+  .fs-segbtn { padding-left: 8px; padding-right: 8px; font-size: 12.5px; }
+  .fs-segbtn svg { width: 14px; height: 14px; }
+  .fs-exitbtn { padding-left: 10px; padding-right: 10px; }
   .todo-fs-top--hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
 }
 
