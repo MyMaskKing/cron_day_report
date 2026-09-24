@@ -7148,13 +7148,13 @@ function applyTodoView(getRowsFn, onDrawTree) {
 
   // 视图按钮分工（两位置职责互换）:
   //   vBtn (默认页外壳): 进入全屏, 文案 = 循环首项（账号默认视图）
-  //   vBtnFs (全屏顶栏): 无框纯图标, 点击在视图循环内前进一步
-  //   vCurLbl (全屏顶栏): 沿用原切换按钮的 fs-segbtn 宽按钮样式, 只显示当前视图图标+完整名称, 不承担切换
+  //   vBtnFs (全屏顶栏): 白底描边方块(紫图标), 点击在视图循环内前进一步
+  //   vCurLbl (全屏顶栏): 无框纯文本, 只显示当前视图图标+完整名称, 不承担切换
   //   exitBtn (全屏顶栏): 任意全屏态下点一下直接回默认页
   var vDefault = TODO_VIEW_LABELS[_todoViewCycle[0]] || TODO_VIEW_LABELS.card;
   if (vBtn) vBtn.innerHTML = vDefault.icon + vDefault.name;
   var vcur = TODO_VIEW_LABELS[_todoView] || TODO_VIEW_LABELS.card;
-  if (vCurLbl) vCurLbl.innerHTML = vcur.icon + vcur.name;
+  if (vCurLbl) vCurLbl.innerHTML = vcur.icon + '<span class="fs-viewcur-text-name">' + vcur.name + '</span>';
   if (vBtnFs) {
     var vi = _todoViewCycle.indexOf(_todoView);
     var vnext = TODO_VIEW_LABELS[_todoViewCycle[vi >= 0 ? (vi + 1) % _todoViewCycle.length : 0]] || TODO_VIEW_LABELS.card;

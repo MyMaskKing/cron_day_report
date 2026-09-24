@@ -1801,25 +1801,31 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .fs-iconbtn svg { width: 18px; height: 18px; }
-/* 无框视图切换钮：纯图标无外框（区别于有框的分类/添加钮），点击在视图循环内前进一步 */
+/* 视图切换钮：白底描边方块，与分类/添加钮同一语言，紫色图标区分；悬停边框/底色变紫 */
 .fs-viewswitch {
-  width: 30px; height: 38px; flex-shrink: 0; padding: 0; border: 0;
-  background: transparent; color: var(--muted-2);
+  width: 38px; height: 38px; flex-shrink: 0; padding: 0;
+  border: 1px solid var(--border-strong); border-radius: 11px;
+  background: var(--surface); color: var(--brand-strong);
+  box-shadow: 0 1px 3px rgba(20,20,30,.06);
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
-  transition: color .13s;
+  transition: transform .1s, box-shadow .15s, background .15s, border-color .15s;
 }
-.fs-viewswitch:hover { color: var(--brand); }
+.fs-viewswitch:hover { border-color: var(--brand); background: var(--brand-tint); }
+.fs-viewswitch:active { transform: scale(.9); }
 .fs-viewswitch svg { width: 19px; height: 19px; display: block; }
-.fs-segbtn {
-  height: 36px; padding: 0 12px; flex-shrink: 0; flex: 1; min-width: 0;
-  border: 1px solid var(--border); border-radius: 10px;
-  background: var(--surface-2); color: var(--label);
-  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; gap: 3px;
+/* 暗色下未定义 --brand-strong（回退根值对比不足），图标换主题亮紫 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .fs-viewswitch { color: var(--brand); }
 }
-.fs-segbtn svg { width: 15px; height: 15px; }
-/* 当前视图：纯文本展示，沿用宽按钮外观但不可点击 */
-.fs-viewcur-text { cursor: default; }
+[data-theme="dark"] .fs-viewswitch { color: var(--brand); }
+/* 当前视图：无框纯文本，不可点击（占满中段，名称过长省略号收尾） */
+.fs-viewcur-text {
+  flex: 1; min-width: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--muted-2); font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.fs-viewcur-text svg { width: 15px; height: 15px; flex: none; }
+.fs-viewcur-text-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .fs-exitbtn {
   height: 36px; padding: 0 12px; flex-shrink: 0;
   border: 1px solid var(--danger); border-radius: 10px;
@@ -2161,13 +2167,13 @@ html { scrollbar-gutter: stable; }
     /* 手机贴边全宽：去掉 PC 的圆角外框 */
     border: none; border-radius: 0; padding-bottom: 10px;
     border-bottom: 1px solid var(--border);
-    /* 多一个无框切换图标后收紧间距，保证当前视图宽按钮放得下（不与"隐藏已完成"重叠） */
+    /* 收紧间距，保证切换方块 + 当前视图文本放得下（不与"隐藏已完成"重叠） */
     gap: 6px;
   }
-  .fs-viewswitch { width: 24px; }
+  .fs-viewswitch { width: 36px; height: 36px; }
   .fs-viewswitch svg { width: 17px; height: 17px; }
-  .fs-segbtn { padding-left: 8px; padding-right: 8px; font-size: 12.5px; }
-  .fs-segbtn svg { width: 14px; height: 14px; }
+  .fs-viewcur-text { gap: 5px; font-size: 12.5px; }
+  .fs-viewcur-text svg { width: 14px; height: 14px; }
   .fs-exitbtn { padding-left: 10px; padding-right: 10px; }
   .todo-fs-top--hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
 }
