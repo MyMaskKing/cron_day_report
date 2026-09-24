@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
   investment_strategy  TEXT,
   theme                TEXT NOT NULL DEFAULT 'light',
   todo_auto_parent     INTEGER NOT NULL DEFAULT 1,
+  todo_view_list       TEXT,
   motto                TEXT,
   motto_style          TEXT NOT NULL DEFAULT 'a',
   motto_seen_date      TEXT,

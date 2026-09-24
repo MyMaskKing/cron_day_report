@@ -16,7 +16,7 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateTodoAutoParent, updateMotto, markMottoSeen } from './api/auth.api.js';
+import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
@@ -109,6 +109,7 @@ router.put('/api/auth/theme', updateTheme);
 router.put('/api/auth/password', changePassword);
 router.put('/api/auth/quicklogin-restrict', updateQuickloginRestrict);
 router.put('/api/auth/todo-auto-parent', updateTodoAutoParent);
+router.put('/api/auth/todo-view-list', updateTodoViewList);
 router.put('/api/auth/motto', updateMotto);
 router.post('/api/auth/motto-seen', markMottoSeen);
 router.get('/api/auth/setup-status', setupStatus);

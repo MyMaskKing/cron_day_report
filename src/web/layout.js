@@ -493,8 +493,7 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .dash-row .d-tag { font-size: 11.5px; color: var(--muted-2); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .dash-row .d-tag.od { color: var(--danger); font-weight: 600; }
 /* 仪表盘今日待办：手风琴行（圆点主任务行 + 就地展开子任务勾选行，行间细分隔线，无卡片框） */
-.dash-todo .dash-groups { display: flex; flex-direction: column; max-height: 360px; overflow-y: auto; padding: 2px 0; scrollbar-width: none; }
-.dash-todo .dash-groups::-webkit-scrollbar { width: 0; height: 0; }
+.dash-todo .dash-groups { display: flex; flex-direction: column; max-height: 360px; overflow-y: auto; padding: 2px 0; }
 .dash-todo .dash-acc { border-bottom: 1px solid var(--th-border); }
 .dash-todo .dash-acc:last-child { border-bottom: none; }
 .dash-todo .dash-arow { position: relative; display: flex; align-items: center; gap: 10px; padding: 9px 2px; }
@@ -1163,6 +1162,69 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-row.is-root { background: var(--surface-2); border-color: var(--border); border-left: 4px solid var(--brand); padding-left: 12px; }
 .todo-row.is-root .todo-title { font-weight: 700; font-size: 15px; }
 .todo-count { font-size: 12px; color: var(--muted-2); margin-left: 6px; }
+/* ============ 手风琴视图（accordion：仪表盘式圆点行，行间细分隔线，悬停浮现操作组） ============ */
+.todo-acc__row {
+  position: relative; display: flex; align-items: center; gap: 9px;
+  padding: 8px 2px; border-bottom: 1px solid var(--th-border);
+}
+.todo-acc__caret {
+  flex: none; width: 18px; height: 18px; padding: 0; border: 0; background: transparent;
+  color: var(--muted-2); font-size: 9px; cursor: pointer; border-radius: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.todo-acc__caret:hover { color: var(--brand); }
+.todo-acc__caret.leaf { cursor: default; }
+/* 状态圆点编码优先级（同 .todo-dot 配色） */
+.todo-acc__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+.todo-acc__dot.pri-2 { background: #e5484d; }
+.todo-acc__dot.pri-1 { background: #e8a317; }
+.todo-acc__dot.pri-0 { background: #b4bccb; }
+.todo-acc__name {
+  flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--text-strong);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+}
+.todo-acc__name:hover { color: var(--brand); }
+.todo-acc__repeat { flex: none; font-size: 11px; line-height: 1; }
+.todo-acc__date { flex: none; font-size: 11.5px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.todo-acc__date.od { color: var(--danger); font-weight: 600; }
+.todo-acc__kids { padding-left: 22px; }
+/* 叶子行：标题自然换行 */
+.todo-acc__leafrow {
+  display: flex; align-items: flex-start; gap: 9px; padding: 6px 2px;
+  border-bottom: 1px solid var(--th-border);
+}
+.todo-acc__leafrow .todo-check { margin-top: 1px; }
+.todo-acc__leafname {
+  flex: 1; min-width: 0; font-size: 13.5px; color: var(--text);
+  word-break: break-word; cursor: pointer;
+}
+.todo-acc__leafname:hover { color: var(--brand); }
+.todo-acc__leafrow.done .todo-acc__leafname { color: var(--muted); text-decoration: line-through; }
+.todo-acc__leafrow .todo-acc__date { margin-top: 3px; }
+/* 桌面：操作组平时透明，悬停行本身才浮现（子树 hover 不影响父行） */
+.todo-acc .todo-ops { opacity: 0; }
+.todo-acc__row:hover .todo-ops,
+.todo-acc__leafrow:hover .todo-ops { opacity: 1; }
+/* 拖拽浮起（对齐老树 .todo-node.dragging > .todo-row） */
+.todo-node.dragging > .todo-acc__row,
+.todo-node.dragging > .todo-acc__leafrow {
+  border-radius: 10px; border-bottom-color: transparent;
+  box-shadow: 0 22px 44px rgba(31,35,41,.26), 0 8px 18px rgba(168,85,247,.26), 0 0 0 2px rgba(168,85,247,.28);
+}
+/* 折叠态：箭头旋转 + 子树隐藏 */
+.todo-acc__caret.is-collapsed { transform: rotate(-90deg); }
+.todo-acc__kids.collapsed { display: none; }
+/* 手机「⋯」弹层打开时抬层（行 class 由 todoOpMenuToggle 添加） */
+.todo-node:has(> .todo-acc__row.op-menu-open),
+.todo-node:has(> .todo-acc__leafrow.op-menu-open) { position: relative; z-index: 200; }
+.todo-acc__row.op-menu-open, .todo-acc__leafrow.op-menu-open { z-index: 210; }
+@media (max-width: 640px) {
+  .todo-acc__kids { padding-left: 16px; }
+  /* 手机：操作组只留「⋯」，与老树 .todo-tree 同口径 */
+  body .todo-acc .todo-ops { opacity: 1; gap: 0; }
+  body .todo-acc .todo-ops .todo-op:not(.todo-more) { display: none; }
+  body .todo-acc .todo-op.todo-more { display: inline-flex; }
+}
 /* 概览统计条 */
 .todo-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
 .todo-stat { flex: 1; min-width: 90px; background: var(--surface-3); border-radius: 10px; padding: 12px 14px; text-align: center; }
@@ -1919,8 +1981,25 @@ html { scrollbar-gutter: stable; }
   /* 长列表窄屏限高滚动: 让分页按钮始终在屏内, 避免用户长滑找不到"下一页"
      max-height 用 vh 而非固定 px, 适应不同屏幕. 底部渐隐提示还有内容可滚 */
   .table-scroll-mobile { max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; position: relative; }
-  .table-scroll-mobile::-webkit-scrollbar { width: 4px; }
-  .table-scroll-mobile::-webkit-scrollbar-thumb { background: #cbcfda; border-radius: 2px; }
+  /* 固定限高滚动区: 手机端保留 4px 细版极光条, 其余区域仍走全局无感隐藏 */
+  .scroll-box, .dash-todo .dash-groups, .table-scroll-mobile,
+  .announce-md, .mde-text, .mde-preview, .strat-body, .mp-menu, .todo-drawer__list { scrollbar-width: thin; }
+  .scroll-box::-webkit-scrollbar, .dash-todo .dash-groups::-webkit-scrollbar,
+  .table-scroll-mobile::-webkit-scrollbar, .announce-md::-webkit-scrollbar,
+  .mde-text::-webkit-scrollbar, .mde-preview::-webkit-scrollbar,
+  .strat-body::-webkit-scrollbar, .mp-menu::-webkit-scrollbar,
+  .todo-drawer__list::-webkit-scrollbar { width: 4px; height: 4px; }
+  .scroll-box::-webkit-scrollbar-thumb, .dash-todo .dash-groups::-webkit-scrollbar-thumb,
+  .table-scroll-mobile::-webkit-scrollbar-thumb, .announce-md::-webkit-scrollbar-thumb,
+  .mde-text::-webkit-scrollbar-thumb, .mde-preview::-webkit-scrollbar-thumb,
+  .strat-body::-webkit-scrollbar-thumb, .mp-menu::-webkit-scrollbar-thumb,
+  .todo-drawer__list::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background-image: linear-gradient(180deg,
+      #FF7A59 0%, #A855F7 25%, #3B82F6 50%, #A855F7 75%, #FF7A59 100%);
+    background-size: 100% 400%;
+    animation: scrollbarAurora 6s ease-in-out infinite;
+  }
   /* 待办树：缩进收窄, 操作按钮常显 */
   .todo-row { margin-left: calc(var(--depth, 0) * 16px); gap: 8px; padding: 8px 10px; }
   .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }

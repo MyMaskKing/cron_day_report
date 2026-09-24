@@ -48,6 +48,26 @@ function parseMottoJson(v) {
   try { const o = JSON.parse(v); return o && typeof o === 'object' ? o : {}; } catch { return {}; }
 }
 
+// 待办视图 id 白名单（顺序即系统默认循环）：card=卡片 accordion=手风琴 tree=完整树
+const TODO_VIEW_IDS = ['card', 'accordion', 'tree'];
+/**
+ * 归一化用户视图循环列表：解析 JSON → 白名单过滤、去重保序；非法/空 → []（= 系统三循环）
+ */
+function normalizeTodoViewList(raw) {
+  let arr = null;
+  if (typeof raw === 'string') {
+    try { arr = JSON.parse(raw); } catch { arr = null; }
+  } else if (Array.isArray(raw)) {
+    arr = raw;
+  }
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (const v of arr) {
+    if (TODO_VIEW_IDS.includes(v) && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
 // 注册人数上限相关 app_settings 键
 const SETTING_REG_LIMIT = 'register_limit';
 const SETTING_REG_LIMIT_MSG = 'register_limit_msg';
@@ -165,6 +185,7 @@ async function getProfile({ request, env }) {
     restrict_quicklogin: u.restrict_quicklogin != null ? u.restrict_quicklogin : 1,
     theme: THEMES.includes(u.theme) ? u.theme : 'light',
     todo_auto_parent: u.todo_auto_parent === 0 ? 0 : 1,
+    todo_view_list: normalizeTodoViewList(u.todo_view_list),
     motto: u.motto || '',
     motto_style: MOTTO_STYLES.includes(u.motto_style) ? u.motto_style : 'a',
     motto_freq: normalizeMottoFreq(parseMottoJson(u.motto_freq))
@@ -356,6 +377,21 @@ async function updateTodoAutoParent({ request, env }) {
 }
 
 /**
+ * PUT /api/auth/todo-view-list  保存自定义待办视图循环  body: { list: string[] }
+ * 空数组/非法 → 存 null（恢复系统三循环）；返回归一化列表
+ */
+async function updateTodoViewList({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  const list = normalizeTodoViewList(body.list);
+  const storage = getStorage(env);
+  await storage.users.updateTodoViewList(session.user_id, list.length ? JSON.stringify(list) : null);
+  return json({ success: true, message: '设置已保存', list });
+}
+
+/**
  * PUT /api/auth/motto  保存自己的每日勉励卡  body: { motto, style, freq? }
  * motto 去空白后正文 0-80 字（空=清空，不再弹卡）；style 白名单见 MOTTO_STYLES；
  * freq 可选 {pc,mobile,app} ∈ daily|every|off，缺省/非法回退 daily
@@ -417,5 +453,5 @@ async function updateQuickloginRestrict({ request, env }) {
 export {
   register, login, logout, me, bootstrap, setupStatus, registerStatus,
   getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict,
-  updateTheme, updateTodoAutoParent, updateMotto, markMottoSeen
+  updateTheme, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen
 };

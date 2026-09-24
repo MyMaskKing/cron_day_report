@@ -102,6 +102,10 @@ function createD1Adapter(env) {
       async updateTodoAutoParent(id, v) {
         await db.prepare('UPDATE users SET todo_auto_parent = ? WHERE id = ?').bind(v ? 1 : 0, id).run();
       },
+      // 待办自定义视图循环: listJson 为 JSON 数组串，null = 系统三循环
+      async updateTodoViewList(id, listJson) {
+        await db.prepare('UPDATE users SET todo_view_list = ? WHERE id = ?').bind(listJson, id).run();
+      },
       // 每日勉励卡：motto 为空串即清空（不弹）；style/freqJson 由 api 层校验后传入
       async updateMotto(id, motto, style, freqJson) {
         await db.prepare('UPDATE users SET motto = ?, motto_style = ?, motto_freq = ? WHERE id = ?')
