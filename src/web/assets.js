@@ -2165,21 +2165,18 @@ bindModal();
     box.innerHTML = '<div class="dash-groups">' + groups.map(function(gp){
       var od = gp.gdue < today;
       var folded = !gp.solo && !!dashFolded[gp.root.id];
-      var arrow = gp.solo
-        ? '<span class="dash-arrow" aria-hidden="true">•</span>'
-        : '<button type="button" class="dash-arrow" data-fold="' + gp.root.id + '" aria-label="折叠">' + (folded ? '▶' : '▼') + '</button>';
-      return '<div class="dash-group' + (folded ? ' collapsed' : '') + '">'
-        + '<div class="dash-gtitle">' + arrow
-        + '<a class="dash-gname" href="/todo?root=' + gp.root.id + '">' + esc(gp.root.title) + '</a>'
-        + '<span class="dash-gdate' + (od ? ' od' : '') + '">' + dueLabel(gp.gdue) + '</span></div>'
-        + '<div class="dash-children">' + gp.leaves.map(function(lf){
+      return '<div class="dash-acc' + (folded ? ' collapsed' : '') + '">'
+        + '<div class="dash-arow">'
+        + '<span class="dash-adot' + (od ? ' od' : '') + '"></span>'
+        + '<a class="dash-aname" href="/todo?root=' + gp.root.id + '">' + esc(gp.root.title) + '</a>'
+        + '<button type="button" class="dash-aarrow" data-fold="' + gp.root.id + '" aria-label="折叠">▼</button>'
+        + '<span class="dash-atag' + (od ? ' od' : '') + '">' + dueLabel(gp.gdue) + '</span></div>'
+        + '<div class="dash-akids">' + gp.leaves.map(function(lf){
             var lod = lf.due < today;
-            return '<div class="dash-child">'
+            return '<div class="dash-achild">'
               + '<button type="button" class="todo-card__check" data-check="' + lf.node.id + '" aria-label="完成"></button>'
-              + '<a class="dash-ctitle" href="/todo?root=' + gp.root.id + '&edit=' + lf.node.id + '">'
-              + (lf.path.length ? '<span class="dash-cpath">' + esc(lf.path.join(' → ')) + '</span>' : '')
-              + '<span>' + esc(lf.node.title) + '</span></a>'
-              + '<span class="dash-cdate' + (lod ? ' od' : '') + '">' + dueLabel(lf.due) + '</span></div>';
+              + '<a class="dash-actitle" href="/todo?root=' + gp.root.id + '&edit=' + lf.node.id + '">' + esc(lf.node.title) + '</a>'
+              + '<span class="dash-acdate' + (lod ? ' od' : '') + '">' + dueLabel(lf.due) + '</span></div>';
           }).join('') + '</div></div>';
     }).join('') + '</div>';
   }
@@ -2250,7 +2247,7 @@ bindModal();
         .catch(function(err){ alertModal(err.message, { ok: false }); });
       return;
     }
-    var ga = e.target.closest('a.dash-gname');
+    var ga = e.target.closest('a.dash-aname');
     if (ga) {
       e.preventDefault();
       var gid = Number(String(ga.getAttribute('href')).split('root=')[1]);
@@ -2259,7 +2256,7 @@ bindModal();
       if (gn) openDashDetail(gn);
       return;
     }
-    var ca = e.target.closest('a.dash-ctitle');
+    var ca = e.target.closest('a.dash-actitle');
     if (ca) {
       e.preventDefault();
       var cid = Number(String(ca.getAttribute('href')).split('edit=')[1]);
