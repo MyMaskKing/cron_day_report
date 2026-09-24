@@ -1214,7 +1214,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-acc__leafrow .todo-check { margin-top: 1px; }
 .todo-acc__leafname {
   flex: 1; min-width: 0; font-size: 13.5px; color: var(--text);
-  word-break: break-word; cursor: pointer;
+  word-break: break-word; cursor: pointer; align-self: center;
 }
 .todo-acc__leafname:hover { color: var(--brand); }
 .todo-acc__leafrow.done .todo-acc__leafname { color: var(--muted); text-decoration: line-through; }
