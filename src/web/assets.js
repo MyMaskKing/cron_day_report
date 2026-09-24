@@ -7427,8 +7427,9 @@ function todoBuildTree(rows) {
   //   已完成沉底, 内部按完成时间倒序(刚完成在上), 无完成日期再回退创建序。
   // 旧模式子任务均无自身日期, effDue 沿父链继承到同一日期, 恒走回退键 = 原创建序, 行为不变。
   function childCmp(a, b){
-    if (!!a.done !== !!b.done) return a.done ? 1 : -1;
-    if (!a.done) {
+    var ad2 = todoEffDone(a), bd2 = todoEffDone(b);
+    if (ad2 !== bd2) return ad2 ? 1 : -1;
+    if (!ad2) {
       var ad = todoEffDueRow(a, byId) || '', bd = todoEffDueRow(b, byId) || '';
       if (ad !== bd) {
         if (!ad) return 1;
@@ -7457,6 +7458,11 @@ function todoBuildTree(rows) {
 // 子树是否仍进行中（完成节点代表整枝结束，后代状态仅保留、不参与未完成展示）
 function todoSubtreePending(node){
   return !node.done;
+}
+// 有效完成态：自身 done，或任一祖先已完成（祖先完成则整枝都属于完成，子孙不再算作未完成）
+function todoEffDone(node){
+  for (var n = node; n; n = n._parent) { if (n.done) return true; }
+  return false;
 }
 var _todoCollapsed = {}; // id -> true 折叠状态（前端会话内保留）
 function renderTodoTree(container, trees, opts) {
@@ -7762,15 +7768,18 @@ function renderTodoAccordion(container, trees, opts) {
     wrap.setAttribute('data-id', node.id);
     // 备忘录子任务（自身与祖先均无有效日期）不显示勾选框
     var isMemoChild = !effDue && (depth > 0 || isDetail);
+    var showDone = todoEffDone(node); // 祖先已完成时整枝按完成展示
     var rowEl = document.createElement('div');
-    rowEl.className = 'todo-acc__leafrow' + (node.done ? ' done' : '');
+    rowEl.className = 'todo-acc__leafrow' + (showDone ? ' done' : '');
     if (!isMemoChild) {
       var check = document.createElement('button');
-      check.type = 'button'; check.className = 'todo-check' + (node.done ? ' done' : '');
-      check.title = node.done ? '取消完成' : '标记完成';
+      check.type = 'button'; check.className = 'todo-check' + (showDone ? ' done' : '');
+      check.title = node.done ? '取消完成' : (showDone ? '已随上级完成' : '标记完成');
       if (opts.onToggle) check.addEventListener('click', async function(e){
         e.stopPropagation();
         if (check.disabled) return;
+        // 仅随上级完成：不能在此单独勾选/取消，先取消上级完成
+        if (showDone && !node.done) return;
         if (node.recurrence && !node.done && opts.onToggleRecur) { opts.onToggleRecur(node); return; }
         check.disabled = true; check.setAttribute('data-busy', '1');
         try { await opts.onToggle(node, !node.done); }
@@ -7790,7 +7799,7 @@ function renderTodoAccordion(container, trees, opts) {
     });
     if (opsEl) rowEl.appendChild(opsEl);
     // 日期 chip 同卡片视图（逾期红/今天紫/未来灰 N天后）；跟随上级时无自身日期不显示
-    var leafChip0 = todoAccDueChip(node.due_date, today, node.done);
+    var leafChip0 = todoAccDueChip(node.due_date, today, showDone);
     if (leafChip0) {
       var dEl = document.createElement('span');
       dEl.className = leafChip0.cls; dEl.title = node.due_date;
@@ -7867,7 +7876,7 @@ function renderTodoAccordion(container, trees, opts) {
     if (opsEl) rowEl.appendChild(opsEl);
     // 右侧日期 chip：顶层同 todoRootDue，其余节点只显示自身日期，样式同卡片视图
     var chipDue = (depth === 0 && !isDetail) ? todoRootDue(node) : node.due_date;
-    var dueChip = todoAccDueChip(chipDue, today, node.done);
+    var dueChip = todoAccDueChip(chipDue, today, todoEffDone(node));
     if (dueChip) {
       var gEl = document.createElement('span');
       gEl.className = dueChip.cls;
@@ -7995,13 +8004,13 @@ function renderTodoFlat(container, trees, opts) {
   function collect(root, pruneDone) {
     if (root.children.length === 0) {
       if (pruneDone && root.done) return [];
-      return [{ node: root, path: [], effDue: root.due_date }];
+      return [{ node: root, path: [], effDue: root.due_date, done: todoEffDone(root) }];
     }
     var items = [];
     (function walk(n, path, inheritedDue) {
       var ownDue = n.due_date || inheritedDue;
       if (n.children.length === 0) {
-        items.push({ node: n, path: path, effDue: ownDue });
+        items.push({ node: n, path: path, effDue: ownDue, done: todoEffDone(n) });
         return;
       }
       n.children.forEach(function(c){
@@ -8015,8 +8024,8 @@ function renderTodoFlat(container, trees, opts) {
   // 叶子排序：口径同 todoBuildTree 的 childCmp——未完成在前按有效日期升序
   // （逾期→今天→未来，无日期沉底）；已完成沉底按完成时间倒序；同序回退 sort_order+id。
   function itemCmp(a, b) {
-    if (!!a.node.done !== !!b.node.done) return a.node.done ? 1 : -1;
-    if (!a.node.done) {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (!a.done) {
       var ad = a.effDue || '', bd = b.effDue || '';
       if (ad !== bd) {
         if (!ad) return 1;
@@ -8038,15 +8047,17 @@ function renderTodoFlat(container, trees, opts) {
   function leafItem(item) {
     var n = item.node;
     var rowEl = document.createElement('div');
-    rowEl.className = 'flat-item' + (n.done ? ' done' : '');
+    rowEl.className = 'flat-item' + (item.done ? ' done' : '');
     // 备忘录叶子（自身与祖先均无有效日期）不显示勾选框
     if (item.effDue) {
       var check = document.createElement('button');
-      check.type = 'button'; check.className = 'todo-check' + (n.done ? ' done' : '');
-      check.title = n.done ? '取消完成' : '标记完成';
+      check.type = 'button'; check.className = 'todo-check' + (item.done ? ' done' : '');
+      check.title = n.done ? '取消完成' : (item.done ? '已随上级完成' : '标记完成');
       if (opts.onToggle) check.addEventListener('click', async function(e){
         e.stopPropagation();
         if (check.disabled) return;
+        // 仅随上级完成：不能在此单独勾选/取消，先取消上级完成
+        if (item.done && !n.done) return;
         if (n.recurrence && !n.done && opts.onToggleRecur) { opts.onToggleRecur(n); return; }
         check.disabled = true; check.setAttribute('data-busy', '1');
         try { await opts.onToggle(n, !n.done); }
@@ -8071,7 +8082,7 @@ function renderTodoFlat(container, trees, opts) {
     rowEl.appendChild(text);
     var opsEl = buildOps(n, rowEl, null, 'leaf');
     if (opsEl) rowEl.appendChild(opsEl);
-    var chip0 = todoAccDueChip(item.effDue, today, n.done);
+    var chip0 = todoAccDueChip(item.effDue, today, item.done);
     if (chip0) {
       var dEl = document.createElement('span');
       dEl.className = chip0.cls;
@@ -8087,7 +8098,7 @@ function renderTodoFlat(container, trees, opts) {
     if (opts.hideDone && root.done) return null; // 整组已完成（手风琴 root 级同口径）
     var all = collect(root, !!opts.hideDone);
     var items = all;
-    if (opts.onlyDone) items = items.filter(function(i){ return i.node.done; });
+    if (opts.onlyDone) items = items.filter(function(i){ return i.done; });
     if (items.length === 0) return null; // 无可见叶子：整组隐藏（已完成筛选 / 隐藏已完成）
     items.sort(itemCmp); // 组内叶子按有效日期排序
     var groupWrap = document.createElement('div');
@@ -8100,7 +8111,7 @@ function renderTodoFlat(container, trees, opts) {
     titleEl.className = 'flat-group__title';
     titleEl.textContent = (root.shared_cat_id != null ? '👥 ' : '') + root.title;
     head.appendChild(titleEl);
-    var doneN = items.filter(function(i){ return i.node.done; }).length;
+    var doneN = items.filter(function(i){ return i.done; }).length;
     var cnt = document.createElement('span');
     cnt.className = 'flat-group__count';
     cnt.textContent = doneN + '/' + items.length;
