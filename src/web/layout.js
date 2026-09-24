@@ -1166,7 +1166,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 /* ============ 手风琴视图（accordion：Things 风留白行，无行间分隔线，悬停浮现操作组） ============ */
 .todo-acc__row {
   position: relative; display: flex; align-items: center; gap: 9px;
-  padding: 7px 10px; border-radius: 9px;
+  padding: 7px 10px; border-radius: 9px; border-bottom: 1px solid var(--th-border);
   transition: background .13s;
 }
 .todo-acc__row:hover { background: var(--hover-bg); }
@@ -1187,7 +1187,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-acc__dot.pri-0 { background: #b4bccb; }
 .todo-acc__name {
   flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text-strong);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+  word-break: break-word; cursor: pointer;
 }
 .todo-acc__name:hover { color: var(--brand); }
 /* 「各自截止」标识小图标（child_due） */
@@ -1204,7 +1204,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 /* 叶子行：标题自然换行 */
 .todo-acc__leafrow {
   display: flex; align-items: flex-start; gap: 9px; padding: 6px 10px;
-  border-radius: 9px; transition: background .13s;
+  border-radius: 9px; border-bottom: 1px solid var(--th-border); transition: background .13s;
 }
 .todo-acc__leafrow:hover { background: var(--hover-bg); }
 .todo-acc__leafrow .todo-check { margin-top: 1px; }
@@ -1215,10 +1215,22 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-acc__leafname:hover { color: var(--brand); }
 .todo-acc__leafrow.done .todo-acc__leafname { color: var(--muted); text-decoration: line-through; }
 .todo-acc__leafrow .todo-acc__date { margin-top: 3px; }
-/* 桌面：操作组平时透明，悬停行本身才浮现（子树 hover 不影响父行） */
+/* 桌面：操作组绝对定位贴右（不占流，标题空间最大化），平时透明，悬停行才浮现 */
+@media (min-width: 641px) {
+  .todo-acc .todo-ops {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: var(--surface); padding: 2px; border-radius: 9px;
+    box-shadow: 0 2px 12px rgba(16,24,40,.10);
+  }
+}
 .todo-acc .todo-ops { opacity: 0; }
 .todo-acc__row:hover .todo-ops,
 .todo-acc__leafrow:hover .todo-ops { opacity: 1; }
+/* 桌面悬停：右侧日期让位淡出，避免与浮起的操作组重叠（手机日期保留） */
+@media (min-width: 641px) {
+  .todo-acc__row:hover .todo-chip.due,
+  .todo-acc__leafrow:hover .todo-chip.due { opacity: 0; }
+}
 /* 拖拽浮起（对齐老树 .todo-node.dragging > .todo-row） */
 .todo-node.dragging > .todo-acc__row,
 .todo-node.dragging > .todo-acc__leafrow {
@@ -1236,6 +1248,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   .todo-acc__kids { padding-left: 14px; }
   /* 手机：操作组只留「⋯」，与老树 .todo-tree 同口径 */
   body .todo-acc .todo-ops { opacity: 1; gap: 0; }
+  body .todo-acc__leafrow .todo-ops { margin-top: 1px; }
   body .todo-acc .todo-ops .todo-op:not(.todo-more) { display: none; }
   body .todo-acc .todo-op.todo-more { display: inline-flex; }
   /* 添加子任务只走⋯菜单：隐藏分组底部常驻占位行（editing 展开的编辑器不受影响，照常显示） */

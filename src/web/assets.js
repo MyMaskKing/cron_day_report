@@ -7642,6 +7642,22 @@ function renderTodoTree(container, trees, opts) {
   // 进程重建首帧: 自动展开切后台前打开的快捷"添加子任务"内联框(openInlineAddChild 内部回填草稿)
   todoRestoreInlineAdd(container);
 }
+// 手风琴专用截止日期 chip（手机空间有限的精简口径）:
+// 未完成逾期=红"逾期 N 天"; 未完成今天=紫"今天"; 明天=灰"明天";
+// 其余一律灰"M月D日"——不显示"N天后"/"本周X"、不带日历图标；已完成恒中性。无日期返回 null。
+function todoAccDueChip(dueDate, today, done) {
+  if (!dueDate) return null;
+  var diff = todoDateDiff(dueDate, today);
+  if (!done && diff != null && diff < 0) {
+    return { cls: 'todo-chip due overdue', html: '逾期 ' + (-diff) + ' 天' };
+  }
+  var label;
+  if (!done && diff === 0) label = '今天';
+  else if (diff === 1) label = '明天';
+  else label = Number(dueDate.slice(5, 7)) + '月' + Number(dueDate.slice(8, 10)) + '日';
+  var cls = 'todo-chip due' + (!done && diff === 0 ? ' today' : '');
+  return { cls: cls, html: esc(label) };
+}
 // 手风琴视图：仪表盘式圆点行（行间细分隔线、无卡片框），悬停浮现操作组；
 // opts 契约与 renderTodoTree 完全一致（today/onToggle/onAddChildSubmit/onReorder/onDel/onShare/onDetail/readOnly/onlyDone/forcedRootDue/startDepth）
 function renderTodoAccordion(container, trees, opts) {
@@ -7744,7 +7760,7 @@ function renderTodoAccordion(container, trees, opts) {
     });
     if (opsEl) rowEl.appendChild(opsEl);
     // 日期 chip 同卡片视图（逾期红/今天紫/未来灰 N天后）；跟随上级时无自身日期不显示
-    var leafChip0 = todoDueChip(node.due_date, today, node.done);
+    var leafChip0 = todoAccDueChip(node.due_date, today, node.done);
     if (leafChip0) {
       var dEl = document.createElement('span');
       dEl.className = leafChip0.cls; dEl.title = node.due_date;
@@ -7820,7 +7836,7 @@ function renderTodoAccordion(container, trees, opts) {
     if (opsEl) rowEl.appendChild(opsEl);
     // 右侧日期 chip：顶层同 todoRootDue，其余节点只显示自身日期，样式同卡片视图
     var chipDue = (depth === 0 && !isDetail) ? todoRootDue(node) : node.due_date;
-    var dueChip = todoDueChip(chipDue, today, node.done);
+    var dueChip = todoAccDueChip(chipDue, today, node.done);
     if (dueChip) {
       var gEl = document.createElement('span');
       gEl.className = dueChip.cls;
@@ -7855,7 +7871,7 @@ function renderTodoAccordion(container, trees, opts) {
       });
       srow.appendChild(sname);
       // 日期 chip 同卡片视图（逾期红/今天紫/未来灰）
-      var soloChip0 = todoDueChip(effDue, today, node.done);
+      var soloChip0 = todoAccDueChip(effDue, today, node.done);
       if (soloChip0) {
         var sdEl = document.createElement('span');
         sdEl.className = soloChip0.cls; sdEl.title = effDue;
