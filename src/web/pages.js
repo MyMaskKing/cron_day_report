@@ -773,7 +773,7 @@ function settingsPage(user) {
       <p class="muted" style="font-size:12px;">开启后（默认），当一个任务的所有子任务都勾选完成时，其父任务会自动标记完成并逐级向上；反之取消勾选某个子任务时，已完成的父任务会自动恢复为未完成。关闭则父子勾选完全独立，互不影响。</p>
       <div style="margin-top:16px;">
         <label style="font-weight:600;">视图循环</label>
-        <p class="muted" style="font-size:12px;margin:2px 0 6px;">进入待办时显示列表首项（默认视图），全屏顶栏按此顺序循环切换。未自定义时为 卡片 → 手风琴 → 完整树。</p>
+        <p class="muted" style="font-size:12px;margin:2px 0 6px;">进入待办时显示列表首项（默认视图），全屏顶栏按此顺序循环切换。未自定义时为 卡片 → 手风琴 → 速览 → 完整树。</p>
         <div id="viewCycleList"></div>
         <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
           <select id="addViewChoice" style="width:auto;"></select>

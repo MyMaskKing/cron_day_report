@@ -422,6 +422,8 @@ var ICONS = {
   branch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>',
   // 折叠箭头(细线 chevron): 手风琴分组行, 折叠态由 CSS 旋转 svg
   chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+  // 速览视图图标：拍平的行（左小圆点 + 横线），表达"所有任务提到同一层"
+  flat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="6" r="1.5" stroke="none" fill="currentColor"/><line x1="9.5" y1="6" x2="19" y2="6"/><circle cx="5" cy="12" r="1.5" stroke="none" fill="currentColor"/><line x1="9.5" y1="12" x2="19" y2="12"/><circle cx="5" cy="18" r="1.5" stroke="none" fill="currentColor"/><line x1="9.5" y1="18" x2="19" y2="18"/></svg>',
   // 更多(三个点): 手机完整树的操作收纳
   more:   '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>',
   // 逾期警告 (三角+感叹号): 用于 overdue chip
@@ -2382,10 +2384,10 @@ if (tapEl) tapEl.addEventListener('change', async function(){
   } catch(err){ showMsg(msg, err.message, false); tapEl.checked = !tapEl.checked; }
 });
 // ===== 待办视图循环自定义（首项=默认视图；空=系统三循环） =====
-var VIEW_META = { card: '卡片视图', accordion: '手风琴', tree: '完整树' };
+var VIEW_META = { card: '卡片视图', accordion: '手风琴', flat: '速览视图', tree: '完整树' };
 var viewCycle = [];
 function renderViewCycle() {
-  var eff = viewCycle.length ? viewCycle : ['card', 'accordion', 'tree'];
+  var eff = viewCycle.length ? viewCycle : ['card', 'accordion', 'flat', 'tree'];
   var custom = viewCycle.length > 0;
   document.getElementById('viewCycleList').innerHTML = eff.map(function(v, i){
     return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;">'
@@ -2427,7 +2429,7 @@ if (addBtn) addBtn.addEventListener('click', async function(){
   var v = document.getElementById('addViewChoice').value;
   if (!v || viewCycle.indexOf(v) >= 0) return;
   // 首次自定义：从系统三循环当前配置开始（保留全部视图，用户再按需删/排）
-  if (!viewCycle.length) viewCycle = ['card', 'accordion', 'tree'];
+  if (!viewCycle.length) viewCycle = ['card', 'accordion', 'flat', 'tree'];
   viewCycle.push(v);
   renderViewCycle();
   try { await saveViewCycle(); showMsg(msg, '视图循环已保存', true); }
@@ -2438,7 +2440,7 @@ document.getElementById('resetViewBtn').addEventListener('click', async function
   renderViewCycle();
   try {
     await api('/api/auth/todo-view-list', { method: 'PUT', body: { list: [] } });
-    showMsg(msg, '已恢复系统默认三循环', true);
+    showMsg(msg, '已恢复系统默认循环', true);
   } catch(err){ showMsg(msg, err.message, false); }
 });
 // 免密 Token：加载并渲染各模块 report_token + 一键复制
@@ -6345,21 +6347,22 @@ function todoBindFormDraft() {
   if (box) { box.addEventListener('input', save); box.addEventListener('change', save); }
   window.__todoDraftClose = function () { window.__todoDraftClose = null; todoDraftClear(); };
 }
-// 视图循环: card(卡片) → accordion(手风琴) → tree(完整树) → card
-// 系统默认三循环；账号在设置页自定义后由 todoApplyViewCycle 覆盖（首项=进入待办的默认视图）
+// 视图循环: card(卡片) → accordion(手风琴) → flat(速览) → tree(完整树) → card
+// 系统默认循环；账号在设置页自定义后由 todoApplyViewCycle 覆盖（首项=进入待办的默认视图）
 // 初始化: localStorage 记录合法视图时沿用, 否则暂落 card(保首帧), profile 到达后再按账号循环校正
-var TODO_DEFAULT_VIEW_CYCLE = ['card', 'accordion', 'tree'];
+var TODO_DEFAULT_VIEW_CYCLE = ['card', 'accordion', 'flat', 'tree'];
 var _todoViewCycle = TODO_DEFAULT_VIEW_CYCLE.slice();
-// 视图切换按钮文案（手风琴图标复用 branch 分支线）
+// 视图切换按钮文案
 var TODO_VIEW_LABELS = {
   card: { icon: ICONS.cards, name: '卡片视图' },
   accordion: { icon: ICONS.branch, name: '手风琴' },
+  flat: { icon: ICONS.flat, name: '速览视图' },
   tree: { icon: ICONS.tree, name: '完整树' }
 };
 var _todoView = 'card';
 try {
   var _v = localStorage.getItem('todoView');
-  if (_v === 'card' || _v === 'accordion' || _v === 'tree') _todoView = _v;
+  if (_v === 'card' || _v === 'accordion' || _v === 'flat' || _v === 'tree') _todoView = _v;
 } catch(e){}
 // 立即给 body 打上 .todo-fs-on 类, CSS 立刻应用全屏样式(隐藏 topbar/card + 显示 #todoFullscreen),
 // 避免异步 loadTodos → applyTodoView 之间出现"默认页闪一下"的视觉抖动.
@@ -7913,6 +7916,173 @@ function renderTodoAccordion(container, trees, opts) {
   todoRestoreInlineAdd(container);
 }
 
+// 速览视图（视图 id='flat'）：所有叶子拍平到组内第一层，与桌面小组件同源；
+// 深层叶子在标题上方以面包屑显示祖先路径（root=组头不进面包屑）；不支持拖拽（排序走完整树）。
+// opts 契约与 renderTodoTree 一致（today/onToggle/onAddChildSubmit/onDel/onShare/onDetail/readOnly/onlyDone/hideDone）
+function renderTodoFlat(container, trees, opts) {
+  opts = opts || {};
+  var today = opts.today || '';
+  container.innerHTML = '';
+
+  // 行内操作组。kind='group' 组级（添加子任务/详情/协作/删除）；'leaf' 叶子级（详情/删除）
+  function buildOps(node, rowEl, groupWrap, kind) {
+    if (opts.readOnly) return null;
+    var opsEl = document.createElement('div');
+    opsEl.className = 'todo-ops';
+    function addOp(icon, title, fn, extraClass) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'todo-op' + (extraClass ? ' ' + extraClass : '');
+      b.title = title; b.setAttribute('aria-label', title); b.innerHTML = icon;
+      b.addEventListener('click', function(e){ e.stopPropagation(); fn(); });
+      opsEl.appendChild(b);
+    }
+    if (kind === 'group') {
+      if (opts.onAddChildSubmit) addOp(ICONS.plus, '添加子任务', function(){
+        todoOpenDetailAdder(groupWrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+      });
+      if (opts.onDetail || opts.onEdit) addOp(ICONS.view, '查看详情', function(){
+        (opts.onDetail || opts.onEdit)(node);
+      });
+      if (opts.onShare && node.parent_id == null) addOp(ICONS.share, '协作链接', function(){
+        opts.onShare(node);
+      });
+      if (opts.onDel) addOp(ICONS.trash, '删除', function(){ opts.onDel(node); }, 'danger');
+    } else {
+      if (opts.onDetail || opts.onEdit) addOp(ICONS.view, '查看详情', function(){
+        (opts.onDetail || opts.onEdit)(node);
+      });
+      if (opts.onDel) addOp(ICONS.trash, '删除', function(){ opts.onDel(node); }, 'danger');
+    }
+    if (!opsEl.childNodes.length) return null;
+    var more = document.createElement('button');
+    more.type = 'button'; more.className = 'todo-op todo-more';
+    more.title = '更多操作'; more.innerHTML = ICONS.more;
+    more.addEventListener('click', function(e){
+      e.stopPropagation(); todoOpMenuToggle(rowEl, opsEl);
+    });
+    opsEl.appendChild(more);
+    return opsEl;
+  }
+
+  // root → 拍平叶子：{ node, path（祖先标题链，不含 root/自身）, effDue（继承最近祖先日期） }
+  function collect(root) {
+    if (root.children.length === 0) {
+      return [{ node: root, path: [], effDue: root.due_date }];
+    }
+    var items = [];
+    (function walk(n, path, inheritedDue) {
+      var ownDue = n.due_date || inheritedDue;
+      if (n.children.length === 0) {
+        items.push({ node: n, path: path, effDue: ownDue });
+        return;
+      }
+      n.children.forEach(function(c){ walk(c, path.concat(n.title), ownDue); });
+    })(root, [], null);
+    return items;
+  }
+
+  // 单个叶子行
+  function leafItem(item) {
+    var n = item.node;
+    var rowEl = document.createElement('div');
+    rowEl.className = 'flat-item' + (n.done ? ' done' : '');
+    // 备忘录叶子（自身与祖先均无有效日期）不显示勾选框
+    if (item.effDue) {
+      var check = document.createElement('button');
+      check.type = 'button'; check.className = 'todo-check' + (n.done ? ' done' : '');
+      check.title = n.done ? '取消完成' : '标记完成';
+      if (opts.onToggle) check.addEventListener('click', async function(e){
+        e.stopPropagation();
+        if (check.disabled) return;
+        if (n.recurrence && !n.done && opts.onToggleRecur) { opts.onToggleRecur(n); return; }
+        check.disabled = true; check.setAttribute('data-busy', '1');
+        try { await opts.onToggle(n, !n.done); }
+        finally { check.disabled = false; check.removeAttribute('data-busy'); }
+      });
+      rowEl.appendChild(check);
+    }
+    var text = document.createElement('div');
+    text.className = 'flat-text';
+    if (item.path.length) {
+      var crumb = document.createElement('div');
+      crumb.className = 'flat-crumb';
+      crumb.textContent = item.path.join(' / ');
+      text.appendChild(crumb);
+    }
+    var title = document.createElement('div');
+    title.className = 'flat-title'; title.textContent = n.title;
+    if (opts.onDetail || opts.onEdit) title.addEventListener('click', function(){
+      (opts.onDetail || opts.onEdit)(n);
+    });
+    text.appendChild(title);
+    rowEl.appendChild(text);
+    var opsEl = buildOps(n, rowEl, null, 'leaf');
+    if (opsEl) rowEl.appendChild(opsEl);
+    var chip0 = todoAccDueChip(item.effDue, today, n.done);
+    if (chip0) {
+      var dEl = document.createElement('span');
+      dEl.className = chip0.cls;
+      if (item.effDue) dEl.title = item.effDue;
+      dEl.innerHTML = chip0.html;
+      rowEl.appendChild(dEl);
+    }
+    return rowEl;
+  }
+
+  // 单个主任务组
+  function group(root) {
+    var all = collect(root);
+    var items = opts.onlyDone ? all.filter(function(i){ return i.node.done; }) : all;
+    if (opts.onlyDone) {
+      if (items.length === 0) return null;
+    } else if (opts.hideDone && !todoSubtreePending(root)) {
+      return null; // 隐藏已完成整组
+    }
+    var groupWrap = document.createElement('div');
+    groupWrap.className = 'todo-node flat-group';
+    groupWrap.setAttribute('data-id', root.id);
+
+    var head = document.createElement('div');
+    head.className = 'flat-group__head';
+    var titleEl = document.createElement('span');
+    titleEl.className = 'flat-group__title';
+    titleEl.textContent = (root.shared_cat_id != null ? '👥 ' : '') + root.title;
+    head.appendChild(titleEl);
+    var doneN = items.filter(function(i){ return i.node.done; }).length;
+    var cnt = document.createElement('span');
+    cnt.className = 'flat-group__count';
+    cnt.textContent = doneN + '/' + items.length;
+    head.appendChild(cnt);
+    // 组内存在重复任务：组头给 🔁（拍平后节点级重复标记收口到组级）
+    if (root.recurrence || all.some(function(i){ return i.node.recurrence; })) {
+      var rep = document.createElement('span');
+      rep.className = 'flat-group__repeat'; rep.textContent = '🔁';
+      head.appendChild(rep);
+    }
+    var gOps = buildOps(root, head, groupWrap, 'group');
+    if (gOps) head.appendChild(gOps);
+    groupWrap.appendChild(head);
+
+    items.forEach(function(i){ groupWrap.appendChild(leafItem(i)); });
+    // 组底常驻「添加子任务」（手机端占位隐藏，走 ⋯ 菜单）
+    if (opts.onAddChildSubmit) {
+      mountDetailAdder(groupWrap, root, function(payload){ return opts.onAddChildSubmit(root, payload); });
+    }
+    return groupWrap;
+  }
+
+  var any = false;
+  trees.forEach(function(root){
+    var el = group(root);
+    if (el) { container.appendChild(el); any = true; }
+  });
+  if (!any) container.innerHTML = opts.onlyDone
+    ? '<div class="todo-empty">暂无已完成子任务</div>'
+    : '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
+  // 进程重建首帧：恢复切后台前打开的快捷添加框（与 renderTodoTree 同机制）
+  todoRestoreInlineAdd(container);
+}
+
 // 卡片视图：只渲染顶层任务, 一个顶层任务=一张卡片, 不展开子任务
 // opts: today / onToggle / onEdit / onDel / onShare / onEnter / readOnly
 function renderTodoCards(container, trees, opts) {
@@ -8178,8 +8348,10 @@ function todoPreserveScroll(scroller, key, render, afterRender) {
   _todoScrollCurrentScroller = scroller;
   _todoScrollCurrentKey = key;
 }
-// 三态视图调度器：opts.view + opts.detailRootId 决定渲染哪种
+// 视图调度器：opts.view + opts.detailRootId 决定渲染哪种
 //   view='tree'                       → 完整树（多棵）
+//   view='accordion'                  → 手风琴（嵌套分组）
+//   view='flat'                       → 速览（叶子拍平 + 祖先面包屑）
 //   view='card' && detailRootId==null → 顶层卡片列表
 //   view='card' && detailRootId!=null → 单个顶层任务的完整子树 + 面包屑
 // opts 其余键与 renderTodoTree/renderTodoCards 一致, 额外:
@@ -8197,10 +8369,11 @@ function todoRenderView(container, trees, opts) {
   var detailRootId = opts.detailRootId;
   if (detailRootId == null && view === 'card') detailRootId = todoMaybeRestoreDetail(trees);
   container.className = view === 'accordion' ? 'todo-acc'
+    : view === 'flat' ? 'flat-view'
     : (view === 'card' && detailRootId == null ? 'todo-cards' : 'todo-tree');
-  // 手风琴主区铺白底（避免露出 body 暖白显黄），其余视图移除
+  // 手风琴/速览主区铺白底（避免露出 body 暖白显黄），其余视图移除
   var _accFm = container.closest && container.closest('.todo-fs-main');
-  if (_accFm) _accFm.classList.toggle('fs-main--acc', view === 'accordion');
+  if (_accFm) _accFm.classList.toggle('fs-main--acc', view === 'accordion' || view === 'flat');
 
   // 每次渲染先清理详情页"完成主任务/编辑主任务"文字链, 由详情分支按需重新挂载
   // 命中提示文时按钮挂在 .card 内的 <p> 里(homeBox.parentNode 范围), 兜底时挂在 homeBox 末尾
@@ -8215,11 +8388,12 @@ function todoRenderView(container, trees, opts) {
     if (oldWrap) oldWrap.parentNode.removeChild(oldWrap);
   }
 
-  if (view === 'tree' || view === 'accordion') {
+  if (view === 'tree' || view === 'accordion' || view === 'flat') {
     if (crumb) crumb.style.display = 'none';
-    document.body.classList.remove('todo-detail'); // 树/手风琴无详情概念, 恢复悬浮新建钮
+    document.body.classList.remove('todo-detail'); // 树/手风琴/速览无详情概念, 恢复悬浮新建钮
     preserveScroll(todoScrollKey(view, null, scrollScroller), function(){
       if (view === 'accordion') renderTodoAccordion(container, trees, opts);
+      else if (view === 'flat') renderTodoFlat(container, trees, opts);
       else renderTodoTree(container, trees, opts);
     });
     return;

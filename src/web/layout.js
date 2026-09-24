@@ -1259,6 +1259,63 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .todo-acc .todo-detail-adder .todo-detail-adder__placeholder,
   body .todo-tree .todo-detail-adder .todo-detail-adder__placeholder { display: none; }
 }
+/* ============ 速览视图（flat-view：叶子拍平 + 祖先面包屑，与桌面小组件同源） ============ */
+.flat-group { position: relative; padding: 10px 0 4px; }
+.flat-group__head {
+  position: relative; display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px; border-radius: 9px;
+  border-bottom: 1px solid var(--th-border);
+  transition: background .13s;
+}
+.flat-group__head:hover { background: var(--hover-bg); }
+.flat-group__title { font-size: 15px; font-weight: 700; color: var(--text-strong); }
+.flat-group__count { font-size: 12px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.flat-group__repeat { font-size: 11px; line-height: 1; }
+/* 叶子行：勾选圆 + 文本列（面包屑/标题）+ 日期 */
+.flat-item {
+  position: relative; display: flex; align-items: flex-start; gap: 9px;
+  padding: 6px 10px; border-radius: 9px;
+  transition: background .13s;
+}
+.flat-item:hover { background: var(--hover-bg); }
+.flat-item .todo-check { margin-top: 1px; }
+.flat-text { flex: 1; min-width: 0; }
+.flat-crumb {
+  font-size: 11.5px; color: var(--faint); line-height: 1.35; margin-bottom: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.flat-title { font-size: 13.5px; color: var(--text); word-break: break-word; cursor: pointer; }
+.flat-title:hover { color: var(--brand); }
+.flat-item.done .flat-title { color: var(--muted-2); text-decoration: line-through; }
+/* 操作组：平时透明，悬停行才浮现 */
+.flat-group .todo-ops, .flat-item .todo-ops { opacity: 0; transition: opacity .13s; }
+.flat-group__head:hover .todo-ops, .flat-item:hover .todo-ops { opacity: 1; }
+/* 桌面：操作组绝对定位贴右浮起（不占流）；悬停时日期让位淡出（手机日期保留） */
+@media (min-width: 641px) {
+  .flat-group .todo-ops, .flat-item .todo-ops {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: var(--surface); padding: 2px; border-radius: 9px;
+    box-shadow: 0 2px 12px rgba(16,24,40,.10);
+  }
+  .flat-group__head:hover .todo-chip.due,
+  .flat-item:hover .todo-chip.due { opacity: 0; }
+}
+/* 手机「⋯」弹层打开时抬层（class 由 todoOpMenuToggle 添加） */
+.todo-node:has(> .flat-group__head.op-menu-open),
+.flat-item.op-menu-open { position: relative; z-index: 200; }
+.flat-group__head.op-menu-open { z-index: 210; }
+@media (max-width: 640px) {
+  /* 操作组只留「⋯」 */
+  body .flat-group .todo-ops, body .flat-item .todo-ops { opacity: 1; gap: 0; }
+  body .flat-group .todo-op:not(.todo-more),
+  body .flat-item .todo-op:not(.todo-more) { display: none; }
+  body .flat-group .todo-op.todo-more,
+  body .flat-item .todo-op.todo-more { display: inline-flex; }
+  body .flat-item, body .flat-group__head { padding-left: 8px; padding-right: 8px; }
+  body .flat-item .todo-ops { margin-top: 1px; }
+  /* 添加子任务只走⋯菜单：隐藏组底常驻占位行（editing 展开的编辑器照常显示） */
+  body .flat-group .todo-detail-adder__placeholder { display: none; }
+}
 /* 概览统计条 */
 .todo-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
 .todo-stat { flex: 1; min-width: 90px; background: var(--surface-3); border-radius: 10px; padding: 12px 14px; text-align: center; }
