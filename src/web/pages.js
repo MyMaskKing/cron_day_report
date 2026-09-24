@@ -1096,7 +1096,7 @@ function todoPage(user) {
         <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-viewswitch" id="viewSwitchBtn" aria-label="切换视图" title="切换视图">${ICO_TREE}</button>
-        <span class="fs-viewcur-text" id="viewCurrentLbl">${ICO_TREE}<span class="fs-viewcur-text-name">完整树</span></span>
+        <span class="fs-viewcur-text" id="viewCurrentLbl"><span class="fs-viewcur-text-name">完整树</span></span>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
@@ -1147,7 +1147,7 @@ function publicTodoPage() {
         <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-viewswitch" id="viewSwitchBtn" aria-label="切换视图" title="切换视图">${ICO_TREE}</button>
-        <span class="fs-viewcur-text" id="viewCurrentLbl">${ICO_TREE}<span class="fs-viewcur-text-name">完整树</span></span>
+        <span class="fs-viewcur-text" id="viewCurrentLbl"><span class="fs-viewcur-text-name">完整树</span></span>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
@@ -1219,7 +1219,7 @@ function todoReportPage() {
         <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-viewswitch" id="viewSwitchBtn" aria-label="切换视图" title="切换视图">${ICO_TREE}</button>
-        <span class="fs-viewcur-text" id="viewCurrentLbl">${ICO_TREE}<span class="fs-viewcur-text-name">完整树</span></span>
+        <span class="fs-viewcur-text" id="viewCurrentLbl"><span class="fs-viewcur-text-name">完整树</span></span>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
@@ -1280,7 +1280,7 @@ function todoCollabPage() {
         <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-viewswitch" id="viewSwitchBtn" aria-label="切换视图" title="切换视图">${ICO_TREE}</button>
-        <span class="fs-viewcur-text" id="viewCurrentLbl">${ICO_TREE}<span class="fs-viewcur-text-name">完整树</span></span>
+        <span class="fs-viewcur-text" id="viewCurrentLbl"><span class="fs-viewcur-text-name">完整树</span></span>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>

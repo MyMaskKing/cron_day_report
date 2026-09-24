@@ -1817,7 +1817,6 @@ body { padding-bottom: var(--kb-inset, 0px); }
   display: inline-flex; align-items: center; gap: 6px;
   color: var(--muted-2); font-size: 13px; font-weight: 600; white-space: nowrap;
 }
-.fs-viewcur-text svg { width: 15px; height: 15px; flex: none; }
 .fs-viewcur-text-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .fs-exitbtn {
   height: 36px; padding: 0 12px; flex-shrink: 0;
@@ -2165,8 +2164,7 @@ html { scrollbar-gutter: stable; }
   }
   .fs-viewswitch { width: 24px; }
   .fs-viewswitch svg { width: 17px; height: 17px; }
-  .fs-viewcur-text { gap: 5px; font-size: 12.5px; }
-  .fs-viewcur-text svg { width: 14px; height: 14px; }
+  .fs-viewcur-text { font-size: 12.5px; }
   .fs-exitbtn { padding-left: 10px; padding-right: 10px; }
   .todo-fs-top--hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
 }
