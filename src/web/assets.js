@@ -7551,13 +7551,11 @@ function renderTodoTree(container, trees, opts) {
         dragHandle.innerHTML = ICONS.drag;
         ops.appendChild(dragHandle);
       }
-      // 添加子任务: 一律就地在该行下方展开小卡片(openInlineAddChild), 深层添加无需滚动
+      // 添加子任务: 详情式（mountDetailAdder），同卡片视图详情
       if (opts.onAddChildSubmit) {
         var b1 = mkOp(ICONS.plus, '添加子任务', function(){
-          openInlineAddChild(b1, node, function(payload){ return opts.onAddChildSubmit(node, payload); },
-            { isDetail: isDetailChild, onAddForRoot: opts.onAddForRoot });
+          todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
         });
-        b1.setAttribute('data-addchild', '1'); // 供重载后 todoRestoreInlineAdd 定位并程序化展开
         ops.appendChild(b1);
       }
       if (opts.onDetail || opts.onEdit) { var b2 = mkOp(ICONS.view, '查看详情', function(){ (opts.onDetail || opts.onEdit)(node); }); ops.appendChild(b2); }
@@ -7581,6 +7579,10 @@ function renderTodoTree(container, trees, opts) {
     childBox.className = 'todo-children' + (_todoCollapsed[node.id] ? ' collapsed' : '');
     node.children.forEach(function(c){ var el = walk(c, depth + 1, effDue); if (el) childBox.appendChild(el); });
     wrap.appendChild(childBox);
+    // 底部常驻「添加子任务」（同卡片视图详情）；叶子点 ＋ 时动态挂载
+    if (hasChildren && opts.onAddChildSubmit) {
+      mountDetailAdder(childBox, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+    }
 
     // 点击整行（非勾选框/操作按钮区）即展开/折叠该任务的子任务
     if (hasChildren) {
@@ -7622,17 +7624,6 @@ function renderTodoAccordion(container, trees, opts) {
   // 详情态（forcedRootDue 显式传入，同老树判定）
   var isDetail = Object.prototype.hasOwnProperty.call(opts, 'forcedRootDue');
 
-  // 打开「添加子任务」（同卡片视图详情：mountDetailAdder 常驻占位，点＋程序化展开）；
-  // 分组 adder 在 kidsEl 底部，叶子首次动态挂载到 wrap
-  function accOpenAdder(wrap, node) {
-    var adder = wrap.querySelector('.todo-detail-adder');
-    if (!adder) {
-      mountDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
-      adder = wrap.querySelector('.todo-detail-adder');
-    }
-    var ph = adder && adder.querySelector('.todo-detail-adder__placeholder');
-    if (ph) ph.click();
-  }
   // 悬停操作组：拖拽(可选) / 添加子任务 / 详情 / 协作(仅顶层) / 删除 / 更多(手机弹层)
   function buildOps(node, depth, rowEl, onAddClick) {
     if (opts.readOnly) return null;
@@ -7721,13 +7712,16 @@ function renderTodoAccordion(container, trees, opts) {
       if (opts.onDetail || opts.onEdit) (opts.onDetail || opts.onEdit)(node);
     });
     rowEl.appendChild(nameEl);
-    var opsEl = buildOps(node, depth, rowEl, function(){ accOpenAdder(wrap, node); });
+    var opsEl = buildOps(node, depth, rowEl, function(){
+      todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+    });
     if (opsEl) rowEl.appendChild(opsEl);
-    // 仅逾期叶子显示红色日期（今天不显示，与方案约定一致）
-    if (!node.done && node.due_date && today && node.due_date < today) {
+    // 日期 chip 同卡片视图（逾期红/今天紫/未来灰 N天后）；跟随上级时无自身日期不显示
+    var leafChip0 = todoDueChip(node.due_date, today, node.done);
+    if (leafChip0) {
       var dEl = document.createElement('span');
-      dEl.className = 'todo-acc__date od'; dEl.title = node.due_date;
-      dEl.textContent = Number(node.due_date.slice(5, 7)) + '月' + Number(node.due_date.slice(8, 10)) + '日';
+      dEl.className = leafChip0.cls; dEl.title = node.due_date;
+      dEl.innerHTML = leafChip0.html;
       rowEl.appendChild(dEl);
     }
     wrap.appendChild(rowEl);
@@ -7791,14 +7785,16 @@ function renderTodoAccordion(container, trees, opts) {
       repEl.className = 'todo-acc__repeat'; repEl.textContent = '🔁';
       rowEl.appendChild(repEl);
     }
-    var opsEl = buildOps(node, depth, rowEl, function(){ accOpenAdder(wrap, node); });
+    var opsEl = buildOps(node, depth, rowEl, function(){
+      todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+    });
     if (opsEl) rowEl.appendChild(opsEl);
-    // 右侧日期：顶层同 todoRootDue，其余节点只显示自身日期
+    // 右侧日期 chip：顶层同 todoRootDue，其余节点只显示自身日期，样式同卡片视图
     var chipDue = (depth === 0 && !isDetail) ? todoRootDue(node) : node.due_date;
     var dueChip = todoDueChip(chipDue, today, node.done);
     if (dueChip) {
       var gEl = document.createElement('span');
-      gEl.className = 'todo-acc__date' + (!node.done && chipDue && today && chipDue < today ? ' od' : '');
+      gEl.className = dueChip.cls;
       if (chipDue) gEl.title = chipDue;
       gEl.innerHTML = dueChip.html;
       rowEl.appendChild(gEl);
@@ -7829,11 +7825,12 @@ function renderTodoAccordion(container, trees, opts) {
         if (opts.onDetail || opts.onEdit) (opts.onDetail || opts.onEdit)(node);
       });
       srow.appendChild(sname);
-      // 逾期日期（今天/未来不重复显示，右侧标题行已有）
-      if (!node.done && effDue && today && effDue < today) {
+      // 日期 chip 同卡片视图（逾期红/今天紫/未来灰）
+      var soloChip0 = todoDueChip(effDue, today, node.done);
+      if (soloChip0) {
         var sdEl = document.createElement('span');
-        sdEl.className = 'todo-acc__date od'; sdEl.title = effDue;
-        sdEl.textContent = Number(effDue.slice(5, 7)) + '月' + Number(effDue.slice(8, 10)) + '日';
+        sdEl.className = soloChip0.cls; sdEl.title = effDue;
+        sdEl.innerHTML = soloChip0.html;
         srow.appendChild(sdEl);
       }
       kidsEl.appendChild(srow);
@@ -8692,6 +8689,25 @@ function mountDetailAdder(container, parentNode, submitFn) {
   // Enter 保留 textarea 默认换行行为, 不再拦截提交; Esc 折回占位符(等价点取消)
   titleEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); collapse(); } });
   noteEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); collapse(); } });
+}
+// 打开「添加子任务」（详情式 mountDetailAdder）：分组 adder 在子树容器内（已预挂），
+// 叶子首次添加则动态挂载到 wrap；随后程序化点占位行展开编辑器
+function todoOpenDetailAdder(wrap, node, submitFn) {
+  var adder = wrap.querySelector('.todo-detail-adder');
+  if (!adder) {
+    mountDetailAdder(wrap, node, submitFn);
+    adder = wrap.querySelector('.todo-detail-adder');
+  }
+  // 节点折叠时先展开子树，否则编辑器在隐藏容器内不可见
+  var host = adder.closest ? adder.closest('.todo-acc__kids,.todo-children') : null;
+  if (host && host.classList.contains('collapsed')) {
+    host.classList.remove('collapsed');
+    var caret0 = wrap.querySelector('.todo-acc__caret.is-collapsed,.todo-caret.collapsed');
+    if (caret0) caret0.classList.remove('is-collapsed', 'collapsed');
+    _todoCollapsed[node.id] = false;
+  }
+  var ph = adder && adder.querySelector('.todo-detail-adder__placeholder');
+  if (ph) ph.click();
 }
 // 子任务拖拽排序（仅同级重排），两个入口共用一套 beginDrag/moveTo/finishDrag:
 //   手机(触摸): 长按整行 ~350ms 进入拖拽 —— 长按期间移动 >10px 判定为滚动/左滑手势, 取消, 绝不抢滚动;

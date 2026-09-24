@@ -1233,7 +1233,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .todo-acc .todo-ops .todo-op:not(.todo-more) { display: none; }
   body .todo-acc .todo-op.todo-more { display: inline-flex; }
   /* 添加子任务只走⋯菜单：隐藏分组底部常驻占位行（editing 展开的编辑器不受影响，照常显示） */
-  body .todo-acc .todo-detail-adder .todo-detail-adder__placeholder { display: none; }
+  body .todo-acc .todo-detail-adder .todo-detail-adder__placeholder,
+  body .todo-tree .todo-detail-adder .todo-detail-adder__placeholder { display: none; }
 }
 /* 概览统计条 */
 .todo-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
