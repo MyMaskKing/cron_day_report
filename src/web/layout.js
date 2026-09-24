@@ -1261,6 +1261,10 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 }
 /* ============ 速览视图（flat-view：叶子拍平 + 祖先面包屑，与桌面小组件同源） ============ */
 .flat-group { position: relative; padding: 8px 0 2px; }
+/* solo 组（无子任务的顶层主任务）：收紧组头与叶子、组与组之间的空隙 */
+.flat-group--solo { padding-bottom: 0; }
+.flat-group--solo .flat-group__head { padding-bottom: 2px; }
+.flat-group--solo .flat-item { padding-top: 3px; }
 .flat-group__head {
   position: relative; display: flex; align-items: center; gap: 8px;
   padding: 4px 10px; border-radius: 9px;
@@ -1324,6 +1328,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .flat-item, body .flat-group__head { padding-left: 8px; padding-right: 8px; }
   /* 组间距收紧；添加子任务走 ⋯ 菜单：手机端整个收起组底 adder（编辑器无入口，不会被打开） */
   body .flat-group { padding: 5px 0 1px; }
+  body .flat-group--solo { padding-top: 3px; padding-bottom: 0; }
   body .flat-group .todo-detail-adder { display: none; }
 }
 /* 概览统计条 */

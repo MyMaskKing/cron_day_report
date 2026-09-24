@@ -8007,7 +8007,7 @@ function renderTodoFlat(container, trees, opts) {
     }
     var items = [];
     // ancDone=是否已有完成祖先（完成父整支结算）；叶子 done=自身或祖先完成（行视觉按完成）
-    (function walk(n, path, inheritedDue, ancDone) {
+    (function walk(n, path, inheritedDue, ancDone, isRoot) {
       var ownDue = n.due_date || inheritedDue;
       if (n.children.length === 0) {
         items.push({ node: n, path: path, effDue: ownDue, done: ancDone || !!n.done, ancDone: ancDone });
@@ -8015,9 +8015,10 @@ function renderTodoFlat(container, trees, opts) {
       }
       n.children.forEach(function(c){
         if (pruneDone && c.done) return; // 已完成的中间父节点：整枝隐藏
-        walk(c, path.concat(n.title), ownDue, ancDone || !!n.done);
+        // root=组头不进面包屑: 直接子节点以空 path 起算(与小组件 buildWidgetGroups 同口径)
+        walk(c, isRoot ? [] : path.concat(n.title), ownDue, ancDone || !!n.done, false);
       });
-    })(root, [], null, false);
+    })(root, [], null, false, true);
     return items;
   }
 
@@ -8102,7 +8103,8 @@ function renderTodoFlat(container, trees, opts) {
     if (items.length === 0) return null; // 无可见叶子：整组隐藏（已完成筛选 / 隐藏已完成）
     items.sort(itemCmp); // 组内叶子按有效日期排序
     var groupWrap = document.createElement('div');
-    groupWrap.className = 'todo-node flat-group';
+    // 无子任务的顶层主任务: 标 solo, 供 CSS 收紧组头/叶子间距与组底空隙
+    groupWrap.className = 'todo-node flat-group' + (root.children.length === 0 ? ' flat-group--solo' : '');
     groupWrap.setAttribute('data-id', root.id);
 
     var head = document.createElement('div');
