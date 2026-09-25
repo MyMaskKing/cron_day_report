@@ -22,7 +22,7 @@ const ICO_MENU   = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" 
 const ICO_CLOSE  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 const ICO_PLUS   = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 const ICO_WRENCH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:5px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
-const ICO_CYCLE  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+const ICO_VIEW_CARD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="14" height="14" rx="2"/><path d="M8 2h12a2 2 0 0 1 2 2v12"/></svg>';
 
 /** 初始化超管页 */
 function setupPage() {
@@ -1096,7 +1096,7 @@ function todoPage(user) {
       <div class="todo-fs-top">
         <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
-        <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_CYCLE}<span class="fs-segbtn-name">完整树</span></button>
+        <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
@@ -1146,7 +1146,7 @@ function publicTodoPage() {
       <div class="todo-fs-top">
         <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
-        <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_CYCLE}<span class="fs-segbtn-name">完整树</span></button>
+        <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
@@ -1217,7 +1217,7 @@ function todoReportPage() {
       <div class="todo-fs-top">
         <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
-        <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_CYCLE}<span class="fs-segbtn-name">完整树</span></button>
+        <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
@@ -1277,7 +1277,7 @@ function todoCollabPage() {
       <div class="todo-fs-top">
         <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
-        <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_CYCLE}<span class="fs-segbtn-name">完整树</span></button>
+        <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>

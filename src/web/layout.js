@@ -1832,7 +1832,7 @@ body { padding-bottom: var(--kb-inset, 0px); }
 }
 .fs-iconbtn svg { width: 18px; height: 18px; }
 /* 视图切换：带文字的图标按钮，底色/边框/圆角与分类/添加钮同款；
-   固定循环图标(见 assets.js TODO_VIEW_SWITCH_ICON) + 当前视图名，点击在循环内前进一步 */
+   当前视图图标 + 当前视图名，点击在循环内前进一步 */
 .fs-segbtn {
   height: 38px; padding: 0 12px; flex: 1; min-width: 0;
   border: 1px solid var(--border); border-radius: 11px;

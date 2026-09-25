@@ -6361,9 +6361,14 @@ var TODO_VIEW_LABELS = {
   flat: { icon: ICONS.flat, name: '速览视图' },
   tree: { icon: ICONS.tree, name: '完整树' }
 };
-// 全屏顶栏切换钮的固定图标：循环切换的动作语义，不随视图变化
-// （若显示"下一视图"图标，会与旁边"当前视图"名称指代不一致、看着搭不上）
-var TODO_VIEW_SWITCH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+// 全屏顶栏切换钮图标：与当前视图一致（点击切换后图标随名称一起变）；
+// 按钮专用，统一 24x24 / stroke-width 2 / round、无行内尺寸（由 .fs-segbtn svg 控大小）
+var TODO_VIEW_ICONS = {
+  card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="14" height="14" rx="2"/><path d="M8 2h12a2 2 0 0 1 2 2v12"/></svg>',
+  accordion: ICONS.accordion,
+  flat: ICONS.flat,
+  tree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="2"/><circle cx="6" cy="20" r="2"/><circle cx="18" cy="20" r="2"/><path d="M12 6v4M12 10l-6 8M12 10l6 8"/></svg>'
+};
 var _todoView = 'card';
 try {
   var _v = localStorage.getItem('todoView');
@@ -7150,7 +7155,7 @@ function applyTodoView(getRowsFn, onDrawTree) {
 
   // 视图按钮分工:
   //   vBtn (默认页外壳): 进入全屏, 文案 = 循环首项（账号默认视图）
-  //   vBtnFs (全屏顶栏): 与分类/添加钮同款的带文字按钮, 固定循环图标 + 当前视图名, 点击在循环内前进一步
+  //   vBtnFs (全屏顶栏): 与分类/添加钮同款的带文字按钮, 当前视图图标 + 当前视图名, 点击在循环内前进一步
   //   exitBtn (全屏顶栏): 任意全屏态下点一下直接回默认页
   var vDefault = TODO_VIEW_LABELS[_todoViewCycle[0]] || TODO_VIEW_LABELS.card;
   if (vBtn) vBtn.innerHTML = vDefault.icon + vDefault.name;
@@ -7159,7 +7164,8 @@ function applyTodoView(getRowsFn, onDrawTree) {
     var vi = _todoViewCycle.indexOf(_todoView);
     var vnext = TODO_VIEW_LABELS[_todoViewCycle[vi >= 0 ? (vi + 1) % _todoViewCycle.length : 0]] || TODO_VIEW_LABELS.card;
     // 固定循环图标 + 当前视图名；悬停 title / 读屏给出"下一视图"去向名
-    vBtnFs.innerHTML = TODO_VIEW_SWITCH_ICON + '<span class="fs-segbtn-name">' + vcur.name + '</span>';
+    var vico = TODO_VIEW_ICONS[_todoView] || TODO_VIEW_ICONS.card;
+    vBtnFs.innerHTML = vico + '<span class="fs-segbtn-name">' + vcur.name + '</span>';
     vBtnFs.title = '切换到' + vnext.name;
     vBtnFs.setAttribute('aria-label', '切换到' + vnext.name);
     // 循环仅 1 项时没有可切换视图，隐藏图标按钮
