@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 主题图标单色层（Android 13+）：炊烟 + 小屋白色净剪影（无机芯描边），系统按壁纸统一着色 -->
+<!-- 主题图标单色层（Android 13+）：圆角小屋 + 烟囱白色净剪影，系统按壁纸统一着色 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 两朵炊烟白云 -->
+    <!-- 烟囱 -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M50,16.2 a4.6,2.8 0 1,0 0,5.6 a4.6,2.8 0 1,0 0,-5.6 M47.6,14.3 a2.5,2.5 0 1,0 0,5 a2.5,2.5 0 1,0 0,-5 M52.8,13.2 a3,3 0 1,0 0,6 a3,3 0 1,0 0,-6 M58.5,24.7 a6.2,3.8 0 1,0 0,7.6 a6.2,3.8 0 1,0 0,-7.6 M55,22.3 a3.3,3.3 0 1,0 0,6.6 a3.3,3.3 0 1,0 0,-6.6 M62,20.8 a4,4 0 1,0 0,8 a4,4 0 1,0 0,-8" />
-    <!-- 烟囱 / 屋顶 / 屋身 -->
+        android:pathData="M61,31 H69 V49 H61 Z" />
+    <!-- 屋身 -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M60,35 H68 V50 H60 Z M28,53 L54,30 L80,53 Z M37,53 H71 V77 H37 Z" />
+        android:pathData="M42,49 H66 a6,6 0 0 1 6,6 V69 a6,6 0 0 1 -6,6 H42 a6,6 0 0 1 -6,-6 V55 a6,6 0 0 1 6,-6 Z" />
+    <!-- 屋顶 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M56.9,27.7 L79.1,48.3 Q82,51 78,51 L30,51 Q26,51 28.9,48.3 L51.1,27.7 Q54,25 56.9,27.7 Z" />
 </vector>
