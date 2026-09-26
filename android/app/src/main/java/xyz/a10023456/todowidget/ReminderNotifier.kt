@@ -212,13 +212,13 @@ object ReminderNotifier {
         val builder = buildNotification(context, notificationId, title, text)
         if (enableComplete && accountWidgetIds.isNotEmpty()) {
             builder.addAction(
-                R.drawable.ic_chip_today,
+                R.drawable.ic_notification,
                 "全部完成",
                 actionPendingIntent(context, ACTION_COMPLETE, accountWidgetIds, notificationId)
             )
             if (enablePostpone) {
                 builder.addAction(
-                    R.drawable.ic_chip_today,
+                    R.drawable.ic_notification,
                     "放到明天",
                     actionPendingIntent(context, ACTION_TOMORROW, accountWidgetIds, notificationId)
                 )
@@ -247,7 +247,7 @@ object ReminderNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_chip_today)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))

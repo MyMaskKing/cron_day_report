@@ -1,15 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 主题图标单色层（Android 13+）：纸飞机白色剪影，系统按壁纸统一着色 -->
+<!-- 主题图标单色层（Android 13+）：环 + 纸飞机 + 晨光点全白剪影，系统按壁纸统一着色 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#FFFFFFFF"
+        android:fillColor="#00000000"
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="3.9"
-        android:strokeLineJoin="round"
+        android:strokeWidth="8"
         android:strokeLineCap="round"
-        android:pathData="M79.2,28.8 L28.8,50.8 L53.3,57.2 L59.8,79.2 Z" />
+        android:pathData="M77.8,46.3 A25,25 0 1,1 63.4,30.8" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.48"
+        android:scaleY="0.48">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="6"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:pathData="M79.2,28.8 L28.8,50.8 L53.3,57.2 L59.8,79.2 Z" />
+    </group>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M69.6,34.2 a5.6,5.6 0 1,0 11.2,0 a5.6,5.6 0 1,0 -11.2,0" />
 </vector>

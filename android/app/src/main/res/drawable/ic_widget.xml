@@ -1,12 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 小组件预览图（widget picker）：品牌渐变底 + 白色环中纸飞机 + 晨光点。
+     尺寸 250x110dp 与 widget minWidth/minHeight 一致；图形为 108 视口坐标 × 1.28 居中。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="250dp"
     android:height="110dp"
     android:viewportWidth="250"
     android:viewportHeight="110">
-    <path android:fillColor="#FFFFFF" android:pathData="M0,0h250v110h-250z" />
-    <path android:fillColor="#7C3AED" android:pathData="M16,18h120v12h-120z" />
-    <path android:fillColor="#E5E7EB" android:pathData="M16,42h150v9h-150z" />
-    <path android:fillColor="#E5E7EB" android:pathData="M16,58h120v9h-120z" />
-    <path android:fillColor="#E5E7EB" android:pathData="M16,74h140v9h-140z" />
+    <!-- 背景：品牌渐变蓝→紫三段 -->
+    <path android:pathData="M0,0h250v110h-250z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0" android:startY="0"
+                android:endX="250" android:endY="110">
+                <item android:offset="0" android:color="#FF4F63E8" />
+                <item android:offset="0.55" android:color="#FF7C5CFF" />
+                <item android:offset="1" android:color="#FFA855F7" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- 开口环（中心 125,55 / r32） -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="10"
+        android:strokeLineCap="round"
+        android:pathData="M155.5,45.1 A32,32 0 1,1 137.0,25.3" />
+    <!-- 纸飞机：108 坐标 × 0.48×1.28=0.6144，中心移到 (125,55) -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.6144"
+        android:scaleY="0.6144"
+        android:translateX="71"
+        android:translateY="1">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="6"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:pathData="M79.2,28.8 L28.8,50.8 L53.3,57.2 L59.8,79.2 Z" />
+    </group>
+    <!-- 晨光点骑缺口 -->
+    <path
+        android:fillColor="#FFFF7A59"
+        android:pathData="M144.9,29.7 a7.2,7.2 0 1,0 14.4,0 a7.2,7.2 0 1,0 -14.4,0" />
 </vector>

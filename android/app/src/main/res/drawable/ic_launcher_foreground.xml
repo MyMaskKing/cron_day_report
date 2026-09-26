@@ -1,31 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 生活清单启动图标前景：白色圆角纸飞机即钟面，时针指机头、分针指左尾，橙色原点（与网站 favicon 同设计） -->
+<!-- 生活清单启动图标前景：白色开口仪表盘环 + 环内纸飞机（晨报推送），缺口处暖橙晨光点。
+     108 视口，全部内容位于 66dp 安全区（21~87）内。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 纸飞机：白填充 + 同色粗描边圆化尖角 -->
+    <!-- 开口环：右上缺口朝晨光点 -->
     <path
-        android:fillColor="#FFFFFFFF"
+        android:fillColor="#00000000"
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="3.9"
-        android:strokeLineJoin="round"
+        android:strokeWidth="8"
         android:strokeLineCap="round"
-        android:pathData="M79.2,28.8 L28.8,50.8 L53.3,57.2 L59.8,79.2 Z" />
-    <!-- 分针（细长，指左尾尖）先画；时针（短粗，指机头） -->
-    <path
-        android:strokeColor="#FF4F63E8"
-        android:strokeWidth="4.3"
-        android:strokeLineCap="round"
-        android:pathData="M58.6,50 L39.2,50.5" />
-    <path
-        android:strokeColor="#FF4F63E8"
-        android:strokeWidth="5.4"
-        android:strokeLineCap="round"
-        android:pathData="M58.6,50 L65.2,43.1" />
-    <!-- 交叉原点：品牌暖橙，与蓝紫针身区分 -->
+        android:pathData="M77.8,46.3 A25,25 0 1,1 63.4,30.8" />
+    <!-- 纸飞机：围绕中心 (54,54) 缩到 0.48 倍，收进环内 -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.48"
+        android:scaleY="0.48">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="6"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:pathData="M79.2,28.8 L28.8,50.8 L53.3,57.2 L59.8,79.2 Z" />
+    </group>
+    <!-- 晨光点：骑在环缺口，与环端头净距 2.6 -->
     <path
         android:fillColor="#FFFF7A59"
-        android:pathData="M58.6,50 m-3.4,0 a3.4,3.4 0 1,0 6.8,0 a3.4,3.4 0 1,0 -6.8,0" />
+        android:pathData="M69.6,34.2 a5.6,5.6 0 1,0 11.2,0 a5.6,5.6 0 1,0 -11.2,0" />
 </vector>

@@ -8,22 +8,23 @@
 import { assetUrl } from './static.js';
 
 /**
- * 站点 favicon（SVG 矢量）：白色圆角纸飞机居中，机身就是钟面——
- * 短时针指向机头（右上）、长分针指向尾翼（左），约 10:10 钟表造型；
- * 交叉原点用品牌渐变暖端橙色 #FF7A59 与蓝紫针身区分。
- * 尖角用同色描边 linejoin=round 圆化；path 包围盒四边对称（9.5/9.5），中心在 32,32。
+ * 站点 favicon（SVG 矢量）· 环中纸飞机：
+ * 白色开口圆环 = 生活总控仪表盘（右上留缺口）；环内纸飞机 = 每天晨间主动推送；
+ * 缺口处暖橙点 #FF7A59 = 晨光。背景品牌渐变 #4F63E8 → #7C5CFF → #A855F7。
+ * 视口 0 0 108 108，与 Android adaptive icon 三层同源（系统 mask 不同，favicon 底自带圆角）。
  * 经 /s/favicon.svg 外链，内容 hash 自动缓存。
  */
-const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
 <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
 <stop offset="0" stop-color="#4F63E8"/><stop offset=".55" stop-color="#7C5CFF"/><stop offset="1" stop-color="#A855F7"/>
 </linearGradient></defs>
-<rect width="64" height="64" rx="14" fill="url(#g)"/>
-<path d="M54.5 9.5 L9.5 29.1 L31.4 34.9 L37.2 54.5 Z"
-  fill="#fff" stroke="#fff" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
-<path d="M36.1 28.4 L18.8 28.9" stroke="#4F63E8" stroke-width="3.8" stroke-linecap="round"/>
-<path d="M36.1 28.4 L42 22.3" stroke="#4F63E8" stroke-width="4.8" stroke-linecap="round"/>
-<circle cx="36.1" cy="28.4" r="3" fill="#FF7A59"/>
+<rect width="108" height="108" rx="24" fill="url(#g)"/>
+<path d="M77.8,46.3 A25,25 0 1,1 63.4,30.8" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+<g transform="translate(54 54) scale(0.48) translate(-54 -54)">
+<path d="M79.2,28.8 L28.8,50.8 L53.3,57.2 L59.8,79.2 Z"
+  fill="#fff" stroke="#fff" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+</g>
+<circle cx="75.2" cy="34.2" r="5.6" fill="#FF7A59"/>
 </svg>`;
 
 /**
