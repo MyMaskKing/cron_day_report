@@ -1,27 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 通知小图标（状态栏/通知栏/通知动作）：系统只取 alpha，白色剪影 + 透明底。
-     开口环 + 环内纸飞机；晨光橙点在 24dp 状态栏下是游离噪点，故不画。
-     通知图标不受 app 图标 66dp 安全区约束（不被 mask 裁），环用 r29 饱满放大、显眼。 -->
+     形象：放大的纸飞机（机身即钟面，时针分针镂空）快追上前方不封边的小圆环；
+     圆环缺口处白点。setColor 的霓虹紫粉作用于圆底/App 名，与本形状叠加。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 开口环 r29：端头位于 342°/292° -->
+
+    <!-- 小开口圆环（15%）：中心 (84,18) r6.5，端头 357°/287°，缺口 70° -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="8"
+        android:strokeWidth="3"
         android:strokeLineCap="round"
-        android:pathData="M81.6,45.0 A29,29 0 1,1 64.9,27.1" />
-    <!-- 纸飞机：缩到 0.55 倍，收进环内（机头距环内壁净 3.7） -->
+        android:pathData="M90.5,17.7 A6.5,6.5 0 1,1 82.1,11.8" />
+
+    <!-- 圆环缺口白点（322°，骑环带外沿 r7.8） -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M88.4,13.2 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0" />
+
+    <!-- 纸飞机：pivot(54,54) translate(41.4,59.5) scale 1.25；机头 (72.9,28) 与圆环净距 3.2 -->
     <group
         android:pivotX="54"
         android:pivotY="54"
-        android:scaleX="0.55"
-        android:scaleY="0.55">
+        android:translateX="41.4"
+        android:translateY="59.5"
+        android:scaleX="1.25"
+        android:scaleY="1.25">
+        <!-- evenOdd 填充：飞机轮廓 + 分针/时针圆头镂空线槽 -->
         <path
             android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M79.2,28.8 L28.8,50.8 L53.3,57.2 L59.8,79.2 Z
+                M58.55,48.25 L39.15,48.75 A1.75,1.75 0 0 1 39.25,52.25 L58.65,51.75 A1.75,1.75 0 0 1 58.55,48.25 Z
+                M60.23,51.56 L66.83,44.66 A2.25,2.25 0 0 1 63.57,41.54 L56.97,48.44 A2.25,2.25 0 0 1 60.23,51.56 Z" />
+        <!-- 飞机轮廓描边：圆化四个尖角 -->
+        <path
+            android:fillColor="#00000000"
             android:strokeColor="#FFFFFFFF"
             android:strokeWidth="6"
             android:strokeLineJoin="round"
