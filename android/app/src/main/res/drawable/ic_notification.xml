@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 通知小图标（状态栏/通知栏/通知动作）：系统只取 alpha，白色剪影 + 透明底。
+     开口环 + 环内纸飞机；晨光橙点在 24dp 状态栏下是游离噪点，故不画。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:pathData="M77.8,46.3 A25,25 0 1,1 63.4,30.8" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.48"
+        android:scaleY="0.48">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="6"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:pathData="M79.2,28.8 L28.8,50.8 L53.3,57.2 L59.8,79.2 Z" />
+    </group>
+</vector>
