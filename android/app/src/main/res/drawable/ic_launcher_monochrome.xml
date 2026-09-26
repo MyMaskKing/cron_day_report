@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 主题图标单色层（Android 13+）：圆角小屋 + 烟囱白色净剪影，系统按壁纸统一着色 -->
+<!-- 主题图标单色层（Android 13+）兼通知状态栏小图标：圆角小屋 + 烟囱白色净剪影，
+     系统按壁纸/状态栏统一着色；.82 居中与启动图主体同源 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+  <group
+      android:scaleX="0.82"
+      android:scaleY="0.82"
+      android:pivotX="54"
+      android:pivotY="50">
     <!-- 烟囱 -->
     <path
         android:fillColor="#FFFFFFFF"
@@ -17,4 +23,5 @@
     <path
         android:fillColor="#FFFFFFFF"
         android:pathData="M56.9,27.7 L79.1,48.3 Q82,51 78,51 L30,51 Q26,51 28.9,48.3 L51.1,27.7 Q54,25 56.9,27.7 Z" />
+  </group>
 </vector>

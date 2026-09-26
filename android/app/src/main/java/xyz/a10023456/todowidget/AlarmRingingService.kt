@@ -240,7 +240,7 @@ class AlarmRingingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(this, TaskAlarmScheduler.CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_chip_today)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle("待办闹钟")
             .setContentText(alarm.title)
             .setStyle(NotificationCompat.BigTextStyle().bigText(alarm.title))
@@ -381,13 +381,13 @@ class AlarmRingingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_chip_today)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle("待办闹钟")
             .setContentText(alarm.title)
             .setOngoing(true)
             .setContentIntent(openPi)
-            .addAction(R.drawable.ic_chip_today, "停止", commandPendingIntent(ACTION_STOP, 1))
-            .addAction(R.drawable.ic_chip_today, "再等一会", commandPendingIntent(ACTION_SNOOZE, 2))
+            .addAction(R.drawable.ic_launcher_monochrome, "停止", commandPendingIntent(ACTION_STOP, 1))
+            .addAction(R.drawable.ic_launcher_monochrome, "再等一会", commandPendingIntent(ACTION_SNOOZE, 2))
             // 全屏 Intent：屏幕锁定时由系统直接拉起闹钟页，绕过后台启动限制（国产 ROM 支持最可靠）
             .setFullScreenIntent(openPi, true)
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -415,7 +415,7 @@ class AlarmRingingService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_chip_today)
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle("待办提醒")
             .setContentText(alarm.title)
             .setAutoCancel(true)
