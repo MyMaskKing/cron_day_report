@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 主题图标单色层（Android 13+）：环 + 纸飞机 + 晨光点全白剪影，系统按壁纸统一着色 -->
+<!-- 主题图标单色层（Android 13+）：环 + 纸飞机 + 晨光点全白剪影，系统按壁纸统一着色。
+     环 r21，与 foreground 同坐标。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -10,12 +11,12 @@
         android:strokeColor="#FFFFFFFF"
         android:strokeWidth="8"
         android:strokeLineCap="round"
-        android:pathData="M77.8,46.3 A25,25 0 1,1 63.4,30.8" />
+        android:pathData="M74.0,47.6 A21,21 0 1,1 61.9,34.6" />
     <group
         android:pivotX="54"
         android:pivotY="54"
-        android:scaleX="0.48"
-        android:scaleY="0.48">
+        android:scaleX="0.40"
+        android:scaleY="0.40">
         <path
             android:fillColor="#FFFFFFFF"
             android:strokeColor="#FFFFFFFF"
@@ -26,5 +27,5 @@
     </group>
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M69.6,34.2 a5.6,5.6 0 1,0 11.2,0 a5.6,5.6 0 1,0 -11.2,0" />
+        android:pathData="M67.1,37.4 a4.7,4.7 0 1,0 9.4,0 a4.7,4.7 0 1,0 -9.4,0" />
 </vector>

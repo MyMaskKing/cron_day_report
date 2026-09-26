@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 生活清单启动图标前景：白色开口仪表盘环 + 环内纸飞机（晨报推送），缺口处暖橙晨光点。
-     108 视口，全部内容位于 66dp 安全区（21~87）内。 -->
+     108 视口，环 r21，全部内容位于 66dp 安全区（21~87）内。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 开口环：右上缺口朝晨光点 -->
+    <!-- 开口环：右上缺口朝晨光点（r21，端头位于 342°/292°） -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFFFF"
         android:strokeWidth="8"
         android:strokeLineCap="round"
-        android:pathData="M77.8,46.3 A25,25 0 1,1 63.4,30.8" />
-    <!-- 纸飞机：围绕中心 (54,54) 缩到 0.48 倍，收进环内 -->
+        android:pathData="M74.0,47.6 A21,21 0 1,1 61.9,34.6" />
+    <!-- 纸飞机：围绕中心 (54,54) 缩到 0.40 倍，收进环内 -->
     <group
         android:pivotX="54"
         android:pivotY="54"
-        android:scaleX="0.48"
-        android:scaleY="0.48">
+        android:scaleX="0.40"
+        android:scaleY="0.40">
         <path
             android:fillColor="#FFFFFFFF"
             android:strokeColor="#FFFFFFFF"
@@ -27,8 +27,8 @@
             android:strokeLineCap="round"
             android:pathData="M79.2,28.8 L28.8,50.8 L53.3,57.2 L59.8,79.2 Z" />
     </group>
-    <!-- 晨光点：骑在环缺口，与环端头净距 2.6 -->
+    <!-- 晨光点：骑在环缺口正中（317°），r4.7 -->
     <path
         android:fillColor="#FFFF7A59"
-        android:pathData="M69.6,34.2 a5.6,5.6 0 1,0 11.2,0 a5.6,5.6 0 1,0 -11.2,0" />
+        android:pathData="M67.1,37.4 a4.7,4.7 0 1,0 9.4,0 a4.7,4.7 0 1,0 -9.4,0" />
 </vector>
