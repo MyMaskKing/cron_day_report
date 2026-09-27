@@ -10132,7 +10132,7 @@ async function openTodoDetail(node, opts) {
   var subsHtml = '';
   var subsView = [];
   if (node.children && node.children.length) {
-    var pendingSubs = node.children.filter(function(c){ return !c.done; });
+    var pendingSubs = node.children.filter(function(c){ return !todoEffDone(c); }); // 未完成口径: 自身或任一祖先完成即随之为完成
     var focusOne = node.child_due === 1;
     subsView = pendingSubs;
     if (focusOne) {
@@ -10145,7 +10145,7 @@ async function openTodoDetail(node, opts) {
     var doneCount = node.children.length - pendingSubs.length;
     var headTxt = focusOne ? '最近到期' : '子任务';
     var headMeta = focusOne
-      ? (node.children.length > 1 ? ' <span class="muted">共 ' + node.children.length + ' 项，只显示最近到期的 1 项</span>' : '')
+      ? (pendingSubs.length > 1 ? ' <span class="muted">共 ' + pendingSubs.length + ' 项待办，只显示最近到期的 1 项</span>' : '')
       : ' <span class="muted">' + pendingSubs.length + ' 项待办' + (doneCount ? ' · ' + doneCount + ' 项已完成' : '') + '</span>';
     var rowsHtml;
     if (!subsView.length) {
