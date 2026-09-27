@@ -1745,15 +1745,20 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 }
 /* "添加到：xxx"面包屑: 行内卡片(.todo-inline-add)与主任务底部卡片(.todo-detail-adder)共用 */
 .todo-add-crumb {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;
   font-size: 12.5px; color: var(--muted-2);
 }
 .todo-add-crumb b { color: var(--brand); font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .todo-add-crumb__reset {
-  margin-left: auto; flex-shrink: 0; cursor: pointer;
+  margin-left: auto; flex: 0 100 auto; cursor: pointer;
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted-2);
   border-radius: 999px; font-size: 12px; padding: 1px 10px; line-height: 1.7;
+  display: inline-flex; align-items: center; gap: 4px;
 }
+.todo-add-crumb__reset-x { flex-shrink: 0; }
+.todo-add-crumb__reset-text { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
+/* 标题过长: JS 检测溢出后加 is-compact, 按钮文字整体隐藏只留 ✕(避免出现半截文字) */
+.todo-add-crumb.is-compact .todo-add-crumb__reset-text { display: none; }
 .todo-add-crumb__reset:hover { border-color: var(--brand); color: var(--brand); }
 .todo-detail-adder__title, .todo-detail-adder__note {
   width: 100%; border: 1px solid var(--border); border-radius: 6px;

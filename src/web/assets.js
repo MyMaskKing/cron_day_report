@@ -8980,7 +8980,8 @@ function openInlineAddChild(btnEl, parentNode, submitFn, options) {
     if (!isRootItself && options.onAddForRoot) {
       var resetBtn = document.createElement('button');
       resetBtn.type = 'button'; resetBtn.className = 'todo-add-crumb__reset';
-      resetBtn.textContent = '✕ 改为主任务';
+      resetBtn.title = '改为主任务';
+      resetBtn.innerHTML = '<span class="todo-add-crumb__reset-x">✕</span><span class="todo-add-crumb__reset-text">改为主任务</span>';
       resetBtn.addEventListener('click', function(){
         close();
         options.onAddForRoot();
@@ -8988,6 +8989,7 @@ function openInlineAddChild(btnEl, parentNode, submitFn, options) {
       crumbEl.appendChild(resetBtn);
     }
     box.insertBefore(crumbEl, titleEl);
+    todoBindCrumbCompact(crumbEl);
   }
   host.parentNode.insertBefore(box, host.nextSibling);
   autoGrowTextarea(titleEl); autoGrowTextarea(noteEl);
@@ -9099,6 +9101,24 @@ function todoBindNoteToggle(noteEl) {
   toggle.addEventListener('click', function () { show(true); });
   return { toggle: toggle, show: show, reset: reset };
 }
+// 面包屑"添加到：xxx"标题过长时: 收起「改为主任务」文字只留 ✕ 图标, 保证单行不换行。
+// ResizeObserver 监听 crumb 尺寸(展开/旋转/分屏); fullW 缓存完整态内容总宽, 避免加/去 class 的反馈抖动
+function todoBindCrumbCompact(crumbEl) {
+  if (!crumbEl || typeof ResizeObserver === 'undefined') return;
+  var fullW = 0;
+  function sync() {
+    if (!crumbEl.isConnected) return;
+    if (!crumbEl.classList.contains('is-compact')) {
+      fullW = crumbEl.scrollWidth;
+      if (fullW > crumbEl.clientWidth) crumbEl.classList.add('is-compact');
+    } else if (crumbEl.clientWidth >= fullW) {
+      crumbEl.classList.remove('is-compact');
+    }
+  }
+  var ro = new ResizeObserver(sync);
+  ro.observe(crumbEl);
+  sync();
+}
 // 详情页底部常驻"+ 添加子任务"占位行(MS To Do 风格): 点击在列表末尾就地展开为小卡片
 // 卡片顶部面包屑明示添加目标；深层节点(非详情根)且提供 onAddForRoot 时额外给「✕ 改为主任务」
 // container: 详情页 #todoTree 容器; parentNode: 当前任务; submitFn(payload)-> Promise;
@@ -9143,7 +9163,8 @@ function mountDetailAdder(container, parentNode, submitFn, onAddForRoot) {
   if (!isRootItself && typeof onAddForRoot === 'function') {
     var rootResetBtn = document.createElement('button');
     rootResetBtn.type = 'button'; rootResetBtn.className = 'todo-add-crumb__reset';
-    rootResetBtn.textContent = '✕ 改为主任务';
+    rootResetBtn.title = '改为主任务';
+    rootResetBtn.innerHTML = '<span class="todo-add-crumb__reset-x">✕</span><span class="todo-add-crumb__reset-text">改为主任务</span>';
     rootResetBtn.addEventListener('click', function () {
       collapse();
       onAddForRoot(parentNode._root ? parentNode._root.id : parentNode.id);
@@ -9162,6 +9183,7 @@ function mountDetailAdder(container, parentNode, submitFn, onAddForRoot) {
   editor.appendChild(row);
 
   editor.insertBefore(crumbEl, editor.firstChild);
+  todoBindCrumbCompact(crumbEl);
   wrap.appendChild(placeholder); wrap.appendChild(editor);
   container.appendChild(wrap);
   autoGrowTextarea(titleEl); autoGrowTextarea(noteEl);
