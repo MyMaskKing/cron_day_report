@@ -8246,6 +8246,160 @@ function renderTodoFlat(container, trees, opts) {
   todoRestoreInlineAdd(container);
 }
 
+// ============ 已完成拍平沉底（全视图统一）：未完成抽离、done 节点收口 ============
+// 未完成树：done 节点整支抽离（其下未完成后代随完成上级归并，不在上方独立出现）
+function todoPendingTrees(trees){
+  return trees.filter(function(n){return !n.done;}).map(function(n){
+    return Object.assign({}, n, { children: todoPendingTrees(n.children || []) });
+  });
+}
+// 全局已完成拍平项：path 含主任务名；done 节点收口（不进子级）
+function todoCollectDoneItems(trees){
+  var items=[];
+  function walk(n, ancPath){
+    (n.children||[]).forEach(function(c){
+      var cPath=ancPath.concat(n.title);
+      if(c.done) items.push({node:c, path:cPath, done:true});
+      else walk(c, cPath);
+    });
+  }
+  trees.forEach(function(root){
+    if(root.done){ items.push({node:root, path:[], done:true}); return; }
+    walk(root, []);
+  });
+  items.sort(function(a,b){
+    var ad=a.node.done_at||'', bd=b.node.done_at||'';
+    if(ad!==bd) return ad<bd?1:-1;
+    return b.node.id-a.node.id;
+  });
+  return items;
+}
+// 单任务详情拍平项：path 不含主任务名（主任务名=详情标题）；返回 {pend,done}
+function todoCollectDetailItems(root){
+  var pend=[], done=[];
+  function walk(n, ancPath){
+    (n.children||[]).forEach(function(c){
+      var cPath=ancPath.concat(n.title);
+      if(c.done) done.push({node:c, path:cPath, done:true});
+      else if((c.children||[]).length) walk(c, cPath);
+      else pend.push({node:c, path:cPath, done:false});
+    });
+  }
+  (root.children||[]).forEach(function(c){
+    if(c.done) done.push({node:c, path:[], done:true});
+    else if((c.children||[]).length) walk(c, []);
+    else pend.push({node:c, path:[], done:false});
+  });
+  pend.sort(function(a,b){
+    var ad=todoDetailEffDue(a.node), bd=todoDetailEffDue(b.node);
+    if(ad!==bd){ if(!ad)return 1; if(!bd)return -1; return ad<bd?-1:1; }
+    return (a.node.sort_order-b.node.sort_order)||(a.node.id-b.node.id);
+  });
+  done.sort(function(a,b){
+    var ad=a.node.done_at||'', bd=b.node.done_at||'';
+    if(ad!==bd) return ad<bd?1:-1;
+    return b.node.id-a.node.id;
+  });
+  return {pend:pend, done:done};
+}
+// 有效截止日：沿 _parent 链找第一个非空 due_date（含主任务）
+function todoDetailEffDue(node){
+  for(var n=node;n;n=n._parent){ if(n.due_date) return n.due_date; }
+  return '';
+}
+// 弹窗层级面包屑：从主任务名(含)到直接父；主任务自身返回 []
+function todoNodeCrumbPath(node){
+  var path=[];
+  for(var n=node._parent;n;n=n._parent) path.unshift(n.title);
+  return path;
+}
+// created_at(UTC 'YYYY-MM-DD HH:MM:SS') 转北京(+8) 'YYYY-MM-DD HH:MM'
+function todoFmtCreated(v){
+  var m=String(v||'').match(/^(\\d{4})-(\\d{2})-(\\d{2})[ T](\\d{2}):(\\d{2})/);
+  if(!m) return v ? String(v).slice(0,16) : '';
+  var d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5]));
+  d.setUTCMinutes(d.getUTCMinutes()+8*60);
+  function p(n){return (n<10?'0':'')+n;}
+  return d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes());
+}
+// 通用拍平行（未完成/已完成）：勾选圆 + (层级面包屑+标题) + 右侧(到期chip/完成日)；点击标题弹详情
+function todoFlatRow(item, opts){
+  var n=item.node, isDone=!!item.done;
+  var row=document.createElement('div');
+  row.className='flat-item'+(isDone?' done':'')+(item.path.length?'':' flat-item--nocrumb');
+  if(!opts.readOnly && opts.onToggle){
+    var check=document.createElement('button');
+    check.type='button'; check.className='todo-check'+(isDone?' done':'');
+    check.title=isDone?'取消完成':'标记完成';
+    check.addEventListener('click',async function(e){
+      e.stopPropagation();
+      if(check.disabled)return;
+      if(!isDone&&n.recurrence&&opts.onToggleRecur){opts.onToggleRecur(n);return;}
+      check.disabled=true;check.setAttribute('data-busy','1');
+      try{await opts.onToggle(n,!isDone);}
+      finally{check.disabled=false;check.removeAttribute('data-busy');}
+    });
+    row.appendChild(check);
+  }else{
+    var sp=document.createElement('span');
+    sp.className='todo-check readonly'+(isDone?' done':'');sp.setAttribute('aria-hidden','true');
+    row.appendChild(sp);
+  }
+  var text=document.createElement('div');text.className='flat-text';
+  if(item.path.length){
+    var crumb=document.createElement('div');
+    crumb.className='flat-crumb';crumb.textContent=item.path.join(' / ');
+    text.appendChild(crumb);
+  }
+  var title=document.createElement('div');
+  title.className='flat-title';title.textContent=n.title;
+  text.appendChild(title);
+  row.appendChild(text);
+  if(isDone){
+    if(n.done_at){
+      var dw=document.createElement('span');
+      dw.className='flat-donewhen';dw.textContent=n.done_at.slice(5).replace('-','/');
+      row.appendChild(dw);
+    }
+  }else{
+    var eff=todoDetailEffDue(n);
+    var chip0=todoAccDueChip(eff, opts.today, false);
+    if(chip0){
+      var ce=document.createElement('span');
+      ce.className=chip0.cls;ce.title=eff||'';ce.innerHTML=chip0.html;
+      row.appendChild(ce);
+    }
+  }
+  if(opts.onDetail){
+    title.style.cursor='pointer';row.style.cursor='pointer';
+    title.addEventListener('click',function(e){e.stopPropagation();opts.onDetail(n);});
+    row.addEventListener('click',function(e){
+      if(e.target.closest&&e.target.closest('.todo-check'))return;
+      opts.onDetail(n);
+    });
+  }
+  return row;
+}
+// 挂载已完成拍平区；返回区元素(无项返回null)
+function todoMountDoneZone(box, items, opts, title, tag){
+  if(!items.length)return null;
+  var zone=document.createElement('div');
+  zone.className='todo-donezone';
+  var head=document.createElement('div');
+  head.className='todo-donezone__head';
+  var ht=document.createElement('span');ht.textContent='✓ '+title+' ('+items.length+')';
+  head.appendChild(ht);
+  if(tag){
+    var tg=document.createElement('span');
+    tg.className='todo-donezone__tag';tg.textContent=tag;
+    head.appendChild(tg);
+  }
+  zone.appendChild(head);
+  items.forEach(function(it){zone.appendChild(todoFlatRow(it,opts));});
+  box.appendChild(zone);
+  return zone;
+}
+
 // 卡片视图：只渲染顶层任务, 一个顶层任务=一张卡片, 不展开子任务
 // opts: today / onToggle / onEdit / onDel / onShare / onEnter / readOnly
 function renderTodoCards(container, trees, opts) {
@@ -8551,107 +8705,98 @@ function todoRenderView(container, trees, opts) {
     if (oldWrap) oldWrap.parentNode.removeChild(oldWrap);
   }
 
-  if (view === 'tree' || view === 'accordion' || view === 'flat') {
+  // 已完成 tab：整页 = 全局已完成拍平大列表（无视视图）
+  if (opts.filter === 'done') {
     if (crumb) crumb.style.display = 'none';
-    document.body.classList.remove('todo-detail'); // 树/手风琴/速览无详情概念, 恢复悬浮新建钮
-    preserveScroll(todoScrollKey(view, null, scrollScroller), function(){
-      if (view === 'accordion') renderTodoAccordion(container, trees, opts);
-      else if (view === 'flat') renderTodoFlat(container, trees, opts);
-      else renderTodoTree(container, trees, opts);
-    });
+    document.body.classList.remove('todo-detail');
+    todoPersistDetail(null);
+    container.className = 'flat-view';
+    var doneAll = todoCollectDoneItems(trees);
+    container.innerHTML = '';
+    if (!doneAll.length) container.innerHTML = '<div class="todo-empty">暂无已完成任务</div>';
+    else doneAll.forEach(function(it){ container.appendChild(todoFlatRow(it, opts)); });
     return;
   }
-  // view === 'card': 详情 id 持久化(非 null 写入, null 清除); tree 视图在上方已 return 不影响
-  todoPersistDetail(detailRootId);
+  // 单个主任务详情
   if (detailRootId != null) {
-    document.body.classList.add('todo-detail'); // 详情态隐藏悬浮"新建主任务"钮
-    var root = null;
-    trees.forEach(function(t){ if (t.id === detailRootId) root = t; });
-    if (!root) {
-      // 目标顶层已消失（可能被删除或改日期被筛掉）——退回卡片列表
+    var droot = null;
+    trees.forEach(function(t){ if (t.id === detailRootId) droot = t; });
+    if (!droot) {
+      // 目标顶层已消失（删除/被筛掉）——退回列表
       document.body.classList.remove('todo-detail');
+      todoPersistDetail(null);
       if (opts.onExitDetail) opts.onExitDetail();
       return;
     }
-    // 把"完成主任务"链挂到提示文末尾(命中主页 <p class="muted">); 无提示文时兜底独立一行
-    // 无论哪种, 面包屑都不再放该按钮, 顶栏永远只有「← 返回 | 标题 | ➕ 添加子任务」
-    todoAttachDoneLinkToTip(container, root, opts);
-    var detailScrollKey = todoScrollKey('card', detailRootId, scrollScroller);
+    todoRenderDetail(container, droot, opts, crumb, scrollScroller);
+    return;
+  }
+  // 主列表：未完成抽离后按各视图渲染；已完成拍平沉底（受「隐藏已完成」控制）
+  document.body.classList.remove('todo-detail');
+  if (crumb) crumb.style.display = 'none';
+  var pending = todoPendingTrees(trees);
+  var viewOpts = {};
+  for (var vk in opts) if (Object.prototype.hasOwnProperty.call(opts, vk)) viewOpts[vk] = opts[vk];
+  viewOpts.hideDone = false; // done 已抽离，渲染器无需再按完成剪枝
+  viewOpts.onlyDone = false;
+  preserveScroll(todoScrollKey(view, null, scrollScroller), function(){
+    if (view === 'accordion') renderTodoAccordion(container, pending, viewOpts);
+    else if (view === 'flat') renderTodoFlat(container, pending, viewOpts);
+    else if (view === 'tree') renderTodoTree(container, pending, viewOpts);
+    else renderTodoCards(container, pending, viewOpts);
+  });
+  if (!opts.hideDone) {
+    todoMountDoneZone(container, todoCollectDoneItems(trees), opts, '已完成', '跨任务 · 沉在最底部');
+  }
+}
+// 单主任务详情：面包屑 + 未完成拍平在上 + 已完成拍平沉底(受「隐藏已完成」控制)
+function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
+  document.body.classList.add('todo-detail'); // 详情态隐藏悬浮"新建主任务"钮
+  var data = todoCollectDetailItems(root);
+  function build(){
     if (crumb) {
       crumb.style.display = 'flex';
       crumb.innerHTML = '';
       var back = document.createElement('button');
-      back.type = 'button'; back.className = 'todo-crumb__back';
-      back.textContent = '← 返回';
+      back.type = 'button'; back.className = 'todo-crumb__back'; back.textContent = '← 返回';
       back.addEventListener('click', function(){ if (opts.onExitDetail) opts.onExitDetail(); });
       var t = document.createElement('div');
       t.className = 'todo-crumb__title';
       t.textContent = (root.shared_cat_id != null ? '👥 ' : '') + root.title;
-      if (opts.onDetail) {
-        t.style.cursor = 'pointer';
-        t.title = '查看任务详情';
-        t.addEventListener('click', function(){ opts.onDetail(root); });
-      }
-      crumb.appendChild(back);
-      crumb.appendChild(t);
-      // child_due 模式: 面包屑标题后挂贴(根必为顶层任务); 中间层子分组的胶囊在子树行内渲染
+      crumb.appendChild(back); crumb.appendChild(t);
       if (root.child_due) {
         var cdCrumb = document.createElement('span');
-        cdCrumb.className = 'todo-cd-tag';
-        cdCrumb.innerHTML = ICONS.branch + '各自截止';
+        cdCrumb.className = 'todo-cd-tag'; cdCrumb.innerHTML = ICONS.branch + '各自截止';
         crumb.appendChild(cdCrumb);
       }
-      // 主任务代表日期(旧模式=自身日期; 各自截止=子树最早到期日, 与卡片同口径),
-      // 让详情头部始终能看到主任务截止日(子树内跟随上级的子任务不再重复显示)
       var rootDueChip = todoDueChip(todoRootDue(root), opts.today, root.done);
       if (rootDueChip) {
         var crumbDue = document.createElement('span');
-        crumbDue.className = rootDueChip.cls;
-        crumbDue.title = todoRootDue(root) || '';
+        crumbDue.className = rootDueChip.cls; crumbDue.title = todoRootDue(root) || '';
         crumbDue.innerHTML = rootDueChip.html;
         crumb.appendChild(crumbDue);
       }
-      // "完成主任务"入口不放这里(已由 todoAttachDoneLinkToTip 挂到提示文末尾或独立一行)
-      // "添加子任务"入口不再放面包屑, 改为详情页子任务列表底部常驻输入行(MS To Do 风格, 见下面 mountDetailAdder)
     }
-    // 详情页只渲染 root 的子任务，避免与面包屑标题重复; 首层子任务视作 depth 0 但截止日期继承 root
-    // root 无子任务时也保留底部 "添加子任务" 常驻行, 而不是空态提示
-    var afterDetailRender = opts.onAddChildSubmit ? function(){
-      mountDetailAdder(container, root, function(payload){
-        return opts.onAddChildSubmit(root, payload);
-      });
-    } : null;
-    if (root.children.length === 0) {
-      preserveScroll(detailScrollKey, function(){
-        container.className = 'todo-tree';
-        container.innerHTML = '';
-      }, afterDetailRender);
-    } else {
-      var childOpts = {};
-      for (var k in opts) if (Object.prototype.hasOwnProperty.call(opts, k)) childOpts[k] = opts[k];
-      childOpts.startDepth = 0;
-      // 已完成筛选进详情: 只列已完成子任务, 隐藏未完成项(done tab 的卡片正是为此入口)
-      childOpts.onlyDone = opts.filter === 'done';
-      // 详情页首层子任务的继承日期: 顶层自身日期(旧模式=root.due_date; 新模式 root 无日期→null,
-      // 无自身日期的子任务即备忘录, 与后端 effDueOf 沿祖先链继承的口径一致)
-      childOpts.forcedRootDue = root.due_date;
-      // 行内卡片"✕ 改为主任务": 程序化点底部主任务占位行(单例会先关掉内联框, 再展开主任务卡片)
-      childOpts.onAddForRoot = function(){
-        var ph = container.querySelector('.todo-detail-adder__placeholder');
-        if (ph) ph.click();
-      };
-      preserveScroll(detailScrollKey, function(){
-        renderTodoTree(container, root.children, childOpts);
-      }, afterDetailRender);
+    // "完成主任务 / 编辑主任务"文字链：挂提示文末尾，无提示文兜底独立一行
+    todoAttachDoneLinkToTip(container, root, opts);
+    container.className = 'flat-view';
+    container.innerHTML = '';
+    if (data.pend.length) data.pend.forEach(function(it){ container.appendChild(todoFlatRow(it, opts)); });
+    else if (data.done.length) {
+      var eAll = document.createElement('div');
+      eAll.className = 'todo-empty'; eAll.textContent = '🎉 子任务已全部完成';
+      container.appendChild(eAll);
     }
-    return;
+    if (!opts.hideDone && data.done.length) {
+      todoMountDoneZone(container, data.done, opts, '已完成', '仅本任务 · 详情内沉底');
+    }
+    // 底部常驻「添加子任务」
+    if (opts.onAddChildSubmit) {
+      mountDetailAdder(container, root, function(payload){ return opts.onAddChildSubmit(root, payload); });
+    }
   }
-  // 卡片列表
-  document.body.classList.remove('todo-detail');
-  if (crumb) crumb.style.display = 'none';
-  preserveScroll(todoScrollKey('card', null, scrollScroller), function(){
-    renderTodoCards(container, trees, opts);
-  });
+  todoPersistDetail(root.id);
+  todoPreserveScroll(scrollScroller, todoScrollKey('card', root.id, scrollScroller), build);
 }
 // 手机键盘弹起时把输入框"上移"到可视视区内(修复添加框被键盘盖住):
 // 先 scrollIntoView, 再按 visualViewport 底边补差, 优先滚动最近的可滚动祖先(全屏区/弹窗遮罩), 兜底 window.scrollBy
@@ -10119,6 +10264,8 @@ function fmtSize(n) {
 async function openTodoDetail(node, opts) {
   opts = opts || {};
   var today = opts.today || '';
+  // 层级面包屑: 优先显式传入, 否则沿 _parent 从主任务名(含)到直接父（主任务自身为空）
+  var crumbPath = opts.crumbPath || todoNodeCrumbPath(node);
   // 有效截止日: 自身优先, 否则沿 _parent 链继承最近祖先日期(与列表徽章/统计同口径)
   var due = node.due_date || '', dueInherited = false;
   if (!due && node._parent) {
@@ -10194,9 +10341,17 @@ async function openTodoDetail(node, opts) {
       ? '<span class="todo-cd-tag">' + ICONS.branch + '各自截止</span>'
       : '<span class="todo-chip cd-sub">' + ICONS.branch + '各自截止</span>';
   }
+  // 创建(UTC→北京) / 完成(北京日期) 时间行
+  var created = todoFmtCreated(node.created_at);
+  var timesHtml = '<div class="td-times">'
+    + (created ? '<span>🕒 创建：' + esc(created) + '</span>' : '')
+    + (node.done && node.done_at ? '<span>✅ 完成：' + esc(node.done_at) + '</span>' : '')
+    + '</div>';
   var body =
+    (crumbPath.length ? '<div class="td-crumb">📂 ' + esc(crumbPath.join(' / ')) + '</div>' : '') +
     '<div class="td-title">' + esc(node.title) + '</div>' +
     '<div class="td-meta">' + cdChip + meta.join('') + '</div>' +
+    timesHtml +
     subsHtml +
     (node.note
       ? '<div class="md-body" id="tdNote">' + renderMarkdown(node.note) + '</div>'

@@ -1351,6 +1351,15 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 /* 手机「⋯」弹层打开时抬层（class 由 todoOpMenuToggle 添加） */
 .todo-node:has(> .flat-group__head.op-menu-open),
 .flat-item.op-menu-open { position: relative; z-index: 200; }
+/* 已完成拍平沉底区（全视图统一） */
+.todo-donezone { margin-top: 14px; border-top: 2px dashed var(--border); padding-top: 4px; }
+.todo-cards .todo-donezone { margin-top: 2px; } /* 卡片容器自带 gap:12，收紧叠加间距 */
+.todo-donezone__head { display: flex; align-items: center; gap: 8px; padding: 8px 6px; font-weight: 700; color: var(--muted); font-size: 13px; }
+.todo-donezone__tag { font-size: 10.5px; font-weight: 700; color: var(--brand); background: var(--brand-tint); border: 1px solid var(--brand-border); border-radius: 6px; padding: 1px 7px; }
+.flat-donewhen { flex: none; align-self: center; font-size: 12px; color: var(--muted); }
+/* 任务详情弹窗：层级面包屑 + 创建/完成时间 */
+.td-crumb { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.td-times { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 0 2px; font-size: 12.5px; color: var(--muted); }
 .flat-group__head.op-menu-open { z-index: 210; }
 @media (max-width: 640px) {
   /* 操作组只留「⋯」 */
