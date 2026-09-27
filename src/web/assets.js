@@ -8724,6 +8724,7 @@ function todoRenderView(container, trees, opts) {
   // 主列表：未完成抽离后按各视图渲染；已完成拍平沉底（受「隐藏已完成」控制）
   document.body.classList.remove('todo-detail');
   if (crumb) crumb.style.display = 'none';
+  todoPersistDetail(null); // 回到主列表即清除详情 id，避免刷新被 todoMaybeRestoreDetail 恢复
   var pending = todoPendingTrees(trees);
   var viewOpts = {};
   for (var vk in opts) if (Object.prototype.hasOwnProperty.call(opts, vk)) viewOpts[vk] = opts[vk];
