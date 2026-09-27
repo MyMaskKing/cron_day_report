@@ -1260,11 +1260,12 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .todo-acc .todo-ops { opacity: 1; gap: 0; }
   body .todo-acc .todo-ops .todo-op:not(.todo-more) { display: none; }
   body .todo-acc .todo-op.todo-more { display: inline-flex; }
-  /* 主列表分组：添加子任务走⋯菜单，隐藏组内常驻占位行。
-     全屏详情(body.todo-detail)不在此列——底部「添加子任务」按钮无论有无子任务都常显；
-     无未完成子任务的空详情也靠它保留唯一入口。 */
+  /* 主列表分组（非详情）：添加子任务走⋯菜单，隐藏组内常驻占位行 */
   body .todo-acc:has(.todo-op.todo-more) .todo-detail-adder .todo-detail-adder__placeholder,
-  body:not(.todo-detail) .todo-tree:has(.todo-op.todo-more) .todo-detail-adder .todo-detail-adder__placeholder { display: none; }
+  body:not(.todo-detail) .todo-tree:has(.todo-op.todo-more) .todo-detail-adder .todo-detail-adder__placeholder,
+  /* 全屏详情：树内各层级节点的添加框也收进各自⋯、占位隐藏（否则每层都冒出一个）。
+     只留详情根级一个——它是 .todo-tree 的直接子节点、不在 .todo-node 内，默认 flex 常显 */
+  body.todo-detail .todo-node .todo-detail-adder .todo-detail-adder__placeholder { display: none; }
 }
 /* ============ 速览/手风琴：顶层主任务卡片化（A 方案，与卡片视图同源：3px 等级色带封边） ============ */
 .todo-bandcard {
