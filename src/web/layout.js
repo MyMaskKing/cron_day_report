@@ -1357,6 +1357,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-donezone__head { display: flex; align-items: center; gap: 8px; padding: 8px 6px; font-weight: 700; color: var(--muted); font-size: 13px; }
 .todo-donezone__tag { font-size: 10.5px; font-weight: 700; color: var(--brand); background: var(--brand-tint); border: 1px solid var(--brand-border); border-radius: 6px; padding: 1px 7px; }
 .flat-donewhen { flex: none; align-self: center; font-size: 12px; color: var(--muted); }
+/* 随上级完成、叶子自身未勾选：勾选圆绿，但标题不划线、保持正常色 */
+.flat-item.done.via-parent .flat-title { text-decoration: none; color: var(--text); }
 /* 任务详情弹窗：层级面包屑 + 创建/完成时间 */
 .td-crumb { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 .td-times { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 0 2px; font-size: 12.5px; color: var(--muted); }

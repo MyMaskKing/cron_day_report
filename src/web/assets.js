@@ -8253,53 +8253,43 @@ function todoPendingTrees(trees){
     return Object.assign({}, n, { children: todoPendingTrees(n.children || []) });
   });
 }
-// 全局已完成拍平项：path 含主任务名；done 节点收口（不进子级）
-function todoCollectDoneItems(trees){
-  var items=[];
-  function walk(n, ancPath){
-    (n.children||[]).forEach(function(c){
-      var cPath=ancPath.concat(n.title);
-      if(c.done) items.push({node:c, path:cPath, done:true});
-      else walk(c, cPath);
-    });
+// 叶子遍历器：钻到【最终叶子】(父完成也继续向下，不中途收口)
+// scope='root' 全局(path 含主任务名) / 'detail' 详情(path 不含主任务名)
+// cb({node,path,done,when,selfDone})：done=自身或任一祖先完成；when=收口完成日(最近完成上级)；selfDone=自身是否勾选
+function todoEachLeaf(trees, scope, cb){
+  function handle(c, pathToParent, ancDone, ancWhen){
+    var cDone=ancDone||!!c.done;
+    var cWhen=c.done ? (c.done_at||ancWhen||'') : (ancWhen||'');
+    if((c.children||[]).length===0){ cb({node:c, path:pathToParent, done:cDone, when:cWhen, selfDone:!!c.done}); return; }
+    (c.children||[]).forEach(function(g){ handle(g, pathToParent.concat(c.title), cDone, cWhen); });
   }
   trees.forEach(function(root){
-    if(root.done){ items.push({node:root, path:[], done:true}); return; }
-    walk(root, []);
+    if((root.children||[]).length===0){ cb({node:root, path:[], done:!!root.done, when:root.done_at||'', selfDone:!!root.done}); return; }
+    var base=scope==='root' ? [root.title] : [];
+    (root.children||[]).forEach(function(c){ handle(c, base, !!root.done, root.done_at||''); });
   });
-  items.sort(function(a,b){
-    var ad=a.node.done_at||'', bd=b.node.done_at||'';
-    if(ad!==bd) return ad<bd?1:-1;
-    return b.node.id-a.node.id;
-  });
+}
+function todoDoneCmp(a,b){
+  if(a.when!==b.when){ if(!a.when)return 1; if(!b.when)return -1; return a.when<b.when?1:-1; }
+  return b.node.id-a.node.id;
+}
+// 全局已完成拍平项：有效完成(自身或祖先完成)的最终叶子，path 含主任务名，按完成日倒序
+function todoCollectDoneItems(trees){
+  var items=[];
+  todoEachLeaf(trees,'root',function(it){ if(it.done) items.push(it); });
+  items.sort(todoDoneCmp);
   return items;
 }
-// 单任务详情拍平项：path 不含主任务名（主任务名=详情标题）；返回 {pend,done}
+// 单任务详情拍平项：钻到最终叶子；path 不含主任务名(主任务名=标题)；返回 {pend,done}
 function todoCollectDetailItems(root){
   var pend=[], done=[];
-  function walk(n, ancPath){
-    (n.children||[]).forEach(function(c){
-      var cPath=ancPath.concat(n.title);
-      if(c.done) done.push({node:c, path:cPath, done:true});
-      else if((c.children||[]).length) walk(c, cPath);
-      else pend.push({node:c, path:cPath, done:false});
-    });
-  }
-  (root.children||[]).forEach(function(c){
-    if(c.done) done.push({node:c, path:[], done:true});
-    else if((c.children||[]).length) walk(c, []);
-    else pend.push({node:c, path:[], done:false});
-  });
+  todoEachLeaf([root],'detail',function(it){ (it.done?done:pend).push(it); });
   pend.sort(function(a,b){
     var ad=todoDetailEffDue(a.node), bd=todoDetailEffDue(b.node);
     if(ad!==bd){ if(!ad)return 1; if(!bd)return -1; return ad<bd?-1:1; }
     return (a.node.sort_order-b.node.sort_order)||(a.node.id-b.node.id);
   });
-  done.sort(function(a,b){
-    var ad=a.node.done_at||'', bd=b.node.done_at||'';
-    if(ad!==bd) return ad<bd?1:-1;
-    return b.node.id-a.node.id;
-  });
+  done.sort(todoDoneCmp);
   return {pend:pend, done:done};
 }
 // 有效截止日：沿 _parent 链找第一个非空 due_date（含主任务）
@@ -8326,7 +8316,7 @@ function todoFmtCreated(v){
 function todoFlatRow(item, opts){
   var n=item.node, isDone=!!item.done;
   var row=document.createElement('div');
-  row.className='flat-item'+(isDone?' done':'')+(item.path.length?'':' flat-item--nocrumb');
+  row.className='flat-item'+(isDone?' done':'')+(isDone&&!item.selfDone?' via-parent':'')+(item.path.length?'':' flat-item--nocrumb');
   if(!opts.readOnly && opts.onToggle){
     var check=document.createElement('button');
     check.type='button'; check.className='todo-check'+(isDone?' done':'');
@@ -8356,9 +8346,9 @@ function todoFlatRow(item, opts){
   text.appendChild(title);
   row.appendChild(text);
   if(isDone){
-    if(n.done_at){
+    if(item.when){
       var dw=document.createElement('span');
-      dw.className='flat-donewhen';dw.textContent=n.done_at.slice(5).replace('-','/');
+      dw.className='flat-donewhen';dw.textContent=item.when.slice(5).replace('-','/');
       row.appendChild(dw);
     }
   }else{
@@ -8787,12 +8777,12 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
       eAll.className = 'todo-empty'; eAll.textContent = '🎉 子任务已全部完成';
       container.appendChild(eAll);
     }
-    if (!opts.hideDone && data.done.length) {
-      todoMountDoneZone(container, data.done, opts, '已完成', '仅本任务 · 详情内沉底');
-    }
-    // 底部常驻「添加子任务」
+    // 常驻「添加子任务」按钮（已完成拍平区在其下方）
     if (opts.onAddChildSubmit) {
       mountDetailAdder(container, root, function(payload){ return opts.onAddChildSubmit(root, payload); });
+    }
+    if (!opts.hideDone && data.done.length) {
+      todoMountDoneZone(container, data.done, opts, '已完成', '仅本任务 · 详情内沉底');
     }
   }
   todoPersistDetail(root.id);
@@ -10348,9 +10338,9 @@ async function openTodoDetail(node, opts) {
     + (node.done && node.done_at ? '<span>✅ 完成：' + esc(node.done_at) + '</span>' : '')
     + '</div>';
   var body =
-    (crumbPath.length ? '<div class="td-crumb">📂 ' + esc(crumbPath.join(' / ')) + '</div>' : '') +
     '<div class="td-title">' + esc(node.title) + '</div>' +
     '<div class="td-meta">' + cdChip + meta.join('') + '</div>' +
+    (crumbPath.length ? '<div class="td-crumb">📂 ' + esc(crumbPath.join(' / ')) + '</div>' : '') +
     timesHtml +
     subsHtml +
     (node.note
