@@ -1748,7 +1748,7 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   font-size: 12.5px; color: var(--muted-2);
 }
-.todo-add-crumb b { color: var(--brand); font-weight: 600; max-width: 56%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.todo-add-crumb b { color: var(--brand); font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .todo-add-crumb__reset {
   margin-left: auto; flex-shrink: 0; cursor: pointer;
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted-2);
@@ -1767,6 +1767,11 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-detail-adder__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .todo-detail-adder__row .btn.sm { padding: 6px 16px; min-height: 34px; }
 .todo-detail-adder__hint { font-size: 12px; margin-left: auto; }
+/* 完整树视图: 缩进在 .todo-row 的 margin-left 上、.todo-children 容器本身不缩进,
+   挂在其内的添加框需补同级子行的缩进, 否则卡片向左突出(手风琴 .todo-acc__kids 自带 padding 无此问题);
+   叶子首次添加动态挂到 wrap, 与叶子行对齐。排除手风琴/速览/根 bandcard(各自已有缩进规则) */
+.todo-children > .todo-detail-adder { margin-left: calc((var(--depth, 0) + 1) * 26px); }
+.todo-node:not(.todo-acc):not(.flat-group):not(.todo-bandcard) > .todo-detail-adder { margin-left: calc(var(--depth, 0) * 26px); }
 
 /* 手机窄屏(≤640px): 按钮撑满一行更易点; 提示文单独一行不挤按钮 */
 @media (max-width: 640px) {
@@ -2153,6 +2158,9 @@ html { scrollbar-gutter: stable; }
   /* 待办树：缩进收窄, 操作按钮常显 */
   .todo-row { margin-left: calc(var(--depth, 0) * 16px); gap: 8px; padding: 8px 10px; }
   .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
+  /* 完整树添加框缩进同步窄屏系数(同外层 26px 口径两条规则) */
+  .todo-children > .todo-detail-adder { margin-left: calc((var(--depth, 0) + 1) * 16px); }
+  .todo-node:not(.todo-acc):not(.flat-group):not(.todo-bandcard) > .todo-detail-adder { margin-left: calc(var(--depth, 0) * 16px); }
   .todo-ops { opacity: 1; }
   /* 行内操作钮热区从约 28px 补到约 38px */
   .todo-op { padding: 9px 10px; }
