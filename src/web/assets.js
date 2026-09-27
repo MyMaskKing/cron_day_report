@@ -9101,17 +9101,31 @@ function todoBindNoteToggle(noteEl) {
   toggle.addEventListener('click', function () { show(true); });
   return { toggle: toggle, show: show, reset: reset };
 }
-// 面包屑"添加到：xxx"标题过长时: 收起「改为主任务」文字只留 ✕ 图标, 保证单行不换行。
-// ResizeObserver 监听 crumb 尺寸(展开/旋转/分屏); fullW 缓存完整态内容总宽, 避免加/去 class 的反馈抖动
+// 面包屑"添加到：xxx"标题过长(被省略号截断)时: 收起「改为主任务」文字只留 ✕ 图标, 保证单行不换行。
+// 检测标题 b 自身 scrollWidth>clientWidth(b 有 min-width:0 会无限吸收收缩, crumb 整体不溢出, 不能测 crumb);
+// 退出加迟滞: 须容器宽 >= 各部分全文宽之和, 防止 compact 让按钮变窄→b 松开→解除→又压缩 的反馈抖动
 function todoBindCrumbCompact(crumbEl) {
   if (!crumbEl || typeof ResizeObserver === 'undefined') return;
-  var fullW = 0;
+  var btnFullW = 0; // 按钮完整态宽(含文字), compact 后文字隐藏 scrollWidth 会变小, 需缓存
+  function fullW() {
+    var parts = crumbEl.children, w = 0;
+    for (var i = 0; i < parts.length; i++) {
+      var el = parts[i];
+      w += (el.classList && el.classList.contains('todo-add-crumb__reset')) ? btnFullW : el.scrollWidth;
+    }
+    return w + Math.max(0, parts.length - 1) * 6;
+  }
   function sync() {
     if (!crumbEl.isConnected) return;
+    var bEl = crumbEl.querySelector('b');
+    if (!bEl) return;
     if (!crumbEl.classList.contains('is-compact')) {
-      fullW = crumbEl.scrollWidth;
-      if (fullW > crumbEl.clientWidth) crumbEl.classList.add('is-compact');
-    } else if (crumbEl.clientWidth >= fullW) {
+      var btnEl = crumbEl.querySelector('.todo-add-crumb__reset');
+      if (btnEl) btnFullW = btnEl.scrollWidth;
+    }
+    if (bEl.scrollWidth > bEl.clientWidth + 1) {
+      crumbEl.classList.add('is-compact');
+    } else if (crumbEl.clientWidth + 1 >= fullW()) {
       crumbEl.classList.remove('is-compact');
     }
   }

@@ -1748,9 +1748,10 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;
   font-size: 12.5px; color: var(--muted-2);
 }
+.todo-add-crumb > span { flex-shrink: 0; white-space: nowrap; }
 .todo-add-crumb b { color: var(--brand); font-weight: 600; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .todo-add-crumb__reset {
-  margin-left: auto; flex: 0 100 auto; cursor: pointer;
+  margin-left: auto; flex: 0 0 auto; cursor: pointer;
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted-2);
   border-radius: 999px; font-size: 12px; padding: 1px 10px; line-height: 1.7;
   display: inline-flex; align-items: center; gap: 4px;
