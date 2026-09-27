@@ -9065,6 +9065,7 @@ function mountDetailAdder(container, parentNode, submitFn) {
   if (!container || !parentNode || typeof submitFn !== 'function') return;
   var wrap = document.createElement('div');
   wrap.className = 'todo-detail-adder collapsed';
+  wrap.setAttribute('data-owner-id', parentNode.id);
 
   var placeholder = document.createElement('button');
   placeholder.type = 'button'; placeholder.className = 'todo-detail-adder__placeholder';
@@ -9228,10 +9229,13 @@ function mountDetailAdder(container, parentNode, submitFn) {
 // 打开「添加子任务」（详情式 mountDetailAdder）：分组 adder 在子树容器内（已预挂），
 // 叶子首次添加则动态挂载到 wrap；随后程序化点占位行展开编辑器
 function todoOpenDetailAdder(wrap, node, submitFn) {
-  var adder = wrap.querySelector('.todo-detail-adder');
+  // 只取属于 node 自身的添加框（按 owner id 精确匹配）；
+  // wrap 内后代节点也各自挂了添加框，裸 querySelector('.todo-detail-adder') 会误取第一个
+  var adderSel = '.todo-detail-adder[data-owner-id="' + node.id + '"]';
+  var adder = wrap.querySelector(adderSel);
   if (!adder) {
     mountDetailAdder(wrap, node, submitFn);
-    adder = wrap.querySelector('.todo-detail-adder');
+    adder = wrap.querySelector(adderSel);
   }
   // 节点折叠时先展开子树，否则编辑器在隐藏容器内不可见
   var host = adder.closest ? adder.closest('.todo-acc__kids,.todo-children') : null;
