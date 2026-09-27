@@ -7687,14 +7687,22 @@ function renderTodoTree(container, trees, opts) {
       mountDetailAdder(childBox, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
     }
 
-    // 点击整行（非勾选框/操作按钮区）即展开/折叠该任务的子任务
+    // 手风琴式分工：点小三角展开/折叠子任务；点主体(标题/meta/备注)弹任务详情
     if (hasChildren) {
-      row.style.cursor = 'pointer';
-      row.addEventListener('click', function(e){
-        if (e.target.closest('.todo-check') || e.target.closest('.todo-ops')) return;
+      caret.style.cursor = 'pointer';
+      caret.addEventListener('click', function(e){
+        e.stopPropagation();
         _todoCollapsed[node.id] = !_todoCollapsed[node.id];
         caret.classList.toggle('collapsed');
         childBox.classList.toggle('collapsed');
+      });
+    }
+    var detailFn = opts.onDetail || opts.onEdit;
+    if (detailFn) {
+      main.style.cursor = 'pointer';
+      main.addEventListener('click', function(e){
+        e.stopPropagation();
+        detailFn(node);
       });
     }
     return wrap;
@@ -8561,6 +8569,11 @@ function todoRenderView(container, trees, opts) {
       var t = document.createElement('div');
       t.className = 'todo-crumb__title';
       t.textContent = (root.shared_cat_id != null ? '👥 ' : '') + root.title;
+      if (opts.onDetail) {
+        t.style.cursor = 'pointer';
+        t.title = '查看任务详情';
+        t.addEventListener('click', function(){ opts.onDetail(root); });
+      }
       crumb.appendChild(back);
       crumb.appendChild(t);
       // child_due 模式: 面包屑标题后挂贴(根必为顶层任务); 中间层子分组的胶囊在子树行内渲染
