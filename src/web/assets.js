@@ -6281,7 +6281,7 @@ function todoOpMenuToggle(row, opsEl){
   var menu = document.createElement('div');
   menu.className = 'todo-op-menu';
   Array.prototype.forEach.call(opsEl.querySelectorAll('.todo-op'), function(btn){
-    if (btn.classList.contains('todo-more') || btn.classList.contains('todo-drag')) return;
+    if (btn.classList.contains('todo-more') || btn.classList.contains('todo-drag') || btn.classList.contains('todo-fold')) return;
     var item = document.createElement('button');
     item.type = 'button';
     item.className = 'todo-op-menu__item' + (btn.classList.contains('danger') ? ' danger' : '');
@@ -7533,7 +7533,10 @@ function renderTodoTree(container, trees, opts) {
 
     // 折叠三角
     var caret = document.createElement('span');
-    caret.className = 'todo-caret' + (hasChildren ? '' : ' leaf') + (_todoCollapsed[node.id] ? ' collapsed' : '');
+    // 真顶层主任务的折叠移到行右侧(防与勾选误触); 左侧三角仅留不可点对齐占位
+    // 仅手机端把根主任务折叠移到右侧; PC 保持左侧三角不变
+    var caretMoveRight = cardRoot && window.matchMedia && window.matchMedia('(max-width:640px)').matches;
+    caret.className = 'todo-caret' + ((hasChildren && !caretMoveRight) ? '' : ' leaf') + (_todoCollapsed[node.id] ? ' collapsed' : '');
     caret.textContent = '▼';
     row.appendChild(caret);
 
@@ -7668,6 +7671,20 @@ function renderTodoTree(container, trees, opts) {
       if (opts.onDel)      { var b4 = mkOp(ICONS.trash, '删除',       function(){ opts.onDel(node); }, 'danger'); ops.appendChild(b4); }
       // 手机完整树: 操作收进「⋯」弹层(桌面/详情子树 CSS 隐藏此钮, 操作钮原样常显)
       if (ops.childNodes.length) {
+        // 手机端根主任务: 折叠/展开子任务常驻操作区最右(⋯ 之前), 与左侧勾选物理远离防误触
+        if (caretMoveRight && hasChildren) {
+          var bFold = mkOp(ICONS.chevron, _todoCollapsed[node.id] ? '展开子任务' : '折叠子任务', function(){
+            _todoCollapsed[node.id] = !_todoCollapsed[node.id];
+            var collapsedNow = !!_todoCollapsed[node.id];
+            bFold.classList.toggle('is-collapsed', collapsedNow);
+            bFold.title = collapsedNow ? '展开子任务' : '折叠子任务';
+            bFold.setAttribute('aria-label', bFold.title);
+            childBox.classList.toggle('collapsed', collapsedNow);
+          });
+          bFold.classList.add('todo-fold');
+          if (_todoCollapsed[node.id]) bFold.classList.add('is-collapsed');
+          ops.appendChild(bFold);
+        }
         var bMore = mkOp(ICONS.more, '更多操作', function(){ todoOpMenuToggle(row, ops); });
         bMore.classList.add('todo-more');
         ops.appendChild(bMore);
@@ -7688,7 +7705,8 @@ function renderTodoTree(container, trees, opts) {
     }
 
     // 手风琴式分工：点小三角展开/折叠子任务；点主体(标题/meta/备注)弹任务详情
-    if (hasChildren) {
+    // (根主任务三角已移右侧, 左侧占位不绑点击)
+    if (hasChildren && !caretMoveRight) {
       caret.style.cursor = 'pointer';
       caret.addEventListener('click', function(e){
         e.stopPropagation();

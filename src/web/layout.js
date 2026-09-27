@@ -359,6 +359,7 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
   body .todo-tree .todo-ops { opacity: 1; gap: 0; }
   body .todo-tree .todo-ops .todo-op:not(.todo-more) { display: none; }
   body .todo-tree .todo-op.todo-more { display: inline-flex; }
+  body .todo-tree .todo-ops .todo-op.todo-fold { display: inline-flex; }
   body:not(.todo-detail) .todo-tree .todo-title { white-space: pre-wrap; overflow: visible; text-overflow: clip; }
   /* 基金页策略浮层在底栏之上的避让规则写在 .strat-* 原媒体块旁(该处带 !important) */
 }
@@ -1078,6 +1079,9 @@ input[type="date"], input[type="month"] { cursor: pointer; }
 .todo-caret:hover { color: var(--brand); }
 .todo-caret.collapsed { transform: rotate(-90deg); }
 .todo-caret.leaf { visibility: hidden; }
+/* 完整树根主任务: 折叠钮在右侧操作区, chevron 随状态旋转(与左侧三角同视觉语言) */
+.todo-fold svg { transition: transform .2s cubic-bezier(.4,0,.2,1); }
+.todo-fold.is-collapsed svg { transform: rotate(-90deg); }
 /* 标题与元信息 */
 .todo-main { flex: 1; min-width: 0; }
 .todo-title { font-size: 14px; color: var(--text); word-break: break-word; transition: color .2s; }
