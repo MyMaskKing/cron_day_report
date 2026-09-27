@@ -8743,7 +8743,8 @@ function todoRenderView(container, trees, opts) {
 function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
   document.body.classList.add('todo-detail'); // 详情态隐藏悬浮"新建主任务"钮
   var data = todoCollectDetailItems(root);
-  function build(){
+  // render：面包屑 + 完成/编辑主任务链 + 未完成子任务【原嵌套树】(完成节点整枝剪掉)
+  function render(){
     if (crumb) {
       crumb.style.display = 'flex';
       crumb.innerHTML = '';
@@ -8769,15 +8770,24 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
     }
     // "完成主任务 / 编辑主任务"文字链：挂提示文末尾，无提示文兜底独立一行
     todoAttachDoneLinkToTip(container, root, opts);
-    container.className = 'flat-view';
+    container.className = 'todo-tree';
     container.innerHTML = '';
-    if (data.pend.length) data.pend.forEach(function(it){ container.appendChild(todoFlatRow(it, opts)); });
-    else if (data.done.length) {
-      var eAll = document.createElement('div');
-      eAll.className = 'todo-empty'; eAll.textContent = '🎉 子任务已全部完成';
-      container.appendChild(eAll);
+    if ((root.children || []).length) {
+      var childOpts = {};
+      for (var ck in opts) if (Object.prototype.hasOwnProperty.call(opts, ck)) childOpts[ck] = opts[ck];
+      childOpts.startDepth = 0;
+      childOpts.hideDone = true;  // 完成节点整枝剪掉；未完成嵌套树原样显示
+      childOpts.onlyDone = false;
+      childOpts.forcedRootDue = root.due_date;
+      childOpts.onAddForRoot = function(){
+        var ph = container.querySelector('.todo-detail-adder__placeholder');
+        if (ph) ph.click();
+      };
+      renderTodoTree(container, root.children, childOpts);
     }
-    // 常驻「添加子任务」按钮（已完成拍平区在其下方）
+  }
+  // after：常驻「添加子任务」按钮；已完成拍平区在其下方
+  function after(){
     if (opts.onAddChildSubmit) {
       mountDetailAdder(container, root, function(payload){ return opts.onAddChildSubmit(root, payload); });
     }
@@ -8786,7 +8796,7 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
     }
   }
   todoPersistDetail(root.id);
-  todoPreserveScroll(scrollScroller, todoScrollKey('card', root.id, scrollScroller), build);
+  todoPreserveScroll(scrollScroller, todoScrollKey('card', root.id, scrollScroller), render, after);
 }
 // 手机键盘弹起时把输入框"上移"到可视视区内(修复添加框被键盘盖住):
 // 先 scrollIntoView, 再按 visualViewport 底边补差, 优先滚动最近的可滚动祖先(全屏区/弹窗遮罩), 兜底 window.scrollBy
