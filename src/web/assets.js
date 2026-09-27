@@ -7660,7 +7660,7 @@ function renderTodoTree(container, trees, opts) {
       // 添加子任务: 详情式（mountDetailAdder），同卡片视图详情
       if (opts.onAddChildSubmit) {
         var b1 = mkOp(ICONS.plus, '添加子任务', function(){
-          todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+          todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
         });
         ops.appendChild(b1);
       }
@@ -7701,7 +7701,7 @@ function renderTodoTree(container, trees, opts) {
     wrap.appendChild(childBox);
     // 底部常驻「添加子任务」（同卡片视图详情）；叶子点 ＋ 时动态挂载
     if (hasChildren && opts.onAddChildSubmit) {
-      mountDetailAdder(childBox, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+      mountDetailAdder(childBox, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
     }
 
     // 手风琴式分工：点小三角展开/折叠子任务；点主体(标题/meta/备注)弹任务详情
@@ -8781,7 +8781,8 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
       childOpts.onlyDone = false;
       childOpts.forcedRootDue = root.due_date;
       childOpts.onAddForRoot = function(){
-        var ph = container.querySelector('.todo-detail-adder__placeholder');
+        // 只点详情根级占位（.todo-tree 直接子节点那个）；container 内嵌套节点的占位排在前面，裸取第一个会点错
+        var ph = container.querySelector('#todoTree > .todo-detail-adder .todo-detail-adder__placeholder');
         if (ph) ph.click();
       };
       renderTodoTree(container, root.children, childOpts);
@@ -8932,6 +8933,7 @@ function openInlineAddChild(btnEl, parentNode, submitFn, options) {
   titleEl.rows = 1; titleEl.placeholder = '子任务标题(支持换行)'; titleEl.className = 'todo-inline-add__title';
   var noteEl = document.createElement('textarea');
   noteEl.rows = 1; noteEl.placeholder = '备注(可选)'; noteEl.className = 'todo-inline-add__note';
+  var noteCtl = todoBindNoteToggle(noteEl); // 备注默认隐藏，点"添加备注"再展开（快捷添加）
   var dueEl = null, recurCtl = null;
   if (childDueMode) {
     var optRow = document.createElement('div');
@@ -8951,7 +8953,10 @@ function openInlineAddChild(btnEl, parentNode, submitFn, options) {
   var hint = document.createElement('span'); hint.className = 'todo-inline-add__hint muted';
   hint.textContent = childDueMode ? '可设置截止日期与重复' : '继承上级任务的日期/优先级/分类';
   actions.appendChild(saveBtn); actions.appendChild(cancelBtn); actions.appendChild(hint);
-  box.insertBefore(titleEl, box.firstChild); box.appendChild(noteEl); box.appendChild(actions);
+  box.insertBefore(titleEl, box.firstChild);
+  box.appendChild(noteCtl.toggle);
+  box.appendChild(noteEl);
+  box.appendChild(actions);
   // 详情页: 卡片顶部"添加到：xxx"面包屑, 深层节点额外给 ✕ 改为主任务(主任务自身的直接子不显示)
   if (options.isDetail) {
     var crumbEl = document.createElement('div');
@@ -9011,6 +9016,7 @@ function openInlineAddChild(btnEl, parentNode, submitFn, options) {
   if (restoring) {
     titleEl.value = _rec0.title || '';
     noteEl.value = _rec0.note || '';
+    if (_rec0.note) noteCtl.show(false);
     if (dueEl && _rec0.due) dueEl.value = _rec0.due;
     titleEl.dispatchEvent(new Event('input')); // 触发 autoGrow; persist 同步落盘
     noteEl.dispatchEvent(new Event('input'));
@@ -9058,10 +9064,33 @@ function openInlineAddChild(btnEl, parentNode, submitFn, options) {
   titleEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); close(); } });
   noteEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); close(); } });
 }
+// 内联添加框「备注」：默认隐藏走快捷添加（同新建表单把备注收进"更多选项"的口径），
+// 点"📝 添加备注"就地展开。返回 { toggle, show(focus), reset() }：
+// 草稿/恢复带备注时调 show(false) 直接展开，收起时 reset() 复位。
+function todoBindNoteToggle(noteEl) {
+  var toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'todo-addnote-toggle muted';
+  toggle.textContent = '📝 添加备注';
+  toggle.style.cssText = 'align-self:flex-start;border:none;background:none;padding:2px 0;font-size:13px;cursor:pointer;';
+  noteEl.style.display = 'none';
+  function show(focus) {
+    noteEl.style.display = 'block';
+    toggle.style.display = 'none';
+    if (focus) noteEl.focus();
+  }
+  function reset() {
+    noteEl.style.display = 'none';
+    toggle.style.display = '';
+  }
+  toggle.addEventListener('click', function () { show(true); });
+  return { toggle: toggle, show: show, reset: reset };
+}
 // 详情页底部常驻"+ 添加子任务"占位行(MS To Do 风格): 点击在列表末尾就地展开为小卡片
-// 卡片顶部面包屑明示添加目标(主任务名); 深层节点行内 ＋ 展开的是 openInlineAddChild 卡片(带 ✕ 改为主任务)
-// container: 详情页 #todoTree 容器; parentNode: 当前详情根任务; submitFn(payload)-> Promise
-function mountDetailAdder(container, parentNode, submitFn) {
+// 卡片顶部面包屑明示添加目标；深层节点(非详情根)且提供 onAddForRoot 时额外给「✕ 改为主任务」
+// container: 详情页 #todoTree 容器; parentNode: 当前任务; submitFn(payload)-> Promise;
+// onAddForRoot(): 深层添加时切回给主任务添加
+function mountDetailAdder(container, parentNode, submitFn, onAddForRoot) {
   if (!container || !parentNode || typeof submitFn !== 'function') return;
   var wrap = document.createElement('div');
   wrap.className = 'todo-detail-adder collapsed';
@@ -9078,6 +9107,7 @@ function mountDetailAdder(container, parentNode, submitFn) {
   titleEl.rows = 1; titleEl.placeholder = '子任务标题(支持换行)'; titleEl.className = 'todo-detail-adder__title';
   var noteEl = document.createElement('textarea');
   noteEl.rows = 1; noteEl.placeholder = '备注(可选)'; noteEl.className = 'todo-detail-adder__note';
+  var noteCtl = todoBindNoteToggle(noteEl); // 备注默认隐藏，点"添加备注"再展开（快捷添加）
   var dueEl = null, recurCtl = null;
   if (childDueMode) {
     var optRow = document.createElement('div');
@@ -9095,13 +9125,25 @@ function mountDetailAdder(container, parentNode, submitFn) {
   crumbEl.className = 'todo-add-crumb';
   crumbEl.innerHTML = '<span>添加到：</span><b></b>';
   crumbEl.querySelector('b').textContent = parentNode.title;
+  // 深层节点(非详情根)：给「✕ 改为主任务」，切回给主任务添加（先收起本框，再程序化点根级占位）
+  var isRootItself = parentNode._root && parentNode._root.id === parentNode.id;
+  if (!isRootItself && typeof onAddForRoot === 'function') {
+    var rootResetBtn = document.createElement('button');
+    rootResetBtn.type = 'button'; rootResetBtn.className = 'todo-add-crumb__reset';
+    rootResetBtn.textContent = '✕ 改为主任务';
+    rootResetBtn.addEventListener('click', function () { collapse(); onAddForRoot(); });
+    crumbEl.appendChild(rootResetBtn);
+  }
   var row = document.createElement('div'); row.className = 'todo-detail-adder__row';
   var saveBtn = document.createElement('button'); saveBtn.type = 'button'; saveBtn.className = 'btn sm todo-detail-adder__save'; saveBtn.textContent = '添加';
   var cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'btn sm gray todo-detail-adder__cancel'; cancelBtn.textContent = '取消';
   var hint = document.createElement('span'); hint.className = 'todo-detail-adder__hint muted';
   hint.textContent = childDueMode ? '可设置截止日期与重复' : '继承上级任务的日期/优先级/分类';
   row.appendChild(saveBtn); row.appendChild(cancelBtn); row.appendChild(hint);
-  editor.insertBefore(titleEl, editor.firstChild); editor.appendChild(noteEl); editor.appendChild(row);
+  editor.insertBefore(titleEl, editor.firstChild);
+  editor.appendChild(noteCtl.toggle);
+  editor.appendChild(noteEl);
+  editor.appendChild(row);
 
   editor.insertBefore(crumbEl, editor.firstChild);
   wrap.appendChild(placeholder); wrap.appendChild(editor);
@@ -9128,6 +9170,7 @@ function mountDetailAdder(container, parentNode, submitFn) {
   var _draft = draftLoad();
   if (!_todoAddRestoreLocked && _draft && (_draft.title || _draft.note)) {
     titleEl.value = _draft.title || ''; noteEl.value = _draft.note || '';
+    if (_draft.note) noteCtl.show(false);
     if (dueEl && _draft.due) dueEl.value = _draft.due;
     titleEl.dispatchEvent(new Event('input')); noteEl.dispatchEvent(new Event('input'));
     wrap.classList.remove('collapsed'); wrap.classList.add('editing');
@@ -9172,6 +9215,7 @@ function mountDetailAdder(container, parentNode, submitFn) {
     draftClear(); // 收起(取消/Esc/保存成功)即清草稿
     if (suppress) { suppress = false; todoUnlockAddRestore(); }
     titleEl.value = ''; noteEl.value = '';
+    noteCtl.reset();
     if (dueEl) dueEl.value = todoTodayStr(); // 复位后截止日期仍默认今天
     // 触发一次 input 让 autoGrow 复位
     titleEl.dispatchEvent(new Event('input')); noteEl.dispatchEvent(new Event('input'));
@@ -9228,13 +9272,13 @@ function mountDetailAdder(container, parentNode, submitFn) {
 }
 // 打开「添加子任务」（详情式 mountDetailAdder）：分组 adder 在子树容器内（已预挂），
 // 叶子首次添加则动态挂载到 wrap；随后程序化点占位行展开编辑器
-function todoOpenDetailAdder(wrap, node, submitFn) {
+function todoOpenDetailAdder(wrap, node, submitFn, onAddForRoot) {
   // 只取属于 node 自身的添加框（按 owner id 精确匹配）；
   // wrap 内后代节点也各自挂了添加框，裸 querySelector('.todo-detail-adder') 会误取第一个
   var adderSel = '.todo-detail-adder[data-owner-id="' + node.id + '"]';
   var adder = wrap.querySelector(adderSel);
   if (!adder) {
-    mountDetailAdder(wrap, node, submitFn);
+    mountDetailAdder(wrap, node, submitFn, onAddForRoot);
     adder = wrap.querySelector(adderSel);
   }
   // 节点折叠时先展开子树，否则编辑器在隐藏容器内不可见
