@@ -7862,7 +7862,7 @@ function renderTodoAccordion(container, trees, opts) {
     });
     rowEl.appendChild(nameEl);
     var opsEl = buildOps(node, depth, rowEl, function(){
-      todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+      todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
     });
     if (opsEl) rowEl.appendChild(opsEl);
     // 日期 chip 同卡片视图（逾期红/今天紫/未来灰 N天后）；跟随上级时无自身日期不显示
@@ -7948,7 +7948,7 @@ function renderTodoAccordion(container, trees, opts) {
       rowEl.appendChild(repEl);
     }
     var opsEl = buildOps(node, depth, rowEl, function(){
-      todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+      todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
     });
     if (opsEl) rowEl.appendChild(opsEl);
     // 右侧日期 chip：顶层同 todoRootDue，其余节点只显示自身日期，样式同卡片视图
@@ -8005,7 +8005,7 @@ function renderTodoAccordion(container, trees, opts) {
     wrap.appendChild(kidsEl);
     // 底部常驻「添加子任务」（同卡片视图详情；solo 组不挂，添加走标题行 ＋ / ⋯ 菜单）
     if (!solo && opts.onAddChildSubmit) {
-      mountDetailAdder(kidsEl, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
+      mountDetailAdder(kidsEl, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
     }
     // 拖拽绑定
     if (!opts.readOnly && opts.onReorder) {
@@ -8730,6 +8730,14 @@ function todoRenderView(container, trees, opts) {
   for (var vk in opts) if (Object.prototype.hasOwnProperty.call(opts, vk)) viewOpts[vk] = opts[vk];
   viewOpts.hideDone = false; // done 已抽离，渲染器无需再按完成剪枝
   viewOpts.onlyDone = false;
+  // 主列表深层子任务的「✕ 改为主任务」：切到该节点所属顶层主任务自己的添加框。
+  // rootId 由 mountDetailAdder 传 node._root.id；data-owner-id 精确定位对应组、点其占位展开。
+  // flat 组头添加本就归属顶层、不走此回调（renderTodoFlat 未传 onAddForRoot）。
+  viewOpts.onAddForRoot = function (rootId) {
+    if (rootId == null) return;
+    var ph = container.querySelector('.todo-detail-adder[data-owner-id="' + rootId + '"] .todo-detail-adder__placeholder');
+    if (ph) ph.click();
+  };
   preserveScroll(todoScrollKey(view, null, scrollScroller), function(){
     if (view === 'accordion') renderTodoAccordion(container, pending, viewOpts);
     else if (view === 'flat') renderTodoFlat(container, pending, viewOpts);
@@ -9131,7 +9139,10 @@ function mountDetailAdder(container, parentNode, submitFn, onAddForRoot) {
     var rootResetBtn = document.createElement('button');
     rootResetBtn.type = 'button'; rootResetBtn.className = 'todo-add-crumb__reset';
     rootResetBtn.textContent = '✕ 改为主任务';
-    rootResetBtn.addEventListener('click', function () { collapse(); onAddForRoot(); });
+    rootResetBtn.addEventListener('click', function () {
+      collapse();
+      onAddForRoot(parentNode._root ? parentNode._root.id : parentNode.id);
+    });
     crumbEl.appendChild(rootResetBtn);
   }
   var row = document.createElement('div'); row.className = 'todo-detail-adder__row';
