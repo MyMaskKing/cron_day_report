@@ -1799,6 +1799,15 @@ if (document.readyState === 'loading') {
   window._appShellTodoChanged = function() {
     try { if (typeof api.todoChanged === 'function') api.todoChanged(); } catch (e) {}
   };
+  // 原生壳回前台时调用：仍停在待办页、无弹窗/全屏层且距上次加载超过 30 分钟时静默软刷新，
+  // 避免 App 从后台恢复后显示昨天的列表；首次加载未完成(_todoLoadedAt 未定义)时不触发。
+  window._appShellResumeTodo = function() {
+    if (location.pathname !== '/todo') return;
+    if (document.body.classList.contains('todo-fs-on')) return;
+    if (document.querySelector('.modal-mask.show, .chart-fs-mask, .mp-menu.show')) return;
+    if (!window._todoLoadedAt || Date.now() - window._todoLoadedAt < 30 * 60 * 1000) return;
+    loadTodos();
+  };
   report();
 })();
 
@@ -10232,8 +10241,10 @@ async function loadTodos() {
   // 同步重算抽屉计数(勾选/增删改后数字立即更新, 避免已完成任务仍占计数)
   refreshTodoDrawer(_rows);
   todoAlarmReconcile(_rows, true);
+  // 记录本页最近一次成功加载时间：供原生壳回前台时判断是否需要软刷新
+  window._todoLoadedAt = Date.now();
   // App 原生壳: 列表已与服务端同步(增删改/勾选/排序/共享分类变动的统一收尾),
-  // 通知立即刷新桌面小组件, 不等 15 分钟周期 Worker; 普通浏览器无此函数, no-op.
+  // 通知立即刷新桌面, 不等 15 分钟周期 Worker; 普通浏览器无此函数, no-op.
   if (typeof window._appShellTodoChanged === 'function') window._appShellTodoChanged();
 }
 var _filter = 'planned'; // all | planned | cur | today | overdue | future | memo | done ; 默认计划中(有截止日期)

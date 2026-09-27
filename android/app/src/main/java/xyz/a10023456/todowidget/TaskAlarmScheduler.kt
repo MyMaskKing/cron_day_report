@@ -397,6 +397,9 @@ object TaskAlarmScheduler {
             .edit().putLong(KEY_LAST_FIRE, firedAt).apply()
         // 启动响铃服务；真实闹钟路径由 Receiver 已拉起页面，Service 不再重复启动 Activity
         AlarmRingingService.start(context, alarm, launchActivity = false)
+        // 闹钟能响说明设备已唤醒：入队一次持久化静默刷新，让桌面小组件立刻追上今日待办；
+        // 否则只能等 30 分钟周期 Worker（Doze 下可能继续延迟）
+        runCatching { RefreshWorker.enqueueImmediate(context) }
     }
 
     /**

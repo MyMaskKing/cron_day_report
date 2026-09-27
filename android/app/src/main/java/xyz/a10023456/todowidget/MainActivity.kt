@@ -69,6 +69,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.content.ContextCompat
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import kotlinx.coroutines.Dispatchers
@@ -189,12 +190,44 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val KEY_WEBVIEW_STATE = "webview_state"
+        /** 回前台小组件缓存过期阈值：对齐 RefreshWorker 周期 30 分钟。 */
+        private const val RESUME_STALE_MS = 30L * 60 * 1000
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // 小组件深链：再次点入时加载指定 URL（AppShell 通过全局事件接收）
         intent.getStringExtra(Keys.Url.name)?.let { DeepLinkBus.emit(it) }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // App 回前台：周期刷新受 Doze/省电策略可能久未执行，桌面有小组件缓存超 30 分钟时
+        // 入队一次持久化静默刷新（进程被杀也会重跑）；同时让网页待办在无弹窗时软刷新，
+        // 避免打开 App 仍是昨天的列表
+        maybeRefreshWidgets()
+        webViewRef?.evaluateJavascript(
+            "window._appShellResumeTodo && window._appShellResumeTodo();",
+            null
+        )
+    }
+
+    /** 回前台时检查桌面小组件缓存是否过期，过期则入队持久化刷新。 */
+    private fun maybeRefreshWidgets() {
+        kotlinx.coroutines.MainScope().launch(Dispatchers.IO) {
+            val stale = runCatching {
+                GlanceAppWidgetManager(this@MainActivity)
+                    .getGlanceIds(TodoAppWidget::class.java)
+                    .map { it.resolveAppWidgetId(this@MainActivity) }
+                    .filter { it >= 0 }
+                    .any {
+                        Prefs.getCache(this@MainActivity, it) == null ||
+                            System.currentTimeMillis() -
+                            Prefs.getLastUpdated(this@MainActivity, it) > RESUME_STALE_MS
+                    }
+            }.getOrDefault(false)
+            if (stale) RefreshWorker.enqueueImmediate(this@MainActivity)
+        }
     }
 
 }
@@ -639,7 +672,12 @@ private fun AppShell(
                             // 主线程防抖 800ms（拖拽排序等连续变更合并为一次）后直连刷新所有桌面
                             // 小组件，不等 15 分钟周期 Worker（WorkManager 一次性任务可能被系统延迟）。
                             private val widgetHandler = Handler(Looper.getMainLooper())
-                            private val widgetRefresh = Runnable { RefreshWorker.refreshAllNow(ctx) }
+                            // 进程内直连 + WorkManager 持久化兜底：用户刷新后立即退出、进程被杀时
+                            // 直连任务可能来不及完成，持久化任务保证数据落盘（唯一任务 REPLACE 去重）
+                            private val widgetRefresh = Runnable {
+                                RefreshWorker.refreshAllNow(ctx)
+                                RefreshWorker.enqueueImmediate(ctx)
+                            }
                             @JavascriptInterface
                             fun todoChanged() {
                                 widgetHandler.removeCallbacks(widgetRefresh)
