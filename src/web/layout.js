@@ -1260,10 +1260,11 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .todo-acc .todo-ops { opacity: 1; gap: 0; }
   body .todo-acc .todo-ops .todo-op:not(.todo-more) { display: none; }
   body .todo-acc .todo-op.todo-more { display: inline-flex; }
-  /* 添加子任务只走⋯菜单：有子任务行(存在⋯入口)时隐藏分组底部常驻占位行；
-     无未完成子任务的空详情没有任何行/⋯，占位行须保留，否则添加入口彻底消失 */
+  /* 主列表分组：添加子任务走⋯菜单，隐藏组内常驻占位行。
+     全屏详情(body.todo-detail)不在此列——底部「添加子任务」按钮无论有无子任务都常显；
+     无未完成子任务的空详情也靠它保留唯一入口。 */
   body .todo-acc:has(.todo-op.todo-more) .todo-detail-adder .todo-detail-adder__placeholder,
-  body .todo-tree:has(.todo-op.todo-more) .todo-detail-adder .todo-detail-adder__placeholder { display: none; }
+  body:not(.todo-detail) .todo-tree:has(.todo-op.todo-more) .todo-detail-adder .todo-detail-adder__placeholder { display: none; }
 }
 /* ============ 速览/手风琴：顶层主任务卡片化（A 方案，与卡片视图同源：3px 等级色带封边） ============ */
 .todo-bandcard {
