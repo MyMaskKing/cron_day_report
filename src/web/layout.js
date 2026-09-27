@@ -1386,6 +1386,9 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .flat-group .todo-detail-adder { display: none; }
   body .flat-group .todo-detail-adder.editing { display: block; }
 }
+/* 速览深层叶子行后动态挂载的添加框：平时整体隐藏，点该行「添加子任务」进入 editing 才出现（PC/手机一致） */
+.flat-leaf-adder-holder .todo-detail-adder:not(.editing) { display: none; }
+.flat-leaf-adder-holder .todo-detail-adder.editing { display: block; }
 /* 概览统计条 */
 .todo-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
 .todo-stat { flex: 1; min-width: 90px; background: var(--surface-3); border-radius: 10px; padding: 12px 14px; text-align: center; }

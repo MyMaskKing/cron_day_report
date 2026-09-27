@@ -8060,6 +8060,11 @@ function renderTodoFlat(container, trees, opts) {
       });
       if (opts.onDel) addOp(ICONS.trash, '删除', function(){ opts.onDel(node); }, 'danger');
     } else {
+      if (opts.onAddChildSubmit) addOp(ICONS.plus, '添加子任务', function(){
+        // 叶子行直接挂在组容器下；在该叶子行之后就地展开添加框（含深层节点的「✕ 改为主任务」）
+        todoOpenFlatLeafAdder(rowEl.parentNode, rowEl, node,
+          function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
+      });
       if (opts.onDetail || opts.onEdit) addOp(ICONS.view, '查看详情', function(){
         (opts.onDetail || opts.onEdit)(node);
       });
@@ -9299,6 +9304,21 @@ function todoOpenDetailAdder(wrap, node, submitFn, onAddForRoot) {
     var caret0 = wrap.querySelector('.todo-acc__caret.is-collapsed,.todo-caret.collapsed');
     if (caret0) caret0.classList.remove('is-collapsed', 'collapsed');
     _todoCollapsed[node.id] = false;
+  }
+  var ph = adder && adder.querySelector('.todo-detail-adder__placeholder');
+  if (ph) ph.click();
+}
+// 速览(flat)叶子行的「添加子任务」：叶子行直接平铺在组容器内、无独立 .todo-node 包裹，
+// 在该叶子行之后插一个 holder 挂载 adder；深层叶子的「✕ 改为主任务」经 onAddForRoot 切回组根级。
+function todoOpenFlatLeafAdder(groupWrap, rowEl, node, submitFn, onAddForRoot) {
+  var adderSel = '.todo-detail-adder[data-owner-id="' + node.id + '"]';
+  var adder = groupWrap.querySelector(adderSel);
+  if (!adder) {
+    var holder = document.createElement('div');
+    holder.className = 'flat-leaf-adder-holder';
+    groupWrap.insertBefore(holder, rowEl.nextSibling);
+    mountDetailAdder(holder, node, submitFn, onAddForRoot);
+    adder = holder.querySelector('.todo-detail-adder');
   }
   var ph = adder && adder.querySelector('.todo-detail-adder__placeholder');
   if (ph) ph.click();
