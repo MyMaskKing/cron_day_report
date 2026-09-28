@@ -8771,8 +8771,11 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
       var mo = parseInt(g.key.slice(5, 7), 10);
       var dayNo = parseInt(g.key.slice(8, 10), 10);
       var wk = _CN_WEEKDAY[new Date(g.key + 'T00:00:00Z').getUTCDay()];
-      // 副标题：标签为汉字相对词（今天/昨天/明天/本周X）时补绝对日期；已是 10/11 数字格式则不重复
-      var subHTML = /^\d/.test(label) ? '' : '<small>' + mo + '月' + dayNo + '日</small>';
+      // 副标题补标签缺失信息：汉字相对词(今天/本周X)有星期缺日期 → M月D日；
+      // 数字日期(10/22)有月日缺星期 → M月周X（不重复标签里的日号）
+      var subHTML = /^\d/.test(label)
+        ? '<small>' + mo + '月' + wk + '</small>'
+        : '<small>' + mo + '月' + dayNo + '日</small>';
       head.innerHTML =
         '<span class="todo-due-group__cal todo-due-group__cal--' + tone + '">' +
           '<b>' + dayNo + '</b><small>' + wk + '</small></span>' +
