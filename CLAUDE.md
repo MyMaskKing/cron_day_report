@@ -26,11 +26,11 @@ docker compose up -d --build      # 数据落 ./docker-data/
 docker compose logs -f
 ```
 
-数据库迁移（全量基线 `migrations/0001_init.sql` + 编号增量脚本，当前到 `0004_files.sql`）——**两个宿主都已内置自动迁移，通常零命令**：
+数据库迁移（全量基线 `migrations/0001_init.sql` + 编号增量脚本，当前到 `0009_user_bg.sql`）——**两个宿主都已内置自动迁移，通常零命令**：
 - **Cloudflare**：Worker 首次请求 / 定时唤醒时 `src/storage/schema.js#ensureSchema(env)` 按 `MIGRATIONS` 登记表顺序执行未应用的 SQL（每个 isolate 仅查一次 `_migrations`，逐条独立提交，仅忽略 already exists/duplicate column）。
 - **Docker/Node**：容器启动时 `docker/migrate.mjs` 扫盘按编号执行 `migrations/*.sql`。两侧共用 `_migrations` 表按**文件名**去重。
-- **新库**：`0001_init.sql` 一次建出全部表/列/索引（`CREATE ... IF NOT EXISTS` + `INSERT OR IGNORE`，可任意重跑）；0002–0004 是基线发布后的增量（待办 auto_parent、待办附件、统一 files 表）。
-- **新增表/列（老库升级）**：**新建** `migrations/000N_描述.sql`（编号三位数对齐、紧接当前最大值，**下一个是 0005**），并**必须同时在 `src/storage/schema.js` 顶部 `import` 与 `MIGRATIONS` 数组登记**——Workers 运行时不能扫盘、`.sql` 靠 wrangler Text 规则构建期内联，漏登记则 CF 侧永不执行（Docker 侧扫盘不受影响）。语句写幂等：新表/索引用 `CREATE ... IF NOT EXISTS`，新列用 `ALTER TABLE ADD COLUMN`（"列已存在"两侧都自动忽略）。可顺带把新结构并进 `0001_init.sql` 的 `CREATE TABLE` 便于全新部署阅读。
+- **新库**：`0001_init.sql` 一次建出全部表/列/索引（`CREATE ... IF NOT EXISTS` + `INSERT OR IGNORE`，可任意重跑）；0002–0009 是基线发布后的增量（待办自动结算/附件、统一 files、每日勉励、闹钟、视图循环、界面背景）。
+- **新增表/列（老库升级）**：**新建** `migrations/000N_描述.sql`（编号三位数对齐、紧接当前最大值，**下一个是 0010**），并**必须同时在 `src/storage/schema.js` 顶部 `import` 与 `MIGRATIONS` 数组登记**——Workers 运行时不能扫盘、`.sql` 靠 wrangler Text 规则构建期内联，漏登记则 CF 侧永不执行（Docker 侧扫盘不受影响）。语句写幂等：新表/索引用 `CREATE ... IF NOT EXISTS`，新列用 `ALTER TABLE ADD COLUMN`（"列已存在"两侧都自动忽略）。可顺带把新结构并进 `0001_init.sql` 的 `CREATE TABLE` 便于全新部署阅读。
 - **手动 D1**（可选/排障）：`wrangler d1 execute cron_db --remote --file=migrations/000N_xxx.sql`。
 
 首次部署到 Cloudflare 另需**手工建 R2 bucket**（不会随部署自动创建）：`wrangler r2 bucket create <名称>`，名称以 `wrangler.toml` 的 `[[r2_buckets]] bucket_name` 为准；D1/KV 则由首次 deploy 按名自动创建并把生成的 ID 回写 `wrangler.toml`。
@@ -142,7 +142,7 @@ Android 端二次开发先读 **`android/DEV_GUIDE.md`**：构建环境（JDK 17
 ## 关键约定与坑
 
 1. **存储抽象不能破**：新增数据操作 → 加在 `d1-adapter.js` 对应域分组的方法上，再在 api 层调用；禁止业务层裸 SQL。
-2. **迁移 SQL 注释必须独立成行**，不要用行内 `--` 注释（splitSql 会剥整行注释，行内注释会污染语句）。`migrations/0001_init.sql` 是全量基线；老库升级**新建** `migrations/000N_描述.sql`（编号递增、三位数对齐，当前下一个是 0005），不要改已部署文件内容（`_migrations` 按文件名去重不会重跑），并务必同步登记 `src/storage/schema.js` 的 import + `MIGRATIONS`。
+2. **迁移 SQL 注释必须独立成行**，不要用行内 `--` 注释（splitSql 会剥整行注释，行内注释会污染语句）。`migrations/0001_init.sql` 是全量基线；老库升级**新建** `migrations/000N_描述.sql`（编号递增、三位数对齐，当前下一个是 0010），不要改已部署文件内容（`_migrations` 按文件名去重不会重跑），并务必同步登记 `src/storage/schema.js` 的 import + `MIGRATIONS`。
 3. **时区**：Worker 跑在 UTC，面向中国用户。全局偏移存 `app_settings.tz_offset`（默认 8），由超管在用户管理页设置。换算走 `time.service.js#parseOffset` + `schedule.service.js#nowCN`。**历史遗留**：`web/assets.js` 的 `COMMON_JS` 日期函数可能含硬编码 `+8*3600*1000`，改时区时前后端都要查。
 4. **推送格式降级**：`config.js#effectiveFormat` 自动处理——email 把 markdown 降级为 text，wechat/webhook 把 html 降级为 text。企业微信 markdown 单条 4096 字节截断。
 5. **PUBLIC_BASE_URL**：DB 设置优先，其次 `wrangler.toml` `[vars]` / 容器环境变量，最后 `request.url` origin。Docker 首次启动登录后到「系统设置」里填实际访问地址。

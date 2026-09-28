@@ -25,6 +25,8 @@ function validateCredentials(username, password) {
 
 // 界面主题合法值（与前端 data-theme 取值一致）；非法值回退 light
 const THEMES = ['light', 'dark', 'eye'];
+// 界面背景合法值（与 html data-bg 取值一致，空串 = 默认）；非法值回退空串
+const BG_THEMES = ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk'];
 // 每日勉励卡风格：a=极光能量(默认) c=手账打气 h1=战书令 h2=最后通牒；非法值回退 a
 const MOTTO_STYLES = ['a', 'c', 'h1', 'h2'];
 // 座右铭正文字数口径：去除行内样式标记后按码点计数（与 layout.js 卡片分档、设置页计数同一正则）
@@ -184,6 +186,7 @@ async function getProfile({ request, env }) {
     nickname: u.nickname || u.username,
     restrict_quicklogin: u.restrict_quicklogin != null ? u.restrict_quicklogin : 1,
     theme: THEMES.includes(u.theme) ? u.theme : 'light',
+    bg_theme: BG_THEMES.includes(u.bg_theme) ? u.bg_theme : '',
     todo_auto_parent: u.todo_auto_parent === 0 ? 0 : 1,
     todo_view_list: normalizeTodoViewList(u.todo_view_list),
     motto: u.motto || '',
@@ -205,6 +208,21 @@ async function updateTheme({ request, env }) {
   const storage = getStorage(env);
   await storage.users.updateTheme(session.user_id, theme);
   return json({ success: true, message: '主题已保存' });
+}
+
+/**
+ * PUT /api/auth/bg  保存自己的界面背景  body: { bg: ''|'aurora'|'dawn'|'matcha'|'sea'|'dusk' }
+ */
+async function updateBg({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  const bg = body.bg || '';
+  if (!BG_THEMES.includes(bg)) return error('背景值非法', 400);
+  const storage = getStorage(env);
+  await storage.users.updateBgTheme(session.user_id, bg);
+  return json({ success: true, message: '背景已应用' });
 }
 
 /**
@@ -453,5 +471,5 @@ async function updateQuickloginRestrict({ request, env }) {
 export {
   register, login, logout, me, bootstrap, setupStatus, registerStatus,
   getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict,
-  updateTheme, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen
+  updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen
 };

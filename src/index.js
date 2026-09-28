@@ -16,7 +16,7 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen } from './api/auth.api.js';
+import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
@@ -106,6 +106,7 @@ router.get('/api/auth/me', me);
 router.get('/api/auth/profile', getProfile);
 router.put('/api/auth/profile', updateProfile);
 router.put('/api/auth/theme', updateTheme);
+router.put('/api/auth/bg', updateBg);
 router.put('/api/auth/password', changePassword);
 router.put('/api/auth/quicklogin-restrict', updateQuickloginRestrict);
 router.put('/api/auth/todo-auto-parent', updateTodoAutoParent);
@@ -413,6 +414,8 @@ async function handlePages(request, env) {
     // 界面主题（账号级偏好）：服务端直出 data-theme 防首屏闪白；非法/缺失回退 light
     const _me = await _storage.users.findById(session.user_id);
     user.theme = (_me && ['light', 'dark', 'eye'].includes(_me.theme)) ? _me.theme : 'light';
+    // 界面背景（账号级偏好）：服务端直出 data-bg，与主题同口径；非法/缺失回退默认空串
+    user.bgTheme = (_me && ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk'].includes(_me.bg_theme)) ? _me.bg_theme : '';
     // 昵称以 DB 实时值为准：session 里是登录时的快照，改昵称后不重登也应立即生效（侧栏名片/头像首字等）
     user.nickname = (_me && _me.nickname) ? _me.nickname : (session.nickname || session.username);
     // 每日勉励卡（用户私有）：受限免密会话不弹。弹不弹由前端按设备+频率决定

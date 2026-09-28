@@ -34,7 +34,10 @@ const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 10
  *   script : 需内联的小段 bootstrap 脚本（可空）；大段 JS 一律走 /s/ 外链以便缓存
  * @returns {string}
  */
-function renderPage({ title = '控制台', body = '', script = '', scripts = [], theme = 'light' }) {
+// 界面背景合法值（与 auth.api.js BG_THEMES 同口径，空串 = 默认）；非法值回退空串
+const BG_ATTRS = ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk'];
+
+function renderPage({ title = '控制台', body = '', script = '', scripts = [], theme = 'light', bg = '' }) {
   const jsLinks = [assetUrl('common.js')]
     .concat(scripts.map(s => assetUrl(s)))
     .map(src => `<script src="${src}"></script>`)
@@ -42,8 +45,11 @@ function renderPage({ title = '控制台', body = '', script = '', scripts = [],
   // data-theme 服务端直出: 登录态页按用户偏好(light/dark/eye)首屏即正确配色, 无 JS 闪白;
   // 免密/登录页固定 light
   const themeAttr = ['light', 'dark', 'eye'].includes(theme) ? theme : 'light';
+  // data-bg 服务端直出: 登录态页按用户保存的背景首屏即正确, 无 JS 闪烁;
+  // 免密/登录页固定空串(默认)
+  const bgAttr = BG_ATTRS.includes(bg) ? bg : '';
   return `<!DOCTYPE html>
-<html lang="zh-CN" data-theme="${themeAttr}">
+<html lang="zh-CN" data-theme="${themeAttr}" data-bg="${bgAttr}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -86,6 +92,39 @@ const BASE_CSS = `
   --bg-glow-1: rgba(255,122,89,.15);
   --bg-glow-2: rgba(168,85,247,.12);
   --bg-glow-3: rgba(59,130,246,.10);
+  /* 内置背景图（整图层，直接给 body/全屏容器/选择色块复用） */
+  --bgimg-default:
+    radial-gradient(1000px 600px at 12% -5%, rgba(255,122,89,.15), transparent 55%),
+    radial-gradient(900px 550px at 88% 8%, rgba(168,85,247,.12), transparent 55%),
+    radial-gradient(1100px 700px at 50% 100%, rgba(59,130,246,.10), transparent 55%), #F6F5F2;
+  --bgimg-aurora:
+    radial-gradient(720px 480px at 12% -8%, rgba(52,211,153,.30), transparent 62%),
+    radial-gradient(620px 480px at 102% 12%, rgba(96,165,250,.26), transparent 60%),
+    radial-gradient(720px 560px at 45% 108%, rgba(168,85,247,.22), transparent 66%),
+    linear-gradient(180deg,#ecf6f0 0%,#f4f2fb 100%);
+  --bgimg-dawn:
+    radial-gradient(720px 480px at 18% -8%, rgba(251,146,122,.32), transparent 62%),
+    radial-gradient(620px 460px at 96% 8%, rgba(251,191,36,.24), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(244,114,182,.22), transparent 66%),
+    linear-gradient(180deg,#fdf0ea 0%,#fbf2f7 100%);
+  --bgimg-matcha:
+    radial-gradient(720px 480px at 14% -8%, rgba(134,196,135,.30), transparent 62%),
+    radial-gradient(620px 470px at 100% 10%, rgba(190,215,140,.24), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(94,170,140,.18), transparent 66%),
+    linear-gradient(180deg,#eef6ea 0%,#f2f6ec 100%);
+  --bgimg-sea:
+    radial-gradient(720px 480px at 14% -8%, rgba(96,165,250,.28), transparent 62%),
+    radial-gradient(620px 470px at 100% 10%, rgba(45,212,191,.26), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(125,180,240,.18), transparent 66%),
+    linear-gradient(180deg,#ecf4fb 0%,#eef6f7 100%);
+  --bgimg-dusk:
+    radial-gradient(720px 480px at 88% -8%, rgba(168,85,247,.28), transparent 62%),
+    radial-gradient(640px 470px at 10% 6%, rgba(251,113,133,.24), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(217,150,255,.20), transparent 66%),
+    linear-gradient(180deg,#f3f0fb 0%,#fbf1f6 100%);
+  --app-bg: var(--bgimg-default);
+  /* 手风琴全屏：非默认背景时列表区改半透明磨砂，让背景透出且文字可读 */
+  --bg-veil: rgba(255,255,255,.56);
   --text: #1f2329;          /* 主文字/标题 */
   --text-strong: #14141E;   /* 数字/强标题 */
   --label: #6C6C7E;         /* 表单标签/表头/小标题(原 #6C6C7E) */
@@ -135,6 +174,37 @@ const BASE_CSS = `
   --bg-glow-1: rgba(255,122,89,.10);
   --bg-glow-2: rgba(168,85,247,.16);
   --bg-glow-3: rgba(59,130,246,.14);
+  --bgimg-default:
+    radial-gradient(1000px 600px at 12% -5%, rgba(255,122,89,.10), transparent 55%),
+    radial-gradient(900px 550px at 88% 8%, rgba(168,85,247,.16), transparent 55%),
+    radial-gradient(1100px 700px at 50% 100%, rgba(59,130,246,.14), transparent 55%), #14141E;
+  --bgimg-aurora:
+    radial-gradient(720px 480px at 12% -8%, rgba(52,211,153,.32), transparent 62%),
+    radial-gradient(620px 480px at 102% 12%, rgba(96,165,250,.30), transparent 60%),
+    radial-gradient(720px 560px at 45% 108%, rgba(168,85,247,.34), transparent 66%),
+    linear-gradient(180deg,#0a151f 0%,#0e0d1d 100%);
+  --bgimg-dawn:
+    radial-gradient(720px 480px at 18% -8%, rgba(251,146,122,.30), transparent 62%),
+    radial-gradient(620px 460px at 96% 8%, rgba(244,114,182,.28), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(251,191,36,.14), transparent 66%),
+    linear-gradient(180deg,#1c1118 0%,#130e1c 100%);
+  --bgimg-matcha:
+    radial-gradient(720px 480px at 14% -8%, rgba(110,190,130,.30), transparent 62%),
+    radial-gradient(620px 470px at 100% 10%, rgba(170,210,120,.18), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(80,160,150,.22), transparent 66%),
+    linear-gradient(180deg,#0b1813 0%,#0c1514 100%);
+  --bgimg-sea:
+    radial-gradient(720px 480px at 14% -8%, rgba(96,165,250,.30), transparent 62%),
+    radial-gradient(620px 470px at 100% 10%, rgba(45,212,191,.26), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(80,140,220,.24), transparent 66%),
+    linear-gradient(180deg,#081420 0%,#0a131d 100%);
+  --bgimg-dusk:
+    radial-gradient(720px 480px at 88% -8%, rgba(168,85,247,.34), transparent 62%),
+    radial-gradient(640px 470px at 10% 6%, rgba(251,113,133,.26), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(217,150,255,.22), transparent 66%),
+    linear-gradient(180deg,#130e20 0%,#1a0f1e 100%);
+  --app-bg: var(--bgimg-default);
+  --bg-veil: rgba(14,16,28,.50);
   --text: #e6e8f0;
   --text-strong: #f2f3f8;
   --label: #a8b0c4;
@@ -180,6 +250,37 @@ const BASE_CSS = `
   --bg-glow-1: rgba(214,168,90,.14);
   --bg-glow-2: rgba(168,85,247,.10);
   --bg-glow-3: rgba(90,160,140,.10);
+  --bgimg-default:
+    radial-gradient(1000px 600px at 12% -5%, rgba(214,168,90,.14), transparent 55%),
+    radial-gradient(900px 550px at 88% 8%, rgba(168,85,247,.10), transparent 55%),
+    radial-gradient(1100px 700px at 50% 100%, rgba(90,160,140,.10), transparent 55%), #f3eee0;
+  --bgimg-aurora:
+    radial-gradient(720px 480px at 12% -8%, rgba(90,170,130,.22), transparent 62%),
+    radial-gradient(620px 480px at 102% 12%, rgba(120,150,200,.18), transparent 60%),
+    radial-gradient(720px 560px at 45% 108%, rgba(150,110,200,.16), transparent 66%),
+    linear-gradient(180deg,#edeada 0%,#ece7d8 100%);
+  --bgimg-dawn:
+    radial-gradient(720px 480px at 18% -8%, rgba(220,150,110,.22), transparent 62%),
+    radial-gradient(620px 460px at 96% 8%, rgba(215,180,110,.18), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(200,130,170,.16), transparent 66%),
+    linear-gradient(180deg,#f2ede0 0%,#f0e9dd 100%);
+  --bgimg-matcha:
+    radial-gradient(720px 480px at 14% -8%, rgba(150,180,110,.22), transparent 62%),
+    radial-gradient(620px 470px at 100% 10%, rgba(180,190,130,.16), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(120,165,120,.14), transparent 66%),
+    linear-gradient(180deg,#eee9d9 0%,#ece8d6 100%);
+  --bgimg-sea:
+    radial-gradient(720px 480px at 14% -8%, rgba(120,160,200,.20), transparent 62%),
+    radial-gradient(620px 470px at 100% 10%, rgba(110,180,170,.18), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(130,170,200,.13), transparent 66%),
+    linear-gradient(180deg,#ede9da 0%,#e9e7d5 100%);
+  --bgimg-dusk:
+    radial-gradient(720px 480px at 88% -8%, rgba(150,110,200,.20), transparent 62%),
+    radial-gradient(640px 470px at 10% 6%, rgba(205,130,150,.18), transparent 60%),
+    radial-gradient(700px 560px at 50% 108%, rgba(180,140,200,.14), transparent 66%),
+    linear-gradient(180deg,#efeada 0%,#f1e7dd 100%);
+  --app-bg: var(--bgimg-default);
+  --bg-veil: rgba(250,246,234,.56);
   --text: #4a4030;
   --text-strong: #3a3226;
   --label: #7a6f58;
@@ -221,16 +322,19 @@ const BASE_CSS = `
   --code-bg: rgba(120,100,50,.14);
 }
 
-/* 暖米底 + 三点极淡径向光斑 (珊瑚/紫/蓝), 给玻璃卡片留天然光源 */
+/* data-bg 覆盖：所选内置背景（设置页未保存时也靠临时改 data-bg 实时预览） */
+html[data-bg="aurora"] { --app-bg: var(--bgimg-aurora); }
+html[data-bg="dawn"]   { --app-bg: var(--bgimg-dawn); }
+html[data-bg="matcha"] { --app-bg: var(--bgimg-matcha); }
+html[data-bg="sea"]    { --app-bg: var(--bgimg-sea); }
+html[data-bg="dusk"]   { --app-bg: var(--bgimg-dusk); }
+
+/* 页面底色随 --app-bg（默认暖米底 + 三点光斑，给玻璃卡片留天然光源） */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', EmojiSymbols;
   color: var(--text-strong);
   line-height: 1.6;
-  background:
-    radial-gradient(1000px 600px at 12% -5%, var(--bg-glow-1), transparent 55%),
-    radial-gradient(900px 550px at 88% 8%, var(--bg-glow-2), transparent 55%),
-    radial-gradient(1100px 700px at 50% 100%, var(--bg-glow-3), transparent 55%),
-    var(--bg);
+  background: var(--app-bg);
   /* 不再 fixed: fixed + card 的 backdrop-filter 会让磨砂内容始终采样固定背景,
      滚动时"卡片动、磨砂内容不动"造成层叠错位感 (基金页 card 多最明显) */
   min-height: 100vh;
@@ -1866,7 +1970,7 @@ button[data-busy] { opacity: .55; cursor: wait; pointer-events: none; }
 .todo-fullscreen {
   display: none;
   position: fixed; inset: 0; z-index: 1000;
-  background: var(--bg);
+  background: var(--app-bg);
   flex-direction: row;
 }
 /* body 加 todo-fs-on 时：隐藏 topbar 与页面所有 .card, 显示全屏容器 */
@@ -1897,6 +2001,12 @@ body { padding-bottom: var(--kb-inset, 0px); }
 /* transition + 背景色: 为手机端 sticky 时的过渡隐藏做铺垫; PC 无影响 */
 /* 手风琴视图：行无白底，主区铺白避免整页露出 body 暖白 --bg 显黄（手机大面积尤其明显） */
 .todo-fs-main.fs-main--acc { background: var(--surface); }
+/* 选了内置背景时：主区改半透明磨砂让背景透出（--bg-veil 三主题各自取值），默认背景仍铺白 */
+html[data-bg]:not([data-bg=""]) .todo-fs-main.fs-main--acc {
+  background: var(--bg-veil);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
 .todo-fs-top {
   display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px;
@@ -2552,6 +2662,92 @@ html { scrollbar-gutter: stable; }
 .motto-style .ms-name { display: block; padding: 7px 10px; font-size: 13px; }
 .motto-style .ms-name small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
 .motto-style.on { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+
+/* ============ 界面背景选择面板（底部弹层：实时预览 + 横向滚动色块） ============ */
+.bg-sheet-mask {
+  display: none; position: fixed; inset: 0; z-index: 1200;
+  background: rgba(0,0,0,.35); align-items: flex-end; justify-content: center;
+}
+.bg-sheet-mask.on { display: flex; }
+.bg-sheet {
+  width: 100%; max-width: 460px;
+  background: var(--surface); border-radius: 22px 22px 0 0;
+  padding: 8px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -12px 48px rgba(0,0,0,.22);
+  animation: bgSheetIn .24s ease;
+}
+@keyframes bgSheetIn { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+.bg-sheet__handle { width: 40px; height: 4px; border-radius: 999px; background: var(--border-strong); margin: 4px auto 12px; }
+
+/* 实时预览卡片：用当前 --app-bg，内部 mock 手风琴待办（磨砂随 --bg-veil） */
+.bg-sheet__preview {
+  height: 218px; border-radius: 18px; overflow: hidden;
+  background: var(--app-bg); border: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 10px;
+}
+.bg-sp-top {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  padding: 6px 10px; border-radius: 11px; background: var(--surface); border: 1px solid var(--border);
+  font-size: 12.5px; color: var(--label); font-weight: 600; margin-bottom: 8px;
+}
+.bg-sp-top .bg-sp-seg { flex: 1; text-align: center; }
+.bg-sp-inner {
+  flex: 1; border-radius: 13px; padding: 4px 8px; overflow: hidden;
+  background: var(--bg-veil); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+/* 默认背景（data-bg 空）时 --bg-veil 未定义，退回主题容器色 */
+.bg-sp-inner { background: var(--surface); }
+html[data-bg]:not([data-bg=""]) .bg-sp-inner { background: var(--bg-veil); }
+.bg-sp-row { display: flex; align-items: center; font-size: 12.5px; color: var(--text); padding: 5px 4px; }
+.bg-sp-row.root { font-weight: 700; border-left: 3px solid var(--brand); padding-left: 8px; }
+.bg-sp-row.root i { margin-left: auto; font-style: normal; font-size: 11px; color: var(--muted); }
+.bg-sp-row.child { padding-left: 20px; opacity: .9; font-size: 12px; }
+.bg-sp-row.child.done { opacity: .45; text-decoration: line-through; }
+
+.bg-sheet__label { font-size: 13px; color: var(--label); margin: 14px 2px 9px; }
+/* 横向滚动色块 */
+.bg-sheet__strip {
+  display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 8px;
+  scrollbar-width: none;
+}
+.bg-sheet__strip::-webkit-scrollbar { display: none; }
+.bg-opt {
+  position: relative; flex-shrink: 0; width: 58px; height: 58px;
+  border-radius: 16px; border: 2px solid transparent; padding: 0; cursor: pointer;
+}
+.bg-opt[data-bg=""]       { background: var(--bgimg-default); }
+.bg-opt[data-bg="aurora"] { background: var(--bgimg-aurora); }
+.bg-opt[data-bg="dawn"]   { background: var(--bgimg-dawn); }
+.bg-opt[data-bg="matcha"] { background: var(--bgimg-matcha); }
+.bg-opt[data-bg="sea"]    { background: var(--bgimg-sea); }
+.bg-opt[data-bg="dusk"]   { background: var(--bgimg-dusk); }
+.bg-opt.on { border-color: var(--brand); }
+.bg-opt::after {
+  content: '\\2713'; position: absolute; right: -5px; bottom: -5px;
+  width: 22px; height: 22px; border-radius: 50%; background: var(--brand); color: #fff;
+  font-size: 13px; display: none; place-items: center;
+  border: 2px solid var(--surface);
+}
+.bg-opt.on::after { display: grid; }
+.bg-opt__name {
+  position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+  font-size: 10.5px; color: var(--muted); white-space: nowrap; font-weight: 400;
+}
+
+.bg-sheet__actions { display: flex; gap: 10px; margin-top: 16px; }
+.bg-sheet__actions .btn { flex: 1; }
+
+/* 设置页「界面背景」入口行 */
+.bg-pick-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.bg-pick-thumb {
+  width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0;
+  background: var(--bgimg-default); border: 1px solid var(--border);
+}
+.bg-pick-thumb[data-bg="aurora"] { background: var(--bgimg-aurora); }
+.bg-pick-thumb[data-bg="dawn"]   { background: var(--bgimg-dawn); }
+.bg-pick-thumb[data-bg="matcha"] { background: var(--bgimg-matcha); }
+.bg-pick-thumb[data-bg="sea"]    { background: var(--bgimg-sea); }
+.bg-pick-thumb[data-bg="dusk"]   { background: var(--bgimg-dusk); }
 `;
 
 /**

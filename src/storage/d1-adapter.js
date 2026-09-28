@@ -96,6 +96,9 @@ function createD1Adapter(env) {
       async updateTheme(id, theme) {
         await db.prepare('UPDATE users SET theme = ? WHERE id = ?').bind(theme, id).run();
       },
+      async updateBgTheme(id, bgTheme) {
+        await db.prepare('UPDATE users SET bg_theme = ? WHERE id = ?').bind(bgTheme, id).run();
+      },
       async updateQuickloginRestrict(id, v) {
         await db.prepare('UPDATE users SET restrict_quicklogin = ? WHERE id = ?').bind(v ? 1 : 0, id).run();
       },
