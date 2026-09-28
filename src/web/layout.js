@@ -434,12 +434,14 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .todo-due-group__line { flex: 1; height: 1px; background: var(--border); }
 /* 分组模式：组内各行不重复显示到期 chip，组头自身豁免 */
 .todo-due-groups .todo-chip.due { display: none; }
-.todo-due-groups .todo-due-group__head .todo-chip.due { display: inline-flex; }
+/* 豁免只需给非 none 值：用 inline（chip 默认 display），
+   不要 inline-flex——flex 下日历 svg 的 vertical-align 失效会与文字错行 */
+.todo-due-groups .todo-due-group__head .todo-chip.due { display: inline; }
 /* 各自截止（child_due）任务：子任务日期各异，完整树/手风琴/速览下
    根行与全部子任务行都显示各自到期日。卡片视图是两层级，不适用（整卡继续隐藏）。 */
 .todo-due-groups .todo-tree .cd-on .todo-chip.due,
 .todo-due-groups .todo-acc .cd-on .todo-chip.due,
-.todo-due-groups .flat-view .cd-on .todo-chip.due { display: inline-flex; }
+.todo-due-groups .flat-view .cd-on .todo-chip.due { display: inline; }
 .impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }
 .impersonate-banner a { color: var(--danger); font-weight: 600; margin-left: 8px; }
 /* 全站公告强制阅读弹窗：独立遮罩，层级高于 #globalLoading(10500)，无关闭叉、点空白不关闭 */
