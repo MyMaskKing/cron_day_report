@@ -26,10 +26,10 @@ docker compose up -d --build      # 数据落 ./docker-data/
 docker compose logs -f
 ```
 
-数据库迁移（全量基线 `migrations/0001_init.sql` + 编号增量脚本，当前到 `0009_user_bg.sql`）——**两个宿主都已内置自动迁移，通常零命令**：
+数据库迁移（全量基线 `migrations/0001_init.sql` + 编号增量脚本，当前到 `0009_todo_bg.sql`）——**两个宿主都已内置自动迁移，通常零命令**：
 - **Cloudflare**：Worker 首次请求 / 定时唤醒时 `src/storage/schema.js#ensureSchema(env)` 按 `MIGRATIONS` 登记表顺序执行未应用的 SQL（每个 isolate 仅查一次 `_migrations`，逐条独立提交，仅忽略 already exists/duplicate column）。
 - **Docker/Node**：容器启动时 `docker/migrate.mjs` 扫盘按编号执行 `migrations/*.sql`。两侧共用 `_migrations` 表按**文件名**去重。
-- **新库**：`0001_init.sql` 一次建出全部表/列/索引（`CREATE ... IF NOT EXISTS` + `INSERT OR IGNORE`，可任意重跑）；0002–0009 是基线发布后的增量（待办自动结算/附件、统一 files、每日勉励、闹钟、视图循环、界面背景）。
+- **新库**：`0001_init.sql` 一次建出全部表/列/索引（`CREATE ... IF NOT EXISTS` + `INSERT OR IGNORE`，可任意重跑）；0002–0009 是基线发布后的增量（待办自动结算/附件、统一 files、每日勉励、闹钟、视图循环、待办全屏背景）。
 - **新增表/列（老库升级）**：**新建** `migrations/000N_描述.sql`（编号三位数对齐、紧接当前最大值，**下一个是 0010**），并**必须同时在 `src/storage/schema.js` 顶部 `import` 与 `MIGRATIONS` 数组登记**——Workers 运行时不能扫盘、`.sql` 靠 wrangler Text 规则构建期内联，漏登记则 CF 侧永不执行（Docker 侧扫盘不受影响）。语句写幂等：新表/索引用 `CREATE ... IF NOT EXISTS`，新列用 `ALTER TABLE ADD COLUMN`（"列已存在"两侧都自动忽略）。可顺带把新结构并进 `0001_init.sql` 的 `CREATE TABLE` 便于全新部署阅读。
 - **手动 D1**（可选/排障）：`wrangler d1 execute cron_db --remote --file=migrations/000N_xxx.sql`。
 

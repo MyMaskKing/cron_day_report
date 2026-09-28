@@ -415,7 +415,7 @@ async function handlePages(request, env) {
     const _me = await _storage.users.findById(session.user_id);
     user.theme = (_me && ['light', 'dark', 'eye'].includes(_me.theme)) ? _me.theme : 'light';
     // 界面背景（账号级偏好）：服务端直出 data-bg，与主题同口径；非法/缺失回退默认空串
-    user.bgTheme = (_me && ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk'].includes(_me.bg_theme)) ? _me.bg_theme : '';
+    user.bgTheme = (_me && ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk'].includes(_me.todo_bg_theme)) ? _me.todo_bg_theme : '';
     // 昵称以 DB 实时值为准：session 里是登录时的快照，改昵称后不重登也应立即生效（侧栏名片/头像首字等）
     user.nickname = (_me && _me.nickname) ? _me.nickname : (session.nickname || session.username);
     // 每日勉励卡（用户私有）：受限免密会话不弹。弹不弹由前端按设备+频率决定

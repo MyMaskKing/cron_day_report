@@ -122,7 +122,6 @@ const BASE_CSS = `
     radial-gradient(640px 470px at 10% 6%, rgba(251,113,133,.24), transparent 60%),
     radial-gradient(700px 560px at 50% 108%, rgba(217,150,255,.20), transparent 66%),
     linear-gradient(180deg,#f3f0fb 0%,#fbf1f6 100%);
-  --app-bg: var(--bgimg-default);
   /* 手风琴全屏：非默认背景时列表区改半透明磨砂，让背景透出且文字可读 */
   --bg-veil: rgba(255,255,255,.56);
   --text: #1f2329;          /* 主文字/标题 */
@@ -203,7 +202,6 @@ const BASE_CSS = `
     radial-gradient(640px 470px at 10% 6%, rgba(251,113,133,.26), transparent 60%),
     radial-gradient(700px 560px at 50% 108%, rgba(217,150,255,.22), transparent 66%),
     linear-gradient(180deg,#130e20 0%,#1a0f1e 100%);
-  --app-bg: var(--bgimg-default);
   --bg-veil: rgba(14,16,28,.50);
   --text: #e6e8f0;
   --text-strong: #f2f3f8;
@@ -279,7 +277,6 @@ const BASE_CSS = `
     radial-gradient(640px 470px at 10% 6%, rgba(205,130,150,.18), transparent 60%),
     radial-gradient(700px 560px at 50% 108%, rgba(180,140,200,.14), transparent 66%),
     linear-gradient(180deg,#efeada 0%,#f1e7dd 100%);
-  --app-bg: var(--bgimg-default);
   --bg-veil: rgba(250,246,234,.56);
   --text: #4a4030;
   --text-strong: #3a3226;
@@ -322,19 +319,24 @@ const BASE_CSS = `
   --code-bg: rgba(120,100,50,.14);
 }
 
-/* data-bg 覆盖：所选内置背景（设置页未保存时也靠临时改 data-bg 实时预览） */
-html[data-bg="aurora"] { --app-bg: var(--bgimg-aurora); }
-html[data-bg="dawn"]   { --app-bg: var(--bgimg-dawn); }
-html[data-bg="matcha"] { --app-bg: var(--bgimg-matcha); }
-html[data-bg="sea"]    { --app-bg: var(--bgimg-sea); }
-html[data-bg="dusk"]   { --app-bg: var(--bgimg-dusk); }
+/* 背景只作用于待办全屏（.todo-fullscreen）与背景面板的实时预览卡片；
+   未选背景(data-bg="")时全屏为默认奶白，其余画面一律不跟随 */
+html[data-bg="aurora"] :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-aurora); }
+html[data-bg="dawn"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-dawn); }
+html[data-bg="matcha"] :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-matcha); }
+html[data-bg="sea"]    :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-sea); }
+html[data-bg="dusk"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-dusk); }
 
-/* 页面底色随 --app-bg（默认暖米底 + 三点光斑，给玻璃卡片留天然光源） */
+/* body 默认暖米底 + 三点光斑，给玻璃卡片留天然光源（不随待办全屏背景变化） */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', EmojiSymbols;
   color: var(--text-strong);
   line-height: 1.6;
-  background: var(--app-bg);
+  background:
+    radial-gradient(1000px 600px at 12% -5%, var(--bg-glow-1), transparent 55%),
+    radial-gradient(900px 550px at 88% 8%, var(--bg-glow-2), transparent 55%),
+    radial-gradient(1100px 700px at 50% 100%, var(--bg-glow-3), transparent 55%),
+    var(--bg);
   /* 不再 fixed: fixed + card 的 backdrop-filter 会让磨砂内容始终采样固定背景,
      滚动时"卡片动、磨砂内容不动"造成层叠错位感 (基金页 card 多最明显) */
   min-height: 100vh;
@@ -1970,7 +1972,7 @@ button[data-busy] { opacity: .55; cursor: wait; pointer-events: none; }
 .todo-fullscreen {
   display: none;
   position: fixed; inset: 0; z-index: 1000;
-  background: var(--app-bg);
+  background: var(--bg);
   flex-direction: row;
 }
 /* body 加 todo-fs-on 时：隐藏 topbar 与页面所有 .card, 显示全屏容器 */
@@ -2679,10 +2681,10 @@ html { scrollbar-gutter: stable; }
 @keyframes bgSheetIn { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
 .bg-sheet__handle { width: 40px; height: 4px; border-radius: 999px; background: var(--border-strong); margin: 4px auto 12px; }
 
-/* 实时预览卡片：用当前 --app-bg，内部 mock 手风琴待办（磨砂随 --bg-veil） */
+/* 实时预览卡片：背景随所选色块（与 .todo-fullscreen 同选择器），内部 mock 手风琴磨砂随 --bg-veil */
 .bg-sheet__preview {
   height: 218px; border-radius: 18px; overflow: hidden;
-  background: var(--app-bg); border: 1px solid var(--border);
+  background: var(--bgimg-default); border: 1px solid var(--border);
   display: flex; flex-direction: column; padding: 10px;
 }
 .bg-sp-top {

@@ -149,7 +149,7 @@ function dashboardPage(user) {
       </div>
     </div>
   </div>`;
-  return renderPage({ title: '仪表盘', body, scripts: ['todo-core.js', 'page-dashboard.js'], theme: user.theme, bg: user.bgTheme });
+  return renderPage({ title: '仪表盘', body, scripts: ['todo-core.js', 'page-dashboard.js'], theme: user.theme });
 }
 
 /** 超管用户管理页 */
@@ -275,7 +275,7 @@ function adminPage(user) {
     </div>
     <div class="card" id="detail" style="display:none;"></div>
   </div>`;
-  return renderPage({ title: '用户管理', body, scripts: ['page-admin.js'], theme: user.theme, bg: user.bgTheme });
+  return renderPage({ title: '用户管理', body, scripts: ['page-admin.js'], theme: user.theme });
 }
 
 /** 超管「附件存储管理」页：占用统计 / 文件管理（预览、下载、批量删除）/ 孤儿扫描清理 */
@@ -337,7 +337,7 @@ function storageAdminPage(user) {
       </div>
     </div>
   </div>`;
-  return renderPage({ title: '附件存储', body, scripts: ['page-storage.js'], theme: user.theme, bg: user.bgTheme });
+  return renderPage({ title: '附件存储', body, scripts: ['page-storage.js'], theme: user.theme });
 }
 
 /** 定时任务管理页 */
@@ -369,7 +369,7 @@ function monitorPage(user) {
 
     <div class="card" id="logBox" style="display:none;"></div>
   </div>`;
-  return renderPage({ title: '定时任务', body, scripts: ['page-monitor.js'], theme: user.theme, bg: user.bgTheme });
+  return renderPage({ title: '定时任务', body, scripts: ['page-monitor.js'], theme: user.theme });
 }
 
 /** 通知渠道管理页 */
@@ -388,7 +388,7 @@ function channelsPage(user) {
       <p class="muted" style="margin-top:8px;">渠道用于监控任务、基金/资产/体重日报的消息推送。三种类型：企业微信机器人、通用 Webhook、邮件转发。</p>
     </div>
   </div>`;
-  return renderPage({ title: '通知渠道', body, scripts: ['page-channels.js'], theme: user.theme, bg: user.bgTheme });
+  return renderPage({ title: '通知渠道', body, scripts: ['page-channels.js'], theme: user.theme });
 }
 
 /** 基金追踪页 */
@@ -506,7 +506,7 @@ function fundPage(user) {
     </div>
   </div>
   <button id="stratSetup" class="btn" style="position:fixed;right:24px;bottom:24px;z-index:998;box-shadow:0 4px 12px rgba(74,108,247,.35);">📝 记录我的投资策略</button>`;
-  return renderPage({ title: '基金追踪', body, scripts: ['page-fund.js'], theme: user.theme, bg: user.bgTheme });
+  return renderPage({ title: '基金追踪', body, scripts: ['page-fund.js'], theme: user.theme });
 }
 
 /** 免密快速加仓公开页（无需登录） */
@@ -628,7 +628,7 @@ function weightPage(user) {
       <canvas id="compareChart" style="max-height:340px;margin-top:14px;"></canvas>
     </div>
   </div>`;
-  return renderPage({ title: '体重曲线', body, scripts: ['page-weight.js'], theme: user.theme, bg: user.bgTheme });
+  return renderPage({ title: '体重曲线', body, scripts: ['page-weight.js'], theme: user.theme });
 }
 
 /** 体重免密快速填写公开页 */
@@ -694,16 +694,6 @@ function settingsPage(user) {
         <input id="pfNick" maxlength="32">
         <button class="btn" type="submit">保存昵称</button>
       </form>
-      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
-      <h2 style="font-size:15px;">界面背景</h2>
-      <div class="bg-pick-row">
-        <span class="bg-pick-thumb" id="bgPickThumb" data-bg=""></span>
-        <div style="flex:1;min-width:0;">
-          <div id="bgPickName" style="font-size:13.5px;font-weight:600;">默认</div>
-          <div class="muted" style="font-size:11.5px;">登录态全局生效 · 含手机 App</div>
-        </div>
-        <button type="button" class="btn sm" id="bgPickBtn">更换</button>
-      </div>
       <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <h2 style="font-size:15px;">每日勉励</h2>
       <p class="muted" style="font-size:12px;">写一句给自己的话，每天首次打开面板时全屏展示一次；当天关闭后手机 / PC / Android 都不再出现，留空则完全不展示。支持加粗、删除线、下划线、波浪线、放大与快乐体。</p>
@@ -812,36 +802,8 @@ function settingsPage(user) {
       <p class="muted" style="font-size:12px;">生成共享码并勾选模块，把码发给家人；家人在自己账号的本页输入码加入后，即可在对应模块顶部切换数据源，共同查看/录入同一套数据（数据仍归你所有）。</p>
       <div id="dataShareBox" style="margin-top:10px;"><p class="muted" style="font-size:12px;">加载中…</p></div>
     </div>
-
-    <div id="bgSheetMask" class="bg-sheet-mask">
-      <div class="bg-sheet" id="bgSheet">
-        <div class="bg-sheet__handle"></div>
-        <div class="bg-sheet__preview">
-          <div class="bg-sp-top"><span>☰</span><span class="bg-sp-seg">卡片视图</span><span>＋</span></div>
-          <div class="bg-sp-inner">
-            <div class="bg-sp-row root"><span>准备国庆家庭旅行</span><i>2/5</i></div>
-            <div class="bg-sp-row child">订往返机票</div>
-            <div class="bg-sp-row child">订西湖边酒店</div>
-            <div class="bg-sp-row child done">买转换插头</div>
-          </div>
-        </div>
-        <div class="bg-sheet__label">选择背景（保存后应用到全部页面）</div>
-        <div class="bg-sheet__strip" id="bgStrip">
-          <button type="button" class="bg-opt on" data-bg=""><span class="bg-opt__name">默认</span></button>
-          <button type="button" class="bg-opt" data-bg="aurora"><span class="bg-opt__name">极光</span></button>
-          <button type="button" class="bg-opt" data-bg="dawn"><span class="bg-opt__name">晨霞</span></button>
-          <button type="button" class="bg-opt" data-bg="matcha"><span class="bg-opt__name">抹茶</span></button>
-          <button type="button" class="bg-opt" data-bg="sea"><span class="bg-opt__name">海盐</span></button>
-          <button type="button" class="bg-opt" data-bg="dusk"><span class="bg-opt__name">暮色</span></button>
-        </div>
-        <div class="bg-sheet__actions">
-          <button type="button" class="btn gray" id="bgCancel">取消</button>
-          <button type="button" class="btn" id="bgSave">保存并应用</button>
-        </div>
-      </div>
-    </div>
   </div>`;
-  return renderPage({ title: '个人设置', body, scripts: ['page-settings.js'], theme: user.theme, bg: user.bgTheme });
+  return renderPage({ title: '个人设置', body, scripts: ['page-settings.js'], theme: user.theme });
 }
 
 /** 资产报表页 */
@@ -966,7 +928,7 @@ function assetPage(user) {
       </div>
     </details>
   </div>`;
-  return renderPage({ title: '资产报表', body, scripts: ['page-asset.js'], theme: user.theme, bg: user.bgTheme });
+  return renderPage({ title: '资产报表', body, scripts: ['page-asset.js'], theme: user.theme });
 }
 
 /** 资产免密录入公开页 */
@@ -1141,6 +1103,34 @@ function todoPage(user) {
         <input type="checkbox" id="hideDoneFs" checked hidden>
         <button class="fs-iconbtn" id="displayOptsFs" title="显示选项">${ICO_SLIDERS}</button>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
+      </div>
+    </div>
+
+    <div id="bgSheetMask" class="bg-sheet-mask">
+      <div class="bg-sheet" id="bgSheet">
+        <div class="bg-sheet__handle"></div>
+        <div class="bg-sheet__preview">
+          <div class="bg-sp-top"><span>☰</span><span class="bg-sp-seg">卡片视图</span><span>＋</span></div>
+          <div class="bg-sp-inner">
+            <div class="bg-sp-row root"><span>准备国庆家庭旅行</span><i>2/5</i></div>
+            <div class="bg-sp-row child">订往返机票</div>
+            <div class="bg-sp-row child">订西湖边酒店</div>
+            <div class="bg-sp-row child done">买转换插头</div>
+          </div>
+        </div>
+        <div class="bg-sheet__label">选择待办全屏背景（保存后生效）</div>
+        <div class="bg-sheet__strip" id="bgStrip">
+          <button type="button" class="bg-opt on" data-bg=""><span class="bg-opt__name">奶白</span></button>
+          <button type="button" class="bg-opt" data-bg="aurora"><span class="bg-opt__name">极光</span></button>
+          <button type="button" class="bg-opt" data-bg="dawn"><span class="bg-opt__name">晨霞</span></button>
+          <button type="button" class="bg-opt" data-bg="matcha"><span class="bg-opt__name">抹茶</span></button>
+          <button type="button" class="bg-opt" data-bg="sea"><span class="bg-opt__name">海盐</span></button>
+          <button type="button" class="bg-opt" data-bg="dusk"><span class="bg-opt__name">暮色</span></button>
+        </div>
+        <div class="bg-sheet__actions">
+          <button type="button" class="btn gray" id="bgCancel">取消</button>
+          <button type="button" class="btn" id="bgSave">保存并应用</button>
+        </div>
       </div>
     </div>
   </div>`;

@@ -186,7 +186,7 @@ async function getProfile({ request, env }) {
     nickname: u.nickname || u.username,
     restrict_quicklogin: u.restrict_quicklogin != null ? u.restrict_quicklogin : 1,
     theme: THEMES.includes(u.theme) ? u.theme : 'light',
-    bg_theme: BG_THEMES.includes(u.bg_theme) ? u.bg_theme : '',
+    todo_bg_theme: BG_THEMES.includes(u.todo_bg_theme) ? u.todo_bg_theme : '',
     todo_auto_parent: u.todo_auto_parent === 0 ? 0 : 1,
     todo_view_list: normalizeTodoViewList(u.todo_view_list),
     motto: u.motto || '',

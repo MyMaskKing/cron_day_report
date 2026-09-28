@@ -2376,62 +2376,8 @@ var showMsg = function(_el, text, ok){ showToast(text, ok); };
         if (sel) sel.value = ['daily','every','off'].indexOf(freq[dev]) >= 0 ? freq[dev] : 'daily';
       });
     }
-    bgSaved = d.profile.bg_theme || '';
-    bgRenderEntrance();
   } catch(e){ navTo('/login'); }
 })();
-// ===== 界面背景：底部弹层 + 实时预览，保存后全局应用 =====
-var BG_NAMES = { '':'默认', aurora:'极光', dawn:'晨霞', matcha:'抹茶', sea:'海盐', dusk:'暮色' };
-var bgSaved = '';
-var bgTemp = '';
-function bgRenderEntrance() {
-  var thumb = document.getElementById('bgPickThumb');
-  if (thumb) thumb.dataset.bg = bgSaved;
-  var nameEl = document.getElementById('bgPickName');
-  if (nameEl) nameEl.textContent = BG_NAMES[bgSaved] || '默认';
-}
-function bgSyncSheet() {
-  // 临时改 data-bg：预览卡片与整页背景都靠 CSS 属性选择器实时跟随
-  document.documentElement.dataset.bg = bgTemp;
-  document.querySelectorAll('.bg-opt').forEach(function(b){
-    b.classList.toggle('on', b.dataset.bg === bgTemp);
-  });
-  var strip = document.getElementById('bgStrip');
-  var onEl = strip && strip.querySelector('.bg-opt.on');
-  if (onEl && strip) {
-    var r = onEl.getBoundingClientRect(), sr = strip.getBoundingClientRect();
-    if (r.left < sr.left || r.right > sr.right) onEl.scrollIntoView({ inline:'center', block:'nearest' });
-  }
-}
-function bgOpen() {
-  bgTemp = bgSaved;
-  document.getElementById('bgSheetMask').classList.add('on');
-  bgSyncSheet();
-}
-function bgClose(revert) {
-  document.getElementById('bgSheetMask').classList.remove('on');
-  // 取消时恢复已保存背景；保存成功后 data-bg 已是目标值，无需回退
-  if (revert) document.documentElement.dataset.bg = bgSaved;
-}
-document.getElementById('bgPickBtn').addEventListener('click', bgOpen);
-document.getElementById('bgStrip').addEventListener('click', function(e){
-  var opt = e.target.closest('.bg-opt');
-  if (opt) { bgTemp = opt.dataset.bg || ''; bgSyncSheet(); }
-});
-document.getElementById('bgCancel').addEventListener('click', function(){ bgClose(true); });
-document.getElementById('bgSheetMask').addEventListener('click', function(e){
-  // 仅点击遮罩本身关闭，点面板不关闭
-  if (e.target === this) bgClose(true);
-});
-document.getElementById('bgSave').addEventListener('click', async function(){
-  try {
-    await api('/api/auth/bg', { method:'PUT', body:{ bg: bgTemp } });
-    bgSaved = bgTemp;
-    bgRenderEntrance();
-    bgClose(false);
-    showMsg(msg, '背景已应用到全局', true);
-  } catch(err){ showMsg(msg, err.message, false); }
-});
 // 免密登录限制开关：切换即保存
 var qlEl = document.getElementById('qlRestrict');
 if (qlEl) qlEl.addEventListener('change', async function(){
@@ -11388,7 +11334,10 @@ function openDisplayChooser(ev) {
       + '<button type="button" class="fab-menu__item" data-k="sort">'
       +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🔀</span>'
       +   '<span class="fab-menu__t">排序方式</span>'
-      +   '<span class="fab-menu__mark" style="font-size:12px;">' + SORT_SHORT[_todoSortMode] + '</span></button>';
+      +   '<span class="fab-menu__mark" style="font-size:12px;">' + SORT_SHORT[_todoSortMode] + '</span></button>'
+      + '<button type="button" class="fab-menu__item" data-k="bg">'
+      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🎨</span>'
+      +   '<span class="fab-menu__t">切换背景</span></button>';
   }
   function sortHtml() {
     function row(m, label) {
@@ -11422,6 +11371,7 @@ function openDisplayChooser(ev) {
         }
         if (b.dataset.k === 'sort') { menu.innerHTML = sortHtml(); bindItems(); return; }
         if (b.dataset.k === 'sort-back') { menu.innerHTML = mainHtml(); bindItems(); return; }
+        if (b.dataset.k === 'bg') { closeDisplayMenu(); bgOpen(); return; }
         if (b.dataset.k === 'group') {
           _todoGroupByDue = !_todoGroupByDue;
           todoSaveGroupByDue(_todoGroupByDue);
@@ -11619,6 +11569,59 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
   }
   catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
 })();
+
+// ===== 待办全屏背景：底部弹层 + 实时预览卡片，保存后仅待办全屏生效 =====
+var bgSaved = null;
+var bgTemp = '';
+async function bgEnsureSaved() {
+  if (bgSaved === null) {
+    try {
+      var pf = await api('/api/auth/profile');
+      bgSaved = pf.profile.todo_bg_theme || '';
+    } catch(e) { bgSaved = ''; }
+  }
+  return bgSaved;
+}
+function bgSyncSheet() {
+  // 临时改 data-bg：全屏容器与预览卡片都靠 CSS 属性选择器实时跟随
+  document.documentElement.dataset.bg = bgTemp;
+  document.querySelectorAll('.bg-opt').forEach(function(b){
+    b.classList.toggle('on', (b.dataset.bg || '') === bgTemp);
+  });
+  var strip = document.getElementById('bgStrip');
+  var onEl = strip && strip.querySelector('.bg-opt.on');
+  if (onEl && strip) {
+    var r = onEl.getBoundingClientRect(), sr = strip.getBoundingClientRect();
+    if (r.left < sr.left || r.right > sr.right) onEl.scrollIntoView({ inline:'center', block:'nearest' });
+  }
+}
+async function bgOpen() {
+  bgTemp = await bgEnsureSaved();
+  document.getElementById('bgSheetMask').classList.add('on');
+  bgSyncSheet();
+}
+function bgClose(revert) {
+  document.getElementById('bgSheetMask').classList.remove('on');
+  // 取消时恢复已保存背景；保存成功后 data-bg 已是目标值，无需回退
+  if (revert) document.documentElement.dataset.bg = bgSaved || '';
+}
+document.getElementById('bgStrip').addEventListener('click', function(e){
+  var opt = e.target.closest('.bg-opt');
+  if (opt) { bgTemp = opt.dataset.bg || ''; bgSyncSheet(); }
+});
+document.getElementById('bgCancel').addEventListener('click', function(){ bgClose(true); });
+document.getElementById('bgSheetMask').addEventListener('click', function(e){
+  // 仅点击遮罩本身关闭，点面板不关闭
+  if (e.target === this) bgClose(true);
+});
+document.getElementById('bgSave').addEventListener('click', async function(){
+  try {
+    await api('/api/auth/bg', { method:'PUT', body:{ bg: bgTemp } });
+    bgSaved = bgTemp;
+    bgClose(false);
+    showToast('背景已应用', true);
+  } catch(err){ showToast(err.message, false); }
+});
 `;
 
 // ============ 待办免密协作公开页 ============

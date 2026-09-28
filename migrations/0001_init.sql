@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
   restrict_quicklogin  INTEGER NOT NULL DEFAULT 1,
   investment_strategy  TEXT,
   theme                TEXT NOT NULL DEFAULT 'light',
-  bg_theme             TEXT NOT NULL DEFAULT '',
+  todo_bg_theme        TEXT NOT NULL DEFAULT '',
   todo_auto_parent     INTEGER NOT NULL DEFAULT 1,
   todo_view_list       TEXT,
   motto                TEXT,
