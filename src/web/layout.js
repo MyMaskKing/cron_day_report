@@ -424,21 +424,16 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .todo-due-group__cal {
   flex: none; width: 40px; height: 40px; border-radius: 11px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  color: #fff; line-height: 1;
+  line-height: 1;
 }
 .todo-due-group__cal b { font-size: 17px; font-weight: 800; }
-.todo-due-group__cal small { font-size: 9px; margin-top: 2px; opacity: .92; }
-.todo-due-group__cal--overdue { background: linear-gradient(135deg,#e5484d,#c62828); }
-.todo-due-group__cal--today { background: var(--brand-grad); }
-.todo-due-group__cal--soon { background: linear-gradient(135deg,#f59e0b,#d97706); }
+.todo-due-group__cal small { font-size: 9px; margin-top: 2px; opacity: .8; }
+/* 配色与卡片 .todo-chip.due 完全同源（日历即从主任务卡提到组头） */
+.todo-due-group__cal--overdue { background: var(--danger-bg); color: var(--danger); }
+.todo-due-group__cal--today { background: var(--brand-grad); color: #fff; }
+.todo-due-group__cal--soon { background: var(--warn-bg); color: var(--warn); }
 .todo-due-group__cal--future,
-.todo-due-group__cal--none { background: linear-gradient(135deg,#d3d6de,#b9bdc7); }
-[data-theme="dark"] .todo-due-group__cal--future,
-[data-theme="dark"] .todo-due-group__cal--none { background: linear-gradient(135deg,#3a4050,#2c3140); }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .todo-due-group__cal--future,
-  :root:not([data-theme="light"]) .todo-due-group__cal--none { background: linear-gradient(135deg,#3a4050,#2c3140); }
-}
+.todo-due-group__cal--none { background: var(--surface-2); color: var(--link-dim); }
 .todo-due-group__name { font-size: 14.5px; font-weight: 700; color: var(--text); white-space: nowrap; }
 .todo-due-group__name small {
   display: block; font-size: 11.5px; font-weight: 400; color: var(--faint); margin-top: 1px;
