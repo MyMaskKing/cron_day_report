@@ -86,6 +86,10 @@ fun friendlyErrorMsg(raw: String?): String {
         httpCode == "401" || httpCode == "403" -> "登录失效，请打开 App 重新登录"
         httpCode == "404" -> "服务器地址有误（404），请检查服务器设置"
         httpCode != null && httpCode.startsWith("5") -> "服务器异常（HTTP $httpCode），稍后自动重试"
+        // 已有连接被对端/网络中断（Conscrypt SSLException "Connection closed"、
+        // OkHttp HTTP/2 ConnectionShutdownException "Connection shutdown"），属瞬态事件
+        s.contains("Connection closed", ignoreCase = true) ||
+            s.contains("Connection shutdown", ignoreCase = true) -> "网络连接中断，正在自动重试"
         s.contains("Unable to resolve host", ignoreCase = true) ||
             s.contains("failed to connect", ignoreCase = true) ||
             s.contains("Network is unreachable", ignoreCase = true) ||
