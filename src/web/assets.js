@@ -6527,6 +6527,33 @@ function todoRootDue(root) {
   })(root, null);
   return min;
 }
+// 按到期日分组开关：localStorage 'todoGroupByDue'；未存默认开启，"0" 关闭
+function todoLoadGroupByDue() {
+  try { return localStorage.getItem('todoGroupByDue') !== '0'; }
+  catch (e) { return true; }
+}
+function todoSaveGroupByDue(v) {
+  try { localStorage.setItem('todoGroupByDue', v ? '1' : '0'); }
+  catch (e) { /* 存储被禁仅本次生效 */ }
+}
+var _todoGroupByDue = todoLoadGroupByDue();
+var _todoDueGroupCollapsed = new Set();
+/**
+ * 顶层树按代表日期归组（主列表分组层，组内顺序不变）：
+ * key 'YYYY-MM-DD' 升序（逾期最早 → 未来），无日期 'none' 沉最后
+ * @returns {Array<{key:string,roots:Array}>}
+ */
+function todoGroupRootsByDue(trees) {
+  var map = new Map();
+  trees.forEach(function (r) {
+    var k = todoRootDue(r) || 'none';
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(r);
+  });
+  var keys = Array.from(map.keys()).filter(function (k) { return k !== 'none'; }).sort();
+  if (map.has('none')) keys.push('none');
+  return keys.map(function (k) { return { key: k, roots: map.get(k) }; });
+}
 // 顶层时间过滤(四套页面共享): 按顶层显示日期 todoRootDue 归类
 // filter ∈ all | planned(计划中) | cur(今日+逾期) | today | overdue | future | memo | done
 function todoRootPassFilter(n, filter, t) {
@@ -8660,6 +8687,58 @@ function todoPreserveScroll(scroller, key, render, afterRender) {
   _todoScrollCurrentScroller = scroller;
   _todoScrollCurrentKey = key;
 }
+/** 组体分发：按当前视图把 roots 渲染到 container（分组退化与普通列表共用） */
+function todoRenderRootsByView(container, trees, opts, view) {
+  if (view === 'accordion') renderTodoAccordion(container, trees, opts);
+  else if (view === 'flat') renderTodoFlat(container, trees, opts);
+  else if (view === 'tree') renderTodoTree(container, trees, opts);
+  else renderTodoCards(container, trees, opts);
+}
+/**
+ * 主列表分组层：顶层树按代表日期分组，组头配色复用 todoDueChip
+ * （逾期红 / 今天紫 / 明天·本周X黄 / 其余中性），组体按当前视图渲染。
+ * memo 筛选或整组无日期（'none'）时没有日期可分，退化为普通渲染。
+ */
+function todoRenderGroupedByDue(container, trees, opts, view) {
+  var today = opts.today || '';
+  var groups = todoGroupRootsByDue(trees);
+  if (opts.filter === 'memo' || (groups.length === 1 && groups[0].key === 'none')) {
+    todoRenderRootsByView(container, trees, opts, view);
+    return;
+  }
+  container.innerHTML = '';
+  container.className = 'todo-due-groups';
+  groups.forEach(function (g) {
+    var collapsed = _todoDueGroupCollapsed.has(g.key);
+    var head = document.createElement('div');
+    head.className = 'todo-due-group__head' + (collapsed ? ' is-collapsed' : '');
+    var body = document.createElement('div');
+    if (collapsed) body.hidden = true;
+    if (g.key === 'none') {
+      head.innerHTML =
+        '<span class="todo-due-group__caret">▾</span>' +
+        '<span class="todo-due-group__name">🗂 未安排</span>' +
+        '<span class="todo-due-group__count">' + g.roots.length + '</span>' +
+        '<span class="todo-due-group__line"></span>';
+    } else {
+      var chip = todoDueChip(g.key, today, false);
+      head.innerHTML =
+        '<span class="todo-due-group__caret">▾</span>' +
+        '<span class="' + chip.cls + '">' + chip.html + '</span>' +
+        '<span class="todo-due-group__count">' + g.roots.length + '</span>' +
+        '<span class="todo-due-group__line"></span>';
+    }
+    head.addEventListener('click', function () {
+      if (_todoDueGroupCollapsed.has(g.key)) _todoDueGroupCollapsed.delete(g.key);
+      else _todoDueGroupCollapsed.add(g.key);
+      head.classList.toggle('is-collapsed');
+      body.hidden = !body.hidden;
+    });
+    container.appendChild(head);
+    container.appendChild(body);
+    todoRenderRootsByView(body, g.roots, opts, view);
+  });
+}
 // 视图调度器：opts.view + opts.detailRootId 决定渲染哪种
 //   view='tree'                       → 完整树（多棵）
 //   view='accordion'                  → 手风琴（嵌套分组）
@@ -8744,7 +8823,9 @@ function todoRenderView(container, trees, opts) {
     if (ph) ph.click();
   };
   preserveScroll(todoScrollKey(view, null, scrollScroller), function(){
-    if (view === 'accordion') renderTodoAccordion(container, pending, viewOpts);
+    // 仅登录态 /todo 页传 groupByDue（其开关入口在 + 新建菜单）；公开/报告/协作页不启用
+    if (viewOpts.groupByDue) todoRenderGroupedByDue(container, pending, viewOpts, view);
+    else if (view === 'accordion') renderTodoAccordion(container, pending, viewOpts);
     else if (view === 'flat') renderTodoFlat(container, pending, viewOpts);
     else if (view === 'tree') renderTodoTree(container, pending, viewOpts);
     else renderTodoCards(container, pending, viewOpts);
@@ -10747,6 +10828,7 @@ function drawTree() {
     detailRootId: _todoDetailRootId,
     crumbEl: crumb,
     today: todayStr(), hideDone: hideDone, filter: _filter,
+    groupByDue: _todoGroupByDue,
     onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(); },
     onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
     onDetail: function(node){
@@ -11124,7 +11206,11 @@ function openAddChooser(ev) {
     +   '<span class="fab-menu__t">新建任务</span></button>'
     + '<button type="button" class="fab-menu__item" data-k="memo">'
     +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.edit + '</span>'
-    +   '<span class="fab-menu__t">新建备忘录</span></button>';
+    +   '<span class="fab-menu__t">新建备忘录</span></button>'
+    + '<button type="button" class="fab-menu__item" data-k="group">'
+    +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.calendar + '</span>'
+    +   '<span class="fab-menu__t">按到期日分组</span>'
+    +   '<span class="fab-menu__mark">' + (_todoGroupByDue ? '✓' : '') + '</span></button>';
   document.body.appendChild(menu);
   // 右缘对齐锚点右侧, 但不贴出屏幕
   var right = Math.max(12, window.innerWidth - r.right);
@@ -11137,6 +11223,13 @@ function openAddChooser(ev) {
   if (menu.getBoundingClientRect().left < 12) { menu.style.right = 'auto'; menu.style.left = '12px'; }
   menu.querySelectorAll('.fab-menu__item').forEach(function(b){
     b.addEventListener('click', function(){
+      if (b.dataset.k === 'group') {
+        _todoGroupByDue = !_todoGroupByDue;
+        todoSaveGroupByDue(_todoGroupByDue);
+        closeAddMenu();
+        drawTree();
+        return;
+      }
       var memo = b.dataset.k === 'memo';
       closeAddMenu();
       openAddForm(null, memo ? '新建备忘录' : '新建任务', false, memo);

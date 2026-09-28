@@ -1031,7 +1031,7 @@ function todoPage(user) {
         <span class="todo-card-head__bar">
           <span class="todo-card-head__bar-scroll">
             <button class="btn sm gray" id="viewToggle">${ICO_CARDS}卡片视图</button>
-            <button class="btn sm" id="tAdd">+ 新建任务</button>
+            <button class="btn sm" id="tAdd">+ 新建 ▾</button>
             <button class="btn sm gray" id="tListBtn">👥 共享分类</button>
           </span>
         </span>

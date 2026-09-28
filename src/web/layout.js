@@ -410,7 +410,31 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   background: var(--brand-tint); color: var(--brand); }
 .fab-menu__ic svg { width: 15px; height: 15px; }
 .fab-menu__t { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.fab-menu__mark { margin-left: auto; color: var(--brand); font-size: 15px; font-weight: 700; min-width: 14px; text-align: right; }
 @media (prefers-reduced-motion: reduce) { .fab-menu { animation: none; } }
+
+/* ============ 待办主列表：按到期日分组（组头配色复用 .todo-chip.due） ============ */
+.todo-due-groups { display: flex; flex-direction: column; }
+.todo-due-group__head {
+  display: flex; align-items: center; gap: 9px;
+  margin: 17px 2px 1px; cursor: pointer; user-select: none;
+}
+.todo-due-group__head:first-child { margin-top: 2px; }
+.todo-due-group__caret {
+  flex: none; width: 14px; color: var(--faint); font-size: 10px; text-align: center;
+  transition: transform .18s;
+}
+.todo-due-group__head.is-collapsed .todo-due-group__caret { transform: rotate(-90deg); }
+.todo-due-group__count {
+  flex: none; font-size: 11px; font-weight: 600; line-height: 1.7;
+  padding: 0 9px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--muted-2);
+}
+.todo-due-group__name { font-size: 13px; font-weight: 700; color: var(--muted-2); white-space: nowrap; }
+.todo-due-group__line { flex: 1; height: 1px; background: var(--border); }
+/* 分组模式：组内各行不重复显示到期 chip，组头自身豁免 */
+.todo-due-groups .todo-chip.due { display: none; }
+.todo-due-groups .todo-due-group__head .todo-chip.due { display: inline-flex; }
 .impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }
 .impersonate-banner a { color: var(--danger); font-weight: 600; margin-left: 8px; }
 /* 全站公告强制阅读弹窗：独立遮罩，层级高于 #globalLoading(10500)，无关闭叉、点空白不关闭 */
