@@ -6538,6 +6538,36 @@ function todoSaveGroupByDue(v) {
 }
 var _todoGroupByDue = todoLoadGroupByDue();
 var _todoDueGroupCollapsed = new Set();
+
+// 主列表排序：独立于分组的单独设置，localStorage 'todoSortMode'
+//   'default'  手动排序（sort_order+id，默认）
+//   'due_asc'  到期日 早→晚（逾期在前），无日期沉底
+//   'due_desc' 到期日 晚→早，无日期沉底
+function todoLoadSortMode() {
+  var v;
+  try { v = localStorage.getItem('todoSortMode'); } catch (e) { v = null; }
+  return (v === 'due_asc' || v === 'due_desc') ? v : 'default';
+}
+function todoSaveSortMode(m) {
+  try { localStorage.setItem('todoSortMode', m); } catch (e) { /* 忽略 */ }
+}
+var _todoSortMode = todoLoadSortMode();
+/** 顶层树排序（主列表用，不改变原数组）；日期口径 todoRootDue，无日期沉底 */
+function todoSortRoots(trees, mode) {
+  if (mode !== 'due_asc' && mode !== 'due_desc') return trees;
+  var out = trees.slice();
+  out.sort(function (a, b) {
+    var ad = todoRootDue(a), bd = todoRootDue(b);
+    if (!ad || !bd) {
+      if (!ad && !bd) return (a.sort_order - b.sort_order) || (a.id - b.id);
+      return ad ? -1 : 1; // 无日期恒沉底
+    }
+    if (ad === bd) return (a.sort_order - b.sort_order) || (a.id - b.id);
+    if (mode === 'due_asc') return ad < bd ? -1 : 1;
+    return ad < bd ? 1 : -1;
+  });
+  return out;
+}
 /**
  * 顶层树按代表日期归组（主列表分组层，组内顺序不变）：
  * key 'YYYY-MM-DD' 升序（逾期最早 → 未来），无日期 'none' 沉最后
@@ -6550,7 +6580,8 @@ function todoGroupRootsByDue(trees) {
     if (!map.has(k)) map.set(k, []);
     map.get(k).push(r);
   });
-  var keys = Array.from(map.keys()).filter(function (k) { return k !== 'none'; }).sort();
+  // 纯归组不排序：组顺序与组内顺序沿用传入 roots（排序由独立的 todoSortMode 控制）
+  var keys = Array.from(map.keys()).filter(function (k) { return k !== 'none'; });
   if (map.has('none')) keys.push('none');
   return keys.map(function (k) { return { key: k, roots: map.get(k) }; });
 }
@@ -8218,7 +8249,8 @@ function renderTodoFlat(container, trees, opts) {
     // 无子任务的顶层主任务: 标 solo, 供 CSS 收紧组头/叶子间距与组底空隙
     // A 方案：顶层主任务卡片化，等级由顶部色带编码（与卡片/手风琴视图同源）
     groupWrap.className = 'todo-node flat-group todo-bandcard pri-' + (root.priority != null ? root.priority : 1)
-      + (root.children.length === 0 ? ' flat-group--solo' : '');
+      + (root.children.length === 0 ? ' flat-group--solo' : '')
+      + (root.child_due ? ' cd-on' : '');
     groupWrap.setAttribute('data-id', root.id);
     var bandEl = document.createElement('div');
     bandEl.className = 'todo-card__band';
@@ -8715,6 +8747,11 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
     var head = document.createElement('div');
     head.className = 'todo-due-group__head' + (collapsed ? ' is-collapsed' : '');
     var body = document.createElement('div');
+    // 组体带视图类（与未分组容器同名）：手机端「只留 ⋯」收纳 CSS 等规则以容器类为祖先，
+    // 缺类会导致分组后按钮全暴露。卡片视图渲染器自设 todo-cards，无需预设。
+    if (view === 'tree') body.className = 'todo-tree';
+    else if (view === 'accordion') body.className = 'todo-acc';
+    else if (view === 'flat') body.className = 'flat-view';
     // 折叠用行内 display：组体会被渲染器设 className（卡片视图 todo-cards=display:flex），
     // hidden 属性默认 display:none 会被 flex 覆盖，导致卡片视图折不上
     if (collapsed) body.style.display = 'none';
@@ -8813,7 +8850,7 @@ function todoRenderView(container, trees, opts) {
   document.body.classList.remove('todo-detail');
   if (crumb) crumb.style.display = 'none';
   todoPersistDetail(null); // 回到主列表即清除详情 id，避免刷新被 todoMaybeRestoreDetail 恢复
-  var pending = todoPendingTrees(trees);
+  var pending = todoSortRoots(todoPendingTrees(trees), _todoSortMode);
   var viewOpts = {};
   for (var vk in opts) if (Object.prototype.hasOwnProperty.call(opts, vk)) viewOpts[vk] = opts[vk];
   viewOpts.hideDone = false; // done 已抽离，渲染器无需再按完成剪枝
@@ -11263,15 +11300,34 @@ function openDisplayChooser(ev) {
   var hideOn = !!(hideOrig && hideOrig.checked);
   var menu = document.createElement('div');
   menu.className = 'fab-menu';
-  menu.innerHTML =
-    '<button type="button" class="fab-menu__item" data-k="group">'
-    +   '<span class="fab-menu__ic">' + ICONS.calendar + '</span>'
-    +   '<span class="fab-menu__t">按到期日分组</span>'
-    +   '<span class="fab-menu__mark">' + (_todoGroupByDue ? '✓' : '') + '</span></button>'
-    + '<button type="button" class="fab-menu__item" data-k="hide">'
-    +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🙈</span>'
-    +   '<span class="fab-menu__t">隐藏已完成</span>'
-    +   '<span class="fab-menu__mark">' + (hideOn ? '✓' : '') + '</span></button>';
+  var SORT_SHORT = { default: '默认', due_asc: '早→晚', due_desc: '晚→早' };
+  function mainHtml() {
+    return '<button type="button" class="fab-menu__item" data-k="group">'
+      +   '<span class="fab-menu__ic">' + ICONS.calendar + '</span>'
+      +   '<span class="fab-menu__t">按到期日分组</span>'
+      +   '<span class="fab-menu__mark">' + (_todoGroupByDue ? '✓' : '') + '</span></button>'
+      + '<button type="button" class="fab-menu__item" data-k="hide">'
+      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🙈</span>'
+      +   '<span class="fab-menu__t">隐藏已完成</span>'
+      +   '<span class="fab-menu__mark">' + (hideOn ? '✓' : '') + '</span></button>'
+      + '<button type="button" class="fab-menu__item" data-k="sort">'
+      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🔀</span>'
+      +   '<span class="fab-menu__t">排序方式</span>'
+      +   '<span class="fab-menu__mark" style="font-size:12px;">' + SORT_SHORT[_todoSortMode] + '</span></button>';
+  }
+  function sortHtml() {
+    function row(m, label) {
+      return '<button type="button" class="fab-menu__item" data-sort="' + m + '">'
+        + '<span class="fab-menu__t">' + label + '</span>'
+        + '<span class="fab-menu__mark">' + (_todoSortMode === m ? '✓' : '') + '</span></button>';
+    }
+    return '<button type="button" class="fab-menu__item" data-k="sort-back">'
+      + '<span class="fab-menu__t" style="color:var(--muted);">← 返回</span></button>'
+      + row('default', '手动排序（默认）')
+      + row('due_asc', '到期日 早→晚（逾期在前）')
+      + row('due_desc', '到期日 晚→早');
+  }
+  menu.innerHTML = mainHtml();
   document.body.appendChild(menu);
   // 定位与 + 新建菜单一致：右缘对齐，下方空间不足出上方，超窄屏防溢出
   menu.style.right = Math.max(12, window.innerWidth - r.right) + 'px';
@@ -11279,21 +11335,33 @@ function openDisplayChooser(ev) {
     menu.style.bottom = (window.innerHeight - r.top + 10) + 'px';
   else menu.style.top = (r.bottom + 10) + 'px';
   if (menu.getBoundingClientRect().left < 12) { menu.style.right = 'auto'; menu.style.left = '12px'; }
-  menu.querySelectorAll('.fab-menu__item').forEach(function(b){
-    b.addEventListener('click', function(){
-      if (b.dataset.k === 'group') {
-        _todoGroupByDue = !_todoGroupByDue;
-        todoSaveGroupByDue(_todoGroupByDue);
-      } else if (hideOrig) {
-        hideOrig.checked = !hideOrig.checked;
-        // 镜像全屏顶栏 checkbox（CORE 仅有 fs→orig 方向绑定，这里手动同步）
-        var hideFs = document.getElementById('hideDoneFs');
-        if (hideFs) hideFs.checked = hideOrig.checked;
-      }
-      closeDisplayMenu();
-      drawTree();
+  function bindItems() {
+    menu.querySelectorAll('.fab-menu__item').forEach(function(b){
+      b.addEventListener('click', function(){
+        if (b.dataset.sort != null) {
+          _todoSortMode = b.dataset.sort;
+          todoSaveSortMode(_todoSortMode);
+          closeDisplayMenu();
+          drawTree();
+          return;
+        }
+        if (b.dataset.k === 'sort') { menu.innerHTML = sortHtml(); bindItems(); return; }
+        if (b.dataset.k === 'sort-back') { menu.innerHTML = mainHtml(); bindItems(); return; }
+        if (b.dataset.k === 'group') {
+          _todoGroupByDue = !_todoGroupByDue;
+          todoSaveGroupByDue(_todoGroupByDue);
+        } else if (b.dataset.k === 'hide' && hideOrig) {
+          hideOrig.checked = !hideOrig.checked;
+          // 镜像全屏顶栏 checkbox（CORE 仅有 fs→orig 方向绑定，这里手动同步）
+          var hideFs = document.getElementById('hideDoneFs');
+          if (hideFs) hideFs.checked = hideOrig.checked;
+        }
+        closeDisplayMenu();
+        drawTree();
+      });
     });
-  });
+  }
+  bindItems();
   _displayMenu = menu;
   setTimeout(function(){ document.addEventListener('click', _onDisplayMenuDoc, true); }, 0);
   document.addEventListener('keydown', _onDisplayMenuKey, true);
