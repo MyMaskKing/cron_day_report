@@ -8755,20 +8755,33 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
     // 折叠用行内 display：组体会被渲染器设 className（卡片视图 todo-cards=display:flex），
     // hidden 属性默认 display:none 会被 flex 覆盖，导致卡片视图折不上
     if (collapsed) body.style.display = 'none';
+    // S2 日历方块组头：方块(日号+星期, 状态色) + 日期文字 + 件数 + 右侧折叠箭头
     if (g.key === 'none') {
       head.innerHTML =
-        '<span class="todo-due-group__caret">▾</span>' +
+        '<span class="todo-due-group__cal todo-due-group__cal--none">—</span>' +
         '<span class="todo-due-group__name">🗂 未安排</span>' +
-        '<span class="todo-due-group__count">' + g.roots.length + '</span>' +
-        '<span class="todo-due-group__line"></span>';
+        '<span class="todo-due-group__count">' + g.roots.length + ' 件</span>' +
+        '<span class="todo-due-group__caret">▾</span>';
     } else {
-      var chip = todoDueChip(g.key, today, false);
+      var diff = todoDateDiff(g.key, today);
+      var label = todoDateLabel(g.key, today);
+      var tone = diff < 0 ? 'overdue'
+        : diff === 0 ? 'today'
+        : ((diff === 1 || label.charAt(0) === '本') ? 'soon' : 'future');
+      var dayNo = parseInt(g.key.slice(8, 10), 10);
+      var wk = _CN_WEEKDAY[new Date(g.key + 'T00:00:00Z').getUTCDay()];
       head.innerHTML =
-        '<span class="todo-due-group__caret">▾</span>' +
-        '<span class="' + chip.cls + '">' + chip.html + '</span>' +
-        '<span class="todo-due-group__count">' + g.roots.length + '</span>' +
-        '<span class="todo-due-group__line"></span>';
+        '<span class="todo-due-group__cal todo-due-group__cal--' + tone + '">' +
+          '<b>' + dayNo + '</b><small>' + wk + '</small></span>' +
+        '<span class="todo-due-group__name">' + label + '</span>' +
+        '<span class="todo-due-group__count">' + g.roots.length + ' 件</span>' +
+        '<span class="todo-due-group__caret">▾</span>';
+      head.title = g.key;
     }
+    // 折叠态摘要：列出组内主任务名（单行截断），折叠后也能知道组里有哪些任务
+    var summary = document.createElement('div');
+    summary.className = 'todo-due-group__summary';
+    summary.textContent = '📋 ' + g.roots.map(function (r) { return r.title; }).join('、');
     head.addEventListener('click', function () {
       if (_todoDueGroupCollapsed.has(g.key)) _todoDueGroupCollapsed.delete(g.key);
       else _todoDueGroupCollapsed.add(g.key);
@@ -8776,6 +8789,7 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
       body.style.display = body.style.display === 'none' ? '' : 'none';
     });
     container.appendChild(head);
+    container.appendChild(summary);
     container.appendChild(body);
     todoRenderRootsByView(body, g.roots, opts, view);
   });

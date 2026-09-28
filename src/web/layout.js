@@ -413,25 +413,46 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .fab-menu__mark { margin-left: auto; color: var(--brand); font-size: 15px; font-weight: 700; min-width: 14px; text-align: right; }
 @media (prefers-reduced-motion: reduce) { .fab-menu { animation: none; } }
 
-/* ============ 待办主列表：按到期日分组（组头配色复用 .todo-chip.due） ============ */
+/* ============ 待办主列表：按到期日分组（S2 日历方块组头） ============ */
 .todo-due-groups { display: flex; flex-direction: column; }
 .todo-due-group__head {
-  display: flex; align-items: center; gap: 9px;
-  margin: 17px 2px 1px; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 10px;
+  margin: 15px 2px 1px; cursor: pointer; user-select: none;
 }
 .todo-due-group__head:first-child { margin-top: 2px; }
+/* 日历方块：日号+星期；状态色 逾期红 / 今天紫 / 临近琥珀 / 未来·未安排灰 */
+.todo-due-group__cal {
+  flex: none; width: 40px; height: 40px; border-radius: 11px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #fff; line-height: 1;
+}
+.todo-due-group__cal b { font-size: 17px; font-weight: 800; }
+.todo-due-group__cal small { font-size: 9px; margin-top: 2px; opacity: .92; }
+.todo-due-group__cal--overdue { background: linear-gradient(135deg,#e5484d,#c62828); }
+.todo-due-group__cal--today { background: var(--brand-grad); }
+.todo-due-group__cal--soon { background: linear-gradient(135deg,#f59e0b,#d97706); }
+.todo-due-group__cal--future,
+.todo-due-group__cal--none { background: linear-gradient(135deg,#d3d6de,#b9bdc7); }
+[data-theme="dark"] .todo-due-group__cal--future,
+[data-theme="dark"] .todo-due-group__cal--none { background: linear-gradient(135deg,#3a4050,#2c3140); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .todo-due-group__cal--future,
+  :root:not([data-theme="light"]) .todo-due-group__cal--none { background: linear-gradient(135deg,#3a4050,#2c3140); }
+}
+.todo-due-group__name { font-size: 14.5px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.todo-due-group__count {
+  flex: none; margin-left: auto; font-size: 12px; color: var(--muted-2); white-space: nowrap;
+}
 .todo-due-group__caret {
-  flex: none; width: 14px; color: var(--faint); font-size: 10px; text-align: center;
-  transition: transform .18s;
+  flex: none; color: var(--faint); font-size: 10px; transition: transform .18s;
 }
 .todo-due-group__head.is-collapsed .todo-due-group__caret { transform: rotate(-90deg); }
-.todo-due-group__count {
-  flex: none; font-size: 11px; font-weight: 600; line-height: 1.7;
-  padding: 0 9px; border-radius: 999px;
-  background: var(--surface-2); border: 1px solid var(--border); color: var(--muted-2);
+/* 折叠态摘要：仅组头折叠时显示，单行截断 */
+.todo-due-group__summary {
+  display: none; margin: 4px 4px 0; font-size: 12px; line-height: 1.6; color: var(--faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.todo-due-group__name { font-size: 13px; font-weight: 700; color: var(--muted-2); white-space: nowrap; }
-.todo-due-group__line { flex: 1; height: 1px; background: var(--border); }
+.todo-due-group__head.is-collapsed + .todo-due-group__summary { display: block; }
 /* 分组模式：组内各行不重复显示到期 chip，组头自身豁免 */
 .todo-due-groups .todo-chip.due { display: none; }
 /* 豁免只需给非 none 值：用 inline（chip 默认 display），
