@@ -6255,6 +6255,7 @@ bindQuickLogin('asset');
 // onAddChildSubmit(node, payload) → Promise: 由业务侧封装 api + reload; 卡片/树/详情页共用同一 submitFn 通道
 // 用 createElement + addEventListener，规避模板串内引号转义。
 const TODO_TREE_CORE = `
+console.log('[探针] todo-core 新版已加载执行 2026-09-28');
 // 手机完整树操作菜单(⋯): 把行内已有操作钮(不含拖拽/⋯自身)列成弹层, 点击代理到原按钮,
 // 复用各页面既有的 handler/二次确认, 无需重绑。桌面 CSS 隐藏 ⋯, 菜单不会被触发。
 var _todoOpMenuRow = null;
@@ -8776,6 +8777,7 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
       var subHTML = /^\d/.test(label)
         ? '<small>' + mo + '月' + wk + '</small>'
         : '<small>' + mo + '月' + dayNo + '日</small>';
+      console.log('[探针] 组头 key=' + g.key + ' label=[' + label + '] mo=' + mo + ' dayNo=' + dayNo + ' wk=' + wk + ' subHTML=' + subHTML);
       head.innerHTML =
         '<span class="todo-due-group__cal todo-due-group__cal--' + tone + '">' +
           '<b>' + dayNo + '</b><small>' + wk + '</small></span>' +
