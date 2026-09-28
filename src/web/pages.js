@@ -1035,7 +1035,8 @@ function todoPage(user) {
             <button class="btn sm gray" id="tListBtn">👥 共享分类</button>
           </span>
         </span>
-        <label class="todo-card-head__hide"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
+        <input type="checkbox" id="hideDone" checked hidden>
+      <button class="btn sm gray" id="displayOpts">👁 显示 ▾</button>
       </h2>
       <div class="todo-range todo-filter" id="todoFilter">
         <button data-filter="all">全部</button>
@@ -1097,7 +1098,8 @@ function todoPage(user) {
         <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
-        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏已完成</label>
+        <input type="checkbox" id="hideDoneFs" checked hidden>
+        <button class="fs-iconbtn" id="displayOptsFs" title="显示选项">👁</button>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
     </div>

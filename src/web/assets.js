@@ -8713,7 +8713,9 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
     var head = document.createElement('div');
     head.className = 'todo-due-group__head' + (collapsed ? ' is-collapsed' : '');
     var body = document.createElement('div');
-    if (collapsed) body.hidden = true;
+    // 折叠用行内 display：组体会被渲染器设 className（卡片视图 todo-cards=display:flex），
+    // hidden 属性默认 display:none 会被 flex 覆盖，导致卡片视图折不上
+    if (collapsed) body.style.display = 'none';
     if (g.key === 'none') {
       head.innerHTML =
         '<span class="todo-due-group__caret">▾</span>' +
@@ -8732,7 +8734,7 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
       if (_todoDueGroupCollapsed.has(g.key)) _todoDueGroupCollapsed.delete(g.key);
       else _todoDueGroupCollapsed.add(g.key);
       head.classList.toggle('is-collapsed');
-      body.hidden = !body.hidden;
+      body.style.display = body.style.display === 'none' ? '' : 'none';
     });
     container.appendChild(head);
     container.appendChild(body);
@@ -11206,11 +11208,7 @@ function openAddChooser(ev) {
     +   '<span class="fab-menu__t">新建任务</span></button>'
     + '<button type="button" class="fab-menu__item" data-k="memo">'
     +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.edit + '</span>'
-    +   '<span class="fab-menu__t">新建备忘录</span></button>'
-    + '<button type="button" class="fab-menu__item" data-k="group">'
-    +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.calendar + '</span>'
-    +   '<span class="fab-menu__t">按到期日分组</span>'
-    +   '<span class="fab-menu__mark">' + (_todoGroupByDue ? '✓' : '') + '</span></button>';
+    +   '<span class="fab-menu__t">新建备忘录</span></button>';
   document.body.appendChild(menu);
   // 右缘对齐锚点右侧, 但不贴出屏幕
   var right = Math.max(12, window.innerWidth - r.right);
@@ -11223,13 +11221,6 @@ function openAddChooser(ev) {
   if (menu.getBoundingClientRect().left < 12) { menu.style.right = 'auto'; menu.style.left = '12px'; }
   menu.querySelectorAll('.fab-menu__item').forEach(function(b){
     b.addEventListener('click', function(){
-      if (b.dataset.k === 'group') {
-        _todoGroupByDue = !_todoGroupByDue;
-        todoSaveGroupByDue(_todoGroupByDue);
-        closeAddMenu();
-        drawTree();
-        return;
-      }
       var memo = b.dataset.k === 'memo';
       closeAddMenu();
       openAddForm(null, memo ? '新建备忘录' : '新建任务', false, memo);
@@ -11245,6 +11236,71 @@ function openAddChooser(ev) {
 ['tAdd', 'tAddFs'].forEach(function(id){
   var el = document.getElementById(id);
   if (el) el.addEventListener('click', openAddChooser);
+});
+// 「👁 显示」气泡菜单（与 + 新建菜单同机制）：按到期日分组 / 隐藏已完成 两个开关
+var _displayMenu = null;
+function _onDisplayMenuDoc(e){
+  if (_displayMenu && !_displayMenu.contains(e.target) &&
+      !(e.target.closest && e.target.closest('#displayOpts,#displayOptsFs'))) closeDisplayMenu();
+}
+function _onDisplayMenuKey(e){ if (e.key === 'Escape') closeDisplayMenu(); }
+function closeDisplayMenu() {
+  if (!_displayMenu) return;
+  _displayMenu.remove(); _displayMenu = null;
+  document.removeEventListener('click', _onDisplayMenuDoc, true);
+  document.removeEventListener('keydown', _onDisplayMenuKey, true);
+  window.removeEventListener('scroll', closeDisplayMenu, true);
+  window.removeEventListener('resize', closeDisplayMenu);
+}
+function openDisplayChooser(ev) {
+  if (_displayMenu) { closeDisplayMenu(); return; }
+  var anchor = ev && ev.currentTarget;
+  if (!anchor) return;
+  var r = anchor.getBoundingClientRect();
+  var hideOrig = document.getElementById('hideDone');
+  var hideOn = !!(hideOrig && hideOrig.checked);
+  var menu = document.createElement('div');
+  menu.className = 'fab-menu';
+  menu.innerHTML =
+    '<button type="button" class="fab-menu__item" data-k="group">'
+    +   '<span class="fab-menu__ic">' + ICONS.calendar + '</span>'
+    +   '<span class="fab-menu__t">按到期日分组</span>'
+    +   '<span class="fab-menu__mark">' + (_todoGroupByDue ? '✓' : '') + '</span></button>'
+    + '<button type="button" class="fab-menu__item" data-k="hide">'
+    +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🙈</span>'
+    +   '<span class="fab-menu__t">隐藏已完成</span>'
+    +   '<span class="fab-menu__mark">' + (hideOn ? '✓' : '') + '</span></button>';
+  document.body.appendChild(menu);
+  // 定位与 + 新建菜单一致：右缘对齐，下方空间不足出上方，超窄屏防溢出
+  menu.style.right = Math.max(12, window.innerWidth - r.right) + 'px';
+  if ((window.innerHeight - r.bottom) < 100)
+    menu.style.bottom = (window.innerHeight - r.top + 10) + 'px';
+  else menu.style.top = (r.bottom + 10) + 'px';
+  if (menu.getBoundingClientRect().left < 12) { menu.style.right = 'auto'; menu.style.left = '12px'; }
+  menu.querySelectorAll('.fab-menu__item').forEach(function(b){
+    b.addEventListener('click', function(){
+      if (b.dataset.k === 'group') {
+        _todoGroupByDue = !_todoGroupByDue;
+        todoSaveGroupByDue(_todoGroupByDue);
+      } else if (hideOrig) {
+        hideOrig.checked = !hideOrig.checked;
+        // 镜像全屏顶栏 checkbox（CORE 仅有 fs→orig 方向绑定，这里手动同步）
+        var hideFs = document.getElementById('hideDoneFs');
+        if (hideFs) hideFs.checked = hideOrig.checked;
+      }
+      closeDisplayMenu();
+      drawTree();
+    });
+  });
+  _displayMenu = menu;
+  setTimeout(function(){ document.addEventListener('click', _onDisplayMenuDoc, true); }, 0);
+  document.addEventListener('keydown', _onDisplayMenuKey, true);
+  window.addEventListener('scroll', closeDisplayMenu, true);
+  window.addEventListener('resize', closeDisplayMenu);
+}
+['displayOpts', 'displayOptsFs'].forEach(function(id){
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', openDisplayChooser);
 });
 // 视图三态循环: default → card → tree → default
 bindClickBusy(document.getElementById('viewToggle'), function(){
