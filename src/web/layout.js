@@ -440,6 +440,9 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   :root:not([data-theme="light"]) .todo-due-group__cal--none { background: linear-gradient(135deg,#3a4050,#2c3140); }
 }
 .todo-due-group__name { font-size: 14.5px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.todo-due-group__name small {
+  display: block; font-size: 11.5px; font-weight: 400; color: var(--faint); margin-top: 1px;
+}
 .todo-due-group__count {
   flex: none; margin-left: auto; font-size: 12px; color: var(--muted-2); white-space: nowrap;
 }
