@@ -8775,7 +8775,7 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
       // 数字日期(10/22)有月日缺星期 → M月周X（不重复标签里的日号）
       // 本常量是模板字符串，判断数字开头用 [0-9]，不要写 \d（反斜杠会被剥掉变成 /^d/）
       var subHTML = /^[0-9]/.test(label)
-        ? '<small>' + mo + '月' + wk + '</small>'
+        ? '<small>' + mo + '月 · ' + wk + '</small>'
         : '<small>' + mo + '月' + dayNo + '日</small>';
       head.innerHTML =
         '<span class="todo-due-group__cal todo-due-group__cal--' + tone + '">' +
