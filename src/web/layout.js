@@ -122,6 +122,14 @@ const BASE_CSS = `
     radial-gradient(640px 470px at 10% 6%, rgba(251,113,133,.24), transparent 60%),
     radial-gradient(700px 560px at 50% 108%, rgba(217,150,255,.20), transparent 66%),
     linear-gradient(180deg,#f3f0fb 0%,#fbf1f6 100%);
+  /* 色块专用代表色：整背景含大尺寸光斑，直接缩到 58px 色块时光斑浓缩会偏色，
+     故色块用各款主色的小渐变（选项预览性质，三主题取值一致），默认档为纯奶白 */
+  --sw-default: linear-gradient(135deg, #fbfaf7 0%, #edeae2 100%);
+  --sw-aurora:  linear-gradient(135deg, #6ee7b7 0%, #60a5fa 100%);
+  --sw-dawn:    linear-gradient(135deg, #fca088 0%, #f9a8d4 100%);
+  --sw-matcha:  linear-gradient(135deg, #9bd49c 0%, #c3dc97 100%);
+  --sw-sea:     linear-gradient(135deg, #6ab0f3 0%, #67e0d0 100%);
+  --sw-dusk:    linear-gradient(135deg, #b277ff 0%, #fb7f9a 100%);
   /* 手风琴全屏：非默认背景时列表区改半透明磨砂，让背景透出且文字可读 */
   --bg-veil: rgba(255,255,255,.56);
   --text: #1f2329;          /* 主文字/标题 */
@@ -2717,12 +2725,12 @@ html[data-bg]:not([data-bg=""]) .bg-sp-inner { background: var(--bg-veil); }
   position: relative; flex-shrink: 0; width: 58px; height: 58px;
   border-radius: 16px; border: 2px solid transparent; padding: 0; cursor: pointer;
 }
-.bg-opt[data-bg=""]       { background: var(--bgimg-default); }
-.bg-opt[data-bg="aurora"] { background: var(--bgimg-aurora); }
-.bg-opt[data-bg="dawn"]   { background: var(--bgimg-dawn); }
-.bg-opt[data-bg="matcha"] { background: var(--bgimg-matcha); }
-.bg-opt[data-bg="sea"]    { background: var(--bgimg-sea); }
-.bg-opt[data-bg="dusk"]   { background: var(--bgimg-dusk); }
+.bg-opt[data-bg=""]       { background: var(--sw-default); }
+.bg-opt[data-bg="aurora"] { background: var(--sw-aurora); }
+.bg-opt[data-bg="dawn"]   { background: var(--sw-dawn); }
+.bg-opt[data-bg="matcha"] { background: var(--sw-matcha); }
+.bg-opt[data-bg="sea"]    { background: var(--sw-sea); }
+.bg-opt[data-bg="dusk"]   { background: var(--sw-dusk); }
 .bg-opt.on { border-color: var(--brand); }
 .bg-opt::after {
   content: '\\2713'; position: absolute; right: -5px; bottom: -5px;

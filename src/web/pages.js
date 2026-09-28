@@ -1120,7 +1120,7 @@ function todoPage(user) {
         </div>
         <div class="bg-sheet__label">选择待办全屏背景（保存后生效）</div>
         <div class="bg-sheet__strip" id="bgStrip">
-          <button type="button" class="bg-opt on" data-bg=""><span class="bg-opt__name">奶白</span></button>
+          <button type="button" class="bg-opt on" data-bg=""><span class="bg-opt__name">默认</span></button>
           <button type="button" class="bg-opt" data-bg="aurora"><span class="bg-opt__name">极光</span></button>
           <button type="button" class="bg-opt" data-bg="dawn"><span class="bg-opt__name">晨霞</span></button>
           <button type="button" class="bg-opt" data-bg="matcha"><span class="bg-opt__name">抹茶</span></button>
