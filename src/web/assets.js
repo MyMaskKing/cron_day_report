@@ -7543,7 +7543,8 @@ function renderTodoTree(container, trees, opts) {
     // A 方案：真顶层主任务（非详情子树）卡片化，等级由顶部色带编码（与卡片视图同源）
     var cardRoot = depth === 0 && !isDetail;
     var wrap = document.createElement('div');
-    wrap.className = 'todo-node' + (cardRoot ? ' todo-bandcard pri-' + (node.priority != null ? node.priority : 1) : '');
+    wrap.className = 'todo-node' + (cardRoot ? ' todo-bandcard pri-' + (node.priority != null ? node.priority : 1) : '')
+      + (cardRoot && node.child_due ? ' cd-on' : '');
     if (cardRoot) {
       var bandEl = document.createElement('div');
       bandEl.className = 'todo-card__band';
@@ -7922,7 +7923,8 @@ function renderTodoAccordion(container, trees, opts) {
     // A 方案：真顶层主任务（非详情子树）卡片化，等级由顶部色带编码（与卡片视图同源）
     var cardRoot = depth === 0 && !isDetail;
     var wrap = document.createElement('div');
-    wrap.className = 'todo-node todo-acc' + (cardRoot ? ' todo-bandcard pri-' + (node.priority != null ? node.priority : 1) : '');
+    wrap.className = 'todo-node todo-acc' + (cardRoot ? ' todo-bandcard pri-' + (node.priority != null ? node.priority : 1) : '')
+      + (cardRoot && node.child_due ? ' cd-on' : '');
     wrap.setAttribute('data-depth', depth);
     wrap.setAttribute('data-id', node.id);
     if (cardRoot) {

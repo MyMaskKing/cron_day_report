@@ -23,6 +23,8 @@ const ICO_CLOSE  = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" 
 const ICO_PLUS   = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 const ICO_WRENCH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:5px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>';
 const ICO_VIEW_CARD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="14" height="14" rx="2"/><path d="M8 2h12a2 2 0 0 1 2 2v12"/></svg>';
+// 滑条调节：显示选项按钮（分组/隐藏已完成），与 Feather 图标族同风格
+const ICO_SLIDERS = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>';
 
 /** 初始化超管页 */
 function setupPage() {
@@ -1036,7 +1038,7 @@ function todoPage(user) {
           </span>
         </span>
         <input type="checkbox" id="hideDone" checked hidden>
-      <button class="btn sm gray" id="displayOpts">👁 显示 ▾</button>
+      <button class="btn sm gray" id="displayOpts">${ICO_SLIDERS}显示 ▾</button>
       </h2>
       <div class="todo-range todo-filter" id="todoFilter">
         <button data-filter="all">全部</button>
@@ -1099,7 +1101,7 @@ function todoPage(user) {
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
         <input type="checkbox" id="hideDoneFs" checked hidden>
-        <button class="fs-iconbtn" id="displayOptsFs" title="显示选项">👁</button>
+        <button class="fs-iconbtn" id="displayOptsFs" title="显示选项">${ICO_SLIDERS}</button>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
     </div>

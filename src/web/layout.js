@@ -435,6 +435,10 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 /* 分组模式：组内各行不重复显示到期 chip，组头自身豁免 */
 .todo-due-groups .todo-chip.due { display: none; }
 .todo-due-groups .todo-due-group__head .todo-chip.due { display: inline-flex; }
+/* 各自截止（child_due）主任务豁免：子任务日期各异，主任务代表日期（最早到期）继续显示 */
+.todo-due-groups .cd-on > .todo-card__body .todo-chip.due,
+.todo-due-groups .cd-on .todo-acc__row--root .todo-chip.due,
+.todo-due-groups .cd-on > .todo-row .todo-chip.due { display: inline-flex; }
 .impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }
 .impersonate-banner a { color: var(--danger); font-weight: 600; margin-left: 8px; }
 /* 全站公告强制阅读弹窗：独立遮罩，层级高于 #globalLoading(10500)，无关闭叉、点空白不关闭 */
