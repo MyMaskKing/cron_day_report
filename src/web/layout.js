@@ -1395,6 +1395,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-acc__leafname:hover { color: var(--brand); }
 .todo-acc__leafrow.done .todo-acc__leafname { color: var(--muted); text-decoration: line-through; }
 .todo-acc__leafrow .todo-chip.due { align-self: center; }
+.todo-acc__leafrow .todo-acc__dot { align-self: center; }
 /* 桌面：操作组绝对定位贴右（不占流，标题空间最大化），平时透明，悬停行才浮现 */
 @media (min-width: 641px) {
   .todo-acc .todo-ops {

@@ -7500,6 +7500,17 @@ function todoRowsByCategory(rows) {
 }
 var PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
 var PRI_TEXT = { 2: '高', 1: '中', 0: '低' };
+// 色带显示用优先级: child_due(各自截止)下沿 _parent 链找最近的 child_due 上级、用其优先级;
+// 无此上级(旧模式/根自身) → 用自身。日期可各自独立, 优先级色跟随该上级
+function todoEffPri(node) {
+  var p = node._parent, seen = {};
+  while (p && !seen[p.id]) {
+    seen[p.id] = 1;
+    if (p.child_due) return p.priority;
+    p = p._parent;
+  }
+  return node.priority;
+}
 function todoBuildTree(rows) {
   var byId = {}, roots = [];
   rows.forEach(function(r){ byId[r.id] = Object.assign({}, r, { children: [] }); });
@@ -7605,7 +7616,7 @@ function renderTodoTree(container, trees, opts) {
     var wrap = document.createElement('div');
     wrap.className = 'todo-node' + (cardRoot && node.priority >= 0 ? ' todo-bandcard pri-' + node.priority : '')
       + (cardRoot && node.child_due ? ' cd-on' : '');
-    if (cardRoot) {
+    if (cardRoot && node.priority >= 0) {
       var bandEl = document.createElement('div');
       bandEl.className = 'todo-card__band';
       wrap.appendChild(bandEl);
@@ -7655,10 +7666,11 @@ function renderTodoTree(container, trees, opts) {
 
     // 优先级圆点：标题前克制点缀（红=高 琥珀=中 灰=低），不占左色带
     // 卡片化主任务的等级已由顶部色带编码，不再重复圆点
-    if (!cardRoot && node.priority >= 0) {
+    var effPri = todoEffPri(node);
+    if (!cardRoot && effPri >= 0) {
       var dot = document.createElement('span');
-      dot.className = 'todo-dot pri-' + node.priority;
-      dot.title = PRI_TEXT[node.priority] + '优先级';
+      dot.className = 'todo-dot pri-' + effPri;
+      dot.title = PRI_TEXT[effPri] + '优先级';
       row.appendChild(dot);
     }
 
@@ -7952,6 +7964,13 @@ function renderTodoAccordion(container, trees, opts) {
       });
       rowEl.appendChild(check);
     }
+    var leafEffPri = todoEffPri(node);
+    if (leafEffPri >= 0) {
+      var ldot = document.createElement('span');
+      ldot.className = 'todo-acc__dot pri-' + leafEffPri;
+      ldot.title = PRI_TEXT[leafEffPri] + '优先级';
+      rowEl.appendChild(ldot);
+    }
     var nameEl = document.createElement('span');
     nameEl.className = 'todo-acc__leafname'; nameEl.textContent = node.title;
     nameEl.addEventListener('click', function(e){
@@ -7997,7 +8016,7 @@ function renderTodoAccordion(container, trees, opts) {
       + (cardRoot && node.child_due ? ' cd-on' : '');
     wrap.setAttribute('data-depth', depth);
     wrap.setAttribute('data-id', node.id);
-    if (cardRoot) {
+    if (cardRoot && node.priority >= 0) {
       var bandEl = document.createElement('div');
       bandEl.className = 'todo-card__band';
       wrap.appendChild(bandEl);
@@ -8028,10 +8047,11 @@ function renderTodoAccordion(container, trees, opts) {
     });
     rowEl.appendChild(caret);
     // 卡片化主任务的等级已由顶部色带编码，不再重复圆点
-    if (!cardRoot && node.priority >= 0) {
+    var effPri = todoEffPri(node);
+    if (!cardRoot && effPri >= 0) {
       var dot = document.createElement('span');
-      dot.className = 'todo-acc__dot pri-' + node.priority;
-      dot.title = PRI_TEXT[node.priority] + '优先级';
+      dot.className = 'todo-acc__dot pri-' + effPri;
+      dot.title = PRI_TEXT[effPri] + '优先级';
       rowEl.appendChild(dot);
     }
     var nameEl = document.createElement('span');
@@ -8147,7 +8167,8 @@ function todoLeafCard(leaf, opts, scene) {
   var n = leaf.node;
   var today = opts.today || '';
   var item = document.createElement('div');
-  item.className = 'tl-item' + (n.priority >= 0 ? ' pri-' + n.priority : '') + (n.done ? ' is-done' : '');
+  var effPri = todoEffPri(n);
+  item.className = 'tl-item' + (effPri >= 0 ? ' pri-' + effPri : '') + (n.done ? ' is-done' : '');
   var band = document.createElement('span');
   band.className = 'tl-item__priband';
   item.appendChild(band);
@@ -11032,8 +11053,9 @@ async function openTodoDetail(node, opts) {
   if (node.recurrence) meta.push('<span class="td-chip">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
   if (node.category) meta.push('<span class="td-chip td-chip--cat">' + esc(node.category) + '</span>');
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
-  if (node.priority >= 0) {
-    var priName = ['⚪ 低', '🟡 中', '🔴 高'][node.priority];
+  var detailPri = todoEffPri(node);
+  if (detailPri >= 0) {
+    var priName = ['⚪ 低', '🟡 中', '🔴 高'][detailPri];
     meta.push('<span class="td-chip">' + esc(priName) + '</span>');
   }
   // 子任务预览: 普通主任务列出第一子层级的未完成项(已完成不显示, 孙级不在此展开);
