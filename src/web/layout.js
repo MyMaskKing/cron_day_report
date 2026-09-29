@@ -2075,16 +2075,17 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 /* ============ 滴答风格待办新建 sheet ============ */
 .tform { font-size: 14px; color: var(--text); }
 .tform-title {
-  width: 100%; border: 0; background: transparent; outline: none;
-  font-size: 15px; font-weight: 400; resize: none; padding: 0; line-height: 1.5;
-  margin-bottom: 2px; /* 覆盖全局 textarea margin-bottom:12px */
+  width: 100%; resize: none;
+  font-size: 15px; font-weight: 400; line-height: 1.5;
+  margin-bottom: 5px; /* 覆盖全局 textarea margin-bottom:12px；padding/border/background 走全局普通输入框 */
 }
 .tform-title::placeholder { color: var(--faint, var(--muted)); font-weight: 400; }
 .tform-desc {
   display: block; width: 100%; text-align: left; border: 0; background: transparent;
-  color: var(--muted); font-size: 15px; font-family: inherit; padding: 1px 0; cursor: pointer;
+  color: var(--label); font-size: 15px; font-family: inherit; padding: 1px 0; cursor: pointer;
 }
-.tform-desc.is-on, .tform-desc.has { color: var(--text); font-weight: 600; }
+/* 展开/已填备注：同为深灰，加粗提示有内容，与任务正文（--text）明确区分 */
+.tform-desc.is-on, .tform-desc.has { color: var(--label); font-weight: 600; }
 .tform-descwrap { margin-bottom: 4px; }
 .tform-descwrap textarea {
   width: 100%; border: 1px solid var(--border); border-radius: 12px;
