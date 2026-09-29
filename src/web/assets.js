@@ -9040,6 +9040,9 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
   function render(){
     if (crumb) {
       crumb.style.display = 'flex';
+      // 面包屑左色带随主任务代表优先级(同视图1/2/3口径): null 不显示
+      var crumbPri = todoRootPri(root);
+      crumb.className = 'todo-crumb' + (crumbPri != null ? ' pri-' + crumbPri : '');
       crumb.innerHTML = '';
       var back = document.createElement('button');
       back.type = 'button'; back.className = 'todo-crumb__back'; back.textContent = '← 返回';

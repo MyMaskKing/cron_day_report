@@ -2062,8 +2062,13 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 /* ============ 面包屑（子任务详情页顶栏） ============ */
 .todo-crumb {
   display: flex; align-items: center; gap: 10px; margin: 4px 0 12px;
-  padding: 8px 12px; background: var(--surface-2); border-radius: 8px; border-left: 4px solid var(--brand);
+  padding: 8px 12px; background: var(--surface-2); border-radius: 8px;
 }
+/* 面包屑左色带: 随主任务代表优先级(todoRootPri), 无优先级不显示; 配色同卡片顶带 */
+.todo-crumb.pri-2, .todo-crumb.pri-1, .todo-crumb.pri-0 { border-left: 4px solid var(--pri-band); }
+.todo-crumb.pri-2 { --pri-band: #E0453E; }
+.todo-crumb.pri-1 { --pri-band: #E5A113; }
+.todo-crumb.pri-0 { --pri-band: #C9CCD6; }
 .todo-crumb__back {
   border: 1px solid var(--border); background: var(--surface); color: var(--brand); cursor: pointer;
   padding: 5px 12px; border-radius: 999px; font-size: 13px;
