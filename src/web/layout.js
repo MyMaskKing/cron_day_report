@@ -2081,7 +2081,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tform-title::placeholder { color: var(--faint, var(--muted)); font-weight: 400; }
 .tform-desc {
   display: block; width: 100%; text-align: left; border: 0; background: transparent;
-  color: var(--muted); font-size: 15px; font-family: inherit; padding: 3px 0 2px; cursor: pointer;
+  color: var(--muted); font-size: 15px; font-family: inherit; padding: 1px 0; cursor: pointer;
 }
 .tform-desc.is-on, .tform-desc.has { color: var(--text); font-weight: 600; }
 .tform-descwrap { margin-bottom: 4px; }
