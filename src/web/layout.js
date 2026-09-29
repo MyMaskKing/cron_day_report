@@ -1893,15 +1893,23 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
   overflow: hidden; transition: box-shadow .18s, border-color .18s;
   cursor: default;
+  --pri-band: #C9CCD6; /* 顶带色: 无=灰(默认), 高/中/低 由 .pri-N 覆盖 */
+  box-shadow: inset 0 3px 0 var(--pri-band); /* 内阴影作色带, 与卡片背景同层, 防滚动合成缝隙 */
 }
 .todo-card.clickable { cursor: pointer; }
-.todo-card.clickable:hover { box-shadow: 0 6px 20px rgba(124,58,237,.12); border-color: var(--brand-border); }
-/* 优先级顶带 3px: 高=红 / 中=琥珀 / 低=绿 / 无=灰。
-   卡片 overflow:hidden 会把子元素裁在边框内侧, 负边距只会被裁细色带; margin:0 色带完整 3px */
+.todo-card.clickable:hover {
+  box-shadow: inset 0 3px 0 var(--pri-band), 0 6px 20px rgba(124,58,237,.12);
+  border-color: var(--brand-border);
+}
+/* band 基础样式: 现主要供手风琴 .todo-bandcard 使用(卡片视图的 band 已隐藏、改走 inset 阴影)。
+   高=红 / 中=琥珀 / 低=绿 / 无=灰, 完整 3px */
 .todo-card__band { height: 3px; background: #C9CCD6; margin: 0; }
-.todo-card.pri-2 .todo-card__band { background: #E0453E; }
-.todo-card.pri-1 .todo-card__band { background: #E5A113; }
-.todo-card.pri-0 .todo-card__band { background: #6cc899; }
+.todo-card.pri-2 { --pri-band: #E0453E; }
+.todo-card.pri-1 { --pri-band: #E5A113; }
+.todo-card.pri-0 { --pri-band: #6cc899; }
+/* 卡片内独立 band 隐藏: 色带已由上方 inset 内阴影承担。
+   手风琴 .todo-bandcard 的 band 父元素不同, 不被此规则命中, 仍照常显示 */
+.todo-card > .todo-card__band { display: none; }
 .todo-card.is-done { opacity: .78; background: var(--surface-done); }
 .todo-card__body { padding: 12px 14px 9px; }
 .todo-card__head { display: flex; align-items: flex-start; gap: 11px; }
