@@ -9855,7 +9855,7 @@ function todoFormHtml(t, isNew, isChild, fopts) {
     : '';
   // 底部图标栏: 日期 → 闹钟 → 重复 → 各自截止(勾选框) → 更多
   var dueLabelTxt = !defDue ? '日期' : (defDue === today ? '今天' : tfDateShort(defDue));
-  var bar = '<div class="tform-bar">' +
+  var bar = '<div class="tform-barwrap"><div class="tform-bar">' +
       (lockedChild
         ? '<span class="tf-ic is-disabled">' + SVG_CAL + '<span class="tf-ic__t">跟随上级</span></span>'
         : '<button type="button" class="tf-ic tf-dueitem" id="tfDueIc" data-tfic="due">' + SVG_CAL + '<span class="tf-ic__t" id="tfDueLabel">' + dueLabelTxt + '</span></button>') +
@@ -9863,6 +9863,7 @@ function todoFormHtml(t, isNew, isChild, fopts) {
       (recurNative ? '<button type="button" class="tf-ic' + (t.recurrence ? ' is-on' : '') + '" id="tfRecurIc" data-tfic="recur">' + SVG_REPEAT + '</button>' : '') +
       (cdNative ? '<label class="tf-cd' + (childDueOn ? ' is-on' : '') + '" id="tfCdLabel">' + cdNative + '<span class="tf-cd__box">' + SVG_CHECK + '</span><span class="tf-cd__t">各自截止</span></label>' : '') +
       '<button type="button" class="tf-ic" data-tfic="more">' + SVG_MORE + '</button>' +
+      '</div>' +
       '<button type="button" id="tfCreate" class="tf-save">保存</button>' +
     '</div>';
   // 日期设置条

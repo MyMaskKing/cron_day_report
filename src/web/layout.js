@@ -2097,11 +2097,17 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
   overflow: hidden; clip: rect(0 0 0 0);
 }
-/* 底部图标栏：横向滑动、通宽 hairline 分隔、无滚动条（负 margin 对齐 sheet body padding） */
-.tform-bar {
-  display: flex; align-items: center; gap: 4px; overflow-x: auto;
+/* 底部栏外壳：通宽 hairline 分隔；保存钮固定在壳右侧，不随图标滑动 */
+.tform-barwrap {
+  display: flex; align-items: center; gap: 10px;
   margin: 8px -16px -2px; padding: 8px 16px 10px;
-  border-top: 1px solid var(--border); scrollbar-width: none;
+  border-top: 1px solid var(--border);
+}
+/* 图标滚动区：占满左侧、横向滑动、无滚动条 */
+.tform-bar {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 4px;
+  overflow-x: auto; scrollbar-width: none;
 }
 .tform-bar::-webkit-scrollbar { display: none; }
 .tf-ic {
@@ -2156,15 +2162,18 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   padding: 6px 13px; font-size: 13.5px; outline: none; font-family: inherit;
   height: auto; box-sizing: border-box;
 }
-/* 优先级 chip 内颜色点与文字间距 */
-.tf-chip2 .todo-priority-dot { margin-right: 6px; vertical-align: -1px; }
+/* 优先级 chip 内颜色点（i 默认 inline 不生效尺寸，须 inline-block） */
+.tf-chip2 .todo-priority-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 6px; vertical-align: -1px; flex: none;
+}
 /* 新建按钮/输入框同位切换容器 */
 .tf-catswitch { flex: 0 0 auto; display: inline-flex; }
 /* 勾选各自截止：日期与闹钟图标隐藏，后续图标自动补位 */
 .tform.cd-on .tf-dueitem { display: none; }
-/* 保存钮：文字按钮，品牌填充，固定在图标栏最右 */
+/* 保存钮：文字按钮，品牌填充，固定在底部栏外壳最右（不随图标滚动） */
 .tf-save {
-  flex: 0 0 auto; margin-left: auto;
+  flex: 0 0 auto;
   height: 38px; padding: 0 22px;
   border: 0; border-radius: 10px;
   background: var(--brand); color: #fff;
@@ -2174,7 +2183,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tf-save:active { transform: scale(.96); }
 @media (min-width: 641px) {
   /* PC 居中弹窗 body padding 20px：负 margin 归零，分隔线不溢出卡片 */
-  .tform-bar { margin: 8px 0 -2px; }
+  .tform-barwrap { margin: 8px 0 -2px; }
   .tf-strip { margin: 10px 0 0; padding: 0 0 2px; }
 }
 /* ============ 编辑弹窗折叠区（三角两态常驻，展开不消失） ============ */
