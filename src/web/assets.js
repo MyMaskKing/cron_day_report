@@ -9957,9 +9957,9 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   var moreStrip = '<div class="tf-strip" data-strip="more">' +
       '<span class="tf-strip-label">优先级</span>' +
       '<button type="button" class="tf-chip2" data-pri="-1"><i class="todo-pri-none-ic"></i>无</button>' +
-      '<button type="button" class="tf-chip2" data-pri="2"><i class="todo-priority-dot pri-2"></i>高</button>' +
-      '<button type="button" class="tf-chip2" data-pri="1"><i class="todo-priority-dot pri-1"></i>中</button>' +
       '<button type="button" class="tf-chip2" data-pri="0"><i class="todo-priority-dot pri-0"></i>低</button>' +
+      '<button type="button" class="tf-chip2" data-pri="1"><i class="todo-priority-dot pri-1"></i>中</button>' +
+      '<button type="button" class="tf-chip2" data-pri="2"><i class="todo-priority-dot pri-2"></i>高</button>' +
       '<span class="tf-strip-sep"></span>' +
       '<span class="tf-strip-label">分类</span>' +
       '<span id="tfCatChips"></span>' +
@@ -10007,9 +10007,9 @@ function todoEditFormHtml(t, isChild, fopts) {
   // 折叠区：优先级 / 分类 / 备注（三角两态常驻）
   var priorityField = '<label>优先级</label><div class="todo-priority">' +
       '<label class="todo-priority-option" data-priority="-1"><input type="radio" name="tfPri" value="-1"' + (t.priority == null || t.priority === -1 ? ' checked' : '') + '><i class="todo-pri-none-ic"></i><span>无</span></label>' +
-      '<label class="todo-priority-option" data-priority="2"><input type="radio" name="tfPri" value="2"' + (t.priority === 2 ? ' checked' : '') + '><i class="todo-priority-dot pri-2"></i><span>高</span></label>' +
-      '<label class="todo-priority-option" data-priority="1"><input type="radio" name="tfPri" value="1"' + (t.priority === 1 ? ' checked' : '') + '><i class="todo-priority-dot pri-1"></i><span>中</span></label>' +
       '<label class="todo-priority-option" data-priority="0"><input type="radio" name="tfPri" value="0"' + (t.priority === 0 ? ' checked' : '') + '><i class="todo-priority-dot pri-0"></i><span>低</span></label>' +
+      '<label class="todo-priority-option" data-priority="1"><input type="radio" name="tfPri" value="1"' + (t.priority === 1 ? ' checked' : '') + '><i class="todo-priority-dot pri-1"></i><span>中</span></label>' +
+      '<label class="todo-priority-option" data-priority="2"><input type="radio" name="tfPri" value="2"' + (t.priority === 2 ? ' checked' : '') + '><i class="todo-priority-dot pri-2"></i><span>高</span></label>' +
     '</div>';
   var categoryFields = '<label>分类（可选）</label>' +
       '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
@@ -11034,7 +11034,7 @@ async function openTodoDetail(node, opts) {
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
   if (node.priority >= 0) {
     var priName = ['🟢 低', '🟡 中', '🔴 高'][node.priority];
-    meta.push('<span class="td-chip">⭐ ' + esc(priName) + '</span>');
+    meta.push('<span class="td-chip">' + esc(priName) + '</span>');
   }
   // 子任务预览: 普通主任务列出第一子层级的未完成项(已完成不显示, 孙级不在此展开);
   //   勾选"子任务各自设置截止日期"(child_due)则严格只显示截止最近的 1 个未完成子任务
