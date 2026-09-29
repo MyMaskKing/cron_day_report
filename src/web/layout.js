@@ -1591,6 +1591,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .tl-crumb__go { flex: none; color: var(--faint); font-size: 14px; }
 .tl-crumb:hover .tl-crumb__go { color: var(--brand); }
 .tl-item__body { display: flex; align-items: flex-start; gap: 10px; padding: 10px 13px 9px 15px; }
+.tl-item__body.is-clickable { cursor: pointer; }
+.tl-item__body.is-clickable .tl-item__title:hover { color: var(--brand); }
 .tl-item__body .todo-check { margin-top: 1px; }
 .tl-item__main { flex: 1; min-width: 0; }
 .tl-item__title { font-size: 14px; font-weight: 600; line-height: 1.42; color: var(--text); word-break: break-word; }

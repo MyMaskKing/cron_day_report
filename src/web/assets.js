@@ -8189,6 +8189,15 @@ function todoLeafCard(leaf, opts, scene) {
 
   var body = document.createElement('div');
   body.className = 'tl-item__body';
+  // 点击面包屑以外的卡片区域（标题/正文，不含勾选）：弹「查看详情」——与眼睛按钮同画面、针对该叶子任务
+  var eyeDetail = opts.onDetail || opts.onEdit || opts.onEnter;
+  if (eyeDetail) {
+    body.classList.add('is-clickable');
+    body.addEventListener('click', function (e) {
+      if (e.target.closest('.todo-check')) return;
+      eyeDetail(n);
+    });
+  }
   // 有日期才显示勾选（备忘录无勾选，口径与时间轴一致）
   if (leaf.effDue && opts.onToggle) {
     var check = document.createElement('button');
@@ -8961,9 +8970,9 @@ function todoRenderView(container, trees, opts) {
   preserveScroll(todoScrollKey(view, null, scrollScroller), function(){
     // 仅登录态 /todo 页传 groupByDue（其开关入口在 + 新建菜单）；公开/报告/协作页不启用
     if (view === 'timeline') renderTodoTimeline(container, pending, viewOpts);
+    else if (view === 'flat') renderTodoFlat(container, pending, viewOpts);
     else if (viewOpts.groupByDue) todoRenderGroupedByDue(container, pending, viewOpts, view);
     else if (view === 'accordion') renderTodoAccordion(container, pending, viewOpts);
-    else if (view === 'flat') renderTodoFlat(container, pending, viewOpts);
     else if (view === 'tree') renderTodoTree(container, pending, viewOpts);
     else renderTodoCards(container, pending, viewOpts);
   });
