@@ -2321,8 +2321,30 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .tf-save:active { transform: scale(.96); }
-/* ============ 日期选择器（复用 #modalMask：手机底部 sheet / PC 居中弹窗） ============ */
-.modal-mask--datepick .modal-box { max-width: 320px; }
+/* ============ 日期选择器（独立浮层，叠在弹窗之上：手机底部 sheet / PC 居中） ============ */
+.tdp-mask {
+  position: fixed; inset: 0; z-index: 10030;
+  background: rgba(0,0,0,.35);
+  display: flex; align-items: center; justify-content: center; padding: 40px 16px;
+  animation: tdpFade .18s ease;
+}
+.tdp-box {
+  background: var(--surface); border-radius: 14px; width: 100%; max-width: 320px;
+  box-shadow: 0 12px 44px rgba(0,0,0,.24); overflow: hidden;
+  animation: tdpIn .2s ease;
+}
+.tdp-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-size: 15px; font-weight: 600; color: var(--text);
+}
+.tdp-x {
+  border: none; background: none; padding: 0; cursor: pointer;
+  color: var(--muted); font-size: 22px; line-height: 1; font-family: inherit;
+}
+.tdp-body { padding: 12px 14px 14px; }
+@keyframes tdpFade { from { opacity: 0; } }
+@keyframes tdpIn { from { opacity: 0; transform: translateY(8px) scale(.98); } }
 .tdp-nav { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 2px 0 10px; }
 .tdp-nav__btn {
   flex: none; width: 32px; height: 32px; padding: 0;
@@ -2361,8 +2383,12 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   font-size: 13.5px; font-family: inherit; cursor: pointer; white-space: nowrap;
 }
 .tdp-quick:hover { border-color: var(--brand); color: var(--brand); }
-.tdp-quick.is-clear { flex: 0 0 auto; padding: 8px 14px; color: var(--muted); }
-.modal-mask--sheet .tdp-foot { padding-bottom: calc(2px + env(safe-area-inset-bottom)); }
+@media (max-width: 767px) {
+  .tdp-mask { align-items: flex-end; padding: 0; }
+  .tdp-box { max-width: 100%; border-radius: 18px 18px 0 0; animation: tdpSheetUp .24s ease; }
+  .tdp-body { padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); }
+}
+@keyframes tdpSheetUp { from { transform: translateY(100%); } }
 @media (min-width: 641px) {
   /* PC 居中弹窗 body padding 20px：负 margin 归零，分隔线不溢出卡片 */
   .tform-barwrap { margin: 8px 0 0; }
