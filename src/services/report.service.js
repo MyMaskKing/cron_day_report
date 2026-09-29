@@ -476,7 +476,7 @@ function buildWeightReportMarkdown(members, records, opts) {
 // ==================== 待办日报 ====================
 
 /** 优先级图标（高/中/低） */
-const TODO_PRI_ICON = { 2: '🔴', 1: '🟡', 0: '🟢' };
+const TODO_PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
 const TODO_PRI_LABEL = { 2: '高', 1: '中', 0: '低' };
 
 /**
@@ -798,9 +798,9 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remi
   }
   if (remind) h += `<p style="margin:8px 0;padding:10px 14px;background:#fff7e6;border-left:3px solid #fa8c16;border-radius:4px;color:#874d00;font-size:15px;">${remind}</p>`;
   // 优先级圆点色板(红=高 琥珀=中 灰=低)与网页端 .todo-dot 一致
-  const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#6cc899' };
+  const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#b4bccb' };
   // 内联圆点: 邮件客户端 emoji 渲染不一, 用 background 画点更统一可控
-  const dot = (p) => p >= 0 ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#6cc899'};margin-right:8px;vertical-align:middle;"></span>` : '';
+  const dot = (p) => p >= 0 ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:8px;vertical-align:middle;"></span>` : '';
   const catTag = (c) => c
     ? ` <span style="background:#eef1ff;color:#4a6cf7;border-radius:4px;padding:1px 8px;font-size:13px;">${c}</span>` : '';
   // 以子任务(可执行叶子)为单位: 主任务卡片头作分组, 卡内平铺末端叶子; 中间层父任务不单列,
@@ -853,8 +853,8 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remi
  */
 function todoTomorrowSectionHtml(tomorrow, today) {
   // 优先级圆点色板与今日卡片一致（红=高 琥珀=中 灰=低）
-  const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#6cc899' };
-  const dot = (p) => p >= 0 ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#6cc899'};margin-right:8px;vertical-align:middle;"></span>` : '';
+  const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#b4bccb' };
+  const dot = (p) => p >= 0 ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:8px;vertical-align:middle;"></span>` : '';
   const catTag = (c) => c
     ? ` <span style="background:#e6fffb;color:#08979c;border-radius:4px;padding:1px 8px;font-size:13px;">${c}</span>` : '';
   const pill = 'display:inline-block;border-radius:11px;padding:1px 10px;font-size:12px;font-weight:600;line-height:1.7;margin-left:2px;';

@@ -7498,7 +7498,7 @@ function todoRowsByCategory(rows) {
   });
   return out;
 }
-var PRI_ICON = { 2: '🔴', 1: '🟡', 0: '🟢' };
+var PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
 var PRI_TEXT = { 2: '高', 1: '中', 0: '低' };
 function todoBuildTree(rows) {
   var byId = {}, roots = [];
@@ -11033,7 +11033,7 @@ async function openTodoDetail(node, opts) {
   if (node.category) meta.push('<span class="td-chip td-chip--cat">' + esc(node.category) + '</span>');
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
   if (node.priority >= 0) {
-    var priName = ['🟢 低', '🟡 中', '🔴 高'][node.priority];
+    var priName = ['⚪ 低', '🟡 中', '🔴 高'][node.priority];
     meta.push('<span class="td-chip">' + esc(priName) + '</span>');
   }
   // 子任务预览: 普通主任务列出第一子层级的未完成项(已完成不显示, 孙级不在此展开);

@@ -762,7 +762,7 @@ label { display: block; font-size: 13px; color: var(--label); margin-bottom: 5px
 .todo-priority-dot { width: 8px; height: 8px; border-radius: 50%; background: #b4bccb; }
 .todo-priority-dot.pri-2 { background: #e5484d; }
 .todo-priority-dot.pri-1 { background: #e8a317; }
-.todo-priority-dot.pri-0 { background: #6cc899; }
+.todo-priority-dot.pri-0 { background: #b4bccb; }
 /* 「无优先级」图标：空心圆环，跟随 chip 文字色（未选中中性、选中品牌紫），不固定染色 */
 .todo-pri-none-ic {
   display: inline-block; width: 9px; height: 9px; border-radius: 50%;
@@ -1217,7 +1217,7 @@ input[type="date"], input[type="month"] { cursor: pointer; }
 .todo-dot { flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; background: #b4bccb; }
 .todo-dot.pri-2 { background: #e5484d; }
 .todo-dot.pri-1 { background: #e8a317; }
-.todo-dot.pri-0 { background: #6cc899; }
+.todo-dot.pri-0 { background: #b4bccb; }
 /* 层级连接线：非顶层节点左侧竖向引导线 */
 .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before {
   content: ''; position: absolute; left: calc(var(--depth, 0) * 26px - 13px); top: -4px; bottom: 50%;
@@ -1360,7 +1360,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-acc__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
 .todo-acc__dot.pri-2 { background: #e5484d; }
 .todo-acc__dot.pri-1 { background: #e8a317; }
-.todo-acc__dot.pri-0 { background: #6cc899; }
+.todo-acc__dot.pri-0 { background: #b4bccb; }
 .todo-acc__name {
   flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text-strong);
   word-break: break-word; cursor: pointer;
@@ -1441,7 +1441,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 /* ============ 速览/手风琴：顶层主任务卡片化（A 方案，与卡片视图同源：3px 等级色带封边） ============ */
 .todo-bandcard {
   background: var(--surface);
-  border: 1px solid var(--border); border-top: 3px solid var(--pri-band); border-radius: 12px;
+  border: 1px solid var(--border); border-radius: 12px;
   overflow: hidden; margin: 0 0 12px;
   transition: box-shadow .18s, border-color .18s;
   --pri-band: #C9CCD6;
@@ -1449,9 +1449,11 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-bandcard:hover {
   box-shadow: 0 8px 24px rgba(124,58,237,.12); border-color: var(--brand-border);
 }
+/* 有优先级才画 3px 顶带; 无(-1)不画 */
+.todo-bandcard.pri-2, .todo-bandcard.pri-1, .todo-bandcard.pri-0 { border-top: 3px solid var(--pri-band); }
 .todo-bandcard.pri-2 { --pri-band: #E0453E; }
 .todo-bandcard.pri-1 { --pri-band: #E5A113; }
-.todo-bandcard.pri-0 { --pri-band: #6cc899; }
+.todo-bandcard.pri-0 { --pri-band: #C9CCD6; }
 /* band 子元素隐藏: 顶带已由 border-top 承担(边框与卡片同层, 滚动无缝) */
 .todo-bandcard > .todo-card__band { display: none; }
 /* 卡内主任务行：去边框/灰底/左紫条，透明融入白卡 */
@@ -1591,16 +1593,18 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 /* 子任务卡：优先级左条 + 面包屑 + 内容 */
 .tl-item {
   position: relative; background: var(--surface);
-  border: 1px solid var(--border); border-left: 3px solid var(--pri-band);
+  border: 1px solid var(--border);
   border-radius: 12px; overflow: hidden;
   box-shadow: 0 1px 2px rgba(20,20,40,.04);
-  --pri-band: #C9CCD6; /* 左带即左边框: 无=灰, 高/中/低由 .pri-N 覆盖; 边框同层滚动无缝, 且不被面包屑栏遮挡 */
+  --pri-band: #C9CCD6; /* 左带色: 仅 .pri-0/1/2 用 border-left 画 3px; 无(-1)不画, 不被面包屑栏遮挡 */
 }
 /* 左条位于边框内侧(overflow 裁在 padding box), 完整宽度不被裁细 */
 .tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #C9CCD6; }
+/* 有优先级才画 3px 左带; 无(-1)不画 */
+.tl-item.pri-2, .tl-item.pri-1, .tl-item.pri-0 { border-left: 3px solid var(--pri-band); }
 .tl-item.pri-2 { --pri-band: #E0453E; }
 .tl-item.pri-1 { --pri-band: #E5A113; }
-.tl-item.pri-0 { --pri-band: #6cc899; }
+.tl-item.pri-0 { --pri-band: #C9CCD6; }
 /* priband 子元素隐藏: 左带已由 border-left 承担 */
 .tl-item .tl-item__priband { display: none; }
 .tl-item.is-done { background: var(--surface-done); }
@@ -1905,22 +1909,23 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 /* 单张顶层卡片：顶部色带 + 内容区 + 底部操作 */
 .todo-card {
   position: relative; background: var(--surface);
-  border: 1px solid var(--border); border-top: 3px solid var(--pri-band); border-radius: 14px;
+  border: 1px solid var(--border); border-radius: 14px;
   overflow: hidden; transition: box-shadow .18s, border-color .18s;
   cursor: default;
-  --pri-band: #C9CCD6; /* 顶带色即顶边框: 无=灰(默认), 高/中/低 由 .pri-N 覆盖; 边框与卡片同层, 滚动无缝隙 */
+  --pri-band: #C9CCD6; /* 顶带色: 仅 .pri-0/1/2 用 border-top 画 3px; 无(-1)无 .pri 类, 不显色带只留 1px 边框 */
 }
 .todo-card.clickable { cursor: pointer; }
 .todo-card.clickable:hover {
   box-shadow: 0 6px 20px rgba(124,58,237,.12);
   border-color: var(--brand-border);
 }
-/* band 基础样式: 现主要供手风琴 .todo-bandcard 使用(卡片视图的 band 已隐藏、改走 inset 阴影)。
-   高=红 / 中=琥珀 / 低=绿 / 无=灰, 完整 3px */
+/* band 元素在卡片/手风琴均已隐藏, 色带改由 .pri-N 的 border-top 承担; 此基础规则仅占位, 正常不可见 */
 .todo-card__band { height: 3px; background: #C9CCD6; margin: 0; }
+/* 有优先级(低/中/高)才画 3px 顶带; 无(-1)无 .pri 类, 不画 */
+.todo-card.pri-2, .todo-card.pri-1, .todo-card.pri-0 { border-top: 3px solid var(--pri-band); }
 .todo-card.pri-2 { --pri-band: #E0453E; }
 .todo-card.pri-1 { --pri-band: #E5A113; }
-.todo-card.pri-0 { --pri-band: #6cc899; }
+.todo-card.pri-0 { --pri-band: #C9CCD6; }
 /* 卡片内独立 band 隐藏: 色带已由上方 inset 内阴影承担。
    手风琴 .todo-bandcard 的 band 父元素不同, 不被此规则命中, 仍照常显示 */
 .todo-card > .todo-card__band { display: none; }

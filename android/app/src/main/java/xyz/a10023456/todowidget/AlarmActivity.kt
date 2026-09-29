@@ -386,7 +386,7 @@ private fun MetaChips(alarm: StoredTaskAlarm) {
     if (alarm.sharedCat) chips.add("👥 共享")
     alarm.priority?.let { p ->
         val name = when (p) {
-            0 -> "🟢 低"
+            0 -> "⚪ 低"
             1 -> "🟡 中"
             2 -> "🔴 高"
             else -> null
