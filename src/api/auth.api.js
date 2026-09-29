@@ -50,8 +50,8 @@ function parseMottoJson(v) {
   try { const o = JSON.parse(v); return o && typeof o === 'object' ? o : {}; } catch { return {}; }
 }
 
-// 待办视图 id 白名单（顺序即系统默认循环）：card=卡片 accordion=手风琴 flat=速览 tree=完整树
-const TODO_VIEW_IDS = ['card', 'accordion', 'flat', 'tree'];
+// 待办视图 id 白名单（顺序即系统默认循环）：card=卡片 accordion=手风琴 flat=速览 tree=完整树 timeline=时间轴
+const TODO_VIEW_IDS = ['card', 'accordion', 'flat', 'tree', 'timeline'];
 /**
  * 归一化用户视图循环列表：解析 JSON → 白名单过滤、去重保序；非法/空 → []（= 系统默认循环）
  */

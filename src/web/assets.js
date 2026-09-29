@@ -2412,7 +2412,7 @@ if (tapEl) tapEl.addEventListener('change', async function(){
   } catch(err){ showMsg(msg, err.message, false); tapEl.checked = !tapEl.checked; }
 });
 // ===== 待办视图循环自定义（首项=默认视图；空=系统三循环） =====
-var VIEW_META = { card: '卡片视图', accordion: '手风琴', flat: '速览视图', tree: '完整树' };
+var VIEW_META = { card: '卡片视图', accordion: '手风琴', flat: '速览视图', tree: '完整树', timeline: '时间轴' };
 var viewCycle = [];
 function renderViewCycle() {
   var eff = viewCycle.length ? viewCycle : ['card', 'tree', 'accordion', 'flat'];
@@ -6378,14 +6378,15 @@ function todoBindFormDraft() {
 // 视图循环: card(卡片) → tree(完整树) → accordion(手风琴) → flat(速览) → card
 // 系统默认循环；账号在设置页自定义后由 todoApplyViewCycle 覆盖（首项=进入待办的默认视图）
 // 初始化: localStorage 记录合法视图时沿用, 否则暂落 card(保首帧), profile 到达后再按账号循环校正
-var TODO_DEFAULT_VIEW_CYCLE = ['card', 'tree', 'accordion', 'flat'];
+var TODO_DEFAULT_VIEW_CYCLE = ['card', 'tree', 'accordion', 'flat', 'timeline'];
 var _todoViewCycle = TODO_DEFAULT_VIEW_CYCLE.slice();
 // 视图切换按钮文案
 var TODO_VIEW_LABELS = {
   card: { icon: ICONS.cards, name: '卡片视图' },
   accordion: { icon: ICONS.accordion, name: '手风琴' },
   flat: { icon: ICONS.flat, name: '速览视图' },
-  tree: { icon: ICONS.tree, name: '完整树' }
+  tree: { icon: ICONS.tree, name: '完整树' },
+  timeline: { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:-3px;margin-right:4px;"><line x1="6" y1="3" x2="6" y2="21"/><circle cx="6" cy="5" r="1.7"/><circle cx="6" cy="12" r="1.7"/><circle cx="6" cy="19" r="1.7"/><line x1="10.5" y1="5" x2="20" y2="5"/><line x1="10.5" y1="12" x2="20" y2="12"/><line x1="10.5" y1="19" x2="20" y2="19"/></svg>', name: '时间轴' }
 };
 // 全屏顶栏切换钮图标：与当前视图一致（点击切换后图标随名称一起变）；
 // 按钮专用，统一 24x24 / stroke-width 2 / round、无行内尺寸（由 .fs-segbtn svg 控大小）
@@ -6393,12 +6394,13 @@ var TODO_VIEW_ICONS = {
   card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="14" height="14" rx="2"/><path d="M8 2h12a2 2 0 0 1 2 2v12"/></svg>',
   accordion: ICONS.accordion,
   flat: ICONS.flat,
-  tree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="2"/><circle cx="6" cy="20" r="2"/><circle cx="18" cy="20" r="2"/><path d="M12 6v4M12 10l-6 8M12 10l6 8"/></svg>'
+  tree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="2"/><circle cx="6" cy="20" r="2"/><circle cx="18" cy="20" r="2"/><path d="M12 6v4M12 10l-6 8M12 10l6 8"/></svg>',
+  timeline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="3" x2="6" y2="21"/><circle cx="6" cy="5" r="1.7"/><circle cx="6" cy="12" r="1.7"/><circle cx="6" cy="19" r="1.7"/><line x1="10.5" y1="5" x2="20" y2="5"/><line x1="10.5" y1="12" x2="20" y2="12"/><line x1="10.5" y1="19" x2="20" y2="19"/></svg>'
 };
 var _todoView = 'card';
 try {
   var _v = localStorage.getItem('todoView');
-  if (_v === 'card' || _v === 'accordion' || _v === 'flat' || _v === 'tree') _todoView = _v;
+  if (_v === 'card' || _v === 'accordion' || _v === 'flat' || _v === 'tree' || _v === 'timeline') _todoView = _v;
 } catch(e){}
 // 立即给 body 打上 .todo-fs-on 类, CSS 立刻应用全屏样式(隐藏 topbar/card + 显示 #todoFullscreen),
 // 避免异步 loadTodos → applyTodoView 之间出现"默认页闪一下"的视觉抖动.
@@ -6569,6 +6571,16 @@ function todoSaveSortMode(m) {
   try { localStorage.setItem('todoSortMode', m); } catch (e) { /* 忽略 */ }
 }
 var _todoSortMode = todoLoadSortMode();
+// 时间轴「补齐无任务日期」开关：localStorage 'todoTimelineFullAxis'；未存默认关闭（紧凑轴，只挂有任务的日期）
+function todoLoadTimelineFullAxis() {
+  try { return localStorage.getItem('todoTimelineFullAxis') === '1'; }
+  catch (e) { return false; }
+}
+function todoSaveTimelineFullAxis(v) {
+  try { localStorage.setItem('todoTimelineFullAxis', v ? '1' : '0'); }
+  catch (e) { /* 存储被禁仅本次生效 */ }
+}
+var _todoTimelineFullAxis = todoLoadTimelineFullAxis();
 /** 顶层树排序（主列表用，不改变原数组）；日期口径 todoRootDue，无日期沉底 */
 function todoSortRoots(trees, mode) {
   if (mode !== 'due_asc' && mode !== 'due_desc') return trees;
@@ -8360,6 +8372,174 @@ function renderTodoFlat(container, trees, opts) {
   todoRestoreInlineAdd(container);
 }
 
+// ============ 时间轴视图（timeline：竖轴挂日期节点，右侧挂子任务卡；点卡片面包屑进主任务详情） ============
+function renderTodoTimeline(container, trees, opts) {
+  opts = opts || {};
+  var today = opts.today || '';
+  container.innerHTML = '';
+  function tlPad(n){ return (n < 10 ? '0' : '') + n; }
+
+  // 收集最终叶子（trees 已由主列表抽离 done 整枝）：
+  // child_due 空容器（顶层无子女且勾选各自截止）不挂轴；叶子有效日期沿祖先链继承（与速览同口径）
+  var leaves = [];
+  todoEachLeaf(trees, 'root', function (it) {
+    var n = it.node;
+    if (n.parent_id == null && !(n.children || []).length && n.child_due) return;
+    leaves.push({ node: n, path: it.path, effDue: todoDetailEffDue(n) });
+  });
+  // 按有效日期升序全局排序，无日期沉底；同日回退 sort_order+id
+  leaves.sort(function (a, b) {
+    var ad = a.effDue || '', bd = b.effDue || '';
+    if (ad !== bd) { if (!ad) return 1; if (!bd) return -1; return ad < bd ? -1 : 1; }
+    return (a.node.sort_order - b.node.sort_order) || (a.node.id - b.node.id);
+  });
+
+  // 单个子任务卡：优先级左条 + 层级面包屑按钮 + 勾选/标题/重复
+  function tlCard(it) {
+    var n = it.node;
+    var item = document.createElement('div');
+    item.className = 'tl-item pri-' + (n.priority != null ? n.priority : 1) + (n.done ? ' is-done' : '');
+    var band = document.createElement('span');
+    band.className = 'tl-item__priband';
+    item.appendChild(band);
+
+    var crumb = document.createElement('button');
+    crumb.type = 'button'; crumb.className = 'tl-crumb';
+    var branchIc = document.createElement('span');
+    branchIc.className = 'tl-crumb__ic'; branchIc.innerHTML = ICONS.branch;
+    crumb.appendChild(branchIc);
+    var pathEl = document.createElement('span');
+    pathEl.className = 'tl-crumb__path';
+    var parts = it.path.length ? it.path : [n.title];
+    parts.forEach(function (p, i) {
+      if (i > 0) {
+        var sep = document.createElement('span');
+        sep.className = 'sep'; sep.textContent = '/';
+        pathEl.appendChild(sep);
+      }
+      var s = document.createElement('span');
+      s.textContent = p;
+      pathEl.appendChild(s);
+    });
+    crumb.appendChild(pathEl);
+    var go = document.createElement('span');
+    go.className = 'tl-crumb__go'; go.textContent = '›';
+    crumb.appendChild(go);
+    // 进主任务详情：登录态走整页详情(onEnter)；免密/报告页降级弹层详情(onDetail/onEdit)
+    var goDetail = opts.onEnter || opts.onDetail || opts.onEdit;
+    if (goDetail) {
+      crumb.title = '进入主任务详情';
+      crumb.addEventListener('click', function () { goDetail(n._root || n); });
+    }
+    item.appendChild(crumb);
+
+    var body = document.createElement('div');
+    body.className = 'tl-item__body';
+    // 有日期才显示勾选（备忘录无勾选，与速览叶子同口径）
+    if (it.effDue && opts.onToggle) {
+      var check = document.createElement('button');
+      check.type = 'button'; check.className = 'todo-check' + (n.done ? ' done' : '');
+      check.title = n.done ? '取消完成' : '标记完成';
+      check.addEventListener('click', async function (e) {
+        e.stopPropagation();
+        if (check.disabled) return;
+        if (n.recurrence && !n.done && opts.onToggleRecur) { opts.onToggleRecur(n); return; }
+        check.disabled = true; check.setAttribute('data-busy', '1');
+        try { await opts.onToggle(n, !n.done); }
+        finally { check.disabled = false; check.removeAttribute('data-busy'); }
+      });
+      body.appendChild(check);
+    }
+    var main = document.createElement('div');
+    main.className = 'tl-item__main';
+    var title = document.createElement('div');
+    title.className = 'tl-item__title'; title.textContent = n.title;
+    main.appendChild(title);
+    if (n.recurrence) {
+      var meta = document.createElement('div');
+      meta.className = 'tl-item__meta';
+      var rc = document.createElement('span');
+      rc.className = 'todo-chip repeat';
+      rc.textContent = '🔁 ' + todoRecurLabel(n.recurrence, n.recur_interval, n.recur_nth, n.recur_weekday);
+      meta.appendChild(rc);
+      main.appendChild(meta);
+    }
+    body.appendChild(main);
+    item.appendChild(body);
+    return item;
+  }
+
+  // 单个日期行：日期标签列 / 轴列(竖线+节点圆点) / 卡片列
+  function dayRow(date, items, isEmpty, isNone) {
+    var row = document.createElement('div');
+    row.className = 'tl-day' + (isEmpty ? ' is-empty' : '') + (isNone ? ' tl-day--none' : '');
+    var diff = isNone ? null : todoDateDiff(date, today);
+    if (diff != null && diff < 0) row.classList.add('is-over');
+    else if (diff === 0) row.classList.add('is-today');
+
+    var label = document.createElement('div');
+    label.className = 'tl-day__label';
+    var big = document.createElement('b');
+    big.textContent = isNone ? '未安排' : (+date.slice(5,7)) + '月' + (+date.slice(8,10)) + '日';
+    label.appendChild(big);
+    label.appendChild(document.createTextNode(isNone ? '无日期'
+      : (diff === 0 ? '今天' : _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()])));
+    row.appendChild(label);
+
+    var rail = document.createElement('div');
+    rail.className = 'tl-day__rail';
+    var dot = document.createElement('span');
+    dot.className = 'tl-dot';
+    rail.appendChild(dot);
+    row.appendChild(rail);
+
+    var cards = document.createElement('div');
+    cards.className = 'tl-day__cards';
+    (items || []).forEach(function (it) { cards.appendChild(tlCard(it)); });
+    row.appendChild(cards);
+    return row;
+  }
+
+  // 枚举两个日期间的全部日历日（完整轴补齐空日用）
+  function enumerateDays(a, b) {
+    var out = [];
+    var cur = Date.UTC(+a.slice(0,4), +a.slice(5,7)-1, +a.slice(8,10));
+    var end = Date.UTC(+b.slice(0,4), +b.slice(5,7)-1, +b.slice(8,10));
+    while (cur <= end) {
+      var d = new Date(cur);
+      out.push(d.getUTCFullYear() + '-' + tlPad(d.getUTCMonth()+1) + '-' + tlPad(d.getUTCDate()));
+      cur += 86400000;
+    }
+    return out;
+  }
+
+  if (!leaves.length) {
+    container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方 ＋ 新建</div>';
+    return;
+  }
+
+  // 有日期叶子按日分桶（leaves 已排序）
+  var buckets = [], noneItems = [];
+  leaves.forEach(function (it) {
+    if (!it.effDue) { noneItems.push(it); return; }
+    var last = buckets[buckets.length - 1];
+    if (!last || last.key !== it.effDue) { last = { key: it.effDue, items: [] }; buckets.push(last); }
+    last.items.push(it);
+  });
+
+  if (_todoTimelineFullAxis && buckets.length) {
+    var present = {};
+    buckets.forEach(function (b) { present[b.key] = b.items; });
+    enumerateDays(buckets[0].key, buckets[buckets.length - 1].key).forEach(function (d) {
+      container.appendChild(dayRow(d, present[d] || [], !present[d], false));
+    });
+  } else {
+    buckets.forEach(function (b) { container.appendChild(dayRow(b.key, b.items, false, false)); });
+  }
+  // 无日期叶子：末尾虚线「未安排」节点
+  if (noneItems.length) container.appendChild(dayRow(null, noneItems, false, true));
+}
+
 // ============ 已完成拍平沉底（全视图统一）：未完成抽离、done 节点收口 ============
 // 未完成树：done 节点整支抽离（其下未完成后代随完成上级归并，不在上方独立出现）
 function todoPendingTrees(trees){
@@ -8892,6 +9072,7 @@ function todoRenderView(container, trees, opts) {
   if (detailRootId == null && view === 'card') detailRootId = todoMaybeRestoreDetail(trees);
   container.className = view === 'accordion' ? 'todo-acc'
     : view === 'flat' ? 'flat-view'
+    : view === 'timeline' ? 'timeline-view'
     : (view === 'card' && detailRootId == null ? 'todo-cards' : 'todo-tree');
   // 手风琴/速览主区铺白底（避免露出 body 暖白显黄），其余视图移除
   var _accFm = container.closest && container.closest('.todo-fs-main');
@@ -8955,7 +9136,8 @@ function todoRenderView(container, trees, opts) {
   };
   preserveScroll(todoScrollKey(view, null, scrollScroller), function(){
     // 仅登录态 /todo 页传 groupByDue（其开关入口在 + 新建菜单）；公开/报告/协作页不启用
-    if (viewOpts.groupByDue) todoRenderGroupedByDue(container, pending, viewOpts, view);
+    if (view === 'timeline') renderTodoTimeline(container, pending, viewOpts);
+    else if (viewOpts.groupByDue) todoRenderGroupedByDue(container, pending, viewOpts, view);
     else if (view === 'accordion') renderTodoAccordion(container, pending, viewOpts);
     else if (view === 'flat') renderTodoFlat(container, pending, viewOpts);
     else if (view === 'tree') renderTodoTree(container, pending, viewOpts);
@@ -11754,6 +11936,10 @@ function openDisplayChooser(ev) {
       +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🔀</span>'
       +   '<span class="fab-menu__t">排序方式</span>'
       +   '<span class="fab-menu__mark" style="font-size:12px;">' + SORT_SHORT[_todoSortMode] + '</span></button>'
+      + '<button type="button" class="fab-menu__item" data-k="tl-full">'
+      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🕒</span>'
+      +   '<span class="fab-menu__t">时间轴补齐空日期</span>'
+      +   '<span class="fab-menu__mark">' + (_todoTimelineFullAxis ? '✓' : '') + '</span></button>'
       + '<button type="button" class="fab-menu__item" data-k="bg">'
       +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🎨</span>'
       +   '<span class="fab-menu__t">切换背景</span></button>';
@@ -11791,7 +11977,10 @@ function openDisplayChooser(ev) {
         if (b.dataset.k === 'sort') { menu.innerHTML = sortHtml(); bindItems(); return; }
         if (b.dataset.k === 'sort-back') { menu.innerHTML = mainHtml(); bindItems(); return; }
         if (b.dataset.k === 'bg') { closeDisplayMenu(); bgOpen(); return; }
-        if (b.dataset.k === 'group') {
+        if (b.dataset.k === 'tl-full') {
+          _todoTimelineFullAxis = !_todoTimelineFullAxis;
+          todoSaveTimelineFullAxis(_todoTimelineFullAxis);
+        } else if (b.dataset.k === 'group') {
           _todoGroupByDue = !_todoGroupByDue;
           todoSaveGroupByDue(_todoGroupByDue);
         } else if (b.dataset.k === 'hide' && hideOrig) {

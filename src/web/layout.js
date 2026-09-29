@@ -1550,6 +1550,61 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   body .flat-group .todo-detail-adder { display: none; }
   body .flat-group .todo-detail-adder.editing { display: block; }
 }
+/* ============ 时间轴视图（timeline：竖轴挂日期，右侧子任务卡） ============ */
+.timeline-view { margin-top: 6px; }
+/* 日期行：日期标签 74px / 轴 24px / 卡片 1fr */
+.tl-day { display: grid; grid-template-columns: 74px 24px 1fr; break-inside: avoid; }
+.tl-day__label { padding-top: 2px; padding-right: 10px; text-align: right; font-size: 12px; color: var(--muted-2); line-height: 1.35; white-space: nowrap; }
+.tl-day__label b { display: block; font-size: 13.5px; color: var(--text-strong); }
+.tl-day.is-over .tl-day__label b { color: var(--danger); }
+.tl-day.is-today .tl-day__label b { color: var(--brand); }
+.tl-day.is-empty .tl-day__label { opacity: .55; }
+.tl-day.is-empty .tl-day__label b { font-size: 12.5px; font-weight: 500; color: var(--muted-2); }
+/* 轴竖线 + 节点圆点（中线对齐） */
+.tl-day__rail { position: relative; }
+.tl-day__rail::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); background: var(--border); }
+.timeline-view .tl-day:first-child .tl-day__rail::before { top: 50%; }
+.timeline-view .tl-day:last-child .tl-day__rail::before { bottom: 50%; }
+.tl-dot { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2.5px solid var(--brand); z-index: 2; }
+.tl-day.is-over .tl-dot { border-color: var(--danger); }
+.tl-day.is-today .tl-dot { width: 15px; height: 15px; top: 3px; background: var(--brand); border-color: transparent; box-shadow: 0 0 0 4px var(--brand-tint); }
+.tl-day.is-empty .tl-dot { width: 8px; height: 8px; top: 7px; border-width: 2px; border-color: var(--faint); }
+.tl-day__cards { display: flex; flex-direction: column; gap: 10px; padding: 0 0 18px 14px; }
+.tl-day.is-empty .tl-day__cards { padding-bottom: 14px; }
+.timeline-view .tl-day:last-child .tl-day__cards { padding-bottom: 4px; }
+/* 子任务卡：优先级左条 + 面包屑 + 内容 */
+.tl-item { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(20,20,40,.04); }
+.tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #C9CCD6; }
+.tl-item.pri-2 .tl-item__priband { background: #E0453E; }
+.tl-item.pri-1 .tl-item__priband { background: #E5A113; }
+.tl-item.is-done { background: var(--surface-done); }
+.tl-item.is-done .tl-item__title { color: var(--faint); text-decoration: line-through; }
+/* 层级面包屑按钮（点击进主任务详情） */
+.tl-crumb { display: flex; align-items: center; gap: 5px; width: 100%; padding: 6px 12px; border: 0; border-bottom: 1px solid var(--th-border); background: var(--surface-2); color: var(--brand); font-size: 11.5px; font-family: inherit; text-align: left; cursor: pointer; transition: background .13s; }
+.tl-crumb:hover { background: var(--brand-tint); }
+.tl-crumb__ic { display: inline-flex; flex: none; }
+.tl-crumb__ic svg { width: 13px; height: 13px; display: block; }
+.tl-crumb__path { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-crumb__path .sep { color: var(--faint); margin: 0 3px; font-weight: 400; }
+.tl-crumb__go { flex: none; color: var(--faint); font-size: 14px; }
+.tl-crumb:hover .tl-crumb__go { color: var(--brand); }
+.tl-item__body { display: flex; align-items: flex-start; gap: 10px; padding: 10px 13px 9px 15px; }
+.tl-item__body .todo-check { margin-top: 1px; }
+.tl-item__main { flex: 1; min-width: 0; }
+.tl-item__title { font-size: 14px; font-weight: 600; line-height: 1.42; color: var(--text); word-break: break-word; }
+.tl-item__meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+/* 未安排：虚线轴 + 虚框圆点 */
+.tl-day--none .tl-day__rail::before { background: repeating-linear-gradient(to bottom, var(--faint) 0 4px, transparent 4px 9px); }
+.tl-day--none .tl-dot { border-style: dashed; border-color: var(--faint); }
+@media (max-width: 640px) {
+  .tl-day { grid-template-columns: 62px 20px 1fr; }
+  .tl-day__label { font-size: 11px; padding-right: 7px; }
+  .tl-day__label b { font-size: 12.5px; }
+  .tl-day__cards { gap: 8px; padding-left: 10px; padding-bottom: 14px; }
+  .tl-crumb { padding: 5px 10px; font-size: 11px; }
+  .tl-item__body { padding: 9px 10px 8px 13px; gap: 8px; }
+  .tl-item__title { font-size: 13.5px; }
+}
 /* 速览深层叶子行后动态挂载的添加框：平时整体隐藏，点该行「添加子任务」进入 editing 才出现（PC/手机一致） */
 .flat-leaf-adder-holder .todo-detail-adder:not(.editing) { display: none; }
 .flat-leaf-adder-holder .todo-detail-adder.editing { display: block; }
