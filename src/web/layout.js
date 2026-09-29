@@ -1440,14 +1440,20 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 }
 /* ============ 速览/手风琴：顶层主任务卡片化（A 方案，与卡片视图同源：3px 等级色带封边） ============ */
 .todo-bandcard {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border); border-top: 3px solid var(--pri-band); border-radius: 12px;
   overflow: hidden; margin: 0 0 12px;
   transition: box-shadow .18s, border-color .18s;
+  --pri-band: #C9CCD6;
 }
-.todo-bandcard:hover { box-shadow: 0 8px 24px rgba(124,58,237,.12); border-color: var(--brand-border); }
-.todo-bandcard.pri-2 > .todo-card__band { background: #E0453E; }
-.todo-bandcard.pri-1 > .todo-card__band { background: #E5A113; }
-.todo-bandcard.pri-0 > .todo-card__band { background: #6cc899; }
+.todo-bandcard:hover {
+  box-shadow: 0 8px 24px rgba(124,58,237,.12); border-color: var(--brand-border);
+}
+.todo-bandcard.pri-2 { --pri-band: #E0453E; }
+.todo-bandcard.pri-1 { --pri-band: #E5A113; }
+.todo-bandcard.pri-0 { --pri-band: #6cc899; }
+/* band 子元素隐藏: 顶带已由 border-top 承担(边框与卡片同层, 滚动无缝) */
+.todo-bandcard > .todo-card__band { display: none; }
 /* 卡内主任务行：去边框/灰底/左紫条，透明融入白卡 */
 .todo-bandcard > .todo-row.is-root {
   background: transparent; border: 0; border-radius: 0; margin: 0;
@@ -1583,12 +1589,20 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .tl-day.is-empty .tl-day__cards { padding-bottom: 14px; }
 .timeline-view .tl-day:last-child .tl-day__cards { padding-bottom: 4px; }
 /* 子任务卡：优先级左条 + 面包屑 + 内容 */
-.tl-item { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(20,20,40,.04); }
+.tl-item {
+  position: relative; background: var(--surface);
+  border: 1px solid var(--border); border-left: 3px solid var(--pri-band);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(20,20,40,.04);
+  --pri-band: #C9CCD6; /* 左带即左边框: 无=灰, 高/中/低由 .pri-N 覆盖; 边框同层滚动无缝, 且不被面包屑栏遮挡 */
+}
 /* 左条位于边框内侧(overflow 裁在 padding box), 完整宽度不被裁细 */
 .tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #C9CCD6; }
-.tl-item.pri-2 .tl-item__priband { background: #E0453E; }
-.tl-item.pri-1 .tl-item__priband { background: #E5A113; }
-.tl-item.pri-0 .tl-item__priband { background: #6cc899; }
+.tl-item.pri-2 { --pri-band: #E0453E; }
+.tl-item.pri-1 { --pri-band: #E5A113; }
+.tl-item.pri-0 { --pri-band: #6cc899; }
+/* priband 子元素隐藏: 左带已由 border-left 承担 */
+.tl-item .tl-item__priband { display: none; }
 .tl-item.is-done { background: var(--surface-done); }
 .tl-item.is-done .tl-item__title { color: var(--faint); text-decoration: line-through; }
 /* 层级面包屑按钮（点击进主任务详情） */
@@ -1890,15 +1904,15 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-cards { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
 /* 单张顶层卡片：顶部色带 + 内容区 + 底部操作 */
 .todo-card {
-  position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  position: relative; background: var(--surface);
+  border: 1px solid var(--border); border-top: 3px solid var(--pri-band); border-radius: 14px;
   overflow: hidden; transition: box-shadow .18s, border-color .18s;
   cursor: default;
-  --pri-band: #C9CCD6; /* 顶带色: 无=灰(默认), 高/中/低 由 .pri-N 覆盖 */
-  box-shadow: inset 0 3px 0 var(--pri-band); /* 内阴影作色带, 与卡片背景同层, 防滚动合成缝隙 */
+  --pri-band: #C9CCD6; /* 顶带色即顶边框: 无=灰(默认), 高/中/低 由 .pri-N 覆盖; 边框与卡片同层, 滚动无缝隙 */
 }
 .todo-card.clickable { cursor: pointer; }
 .todo-card.clickable:hover {
-  box-shadow: inset 0 3px 0 var(--pri-band), 0 6px 20px rgba(124,58,237,.12);
+  box-shadow: 0 6px 20px rgba(124,58,237,.12);
   border-color: var(--brand-border);
 }
 /* band 基础样式: 现主要供手风琴 .todo-bandcard 使用(卡片视图的 band 已隐藏、改走 inset 阴影)。
