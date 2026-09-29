@@ -375,10 +375,14 @@ private fun AppShell(
     // WindowInsets.ime 实测键盘高，注入网页 CSS 变量 --kb-native，网页据此把弹窗/输入框抬到键盘上方。
     var kbCss by remember { mutableStateOf(0f) }
     val currentKbCss by rememberUpdatedState(kbCss)
+    // 原生底部 Tab 栏高度（px）：WebView 铺在 Scaffold content 内、不延伸到 Tab 栏下，
+    // 注入键盘高度时必须扣掉，否则网页会多抬一个 Tab 栏的高度（弹窗与键盘间留大缝）
+    var bottomBarPx by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
     val imeBottomPx = WindowInsets.ime.getBottom(density)
-    LaunchedEffect(imeBottomPx) {
-        kbCss = imeBottomPx / density.density
+    LaunchedEffect(imeBottomPx, bottomBarPx) {
+        val effectiveImePx = (imeBottomPx - bottomBarPx).coerceAtLeast(0f)
+        kbCss = effectiveImePx / density.density
         // 注入键盘高度并通知网页：弹窗贴键盘上沿（.kb-on）+ 把当前聚焦框滚到键盘上方
         webViewRef?.evaluateJavascript(
             "document.documentElement.style.setProperty('--kb-native','${kbCss}px');" +
@@ -495,6 +499,8 @@ private fun AppShell(
             }
         }
     ) { padding ->
+        // 记录底部 Tab 栏实际高度供键盘高度换算（值恒定，同值赋值不触发重组）
+        bottomBarPx = with(density) { padding.calculateBottomPadding().toPx() }
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             // WebView 始终存在（保留登录态/历史），仅在「我的」页隐藏
             AndroidView(

@@ -9827,7 +9827,6 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   var SVG_REPEAT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
   var SVG_MORE = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
   var SVG_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-  var SVG_CREATE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   var draftScope = '<input type="hidden" id="tfDraftScope" value="' + (t.id ? 'edit:' + t.id : 'new') + '">';
   // 抓手 + 标题 + 折叠的描述
   var head =
@@ -9864,7 +9863,7 @@ function todoFormHtml(t, isNew, isChild, fopts) {
       (recurNative ? '<button type="button" class="tf-ic' + (t.recurrence ? ' is-on' : '') + '" id="tfRecurIc" data-tfic="recur">' + SVG_REPEAT + '</button>' : '') +
       (cdNative ? '<label class="tf-cd' + (childDueOn ? ' is-on' : '') + '" id="tfCdLabel">' + cdNative + '<span class="tf-cd__box">' + SVG_CHECK + '</span><span class="tf-cd__t">各自截止</span></label>' : '') +
       '<button type="button" class="tf-ic" data-tfic="more">' + SVG_MORE + '</button>' +
-      '<button type="button" id="tfCreate" class="tf-create" title="创建">' + SVG_CREATE + '</button>' +
+      '<button type="button" id="tfCreate" class="tf-save">保存</button>' +
     '</div>';
   // 日期设置条
   var dueStrip = lockedChild ? '' : '<div class="tf-strip" data-strip="due">' +
@@ -10206,7 +10205,10 @@ function todoInitTform(box) {
     setTimeout(function(){ catNewGui.focus(); }, 0);
   });
   if (catNewGui) {
-    catNewGui.addEventListener('input', function(){ catNew.value = catNewGui.value; });
+    catNewGui.addEventListener('input', function(){
+      catNew.value = catNewGui.value;
+      catNewGui.style.width = Math.max(12, catNewGui.value.length + 2) + 'ch';
+    });
     catNewGui.addEventListener('keydown', function(e){
       if (e.key === 'Enter') {
         e.preventDefault();

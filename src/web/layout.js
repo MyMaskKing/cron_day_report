@@ -2152,8 +2152,9 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tf-catnew { display: none; align-items: center; gap: 6px; flex: 0 0 auto; }
 .tf-catnew.show { display: inline-flex; }
 .tf-catnew input {
-  width: 132px; border: 1px solid var(--brand); border-radius: 999px;
+  width: 12ch; min-width: 12ch; border: 1px solid var(--brand); border-radius: 999px;
   padding: 6px 13px; font-size: 13.5px; outline: none; font-family: inherit;
+  height: auto; box-sizing: border-box;
 }
 /* 优先级 chip 内颜色点与文字间距 */
 .tf-chip2 .todo-priority-dot { margin-right: 6px; vertical-align: -1px; }
@@ -2161,16 +2162,16 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tf-catswitch { flex: 0 0 auto; display: inline-flex; }
 /* 勾选各自截止：日期与闹钟图标隐藏，后续图标自动补位 */
 .tform.cd-on .tf-dueitem { display: none; }
-/* 图标栏创建钮：品牌色圆形，靠右固定 */
-.tf-create {
-  flex: 0 0 auto; margin-left: 10px;
-  width: 38px; height: 38px; padding: 0;
-  border: 0; border-radius: 50%;
+/* 保存钮：文字按钮，品牌填充，固定在图标栏最右 */
+.tf-save {
+  flex: 0 0 auto; margin-left: auto;
+  height: 38px; padding: 0 22px;
+  border: 0; border-radius: 10px;
   background: var(--brand); color: #fff;
+  font-family: inherit; font-size: 15px; font-weight: 600;
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
-.tf-create svg { width: 20px; height: 20px; }
-.tf-create:active { transform: scale(.94); }
+.tf-save:active { transform: scale(.96); }
 @media (min-width: 641px) {
   /* PC 居中弹窗 body padding 20px：负 margin 归零，分隔线不溢出卡片 */
   .tform-bar { margin: 8px 0 -2px; }
