@@ -1090,6 +1090,7 @@ function openModal(title, bodyHtml, maskClass, pinned) {
   if (!mask) return;
   mask.classList.remove('modal-mask--lg');
   mask.classList.remove('modal-mask--pinned');
+  mask.classList.remove('modal-mask--sheet');
   if (maskClass) mask.classList.add(maskClass);
   if (pinned) mask.classList.add('modal-mask--pinned');
   var wasOpen = mask.classList.contains('show');
@@ -1111,6 +1112,20 @@ function openModal(title, bodyHtml, maskClass, pinned) {
   // 待办表单草稿恢复/暂存(切后台进程被回收后重开表单可恢复标题/备注); 非待办弹窗无此标记, no-op
   if (box && box.querySelector && box.querySelector('#tfDraftScope') && typeof todoBindFormDraft === 'function') todoBindFormDraft();
   if (box && box.querySelector && box.querySelector('#tfDueWrap') && typeof todoInitAlarmForm === 'function') todoInitAlarmForm(box);
+  // 滴答风格待办表单：自动贴底 sheet、初始化横滑交互；打开即聚焦标题并唤起键盘
+  var _tform = box && box.querySelector ? box.querySelector('.tform') : null;
+  if (_tform) {
+    mask.classList.add('modal-mask--sheet');
+    if (typeof todoInitTform === 'function') todoInitTform(box);
+    var _tfTitle = document.getElementById('tfTitle');
+    if (_tfTitle) setTimeout(function(){
+      try {
+        _tfTitle.focus();
+        var len = _tfTitle.value.length;
+        _tfTitle.setSelectionRange(len, len);
+      } catch (e) {}
+    }, 60);
+  }
 }
 function closeModal() {
   var mask = document.getElementById('modalMask');
@@ -7723,7 +7738,13 @@ function renderTodoTree(container, trees, opts) {
         });
         ops.appendChild(b1);
       }
-      if (opts.onDetail || opts.onEdit) { var b2 = mkOp(ICONS.view, '查看详情', function(){ (opts.onDetail || opts.onEdit)(node); }); ops.appendChild(b2); }
+      if (opts.onDetail || opts.onEdit || (isRealRoot && opts.onEnter)) {
+        var b2 = mkOp(ICONS.view, '查看详情', function(){
+          var _go = isRealRoot ? (opts.onEnter || opts.onDetail || opts.onEdit) : (opts.onDetail || opts.onEdit);
+          _go(node);
+        });
+        ops.appendChild(b2);
+      }
       // 分享单元是整棵顶层清单(后端仅允许 parent_id==null), 不能只看渲染深度:
       // 详情页用 root.children 重新起渲(startDepth=0), 子任务 depth 也是 0, 会误显示本按钮
       if (opts.onShare && depth === 0 && node.parent_id == null) { var b3 = mkOp(ICONS.share, '协作链接', function(){ opts.onShare(node); }); ops.appendChild(b3); }
@@ -7774,12 +7795,14 @@ function renderTodoTree(container, trees, opts) {
         childBox.classList.toggle('collapsed');
       });
     }
-    var detailFn = opts.onDetail || opts.onEdit;
-    if (detailFn) {
+    // 顶层主任务主体点击进页面式详情；中间层/叶子仍打开信息弹窗
+    var _enterRoot = depth === 0 && !isDetail && !!opts.onEnter;
+    var actFn = _enterRoot ? opts.onEnter : (opts.onDetail || opts.onEdit);
+    if (actFn) {
       main.style.cursor = 'pointer';
       main.addEventListener('click', function(e){
         e.stopPropagation();
-        detailFn(node);
+        actFn(node);
       });
     }
     return wrap;
@@ -7851,11 +7874,13 @@ function renderTodoAccordion(container, trees, opts) {
       });
       opsEl.appendChild(b1);
     }
-    if (opts.onDetail || opts.onEdit) {
+    if (opts.onDetail || opts.onEdit || (isRealRoot && opts.onEnter)) {
       var b2 = document.createElement('button');
       b2.type = 'button'; b2.className = 'todo-op'; b2.title = '查看详情'; b2.innerHTML = ICONS.view;
       b2.addEventListener('click', function(e){
-        e.stopPropagation(); (opts.onDetail || opts.onEdit)(node);
+        e.stopPropagation();
+        var _go = isRealRoot ? (opts.onEnter || opts.onDetail || opts.onEdit) : (opts.onDetail || opts.onEdit);
+        _go(node);
       });
       opsEl.appendChild(b2);
     }
@@ -7966,6 +7991,14 @@ function renderTodoAccordion(container, trees, opts) {
     var rowEl = document.createElement('div');
     // 顶层主任务(非详情态)加 root 修饰，与中间层分组行拉开层级
     rowEl.className = 'todo-acc__row' + (cardRoot ? ' todo-acc__row--root' : '');
+    // 顶层主行整行点击进页面式详情（caret 折叠、操作组各自 stopPropagation）
+    if (cardRoot && opts.onEnter) {
+      rowEl.style.cursor = 'pointer';
+      rowEl.addEventListener('click', function(e){
+        if (e.target.closest('.todo-acc__caret, .todo-ops')) return;
+        opts.onEnter(node);
+      });
+    }
     var folded = !!_todoCollapsed[node.id];
     var caret = document.createElement('button');
     caret.type = 'button';
@@ -7992,7 +8025,8 @@ function renderTodoAccordion(container, trees, opts) {
     nameEl.textContent = (depth === 0 && node.shared_cat_id != null ? '👥 ' : '') + node.title;
     nameEl.addEventListener('click', function(e){
       e.stopPropagation();
-      if (opts.onDetail || opts.onEdit) (opts.onDetail || opts.onEdit)(node);
+      var _go = cardRoot ? (opts.onEnter || opts.onDetail || opts.onEdit) : (opts.onDetail || opts.onEdit);
+      if (_go) _go(node);
     });
     rowEl.appendChild(nameEl);
     // 「各自截止」（child_due）小图标，悬浮给说明
@@ -8044,7 +8078,8 @@ function renderTodoAccordion(container, trees, opts) {
       sname.className = 'todo-acc__leafname'; sname.textContent = node.title;
       sname.addEventListener('click', function(e){
         e.stopPropagation();
-        if (opts.onDetail || opts.onEdit) (opts.onDetail || opts.onEdit)(node);
+        var _go = opts.onEnter || opts.onDetail || opts.onEdit;
+        if (_go) _go(node);
       });
       srow.appendChild(sname);
       // 日期 chip 同卡片视图（逾期红/今天紫/未来灰）
@@ -8112,8 +8147,9 @@ function renderTodoFlat(container, trees, opts) {
       if (opts.onAddChildSubmit) addOp(ICONS.plus, '添加子任务', function(){
         todoOpenDetailAdder(groupWrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); });
       });
-      if (opts.onDetail || opts.onEdit) addOp(ICONS.view, '查看详情', function(){
-        (opts.onDetail || opts.onEdit)(node);
+      if (opts.onDetail || opts.onEdit || opts.onEnter) addOp(ICONS.view, '查看详情', function(){
+        var _go = opts.onEnter || opts.onDetail || opts.onEdit;
+        _go(node);
       });
       if (opts.onShare && node.parent_id == null) addOp(ICONS.share, '协作链接', function(){
         opts.onShare(node);
@@ -8261,9 +8297,19 @@ function renderTodoFlat(container, trees, opts) {
     var titleEl = document.createElement('span');
     titleEl.className = 'flat-group__title';
     titleEl.textContent = (root.shared_cat_id != null ? '👥 ' : '') + root.title;
-    if (opts.onDetail || opts.onEdit) titleEl.addEventListener('click', function(){
-      (opts.onDetail || opts.onEdit)(root);
+    titleEl.addEventListener('click', function(e){
+      e.stopPropagation();
+      var _go = opts.onEnter || opts.onDetail || opts.onEdit;
+      if (_go) _go(root);
     });
+    // 组头整头点击进页面式详情（操作组内按钮各自 stopPropagation）
+    if (opts.onEnter) {
+      head.style.cursor = 'pointer';
+      head.addEventListener('click', function(e){
+        if (e.target.closest('.todo-ops')) return;
+        opts.onEnter(root);
+      });
+    }
     head.appendChild(titleEl);
     // 进度计数同卡片/完整树 todoLeafCount 口径：已完成祖先整支结算剔除（不计入 total）；
     // 未结算枝 total=0 时不显示计数（与完整树 lc.total>0 才显示一致）
@@ -8809,8 +8855,29 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
 //   view='card' && detailRootId!=null → 单个顶层任务的完整子树 + 面包屑
 // opts 其余键与 renderTodoTree/renderTodoCards 一致, 额外:
 //   crumbEl: 面包屑 DOM; onExitDetail(): 返回按钮回调
+// 手机端详情→清单：详情卡片右滑退出、清单自左滑入；PC 瞬时切换
+function todoPhoneView() {
+  return !!(window.matchMedia && window.matchMedia('(max-width:640px)').matches);
+}
+function todoExitDetailAnimate(container, done) {
+  if (!todoPhoneView() || !container) { done(); return; }
+  container.classList.add('todo-view-exit');
+  var finished = false;
+  function finish() {
+    if (finished) return;
+    finished = true;
+    container.classList.remove('todo-view-exit');
+    done(); // drawTree 重绘会重建 container.className，之后补清单滑入
+    container.classList.add('todo-view-enter');
+    setTimeout(function(){ container.classList.remove('todo-view-enter'); }, 280);
+  }
+  setTimeout(finish, 260);
+}
 function todoRenderView(container, trees, opts) {
   opts = opts || {};
+  // 退出详情统一走右滑动画（各调用方 opts.onExitDetail 内容不变）
+  var __origExit = opts.onExitDetail;
+  if (__origExit) opts.onExitDetail = function(){ todoExitDetailAnimate(container, __origExit); };
   var view = opts.view || 'card';
   var scrollScroller = todoScrollScroller(container);
   function preserveScroll(key, render, afterRender) { return todoPreserveScroll(scrollScroller, key, render, afterRender); }
@@ -9682,6 +9749,12 @@ function todoInitPrioritySegmented(box) {
   sync();
 }
 
+// 日期简短标签："M月d日"
+function tfDateShort(d) {
+  var p = (d || '').split('-');
+  if (p.length < 3) return d || '';
+  return parseInt(p[1], 10) + '月' + parseInt(p[2], 10) + '日';
+}
 function todoFormHtml(t, isNew, isChild, fopts) {
   t = t || {};
   fopts = fopts || {};
@@ -9689,35 +9762,34 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   var memoMode = !!fopts.memo && isNew && !isChild;
   // 直接父是否允许自设日期: 主任务恒允许; 子任务看 fopts.childDueMode(调用方按直接父判定)
   var allowsDate = !isChild || !!fopts.childDueMode;
-  // 锁定跟随态: 子任务且直接父未勾选 → 日期只读跟随, 无日期框/重复/开关
+  // 锁定跟随态: 子任务且直接父未勾选 → 日期只读跟随
   var lockedChild = isChild && !allowsDate;
   // 自身勾选态: 锁定子任务恒 false; lockMode(/t/ 协作页)按 forceChildDue(调用方显式传入); 其余读 t.child_due
   var childDueOn = !lockedChild && (lockMode ? !!fopts.forceChildDue : !!t.child_due);
-  // 重复块是否"可能出现"(不看当前勾选态): 取消勾选时要能即时显示出来, 故勾选态也渲染但隐藏。
-  // 锁定跟随子任务永不出现; /t/ 锁定根(forceChildDue)无勾选框可取消, 勾选态不渲染;
-  // 子任务直接父勾选即可设重复(任意层级; 带子女的重复任务完成时由后端整树克隆到下一周期)
+  // 重复是否可用: 锁定跟随子任务永不可; /t/ 锁定根勾选态不可; 子任务直接父勾选即可
   var recurAvailable = !lockedChild && (!isChild ? (!lockMode || !childDueOn) : allowsDate);
-  var defDue = t.due_date || (isNew ? todoTodayStr() : '');
-  // 日期字段: 主任务/自由子任务均可设(统一包 #tfDueWrap 供勾选联动); 锁定子任务只读跟随
-  var dueField = '';
-  if (lockedChild) {
-    // 独占 .row 整行(flex:0 0 100%), 避免被两列布局挤窄导致冒号后断行; 日期部分 nowrap 不被拆开
-    dueField = '<div style="flex:0 0 100%;width:100%;padding:7px 10px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);color:var(--muted,#888);font-size:13px;line-height:1.5;">'
-      + '📅 截止日期跟随上级任务' + (fopts.inheritDue ? '：<span style="white-space:nowrap;">' + esc(fopts.inheritDue) + '</span>' : '（上级暂未设置日期）') + '</div>';
-  } else if (!memoMode) {
-    dueField = '<div id="tfDueWrap" style="display:' + (childDueOn ? 'none' : 'block') + ';"><label>截止日期</label>' +
-      '<div style="display:flex;gap:8px;align-items:center;">' +
-        '<input id="tfDue" type="date" value="' + defDue + '" style="flex:1;min-width:0;">' +
-        '<button type="button" id="tfAlarmBtn" class="btn sm gray" style="display:none;flex:none;white-space:nowrap;">🔔 闹钟</button>' +
-      '</div>' +
-      '<button type="button" id="tfAlarmClear" class="btn sm gray" style="display:none;margin-top:6px;width:100%;">取消闹钟</button>' +
-    '</div>';
-  }
-  // 重复块(主任务旧模式 / 新模式叶子子任务): 主任务侧包 #tfRecurWrap 供勾选框联动显隐
-  var recurInner =
-      '<label>重复</label>' +
-      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' +
-        '<select id="tfRecur" style="flex:1;min-width:120px;">' +
+  var today = todoTodayStr();
+  var defDue = (lockedChild || memoMode) ? '' : (t.due_date || (isNew ? today : ''));
+  var draftScope = '<input type="hidden" id="tfDraftScope" value="' + (t.id ? 'edit:' + t.id : 'new') + '">';
+  // 标题 + 折叠的描述（编辑态备注默认折叠，点击才展开/挂编辑器）
+  var head =
+      '<textarea id="tfTitle" class="tform-title" rows="1" data-autogrow="1" placeholder="准备做什么？">' + esc(t.title || '') + '</textarea>' +
+      '<button type="button" id="tfDescBtn" class="tform-desc' + (t.note ? ' has' : '') + '">描述</button>' +
+      '<div id="tfDescWrap" class="tform-descwrap" style="display:none;">' +
+        '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…">' + esc(t.note || '') + '</textarea>' +
+      '</div>';
+  // 值载体·日期/闹钟: #tfDueWrap 结构保留（todoInitAlarmForm 依赖 #tfDue/#tfAlarmBtn/#tfAlarmClear）
+  var dueNative =
+      '<div id="tfDueWrap" class="tform-native" data-alarm-minute="">' +
+        '<input id="tfDue" type="date" value="' + defDue + '">' +
+        '<button type="button" id="tfAlarmBtn">🔔 闹钟</button>' +
+        '<button type="button" id="tfAlarmClear">取消闹钟</button>' +
+      '</div>';
+  // 值载体·重复: 旧完整结构整块保留，点「自定义」时搬到设置条内显示
+  var recurNative = (recurAvailable && !memoMode) ?
+      '<div id="tfRecurWrap" class="tform-native">' +
+        '<label>重复</label>' +
+        '<select id="tfRecur">' +
           '<option value="">不重复</option>' +
           '<option value="daily"' + (t.recurrence === 'daily' ? ' selected' : '') + '>每日</option>' +
           '<option value="weekly"' + (t.recurrence === 'weekly' ? ' selected' : '') + '>每周</option>' +
@@ -9725,101 +9797,90 @@ function todoFormHtml(t, isNew, isChild, fopts) {
           '<option value="monthly_nth_weekday"' + (t.recurrence === 'monthly_nth_weekday' ? ' selected' : '') + '>每月第 N 个星期 X</option>' +
           '<option value="yearly"' + (t.recurrence === 'yearly' ? ' selected' : '') + '>每年</option>' +
         '</select>' +
-        '<span id="tfRecurNBox" style="display:' + (t.recurrence ? 'inline-flex' : 'none') + ';align-items:center;gap:4px;color:var(--muted);font-size:13px;">' +
-          '每' +
+        '<span id="tfRecurNBox" style="display:' + (t.recurrence ? 'inline-flex' : 'none') + ';align-items:center;gap:4px;color:var(--muted);font-size:13px;">每' +
           '<input id="tfRecurN" type="number" min="1" max="99" value="' + (t.recur_interval && t.recur_interval >= 1 ? t.recur_interval : 1) + '" style="width:58px;padding:4px 6px;text-align:center;">' +
           '<span id="tfRecurUnit">' + (({ daily:'天', weekly:'周', monthly:'月', monthly_nth_weekday:'月', yearly:'年' })[t.recurrence] || '天') + '</span>' +
         '</span>' +
-      '</div>' +
-      // monthly_nth_weekday 专属两下拉: 位置(第 N 个) + 星期几; 仅在选中该重复时显示
-      '<div id="tfNthWrap" style="display:' + (t.recurrence === 'monthly_nth_weekday' ? 'flex' : 'none') + ';gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">' +
-        '<span style="color:var(--muted);font-size:13px;">的</span>' +
-        '<select id="tfRecurNth" style="flex:1;min-width:110px;">' +
-          '<option value="1"' + (t.recur_nth === 1 ? ' selected' : '') + '>第一个</option>' +
-          '<option value="2"' + (t.recur_nth === 2 ? ' selected' : '') + '>第二个</option>' +
-          '<option value="3"' + (t.recur_nth === 3 ? ' selected' : '') + '>第三个</option>' +
-          '<option value="4"' + (t.recur_nth === 4 ? ' selected' : '') + '>第四个</option>' +
-          '<option value="5"' + (t.recur_nth === 5 ? ' selected' : '') + '>最后一个</option>' +
-        '</select>' +
-        '<select id="tfRecurWd" style="flex:1;min-width:110px;">' +
-          '<option value="1"' + (t.recur_weekday === 1 ? ' selected' : '') + '>周一</option>' +
-          '<option value="2"' + (t.recur_weekday === 2 ? ' selected' : '') + '>周二</option>' +
-          '<option value="3"' + (t.recur_weekday === 3 ? ' selected' : '') + '>周三</option>' +
-          '<option value="4"' + (t.recur_weekday === 4 ? ' selected' : '') + '>周四</option>' +
-          '<option value="5"' + (t.recur_weekday === 5 ? ' selected' : '') + '>周五</option>' +
-          '<option value="6"' + (t.recur_weekday === 6 ? ' selected' : '') + '>周六</option>' +
-          '<option value="0"' + (t.recur_weekday === 0 ? ' selected' : '') + '>周日</option>' +
-        '</select>' +
-      '</div>' +
-      '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">' + ICONS.repeat + '完成后自动生成下一条任务；如"每 2 周"、"每月第一个周一"</p>';
-  var recurBlock = (recurAvailable && !memoMode)
-    ? '<div id="tfRecurWrap" style="display:' + (childDueOn ? 'none' : 'block') + ';">' + recurInner + '</div>'
-    : '';
-  // child_due 勾选框: 主任务与自由子任务均可勾选(开关只管一级, 勾选后其直接子任务才能各自设日期);
-  // /t/ 协作页根任务(lockMode)与锁定跟随子任务不渲染
-  var childDueBox = (!lockedChild && !lockMode && !memoMode) ?
-    '<label style="display:flex;align-items:center;gap:8px;margin:2px 0 4px;cursor:pointer;font-weight:normal;white-space:nowrap;">' +
-      '<input type="checkbox" id="tfChildDue"' + (childDueOn ? ' checked' : '') + ' style="width:auto;margin:0;flex:none;">' +
-      '<span>子任务各自设置截止日期</span>' +
-    '</label>' +
-    '<p id="tfChildDueTip" class="muted" style="margin:-2px 0 10px;font-size:12px;display:' + (childDueOn ? 'block' : 'none') + ';">' +
-      '📌 本任务不设日期；直接子任务可各自设置截止日期与重复，本任务显示最早到期的子任务日期</p>'
-    : '';
-  // 日期提示行
-  var dueTip;
-  if (memoMode) {
-    dueTip = '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">📝 备忘录没有截止日期与重复，不计入今日/逾期统计</p>';
-  } else if (lockedChild) {
-    // 与只读块留 6px、与下方分类区留 14px, 避免三段挤在一起
-    dueTip = '<p class="muted" style="margin:8px 2px 14px;font-size:12px;">' + ICONS.calendar + '截止日期跟随上级任务；如需调整，请修改上级任务的截止日期</p>';
-  } else if (isChild) {
-    // 自由子任务: 未勾选时日期必填(默认今天); 勾选后提示由 tfChildDueTip 承载
-    dueTip = childDueOn ? '' :
-      '<p class="muted" style="margin:-4px 0 10px;font-size:12px;">' + ICONS.calendar + '可设置截止日期（默认今天）或重复；不选日期无法保存。勾选上方开关则改为你的子任务各自设置</p>';
-  } else {
-    dueTip = '<p id="tfMemoTip" class="muted" style="margin:-4px 0 10px;font-size:12px;display:' + (childDueOn ? 'none' : 'block') + ';">📌 留空截止日期即作备忘录，不计入日报</p>';
-  }
-  // 草稿作用域标记: 编辑按任务 id, 新建统一 'new'(同时只有一份未提交新建草稿), 供 todoBindFormDraft 使用
-  var priorityField = '<div><label>优先级</label><div class="todo-priority">' +
-        '<label class="todo-priority-option" data-priority="2"><input type="radio" name="tfPri" value="2"' + (t.priority === 2 ? ' checked' : '') + '><i class="todo-priority-dot pri-2"></i><span>高</span></label>' +
-        '<label class="todo-priority-option" data-priority="1"><input type="radio" name="tfPri" value="1"' + (t.priority == null || t.priority === 1 ? ' checked' : '') + '><i class="todo-priority-dot pri-1"></i><span>中</span></label>' +
-        '<label class="todo-priority-option" data-priority="0"><input type="radio" name="tfPri" value="0"' + (t.priority === 0 ? ' checked' : '') + '><i class="todo-priority-dot pri-0"></i><span>低</span></label>' +
-      '</div></div>';
-  var categoryFields = '<label>分类（可选）</label>' +
-    '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
-    '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;">';
-  var noteField = '<label>备注（可选）</label>' +
-    '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
-  var draftScope = '<input type="hidden" id="tfDraftScope" value="' + (t.id ? 'edit:' + t.id : 'new') + '">';
-  var titleField = '<label>标题</label>' +
-    '<textarea id="tfTitle" rows="2" data-autogrow="1" placeholder="要做什么？（支持换行）" style="resize:vertical;">' + esc(t.title || '') + '</textarea>';
-  if (isNew && !lockedChild) {
-    return draftScope +
-      titleField +
-      dueField +
-      dueTip +
-      '<details class="todo-form-advanced" style="margin:4px 0 10px;border-top:1px solid var(--border,#eee);padding-top:8px;">' +
-        '<summary style="cursor:pointer;color:var(--muted,#888);font-size:13px;user-select:none;">更多选项</summary>' +
-        '<div style="margin-top:8px;">' +
-          childDueBox +
-          '<div class="row">' + priorityField + '</div>' +
-          recurBlock +
-          categoryFields +
-          noteField +
+        '<div id="tfNthWrap" style="display:' + (t.recurrence === 'monthly_nth_weekday' ? 'flex' : 'none') + ';gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">' +
+          '<span style="color:var(--muted);font-size:13px;">的</span>' +
+          '<select id="tfRecurNth" style="flex:1;min-width:110px;">' +
+            '<option value="1"' + (t.recur_nth === 1 ? ' selected' : '') + '>第一个</option>' +
+            '<option value="2"' + (t.recur_nth === 2 ? ' selected' : '') + '>第二个</option>' +
+            '<option value="3"' + (t.recur_nth === 3 ? ' selected' : '') + '>第三个</option>' +
+            '<option value="4"' + (t.recur_nth === 4 ? ' selected' : '') + '>第四个</option>' +
+            '<option value="5"' + (t.recur_nth === 5 ? ' selected' : '') + '>最后一个</option>' +
+          '</select>' +
+          '<select id="tfRecurWd" style="flex:1;min-width:110px;">' +
+            '<option value="1"' + (t.recur_weekday === 1 ? ' selected' : '') + '>周一</option>' +
+            '<option value="2"' + (t.recur_weekday === 2 ? ' selected' : '') + '>周二</option>' +
+            '<option value="3"' + (t.recur_weekday === 3 ? ' selected' : '') + '>周三</option>' +
+            '<option value="4"' + (t.recur_weekday === 4 ? ' selected' : '') + '>周四</option>' +
+            '<option value="5"' + (t.recur_weekday === 5 ? ' selected' : '') + '>周五</option>' +
+            '<option value="6"' + (t.recur_weekday === 6 ? ' selected' : '') + '>周六</option>' +
+            '<option value="0"' + (t.recur_weekday === 0 ? ' selected' : '') + '>周日</option>' +
+          '</select>' +
         '</div>' +
-      '</details>';
-  }
-  return draftScope +
-    titleField +
-    childDueBox +
-    '<div class="row">' +
-      priorityField +
-      dueField +
-    '</div>' +
-    dueTip +
-    recurBlock +
-    categoryFields +
-    noteField;
+      '</div>'
+    : '';
+  // 值载体·优先级 radio（默认中）
+  var priNative = '<span class="tform-native">' +
+      '<label><input type="radio" name="tfPri" value="2"' + (t.priority === 2 ? ' checked' : '') + '></label>' +
+      '<label><input type="radio" name="tfPri" value="1"' + (t.priority == null || t.priority === 1 ? ' checked' : '') + '></label>' +
+      '<label><input type="radio" name="tfPri" value="0"' + (t.priority === 0 ? ' checked' : '') + '></label>' +
+    '</span>';
+  // 值载体·分类下拉与新分类输入（options 由 todoFillCategoryOptions 填充）
+  var catNative =
+      '<select id="tfCatSel" class="tform-native"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
+      '<input id="tfCatNew" class="tform-native">';
+  // 值载体·child_due 勾选框: /t/ 协作页根(lockMode)、锁定子任务、备忘录不渲染
+  var cdNative = (!lockedChild && !lockMode && !memoMode)
+    ? '<input type="checkbox" id="tfChildDue"' + (childDueOn ? ' checked' : '') + ' class="tform-native">'
+    : '';
+  // 底部图标栏: 日期 → 闹钟 → 重复 → 各自截止 → 更多
+  var dueLabelTxt = !defDue ? '日期' : (defDue === today ? '今天' : tfDateShort(defDue));
+  var bar = '<div class="tform-bar">' +
+      (lockedChild
+        ? '<button type="button" class="tf-ic is-disabled">📅<span class="tf-ic__t">跟随上级</span></button>'
+        : '<button type="button" class="tf-ic" id="tfDueIc" data-tfic="due">📅<span class="tf-ic__t" id="tfDueLabel">' + dueLabelTxt + '</span></button>') +
+      ((!lockedChild && !memoMode) ? '<button type="button" class="tf-ic" id="tfAlarmIc">🔔</button>' : '') +
+      (recurNative ? '<button type="button" class="tf-ic' + (t.recurrence ? ' is-on' : '') + '" id="tfRecurIc" data-tfic="recur">🔁</button>' : '') +
+      (cdNative ? '<button type="button" class="tf-ic' + (childDueOn ? ' is-on' : '') + '" id="tfCdIc">🔀</button>' : '') +
+      '<button type="button" class="tf-ic" data-tfic="more">•••</button>' +
+    '</div>';
+  // 日期设置条
+  var dueStrip = lockedChild ? '' : '<div class="tf-strip" data-strip="due">' +
+      '<button type="button" class="tf-chip2" data-dueoff="0">今天</button>' +
+      '<button type="button" class="tf-chip2" data-dueoff="1">明天</button>' +
+      '<button type="button" class="tf-chip2" data-dueoff="2">后天</button>' +
+      '<button type="button" class="tf-chip2" id="tfDueMon">下周一</button>' +
+      '<button type="button" class="tf-chip2" id="tfDueCustom">自定义</button>' +
+      '<button type="button" class="tf-chip2" id="tfDueNone">无日期</button>' +
+    '</div>';
+  // 重复设置条
+  var recurStrip = recurNative ? '<div class="tf-strip" data-strip="recur">' +
+      '<button type="button" class="tf-chip2" data-recurv="">不重复</button>' +
+      '<button type="button" class="tf-chip2" data-recurv="daily">每天</button>' +
+      '<button type="button" class="tf-chip2" data-recurv="weekly">每周</button>' +
+      '<button type="button" class="tf-chip2" data-recurv="monthly">每月</button>' +
+      '<button type="button" class="tf-chip2" data-recurv="yearly">每年</button>' +
+      '<button type="button" class="tf-chip2" id="tfRecurCustomBtn">自定义…</button>' +
+      '<div class="tf-strip__custom" id="tfRecurCustomRow" style="display:none;"></div>' +
+    '</div>' : '';
+  // 更多设置条：优先级 + 分类
+  var moreStrip = '<div class="tf-strip" data-strip="more">' +
+      '<span class="tf-more-label">优先级</span>' +
+      '<button type="button" class="tf-chip2" data-pri="2">高</button>' +
+      '<button type="button" class="tf-chip2" data-pri="1">中</button>' +
+      '<button type="button" class="tf-chip2" data-pri="0">低</button>' +
+      '<span class="tf-more-label">分类</span>' +
+      '<span id="tfCatChips" style="display:inline-flex;gap:8px;overflow-x:auto;"></span>' +
+      '<button type="button" class="tf-chip2" id="tfCatNewBtn">➕ 新建</button>' +
+      '<div class="tf-catrow" id="tfCatNewRow">' +
+        '<input id="tfCatNewGui" placeholder="输入新分类名称，回车确认">' +
+      '</div>' +
+    '</div>';
+  return '<div class="tform">' + draftScope + head + dueNative + recurNative + priNative + catNative + cdNative
+    + bar + dueStrip + recurStrip + moreStrip + '</div>';
 }
 function todoFormRead() {
   var dueEl = document.getElementById('tfDue');
@@ -9876,6 +9937,220 @@ function todoFormRead() {
   var alarmRaw = alarmWrap ? alarmWrap.getAttribute('data-alarm-minute') : null;
   out.alarm_minute = (alarmRaw === null || alarmRaw === '') ? null : parseInt(alarmRaw, 10);
   return out;
+}
+// 滴答风格表单交互：图标栏 ⇄ 横滑设置条，chips 只写隐藏原生控件（值读取仍走 todoFormRead）
+function todoInitTform(box) {
+  var root = box.querySelector('.tform');
+  if (!root || root.__tfInit) return;
+  root.__tfInit = 1;
+  var due = document.getElementById('tfDue');
+  var dueLabel = document.getElementById('tfDueLabel');
+  var dueIc = document.getElementById('tfDueIc');
+  var alarmIc = document.getElementById('tfAlarmIc');
+  var recurIc = document.getElementById('tfRecurIc');
+  var cdIc = document.getElementById('tfCdIc');
+  var strips = root.querySelectorAll('.tf-strip');
+  // 北京口径日期偏移（库内统一存日期串）
+  function dateOffset(n) {
+    var d = new Date(Date.now() + (8*3600 + n*24*3600)*1000);
+    return d.toISOString().slice(0, 10);
+  }
+  function nextMonday() {
+    var d = new Date(Date.now() + 8*3600*1000);
+    var wd = d.getUTCDay(); // 0=周日 … 6=周六
+    var add = wd === 1 ? 7 : ((1 - wd + 7) % 7);
+    return dateOffset(add);
+  }
+  function closeStrips() {
+    Array.prototype.forEach.call(strips, function(s){ s.classList.remove('show'); });
+  }
+  function toggleStrip(name) {
+    Array.prototype.forEach.call(strips, function(s){
+      var want = s.getAttribute('data-strip') === name;
+      s.classList.toggle('show', want && !s.classList.contains('show'));
+    });
+  }
+  // 分类 chips：镜像 tfCatSel 选项（todoFillCategoryOptions 重建后由 observer 同步）
+  var catSel = document.getElementById('tfCatSel');
+  var catChips = document.getElementById('tfCatChips');
+  function syncCatChips() {
+    if (!catChips || !catSel) return;
+    catChips.innerHTML = '';
+    function addChip(value, text) {
+      var c = document.createElement('button');
+      c.type = 'button'; c.className = 'tf-chip2'; c.textContent = text;
+      if (catSel.value === value) c.classList.add('is-on');
+      if (catSel.disabled) c.disabled = true;
+      c.addEventListener('click', function(){
+        catSel.value = value;
+        var row = document.getElementById('tfCatNewRow');
+        if (row) row.style.display = 'none';
+        sync();
+      });
+      catChips.appendChild(c);
+    }
+    addChip('', '无分类');
+    Array.prototype.forEach.call(catSel.children, function(o){
+      if (o.tagName === 'OPTION' && o.value !== '' && o.value !== '__new__') addChip(o.value, o.textContent);
+    });
+    Array.prototype.forEach.call(catSel.querySelectorAll('optgroup option'), function(o){
+      addChip(o.value, o.textContent);
+    });
+  }
+  // 图标态/文字全量同步
+  function sync() {
+    var v = due ? due.value : '';
+    if (dueLabel) {
+      dueLabel.textContent = !v ? '日期'
+        : (v === dateOffset(0) ? '今天'
+        : (v === dateOffset(1) ? '明天'
+        : (v === dateOffset(2) ? '后天' : tfDateShort(v))));
+    }
+    if (dueIc) {
+      dueIc.classList.toggle('is-on', !!v);
+      Array.prototype.forEach.call(root.querySelectorAll('[data-dueoff]'), function(b){
+        b.classList.toggle('is-on', v === dateOffset(parseInt(b.getAttribute('data-dueoff'), 10)));
+      });
+    }
+    // 闹钟依赖日期：无日期（或浏览器无 native 能力）时置灰
+    if (alarmIc) alarmIc.classList.toggle('is-disabled', !todoAlarmNative() || !v);
+    var recurSel = document.getElementById('tfRecur');
+    if (recurIc && recurSel) {
+      recurIc.classList.toggle('is-on', !!recurSel.value);
+      Array.prototype.forEach.call(root.querySelectorAll('[data-recurv]'), function(b){
+        b.classList.toggle('is-on', b.getAttribute('data-recurv') === recurSel.value);
+      });
+    }
+    var cd = document.getElementById('tfChildDue');
+    if (cdIc && cd) {
+      cdIc.classList.toggle('is-on', cd.checked);
+      if (recurIc) recurIc.classList.toggle('is-disabled', cd.checked);
+    }
+    var priEl = document.querySelector('input[name="tfPri"]:checked');
+    Array.prototype.forEach.call(root.querySelectorAll('[data-pri]'), function(b){
+      b.classList.toggle('is-on', !!priEl && b.getAttribute('data-pri') === priEl.value);
+    });
+    syncCatChips();
+  }
+  function setDue(v) {
+    if (due.value !== v) {
+      due.value = v;
+      due.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    sync();
+  }
+  function setRecur(v) {
+    var sel = document.getElementById('tfRecur');
+    if (sel.value !== v) {
+      sel.value = v;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    sync();
+  }
+  // 描述折叠行
+  var descBtn = document.getElementById('tfDescBtn');
+  var descWrap = document.getElementById('tfDescWrap');
+  if (descBtn) descBtn.addEventListener('click', function(){
+    var open = descWrap.style.display !== 'none';
+    descWrap.style.display = open ? 'none' : 'block';
+    descBtn.classList.toggle('is-on', !open);
+  });
+  // 图标栏：日期/重复/更多 展开设置条
+  Array.prototype.forEach.call(root.querySelectorAll('[data-tfic]'), function(b){
+    b.addEventListener('click', function(){ toggleStrip(b.getAttribute('data-tfic')); });
+  });
+  // 闹钟图标：直接走 App native 时间选择器（浏览器无 native 时置灰）
+  if (alarmIc) {
+    if (!todoAlarmNative()) alarmIc.classList.add('is-disabled');
+    alarmIc.addEventListener('click', function(){
+      var btn = document.getElementById('tfAlarmBtn');
+      if (btn) btn.click();
+      closeStrips();
+    });
+    var dueWrap = document.getElementById('tfDueWrap');
+    if (dueWrap) {
+      var m0 = dueWrap.getAttribute('data-alarm-minute');
+      alarmIc.classList.toggle('is-on', m0 !== null && m0 !== '');
+      new MutationObserver(function(){
+        var m = dueWrap.getAttribute('data-alarm-minute');
+        alarmIc.classList.toggle('is-on', m !== null && m !== '');
+      }).observe(dueWrap, { attributes: true, attributeFilter: ['data-alarm-minute'] });
+    }
+  }
+  // 各自截止图标：直接 toggle 隐藏 checkbox
+  if (cdIc) cdIc.addEventListener('click', function(){
+    var cd = document.getElementById('tfChildDue');
+    cd.checked = !cd.checked;
+    cd.dispatchEvent(new Event('change', { bubbles: true }));
+    closeStrips();
+    sync();
+  });
+  // 日期设置条
+  Array.prototype.forEach.call(root.querySelectorAll('[data-dueoff]'), function(b){
+    b.addEventListener('click', function(){
+      setDue(dateOffset(parseInt(b.getAttribute('data-dueoff'), 10)));
+      closeStrips();
+    });
+  });
+  var mon = document.getElementById('tfDueMon');
+  if (mon) mon.addEventListener('click', function(){ setDue(nextMonday()); closeStrips(); });
+  var none = document.getElementById('tfDueNone');
+  if (none) none.addEventListener('click', function(){ setDue(''); closeStrips(); });
+  var custom = document.getElementById('tfDueCustom');
+  if (custom) custom.addEventListener('click', function(){
+    try { due.showPicker(); } catch (e) { due.click(); }
+  });
+  if (due) due.addEventListener('change', function(){
+    setTimeout(function(){ sync(); closeStrips(); }, 0);
+  });
+  // 重复设置条
+  Array.prototype.forEach.call(root.querySelectorAll('[data-recurv]'), function(b){
+    b.addEventListener('click', function(){
+      setRecur(b.getAttribute('data-recurv'));
+      closeStrips();
+    });
+  });
+  var recurCustomBtn = document.getElementById('tfRecurCustomBtn');
+  var recurCustomRow = document.getElementById('tfRecurCustomRow');
+  if (recurCustomBtn) recurCustomBtn.addEventListener('click', function(){
+    var w = document.getElementById('tfRecurWrap');
+    if (w && w.parentNode !== recurCustomRow) {
+      w.classList.remove('tform-native');
+      recurCustomRow.appendChild(w);
+    }
+    recurCustomRow.style.display = 'flex';
+  });
+  // 更多·优先级
+  Array.prototype.forEach.call(root.querySelectorAll('[data-pri]'), function(b){
+    b.addEventListener('click', function(){
+      var radios = document.querySelectorAll('input[name="tfPri"]');
+      var r = radios[2 - parseInt(b.getAttribute('data-pri'), 10)];
+      r.checked = true;
+      r.dispatchEvent(new Event('change', { bubbles: true }));
+      sync();
+    });
+  });
+  // 更多·分类新建设定（tfCatNew 是 todoFormRead 的实际读取源）
+  var catNewBtn = document.getElementById('tfCatNewBtn');
+  var catNewRow = document.getElementById('tfCatNewRow');
+  var catNewGui = document.getElementById('tfCatNewGui');
+  var catNew = document.getElementById('tfCatNew');
+  if (catNewRow) catNewRow.style.display = 'none';
+  if (catNewBtn) catNewBtn.addEventListener('click', function(){
+    catSel.value = '__new__';
+    catNewRow.style.display = 'flex';
+    setTimeout(function(){ catNewGui.focus(); }, 0);
+    sync();
+  });
+  if (catNewGui) {
+    catNewGui.addEventListener('input', function(){ catNew.value = catNewGui.value; });
+    catNewGui.addEventListener('keydown', function(e){
+      if (e.key === 'Enter') { e.preventDefault(); closeStrips(); sync(); }
+    });
+  }
+  if (catSel) new MutationObserver(function(){ try { syncCatChips(); } catch (e) {} })
+    .observe(catSel, { childList: true, attributes: true });
+  sync();
 }
 function todoAlarmNative() {
   try {
@@ -10729,27 +11004,37 @@ function openTodoEdit(node) {
     : '编辑任务';
   openModal(_modalTitle, todoFormHtml(node, false, isChild, fopts) +
     '<div style="margin-top:12px;"><button class="btn" id="tfSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
-  // 仅编辑已有任务挂 markdown 编辑器（新建/新建子任务不挂）；multipart 直连，随数据源带头
-  (async function(){
-    var noteEl = document.getElementById('tfNote');
-    if (!noteEl) return;
-    var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
-    mountMarkdownEditor(noteEl, {
-      maxMb: lim.max_mb || 5,
-      upload: async function(file) {
-        var fd = new FormData();
-        fd.append('todo_id', node.id);
-        fd.append('file', file);
-        var headers = {};
-        var asUid = dataShareGet('todo');
-        if (asUid) headers['X-Data-As'] = asUid;
-        var res = await fetch('/api/todo/attachments', { method: 'POST', headers: headers, body: fd });
-        var d = await res.json().catch(function(){ return {}; });
-        if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
-        return d.attachment;
-      }
-    });
-  })();
+  // 编辑态备注是富文本，默认折叠；首次点「描述」展开时才挂 Markdown 编辑器（multipart 直连，随数据源带头）
+  var _mdeMounted = false;
+  function _mountMde() {
+    if (_mdeMounted) return;
+    _mdeMounted = true;
+    (async function(){
+      var noteEl = document.getElementById('tfNote');
+      if (!noteEl) return;
+      var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
+      mountMarkdownEditor(noteEl, {
+        maxMb: lim.max_mb || 5,
+        upload: async function(file) {
+          var fd = new FormData();
+          fd.append('todo_id', node.id);
+          fd.append('file', file);
+          var headers = {};
+          var asUid = dataShareGet('todo');
+          if (asUid) headers['X-Data-As'] = asUid;
+          var res = await fetch('/api/todo/attachments', { method: 'POST', headers: headers, body: fd });
+          var d = await res.json().catch(function(){ return {}; });
+          if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
+          return d.attachment;
+        }
+      });
+    })();
+  }
+  var _descBtn = document.getElementById('tfDescBtn');
+  if (_descBtn) _descBtn.addEventListener('click', function(){
+    // todoInitTform 的描述监听先执行展开；展开态下挂编辑器
+    if (document.getElementById('tfDescWrap').style.display !== 'none') _mountMde();
+  });
   // 编辑时分类归属规则:
   //   个人顶层任务 → 共享分类可选(移入); 共享顶层任务 → 共享选项灰显回显, 选"无分类"/个人分类即移出(仅分类 owner);
   //   非 owner 成员(editor) → 整个分类下拉禁用(别人创建的共享任务不可移入/移出); 子任务 → 归属继承父任务, 共享选项禁用

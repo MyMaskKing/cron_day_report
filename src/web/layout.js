@@ -2023,6 +2023,12 @@ html[data-bg]:not([data-bg=""]) .todo-fs-main.fs-main--acc {
   background: var(--surface);
   transition: transform .22s ease, opacity .22s ease;
 }
+/* 选了背景时：顶栏与主区同款磨砂，四视图表现一致；无背景维持纯白 */
+html[data-bg]:not([data-bg=""]) .todo-fs-top {
+  background: var(--bg-veil);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
 .todo-fs-title { flex: 1; min-width: 0; font-size: 16px; font-weight: 800; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
 /* 全屏顶栏一行: 目录 / 视图切换 / 隐藏已完成 / 退出（公开页在目录后多一个 ＋ 图标钮） */
 .todo-fs-hide { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--label); font-weight: normal; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
@@ -2051,6 +2057,65 @@ html[data-bg]:not([data-bg=""]) .todo-fs-main.fs-main--acc {
   background: var(--surface); color: var(--danger);
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
 }
+
+/* 手机端详情→清单：详情卡片右滑退出、清单自左滑入（PC 无动画，瞬时切换） */
+@keyframes todoExitRight {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(28%); opacity: .15; }
+}
+@keyframes todoEnterFromLeft {
+  from { transform: translateX(-12%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@media (max-width: 640px) {
+  .todo-view-exit { animation: todoExitRight .24s ease forwards; }
+  .todo-view-enter { animation: todoEnterFromLeft .26s ease; }
+}
+
+/* ============ 滴答风格待办表单（新建/编辑统一） ============ */
+.tform { font-size: 14px; }
+.tform-title {
+  width: 100%; border: 0; background: transparent; outline: none;
+  font-size: 17px; font-weight: 600; resize: none; padding: 2px 0; line-height: 1.45;
+}
+.tform-desc {
+  display: block; width: 100%; text-align: left; border: 0; background: transparent;
+  color: var(--muted); font-size: 15px; font-family: inherit; padding: 6px 0; cursor: pointer;
+}
+.tform-desc.is-on, .tform-desc.has { color: var(--text); font-weight: 600; }
+.tform-descwrap textarea {
+  width: 100%; border: 1px solid var(--border); border-radius: 10px;
+  padding: 8px 10px; resize: vertical; min-height: 64px; font-family: inherit; font-size: 14px;
+}
+/* 值载体原生控件：视觉隐藏但仍可被 JS 赋值/触发 */
+.tform-native {
+  position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
+  overflow: hidden; clip: rect(0 0 0 0);
+}
+/* 底部图标栏：横向滑动、无滚动条 */
+.tform-bar { display: flex; gap: 16px; overflow-x: auto; margin-top: 10px; padding: 4px 2px; scrollbar-width: none; }
+.tform-bar::-webkit-scrollbar { display: none; }
+.tf-ic {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+  border: 0; background: transparent; color: var(--muted-2, var(--muted));
+  font-size: 20px; font-family: inherit; cursor: pointer; padding: 2px;
+}
+.tf-ic__t { font-size: 13px; }
+.tf-ic.is-on { color: var(--brand); }
+.tf-ic.is-disabled { opacity: .35; pointer-events: none; }
+/* 图标设置条：横向滑动 chips */
+.tf-strip { display: none; gap: 8px; overflow-x: auto; margin-top: 10px; padding: 2px; scrollbar-width: none; }
+.tf-strip.show { display: flex; }
+.tf-strip::-webkit-scrollbar { display: none; }
+.tf-chip2 {
+  flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  border-radius: 999px; padding: 5px 13px; font-size: 13px; font-family: inherit; cursor: pointer; white-space: nowrap;
+}
+.tf-chip2.is-on { border-color: var(--brand); color: var(--brand); background: var(--hover-brand); }
+.tf-strip__custom { flex: 0 0 100%; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tf-catrow { flex: 0 0 100%; display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.tf-catrow input { flex: 1; min-width: 0; }
+.tf-more-label { flex: 0 0 auto; font-size: 12px; color: var(--muted); align-self: center; }
 
 /* 默认视图"待办清单"卡片头: 始终一行。宽屏标题 flex:1 占满左侧、控件靠右;
    窄屏(≤640px, App/手机浏览器)标题固定在左、"隐藏已完成"固定在右, 中间"卡片视图/新建任务/
@@ -2293,6 +2358,17 @@ html { scrollbar-gutter: stable; }
   .modal-mask { padding: 16px 10px; }
   /* 键盘弹起·长弹窗: 弹窗靠顶部, 遮罩整体滚动、卡片不裁切(见 .modal-mask.kb-tall 主规则) */
   .modal-mask.kb-tall { padding: 0 10px var(--kb-inset, 0px); }
+  /* 滴答清单式待办表单：贴底 sheet（PC 仍居中，由基础规则负责） */
+  .modal-mask--sheet { align-items: flex-end; padding: 0; background: rgba(0,0,0,.35); }
+  .modal-mask--sheet .modal-box {
+    max-width: 100%; width: 100%; margin: 0;
+    border-radius: 18px 18px 0 0; animation: todoSheetUp .24s ease;
+  }
+  .modal-mask--sheet .modal-head { padding: 12px 16px; }
+  .modal-mask--sheet .modal-body { padding: 12px 16px 16px; }
+  /* 键盘态维持贴底：overlay 由 padding-bottom 抬到键盘上沿，内容过高靠遮罩滚动 */
+  .modal-mask--sheet.kb-tall { align-items: flex-end; padding: 0 0 var(--kb-inset, 0px); }
+  @keyframes todoSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   /* 多选面板窄屏: 改为居中 modal 弹窗 (JS 侧已把 .mp-menu 移到 body 末尾, 彻底脱离 card 堆叠上下文,
      否则 .card 的 z-index/backdrop-filter 会封印内部 fixed 元素, 导致遮罩必然盖住面板)
      居中显示、大触点、显式"完成"按钮, 比底部弹出更好操作 */
