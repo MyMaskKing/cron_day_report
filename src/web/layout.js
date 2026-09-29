@@ -1552,6 +1552,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 }
 /* ============ 时间轴视图（timeline：竖轴挂日期，右侧子任务卡） ============ */
 .timeline-view { margin-top: 6px; }
+/* 速览卡片流（无轴，同款卡片纯拍平） */
+.tl-card-list { display: flex; flex-direction: column; gap: 11px; margin-top: 4px; }
 /* 日期行：日期标签 74px / 轴 24px / 卡片 1fr */
 .tl-day { display: grid; grid-template-columns: 74px 24px 1fr; break-inside: avoid; }
 .tl-day__label { padding-top: 2px; padding-right: 10px; text-align: right; font-size: 12px; color: var(--muted-2); line-height: 1.35; white-space: nowrap; }
@@ -1597,6 +1599,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .tl-day--none .tl-day__rail::before { background: repeating-linear-gradient(to bottom, var(--faint) 0 4px, transparent 4px 9px); }
 .tl-day--none .tl-dot { border-style: dashed; border-color: var(--faint); }
 @media (max-width: 640px) {
+  .tl-card-list { gap: 8px; }
   .tl-day { grid-template-columns: 62px 20px 1fr; }
   .tl-day__label { font-size: 11px; padding-right: 7px; }
   .tl-day__label b { font-size: 12.5px; }
