@@ -27,9 +27,10 @@ async function autoParentOn(storage, ownerUid) {
 
 /** 规范化优先级为 0/1/2，非法回退 1 */
 function normPriority(v) {
+  if (v === null || v === undefined || v === '') return -1;
   const n = parseInt(v, 10);
-  // -1=无优先级; 0 低 1 中 2 高
-  return (n === -1 || n === 0 || n === 1 || n === 2) ? n : 1;
+  // -1=无; 0 低 1 中 2 高; null/缺失/非法一律归一为无(-1)
+  return (n === -1 || n === 0 || n === 1 || n === 2) ? n : -1;
 }
 /** 闹钟分钟：null/空→null；0-1439 整数→值；非法抛错 */
 function normAlarmMinute(v) {

@@ -668,7 +668,7 @@ function createD1Adapter(env) {
           'VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM todos WHERE user_id = ? AND parent_id IS ?)), ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
           userId, parentId, t.title,
-          t.priority != null ? t.priority : 1,
+          t.priority != null ? t.priority : -1,
           t.due_date || null, t.category || null, t.note || null,
           t.sort_order != null ? t.sort_order : null,
           userId, parentId,
@@ -704,7 +704,7 @@ function createD1Adapter(env) {
         await db.prepare(
           'UPDATE todos SET title=?, priority=?, due_date=?, category=?, note=?, child_due=?, recurrence=?, recur_interval=?, recur_nth=?, recur_weekday=?, alarm_minute=? WHERE id=? AND user_id=?'
         ).bind(
-          t.title, t.priority != null ? t.priority : 1, t.due_date || null, t.category || null, t.note || null,
+          t.title, t.priority != null ? t.priority : -1, t.due_date || null, t.category || null, t.note || null,
           childDue, rec, iv, nth, wd, alarmMinute, id, userId
         ).run();
       },
@@ -790,7 +790,7 @@ function createD1Adapter(env) {
           'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by, alarm_minute) VALUES (?, ?, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
           userId, self.parent_id != null ? self.parent_id : null, self.title,
-          self.priority != null ? self.priority : 1,
+          self.priority != null ? self.priority : -1,
           nextDue,
           self.category || null,
           self.sort_order != null ? self.sort_order : 0,
@@ -867,7 +867,7 @@ function createD1Adapter(env) {
           'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by, alarm_minute) VALUES (?, ?, ?, 0, ?, ?, ?, ?, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
           userId, rootOld.parent_id != null ? rootOld.parent_id : null, rootOld.title,
-          rootOld.priority != null ? rootOld.priority : 1,
+          rootOld.priority != null ? rootOld.priority : -1,
           nextDue,
           rootOld.category || null,
           rootOld.sort_order != null ? rootOld.sort_order : 0,
@@ -906,7 +906,7 @@ function createD1Adapter(env) {
               'INSERT INTO todos (user_id, parent_id, title, done, priority, due_date, category, sort_order, share_token, note, done_at, recurrence, recur_interval, recur_nth, recur_weekday, recur_from_id, shared_cat_id, created_by, alarm_minute) VALUES (?, ?, ?, 0, ?, NULL, ?, ?, NULL, ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, NULL)'
             ).bind(
               userId, newParent, r.title,
-              r.priority != null ? r.priority : 1,
+              r.priority != null ? r.priority : -1,
               r.category || null,
               r.sort_order != null ? r.sort_order : 0,
               r.note || null,
