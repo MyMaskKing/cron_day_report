@@ -9963,7 +9963,7 @@ function todoFormHtml(t, isNew, isChild, fopts) {
       '<span id="tfCatChips"></span>' +
       '<span class="tf-catswitch">' +
         '<button type="button" class="tf-chip2" id="tfCatNewBtn">＋ 新建</button>' +
-        '<span class="tf-catnew" id="tfCatNewWrap2"><input id="tfCatNewGui" placeholder="新分类名称，回车确认"></span>' +
+        '<span class="tf-catnew" id="tfCatNewWrap2"><input id="tfCatNewGui" placeholder="新分类名称，回车确认"><button type="button" id="tfCatNewOk" class="tf-catnew-ok" title="确认添加">＋</button></span>' +
       '</span>' +
     '</div>';
   return '<div class="tform">' + draftScope + head + dueNative + recurNative + priNative + catNative
@@ -10283,24 +10283,36 @@ function todoInitTform(box) {
     catNewWrap2.classList.add('show');
     setTimeout(function(){ catNewGui.focus(); }, 0);
   });
+  // 确认新分类: 回车与右侧 ＋ 按钮共用; 加进下拉并选中, chips 行立即出现选中态
+  function confirmCatNew() {
+    var val = catNewGui.value.trim();
+    if (val) {
+      catNew.value = val;
+      var exists = Array.prototype.some.call(catSel.querySelectorAll('option'), function(o){ return o.value === val; });
+      if (!exists) {
+        var o = document.createElement('option');
+        o.value = val; o.textContent = val;
+        catSel.insertBefore(o, catSel.querySelector('option[value="__new__"]'));
+      }
+      catSel.value = val;
+      // 「＋ 新建」按钮复位, 下次可再建新分类
+      catNewBtn.textContent = '＋ 新建';
+      catNewBtn.classList.remove('is-on');
+    }
+    catNewWrap2.classList.remove('show');
+    catNewBtn.style.display = '';
+    syncCatChips();
+  }
   if (catNewGui) {
     catNewGui.addEventListener('input', function(){
       catNew.value = catNewGui.value;
       catNewGui.style.width = Math.max(12, catNewGui.value.length + 2) + 'ch';
     });
     catNewGui.addEventListener('keydown', function(e){
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        var val = catNewGui.value.trim();
-        if (val) {
-          catNew.value = val;
-          catNewBtn.textContent = val;
-          catNewBtn.classList.add('is-on');
-        }
-        catNewWrap2.classList.remove('show');
-        catNewBtn.style.display = '';
-      }
+      if (e.key === 'Enter') { e.preventDefault(); confirmCatNew(); }
     });
+    var catNewOk = document.getElementById('tfCatNewOk');
+    if (catNewOk) catNewOk.addEventListener('click', confirmCatNew);
   }
   if (catSel) new MutationObserver(function(){ try { syncCatChips(); } catch (e) {} })
     .observe(catSel, { childList: true, attributes: true });
@@ -11011,7 +11023,7 @@ async function openTodoDetail(node, opts) {
       + (dueInherited ? '<span style="opacity:.65;">·跟随上级</span>' : '') + '</span>');
   }
   if (node.recurrence) meta.push('<span class="td-chip">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
-  if (node.category) meta.push('<span class="td-chip">〔' + esc(node.category) + '〕</span>');
+  if (node.category) meta.push('<span class="td-chip td-chip--cat">' + esc(node.category) + '</span>');
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
   var priName = ['⚪ 低', '🟡 中', '🔴 高'][node.priority == null ? 1 : node.priority];
   meta.push('<span class="td-chip">⭐ ' + esc(priName) + '</span>');

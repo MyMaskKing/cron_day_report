@@ -1665,6 +1665,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .td-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 .td-chip { font-size: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--label); border-radius: 999px; padding: 3px 10px; display: inline-flex; align-items: center; gap: 4px; }
 .td-chip svg { width: 12px; height: 12px; }
+.td-chip--cat { background: var(--hover-brand); color: var(--brand); border-color: transparent; }
 /* 任务详情弹窗: 第一子层级预览(普通主任务)/最近到期(child_due 主任务) */
 .td-subs { margin: 4px 0 2px; }
 .td-subs__head { font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 0 2px 7px; }
@@ -2233,8 +2234,16 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tf-catnew input {
   width: 12ch; min-width: 12ch; border: 1px solid var(--brand); border-radius: 999px;
   padding: 5px 12px; font-size: 13px; outline: none; font-family: inherit;
-  height: auto; box-sizing: border-box;
+  height: auto; box-sizing: border-box; margin: 0;
 }
+/* 新建分类输入框旁的圆形 ＋ 确认钮（与回车等效） */
+.tf-catnew-ok {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 999px;
+  border: 0; padding: 0; margin: 0;
+  background: var(--brand); color: #fff; font-size: 17px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.tf-catnew-ok:active { transform: scale(.92); }
 /* 优先级 chip 内颜色点（i 默认 inline 不生效尺寸，须 inline-block） */
 .tf-chip2 .todo-priority-dot {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
