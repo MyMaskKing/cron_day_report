@@ -9755,10 +9755,23 @@ function todoInitPrioritySegmented(box) {
 // 值载体·日期/闹钟整块（todoInitAlarmForm 依赖 #tfDueWrap/#tfDue/#tfAlarmBtn/#tfAlarmClear）
 // hidden=true：视觉隐藏（新建 sheet 图标栏用）；false：可见表单块（编辑弹窗）
 function todoDueNativeHtml(defDue, hidden) {
-  return '<div id="tfDueWrap"' + (hidden ? ' class="tform-native"' : '') + ' data-alarm-minute="">' +
-    '<input id="tfDue" type="date" value="' + defDue + '">' +
-    '<button type="button" id="tfAlarmBtn">🔔 闹钟</button>' +
-    '<button type="button" id="tfAlarmClear">取消闹钟</button>' +
+  // initMinute：编辑时库存权威闹钟值（即使本周期时间已过也照常回显）
+  var initAttr = (initMinute != null && initMinute >= 0 && initMinute < 1440) ? ' data-init-minute="' + initMinute + '"' : '';
+  if (hidden) {
+    // 新建 sheet：视觉隐藏载体，平铺即可
+    return '<div id="tfDueWrap" class="tform-native" data-alarm-minute=""' + initAttr + '>' +
+      '<input id="tfDue" type="date" value="' + defDue + '">' +
+      '<button type="button" id="tfAlarmBtn">🔔 闹钟</button>' +
+      '<button type="button" id="tfAlarmClear">取消闹钟</button>' +
+    '</div>';
+  }
+  // 编辑弹窗：旧表单可见结构（date + 闹钟钮并排；清除钮整行）
+  return '<div id="tfDueWrap" data-alarm-minute=""' + initAttr + '>' +
+    '<div style="display:flex;gap:8px;align-items:center;">' +
+      '<input id="tfDue" type="date" value="' + defDue + '" style="flex:1;min-width:0;">' +
+      '<button type="button" id="tfAlarmBtn" class="btn sm gray" style="flex:none;white-space:nowrap;">🔔 闹钟</button>' +
+    '</div>' +
+    '<button type="button" id="tfAlarmClear" class="btn sm gray" style="display:none;margin-top:6px;width:100%;">取消闹钟</button>' +
   '</div>';
 }
 // 值载体·重复整块（todoBindRecurUI 依赖 #tfRecur/#tfRecurN/#tfRecurNth/#tfRecurWd 等 id）
@@ -9926,7 +9939,7 @@ function todoEditFormHtml(t, isChild, fopts) {
     s += '<div style="padding:7px 10px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);color:var(--muted,#888);font-size:13px;line-height:1.5;">'
       + '📅 截止日期跟随上级任务' + (fopts.inheritDue ? '：<span style="white-space:nowrap;">' + esc(fopts.inheritDue) + '</span>' : '（上级暂未设置日期）') + '</div>';
   } else {
-    s += '<label>截止日期</label>' + todoDueNativeHtml(defDue, false);
+    s += '<label>截止日期</label>' + todoDueNativeHtml(defDue, false, t.alarm_minute);
   }
   // 重复（常显）
   if (recurAvailable) s += todoRecurNativeHtml(t, false);
@@ -10266,8 +10279,13 @@ function todoInitAlarmForm(box) {
   var minute = null;
   var scope = document.getElementById('tfDraftScope');
   if (scope && scope.value.indexOf('edit:') === 0) {
-    var existing = native.getTodoAlarm(scope.value.slice(5));
-    if (typeof existing === 'number' && existing >= 0 && existing < 1440) minute = existing;
+    // 优先库存权威值（重复任务本周期闹钟已过时，本地闹钟已注销取不到，但库里值不变）
+    var initRaw = wrap.getAttribute('data-init-minute');
+    if (initRaw != null && initRaw !== '') minute = parseInt(initRaw, 10);
+    else {
+      var existing = native.getTodoAlarm(scope.value.slice(5));
+      if (typeof existing === 'number' && existing >= 0 && existing < 1440) minute = existing;
+    }
   }
   function render() {
     wrap.setAttribute('data-alarm-minute', minute == null ? '' : String(minute));

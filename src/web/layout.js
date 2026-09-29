@@ -2099,8 +2099,8 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 }
 /* 底部栏外壳：通宽 hairline 分隔；保存钮固定在壳右侧，不随图标滑动 */
 .tform-barwrap {
-  display: flex; align-items: center; gap: 10px;
-  margin: 8px -16px -2px; padding: 8px 16px 10px;
+  display: flex; align-items: center; gap: 9px;
+  margin: 6px -16px -2px; padding: 6px 16px 8px;
   border-top: 1px solid var(--border);
 }
 /* 图标滚动区：占满左侧、横向滑动、无滚动条 */
@@ -2111,13 +2111,13 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 }
 .tform-bar::-webkit-scrollbar { display: none; }
 .tf-ic {
-  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
-  height: 38px; padding: 0 9px; border: 0; border-radius: 10px;
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
+  height: 34px; padding: 0 8px; border: 0; border-radius: 9px;
   background: transparent; color: var(--muted-2, var(--muted));
   font-family: inherit; cursor: pointer;
 }
-.tf-ic svg { width: 22px; height: 22px; }
-.tf-ic__t { font-size: 14px; white-space: nowrap; }
+.tf-ic svg { width: 20px; height: 20px; }
+.tf-ic__t { font-size: 13px; white-space: nowrap; }
 .tf-ic.is-on { color: var(--brand); background: var(--hover-brand); }
 .tf-ic.is-disabled { opacity: .3; pointer-events: none; }
 /* 闹钟清除小叉：仅设置闹钟后出现 */
@@ -2132,7 +2132,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 /* 各自截止：勾选框形式（真 checkbox 隐藏在 label 内，box 为视觉载体） */
 .tf-cd {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
-  height: 38px; padding: 0 11px 0 8px; border-radius: 10px;
+  height: 34px; padding: 0 10px 0 8px; border-radius: 9px;
   color: var(--muted-2, var(--muted)); cursor: pointer;
 }
 .tf-cd__box {
@@ -2143,7 +2143,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tf-cd.is-on { color: var(--brand); background: var(--hover-brand); }
 .tf-cd.is-on .tf-cd__box { background: var(--brand); border-color: var(--brand); }
 .tf-cd.is-on .tf-cd__box svg { opacity: 1; }
-.tf-cd__t { font-size: 14px; white-space: nowrap; }
+.tf-cd__t { font-size: 13px; white-space: nowrap; }
 /* 图标设置条：横向滑动 chips，负 margin 通宽 */
 .tf-strip {
   display: none; align-items: center; gap: 8px; overflow-x: auto;
@@ -2155,7 +2155,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tf-strip-sep { flex: 0 0 auto; width: 1px; height: 18px; background: var(--border); margin: 0 3px; }
 .tf-chip2 {
   flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); color: var(--text);
-  border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-family: inherit; cursor: pointer; white-space: nowrap;
+  border-radius: 999px; padding: 5px 12px; font-size: 13px; font-family: inherit; cursor: pointer; white-space: nowrap;
 }
 .tf-chip2.is-on { border-color: var(--brand); color: var(--brand); background: var(--hover-brand); }
 /* 重复自定义：搬到 strip 末尾内联显示，不再独占整行 */
@@ -2168,7 +2168,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tf-catnew.show { display: inline-flex; }
 .tf-catnew input {
   width: 12ch; min-width: 12ch; border: 1px solid var(--brand); border-radius: 999px;
-  padding: 6px 13px; font-size: 13.5px; outline: none; font-family: inherit;
+  padding: 5px 12px; font-size: 13px; outline: none; font-family: inherit;
   height: auto; box-sizing: border-box;
 }
 /* 优先级 chip 内颜色点（i 默认 inline 不生效尺寸，须 inline-block） */
@@ -2183,10 +2183,10 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 /* 保存钮：文字按钮，品牌填充，固定在底部栏外壳最右（不随图标滚动） */
 .tf-save {
   flex: 0 0 auto;
-  height: 38px; padding: 0 22px;
-  border: 0; border-radius: 10px;
+  height: 34px; padding: 0 18px;
+  border: 0; border-radius: 9px;
   background: var(--brand); color: #fff;
-  font-family: inherit; font-size: 15px; font-weight: 600;
+  font-family: inherit; font-size: 14px; font-weight: 600;
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .tf-save:active { transform: scale(.96); }
