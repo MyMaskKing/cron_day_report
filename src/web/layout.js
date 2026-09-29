@@ -2120,6 +2120,15 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tf-ic__t { font-size: 14px; white-space: nowrap; }
 .tf-ic.is-on { color: var(--brand); background: var(--hover-brand); }
 .tf-ic.is-disabled { opacity: .3; pointer-events: none; }
+/* 闹钟清除小叉：仅设置闹钟后出现 */
+.tf-alarm-x {
+  flex: 0 0 auto; display: none; width: 20px; height: 20px; padding: 0;
+  border: 0; border-radius: 50%; background: var(--surface-2);
+  color: var(--muted); font-size: 10px; line-height: 1;
+  align-items: center; justify-content: center; cursor: pointer;
+}
+.tf-alarm-x.show { display: inline-flex; }
+.tf-alarm-x:active { color: var(--danger); background: var(--hover-brand); }
 /* 各自截止：勾选框形式（真 checkbox 隐藏在 label 内，box 为视觉载体） */
 .tf-cd {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;

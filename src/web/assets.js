@@ -9859,7 +9859,10 @@ function todoFormHtml(t, isNew, isChild, fopts) {
       (lockedChild
         ? '<span class="tf-ic is-disabled">' + SVG_CAL + '<span class="tf-ic__t">跟随上级</span></span>'
         : '<button type="button" class="tf-ic tf-dueitem" id="tfDueIc" data-tfic="due">' + SVG_CAL + '<span class="tf-ic__t" id="tfDueLabel">' + dueLabelTxt + '</span></button>') +
-      ((!lockedChild && !memoMode) ? '<button type="button" class="tf-ic tf-dueitem" id="tfAlarmIc">' + SVG_BELL + '</button>' : '') +
+      ((!lockedChild && !memoMode)
+        ? '<button type="button" class="tf-ic tf-dueitem" id="tfAlarmIc">' + SVG_BELL + '<span class="tf-ic__t" id="tfAlarmLabel"></span></button>' +
+          '<button type="button" class="tf-alarm-x tf-dueitem" id="tfAlarmClearGui" title="清除闹钟">✕</button>'
+        : '') +
       (recurNative ? '<button type="button" class="tf-ic' + (t.recurrence ? ' is-on' : '') + '" id="tfRecurIc" data-tfic="recur">' + SVG_REPEAT + '</button>' : '') +
       (cdNative ? '<label class="tf-cd' + (childDueOn ? ' is-on' : '') + '" id="tfCdLabel">' + cdNative + '<span class="tf-cd__box">' + SVG_CHECK + '</span><span class="tf-cd__t">各自截止</span></label>' : '') +
       '<button type="button" class="tf-ic" data-tfic="more">' + SVG_MORE + '</button>' +
@@ -10139,12 +10142,23 @@ function todoInitTform(box) {
     });
     var dueWrap = document.getElementById('tfDueWrap');
     if (dueWrap) {
-      var m0 = dueWrap.getAttribute('data-alarm-minute');
-      alarmIc.classList.toggle('is-on', m0 !== null && m0 !== '');
-      new MutationObserver(function(){
-        var m = dueWrap.getAttribute('data-alarm-minute');
-        alarmIc.classList.toggle('is-on', m !== null && m !== '');
-      }).observe(dueWrap, { attributes: true, attributeFilter: ['data-alarm-minute'] });
+      var alarmLabel = document.getElementById('tfAlarmLabel');
+      var alarmClearGui = document.getElementById('tfAlarmClearGui');
+      function syncAlarm() {
+        var raw = dueWrap.getAttribute('data-alarm-minute');
+        var has = raw !== null && raw !== '';
+        alarmIc.classList.toggle('is-on', has);
+        if (alarmLabel) alarmLabel.textContent = has ? todoAlarmFormat(parseInt(raw, 10)) : '';
+        if (alarmClearGui) alarmClearGui.classList.toggle('show', has);
+      }
+      new MutationObserver(syncAlarm).observe(dueWrap, { attributes: true, attributeFilter: ['data-alarm-minute'] });
+      // 小叉代理隐藏的原生清除钮（minute 置空 + render，observer 自动收起叉号/文字）
+      if (alarmClearGui) alarmClearGui.addEventListener('click', function(e){
+        e.stopPropagation();
+        var c = document.getElementById('tfAlarmClear');
+        if (c) c.click();
+      });
+      syncAlarm();
     }
   }
   // 各自截止：label 原生勾选（点 label 自动 toggle 隐藏 checkbox），change 后隐藏日期闹钟并关闭设置条
