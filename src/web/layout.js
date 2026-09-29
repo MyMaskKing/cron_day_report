@@ -2069,6 +2069,11 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-crumb.pri-2 { --pri-band: #E0453E; }
 .todo-crumb.pri-1 { --pri-band: #E5A113; }
 .todo-crumb.pri-0 { --pri-band: #C9CCD6; }
+/* 详情·各自截止: 有自身截止日期的子任务才在本行挂左色带(自身优先级), 配色同卡片顶带 */
+.todo-row--priband.pri-2, .todo-row--priband.pri-1, .todo-row--priband.pri-0 { border-left: 3px solid var(--pri-band); }
+.todo-row--priband.pri-2 { --pri-band: #E0453E; }
+.todo-row--priband.pri-1 { --pri-band: #E5A113; }
+.todo-row--priband.pri-0 { --pri-band: #C9CCD6; }
 .todo-crumb__back {
   border: 1px solid var(--border); background: var(--surface); color: var(--brand); cursor: pointer;
   padding: 5px 12px; border-radius: 999px; font-size: 13px;

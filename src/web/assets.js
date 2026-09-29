@@ -7638,7 +7638,14 @@ function renderTodoTree(container, trees, opts) {
     wrap.style.setProperty('--depth', depth);
 
     var row = document.createElement('div');
-    row.className = 'todo-row' + (node.priority != null ? ' pri-' + node.priority : '') + (node.done ? ' is-done' : '') + (depth === 0 ? ' is-root' : '');
+    // is-root 仅真顶层主任务行(cardRoot); 详情首层是子任务不挂(否则露出 is-root 的品牌紫左条)。
+    // 详情·各自截止: 自身有截止日期且有优先级的子任务才在本行挂左色带;
+    // 旧模式详情(日期锚点在主任务)/无日期备忘录/视图2暴露的子任务均不挂
+    var detailChildBand = isDetail && node._root && !!node._root.child_due && !!node.due_date && node.priority != null;
+    row.className = 'todo-row'
+      + (detailChildBand ? ' todo-row--priband pri-' + node.priority : '')
+      + (node.done ? ' is-done' : '')
+      + (cardRoot ? ' is-root' : '');
     row.style.setProperty('--depth', depth);
     var hasChildren = node.children.length > 0;
 
