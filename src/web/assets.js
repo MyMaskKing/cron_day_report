@@ -8272,7 +8272,15 @@ function renderTodoFlat(container, trees, opts) {
     container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
     return;
   }
-  // 3. 再按日期分桶（同日叶子同组，不分归属；leaves 已排序，顺序切桶即可）
+  // 3. 未勾选「按到期日分组」：仅排序的纯卡片流，不显示日期组头
+  if (!_todoGroupByDue) {
+    var flatList = document.createElement('div');
+    flatList.className = 'tl-card-list';
+    leaves.forEach(function (it) { flatList.appendChild(todoLeafCard(it, opts, 'flat')); });
+    container.appendChild(flatList);
+    return;
+  }
+  // 4. 勾选后再按日期分桶（同日叶子同组，不分归属；leaves 已排序，顺序切桶即可）
   container.className = 'todo-due-groups';
   var buckets = [];
   leaves.forEach(function (it) {
