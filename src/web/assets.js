@@ -7603,7 +7603,7 @@ function renderTodoTree(container, trees, opts) {
     // A 方案：真顶层主任务（非详情子树）卡片化，等级由顶部色带编码（与卡片视图同源）
     var cardRoot = depth === 0 && !isDetail;
     var wrap = document.createElement('div');
-    wrap.className = 'todo-node' + (cardRoot ? ' todo-bandcard pri-' + (node.priority != null ? node.priority : 1) : '')
+    wrap.className = 'todo-node' + (cardRoot && node.priority >= 0 ? ' todo-bandcard pri-' + node.priority : '')
       + (cardRoot && node.child_due ? ' cd-on' : '');
     if (cardRoot) {
       var bandEl = document.createElement('div');
@@ -7615,7 +7615,7 @@ function renderTodoTree(container, trees, opts) {
     wrap.style.setProperty('--depth', depth);
 
     var row = document.createElement('div');
-    row.className = 'todo-row pri-' + (node.priority != null ? node.priority : 1) + (node.done ? ' is-done' : '') + (depth === 0 ? ' is-root' : '');
+    row.className = 'todo-row' + (node.priority >= 0 ? ' pri-' + node.priority : '') + (node.done ? ' is-done' : '') + (depth === 0 ? ' is-root' : '');
     row.style.setProperty('--depth', depth);
     var hasChildren = node.children.length > 0;
 
@@ -7655,10 +7655,10 @@ function renderTodoTree(container, trees, opts) {
 
     // 优先级圆点：标题前克制点缀（红=高 琥珀=中 灰=低），不占左色带
     // 卡片化主任务的等级已由顶部色带编码，不再重复圆点
-    if (!cardRoot) {
+    if (!cardRoot && node.priority >= 0) {
       var dot = document.createElement('span');
-      dot.className = 'todo-dot pri-' + (node.priority != null ? node.priority : 1);
-      dot.title = PRI_TEXT[node.priority != null ? node.priority : 1] + '优先级';
+      dot.className = 'todo-dot pri-' + node.priority;
+      dot.title = PRI_TEXT[node.priority] + '优先级';
       row.appendChild(dot);
     }
 
@@ -7993,7 +7993,7 @@ function renderTodoAccordion(container, trees, opts) {
     // A 方案：真顶层主任务（非详情子树）卡片化，等级由顶部色带编码（与卡片视图同源）
     var cardRoot = depth === 0 && !isDetail;
     var wrap = document.createElement('div');
-    wrap.className = 'todo-node todo-acc' + (cardRoot ? ' todo-bandcard pri-' + (node.priority != null ? node.priority : 1) : '')
+    wrap.className = 'todo-node todo-acc' + (cardRoot && node.priority >= 0 ? ' todo-bandcard pri-' + node.priority : '')
       + (cardRoot && node.child_due ? ' cd-on' : '');
     wrap.setAttribute('data-depth', depth);
     wrap.setAttribute('data-id', node.id);
@@ -8028,10 +8028,10 @@ function renderTodoAccordion(container, trees, opts) {
     });
     rowEl.appendChild(caret);
     // 卡片化主任务的等级已由顶部色带编码，不再重复圆点
-    if (!cardRoot) {
+    if (!cardRoot && node.priority >= 0) {
       var dot = document.createElement('span');
-      dot.className = 'todo-acc__dot pri-' + (node.priority != null ? node.priority : 1);
-      dot.title = PRI_TEXT[node.priority != null ? node.priority : 1] + '优先级';
+      dot.className = 'todo-acc__dot pri-' + node.priority;
+      dot.title = PRI_TEXT[node.priority] + '优先级';
       rowEl.appendChild(dot);
     }
     var nameEl = document.createElement('span');
@@ -8147,7 +8147,7 @@ function todoLeafCard(leaf, opts, scene) {
   var n = leaf.node;
   var today = opts.today || '';
   var item = document.createElement('div');
-  item.className = 'tl-item pri-' + (n.priority != null ? n.priority : 1) + (n.done ? ' is-done' : '');
+  item.className = 'tl-item' + (n.priority >= 0 ? ' pri-' + n.priority : '') + (n.done ? ' is-done' : '');
   var band = document.createElement('span');
   band.className = 'tl-item__priband';
   item.appendChild(band);
@@ -8566,7 +8566,7 @@ function renderTodoCards(container, trees, opts) {
     // 卡片一律可点击进入详情(只要提供了 onEnter); 详情里能加子任务/查看子任务
     var canEnter = !!opts.onEnter;
     var card = document.createElement('div');
-    card.className = 'todo-card pri-' + (root.priority != null ? root.priority : 1) + (root.done ? ' is-done' : '') + (canEnter ? ' clickable' : '');
+    card.className = 'todo-card' + (root.priority >= 0 ? ' pri-' + root.priority : '') + (root.done ? ' is-done' : '') + (canEnter ? ' clickable' : '');
     card.setAttribute('data-id', root.id);
 
     // 顶部色带
@@ -9904,8 +9904,9 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   var recurNative = (recurAvailable && !memoMode) ? todoRecurNativeHtml(t, true) : '';
   // 值载体·优先级 radio（默认中）
   var priNative = '<span class="tform-native">' +
+      '<label><input type="radio" name="tfPri" value="-1"' + (t.priority == null || t.priority === -1 ? ' checked' : '') + '></label>' +
       '<label><input type="radio" name="tfPri" value="2"' + (t.priority === 2 ? ' checked' : '') + '></label>' +
-      '<label><input type="radio" name="tfPri" value="1"' + (t.priority == null || t.priority === 1 ? ' checked' : '') + '></label>' +
+      '<label><input type="radio" name="tfPri" value="1"' + (t.priority === 1 ? ' checked' : '') + '></label>' +
       '<label><input type="radio" name="tfPri" value="0"' + (t.priority === 0 ? ' checked' : '') + '></label>' +
     '</span>';
   // 值载体·分类下拉与新分类输入（options 由 todoFillCategoryOptions 填充）
@@ -9955,9 +9956,10 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   // 更多设置条：优先级 + 分类（整条横向滑动，分类 chips 不嵌套滚动）
   var moreStrip = '<div class="tf-strip" data-strip="more">' +
       '<span class="tf-strip-label">优先级</span>' +
+      '<button type="button" class="tf-chip2" data-pri="-1"><i class="todo-pri-none-ic"></i>无</button>' +
       '<button type="button" class="tf-chip2" data-pri="2"><i class="todo-priority-dot pri-2"></i>高</button>' +
       '<button type="button" class="tf-chip2" data-pri="1"><i class="todo-priority-dot pri-1"></i>中</button>' +
-      '<button type="button" class="tf-chip2" data-pri="0"><i class="todo-priority-dot"></i>低</button>' +
+      '<button type="button" class="tf-chip2" data-pri="0"><i class="todo-priority-dot pri-0"></i>低</button>' +
       '<span class="tf-strip-sep"></span>' +
       '<span class="tf-strip-label">分类</span>' +
       '<span id="tfCatChips"></span>' +
@@ -10004,8 +10006,9 @@ function todoEditFormHtml(t, isChild, fopts) {
   }
   // 折叠区：优先级 / 分类 / 备注（三角两态常驻）
   var priorityField = '<label>优先级</label><div class="todo-priority">' +
+      '<label class="todo-priority-option" data-priority="-1"><input type="radio" name="tfPri" value="-1"' + (t.priority == null || t.priority === -1 ? ' checked' : '') + '><i class="todo-pri-none-ic"></i><span>无</span></label>' +
       '<label class="todo-priority-option" data-priority="2"><input type="radio" name="tfPri" value="2"' + (t.priority === 2 ? ' checked' : '') + '><i class="todo-priority-dot pri-2"></i><span>高</span></label>' +
-      '<label class="todo-priority-option" data-priority="1"><input type="radio" name="tfPri" value="1"' + (t.priority == null || t.priority === 1 ? ' checked' : '') + '><i class="todo-priority-dot pri-1"></i><span>中</span></label>' +
+      '<label class="todo-priority-option" data-priority="1"><input type="radio" name="tfPri" value="1"' + (t.priority === 1 ? ' checked' : '') + '><i class="todo-priority-dot pri-1"></i><span>中</span></label>' +
       '<label class="todo-priority-option" data-priority="0"><input type="radio" name="tfPri" value="0"' + (t.priority === 0 ? ' checked' : '') + '><i class="todo-priority-dot pri-0"></i><span>低</span></label>' +
     '</div>';
   var categoryFields = '<label>分类（可选）</label>' +
@@ -10032,7 +10035,7 @@ function todoFormRead() {
   var priEl = document.querySelector('input[name="tfPri"]:checked');
   var out = {
     title: document.getElementById('tfTitle').value.trim(),
-    priority: priEl ? parseInt(priEl.value, 10) : 1,
+    priority: priEl ? parseInt(priEl.value, 10) : -1,
     due_date: dueEl ? (dueEl.value || null) : null,
     category: (!sharedCatId && catVal) ? catVal : null,
     note: document.getElementById('tfNote').value.trim() || null,
@@ -10265,10 +10268,14 @@ function todoInitTform(box) {
   // 更多·优先级
   Array.prototype.forEach.call(root.querySelectorAll('[data-pri]'), function(b){
     b.addEventListener('click', function(){
-      var radios = document.querySelectorAll('input[name="tfPri"]');
-      var r = radios[2 - parseInt(b.getAttribute('data-pri'), 10)];
-      r.checked = true;
-      r.dispatchEvent(new Event('change', { bubbles: true }));
+      var want = b.getAttribute('data-pri');
+      // 按值匹配对应 radio（含 -1「无」），不依赖固定顺序下标
+      Array.prototype.forEach.call(document.querySelectorAll('input[name="tfPri"]'), function(x){
+        if (x.value === want) {
+          x.checked = true;
+          x.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
       sync();
     });
   });
@@ -11025,8 +11032,10 @@ async function openTodoDetail(node, opts) {
   if (node.recurrence) meta.push('<span class="td-chip">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
   if (node.category) meta.push('<span class="td-chip td-chip--cat">' + esc(node.category) + '</span>');
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
-  var priName = ['⚪ 低', '🟡 中', '🔴 高'][node.priority == null ? 1 : node.priority];
-  meta.push('<span class="td-chip">⭐ ' + esc(priName) + '</span>');
+  if (node.priority >= 0) {
+    var priName = ['⚪ 低', '🟡 中', '🔴 高'][node.priority];
+    meta.push('<span class="td-chip">⭐ ' + esc(priName) + '</span>');
+  }
   // 子任务预览: 普通主任务列出第一子层级的未完成项(已完成不显示, 孙级不在此展开);
   //   勾选"子任务各自设置截止日期"(child_due)则严格只显示截止最近的 1 个未完成子任务
   //   (自身有 due_date 在前按日期升序, 无日期沉底, 再回退 sort_order+id), 勾选完成后下次进弹窗自动浮现下一个
