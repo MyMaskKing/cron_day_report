@@ -9896,7 +9896,9 @@ function todoRecurNativeHtml(t, hidden) {
 function tfDateShort(d) {
   var p = (d || '').split('-');
   if (p.length < 3) return d || '';
-  return parseInt(p[1], 10) + '月' + parseInt(p[2], 10) + '日';
+  var md = parseInt(p[1], 10) + '月' + parseInt(p[2], 10) + '日';
+  // 跨年：带 2 位年前缀，如 2027-12-20 → 27年12月20日；本年仍为 M月d日
+  return p[0] === todoTodayStr().slice(0, 4) ? md : p[0].slice(2) + '年' + md;
 }
 function todoFormHtml(t, isNew, isChild, fopts) {
   t = t || {};
