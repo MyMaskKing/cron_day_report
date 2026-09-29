@@ -6546,6 +6546,19 @@ function todoRootDue(root) {
   })(root, null);
   return min;
 }
+// 主任务色带用优先级: 旧模式(未勾选各自截止)=自身; child_due=最早到期未完成子任务
+// (与 todoRootDue 找同一叶子)的优先级; 无有效到期叶子或该子任务无优先级 → null(不显示色带)
+function todoRootPri(root) {
+  if (!root.child_due) return root.priority != null ? root.priority : null;
+  var leaf = null;
+  (function walk(n, inherited){
+    if (n.done) return;
+    var own = n.due_date || inherited;
+    if (n.children.length > 0) { n.children.forEach(function(c){ walk(c, own); }); return; }
+    if (!n.child_due && own && (!leaf || own < leaf.due)) leaf = { due: own, pri: n.priority };
+  })(root, null);
+  return leaf ? (leaf.pri != null ? leaf.pri : null) : null;
+}
 // 按到期日分组开关：localStorage 'todoGroupByDue'；未存默认关闭，"1" 开启
 function todoLoadGroupByDue() {
   try { return localStorage.getItem('todoGroupByDue') === '1'; }
@@ -7463,53 +7476,50 @@ function toggleTodoDrawer(getRowsFn, onDrawTree) {
   try { localStorage.setItem('todoDrawer', _todoDrawerOpen ? '1' : '0'); } catch(e){}
   applyTodoView(getRowsFn, onDrawTree);
 }
-// 按分类过滤顶层任务行: 输入 rows(扁平), 输出仅保留 (顶层匹配 _todoCategory 的顶层 + 其子孙)
-// _todoCategory==null 或 '__all__' 时原样返回
+// 按分类预过滤行: 仅共享分类(sc:)在此按行筛(整棵树都带 shared_cat_id);
+// 文本分类/未分类的树级剪枝见 todoPruneByCategory; _todoCategory 为空时原样返回
 function todoRowsByCategory(rows) {
   if (_todoCategory == null || _todoCategory === '__all__') return rows;
-  // 共享分类段: key='sc:<catId>', 整棵任务树(含子孙)都带 shared_cat_id, 直接按值筛
   if (_todoCategory.indexOf('sc:') === 0) {
     var cid = Number(_todoCategory.slice(3));
     return rows.filter(function(r){ return r.shared_cat_id === cid; });
   }
-  var pass = {}, out = [];
-  // 第一遍: 挑符合的顶层(个人文本分类; 共享分类任务不进个人分类)
-  rows.forEach(function(r){
-    if (r.parent_id != null) return;
-    if (r.shared_cat_id != null) return;
-    var hit = _todoCategory === '__none__' ? !r.category : (r.category === _todoCategory);
-    if (hit) pass[r.id] = 1;
-  });
-  // 第二遍: 收集其所有后代
-  function isDesc(r, byId, visited) {
-    var cur = r; while (cur.parent_id != null) {
-      if (visited[cur.parent_id]) return true;
-      if (pass[cur.parent_id]) return true;
-      cur = byId[cur.parent_id]; if (!cur) return false;
-      visited[cur.id] = 1;
-    }
-    return false;
-  }
-  var byId = {};
-  rows.forEach(function(r){ byId[r.id] = r; });
-  rows.forEach(function(r){
-    if (r.parent_id == null) { if (pass[r.id]) out.push(r); }
-    else if (isDesc(r, byId, {})) out.push(r);
-  });
-  return out;
+  return rows;
 }
-var PRI_ICON = { 2: '🔴', 1: '🟡', 0: '⚪' };
-var PRI_TEXT = { 2: '高', 1: '中', 0: '低' };
-// 色带显示用优先级: child_due(各自截止)下沿 _parent 链找最近的 child_due 上级、用其优先级;
-// 无此上级(旧模式/根自身) → 用自身。日期可各自独立, 优先级色跟随该上级
+// 文本分类目录下的树级剪枝:
+// - 节点自身分类命中(无自身分类的跟随子任务按继承分类判定) → 整支保留;
+// - child_due 节点自身不参与命中(其无分类是模式使然), 仅后代命中时作为容器保留,
+//   且子女的分类继承重置(各自设分类);
+// - __none__(未分类): 自身与继承分类均为空才算; 跟随有分类父任务的子任务不算
+function todoPruneByCategory(trees) {
+  if (_todoCategory == null || _todoCategory === '__all__') return trees;
+  if (('' + _todoCategory).indexOf('sc:') === 0) return trees;
+  var sel = _todoCategory;
+  function prune(node, inheritedCat) {
+    var ownCat = node.child_due ? null : (node.category || inheritedCat || null);
+    var hit = node.child_due ? false
+      : (sel === '__none__' ? !ownCat : ownCat === sel);
+    if (hit) return node;
+    var nextInh = node.child_due ? null : ownCat;
+    if (node.children && node.children.length) {
+      var kids = node.children.map(function(c){ return prune(c, nextInh); }).filter(Boolean);
+      if (kids.length) return Object.assign({}, node, { children: kids });
+    }
+    return null;
+  }
+  return trees.map(function(t){ return prune(t, null); }).filter(Boolean);
+}
+// 速览/时间轴叶子色带用优先级: 自身非空用自身, 否则沿 _parent 链找第一个非空优先级
+// (旧模式跟随子任务显示主任务色; child_due 子任务通常显示自身)
 function todoEffPri(node) {
+  if (node.priority != null) return node.priority;
   var p = node._parent, seen = {};
   while (p && !seen[p.id]) {
     seen[p.id] = 1;
-    if (p.child_due) return p.priority;
+    if (p.priority != null) return p.priority;
     p = p._parent;
   }
-  return node.priority;
+  return null;
 }
 function todoBuildTree(rows) {
   var byId = {}, roots = [];
@@ -7613,10 +7623,11 @@ function renderTodoTree(container, trees, opts) {
     var effDue = node.due_date || rootDue;
     // A 方案：真顶层主任务（非详情子树）卡片化，等级由顶部色带编码（与卡片视图同源）
     var cardRoot = depth === 0 && !isDetail;
+    var rootPri = cardRoot ? todoRootPri(node) : null;
     var wrap = document.createElement('div');
-    wrap.className = 'todo-node' + (cardRoot && node.priority >= 0 ? ' todo-bandcard pri-' + node.priority : '')
+    wrap.className = 'todo-node' + (cardRoot && rootPri != null ? ' todo-bandcard pri-' + rootPri : '')
       + (cardRoot && node.child_due ? ' cd-on' : '');
-    if (cardRoot && node.priority >= 0) {
+    if (cardRoot && rootPri != null) {
       var bandEl = document.createElement('div');
       bandEl.className = 'todo-card__band';
       wrap.appendChild(bandEl);
@@ -7626,7 +7637,7 @@ function renderTodoTree(container, trees, opts) {
     wrap.style.setProperty('--depth', depth);
 
     var row = document.createElement('div');
-    row.className = 'todo-row' + (node.priority >= 0 ? ' pri-' + node.priority : '') + (node.done ? ' is-done' : '') + (depth === 0 ? ' is-root' : '');
+    row.className = 'todo-row' + (node.priority != null ? ' pri-' + node.priority : '') + (node.done ? ' is-done' : '') + (depth === 0 ? ' is-root' : '');
     row.style.setProperty('--depth', depth);
     var hasChildren = node.children.length > 0;
 
@@ -7664,15 +7675,7 @@ function renderTodoTree(container, trees, opts) {
       row.appendChild(check);
     }
 
-    // 优先级圆点：标题前克制点缀（红=高 琥珀=中 灰=低），不占左色带
-    // 卡片化主任务的等级已由顶部色带编码，不再重复圆点
-    var effPri = todoEffPri(node);
-    if (!cardRoot && effPri >= 0) {
-      var dot = document.createElement('span');
-      dot.className = 'todo-dot pri-' + effPri;
-      dot.title = PRI_TEXT[effPri] + '优先级';
-      row.appendChild(dot);
-    }
+    // 子任务不挂优先级圆点（等级只由主任务色带表达；速览/时间轴才显示子任务各自色带）
 
     // 主体：标题 + 元信息
     var main = document.createElement('div');
@@ -7964,13 +7967,7 @@ function renderTodoAccordion(container, trees, opts) {
       });
       rowEl.appendChild(check);
     }
-    var leafEffPri = todoEffPri(node);
-    if (leafEffPri >= 0) {
-      var ldot = document.createElement('span');
-      ldot.className = 'todo-acc__dot pri-' + leafEffPri;
-      ldot.title = PRI_TEXT[leafEffPri] + '优先级';
-      rowEl.appendChild(ldot);
-    }
+    // 叶子行不挂优先级圆点（等级只由主任务色带表达）
     var nameEl = document.createElement('span');
     nameEl.className = 'todo-acc__leafname'; nameEl.textContent = node.title;
     nameEl.addEventListener('click', function(e){
@@ -8011,12 +8008,13 @@ function renderTodoAccordion(container, trees, opts) {
 
     // A 方案：真顶层主任务（非详情子树）卡片化，等级由顶部色带编码（与卡片视图同源）
     var cardRoot = depth === 0 && !isDetail;
+    var rootPri = cardRoot ? todoRootPri(node) : null;
     var wrap = document.createElement('div');
-    wrap.className = 'todo-node todo-acc' + (cardRoot && node.priority >= 0 ? ' todo-bandcard pri-' + node.priority : '')
+    wrap.className = 'todo-node todo-acc' + (cardRoot && rootPri != null ? ' todo-bandcard pri-' + rootPri : '')
       + (cardRoot && node.child_due ? ' cd-on' : '');
     wrap.setAttribute('data-depth', depth);
     wrap.setAttribute('data-id', node.id);
-    if (cardRoot && node.priority >= 0) {
+    if (cardRoot && rootPri != null) {
       var bandEl = document.createElement('div');
       bandEl.className = 'todo-card__band';
       wrap.appendChild(bandEl);
@@ -8046,14 +8044,7 @@ function renderTodoAccordion(container, trees, opts) {
       kidsEl.classList.toggle('collapsed');
     });
     rowEl.appendChild(caret);
-    // 卡片化主任务的等级已由顶部色带编码，不再重复圆点
-    var effPri = todoEffPri(node);
-    if (!cardRoot && effPri >= 0) {
-      var dot = document.createElement('span');
-      dot.className = 'todo-acc__dot pri-' + effPri;
-      dot.title = PRI_TEXT[effPri] + '优先级';
-      rowEl.appendChild(dot);
-    }
+    // 子任务不挂优先级圆点（等级只由主任务色带表达）
     var nameEl = document.createElement('span');
     nameEl.className = 'todo-acc__name';
     nameEl.textContent = (depth === 0 && node.shared_cat_id != null ? '👥 ' : '') + node.title;
@@ -8168,7 +8159,7 @@ function todoLeafCard(leaf, opts, scene) {
   var today = opts.today || '';
   var item = document.createElement('div');
   var effPri = todoEffPri(n);
-  item.className = 'tl-item' + (effPri >= 0 ? ' pri-' + effPri : '') + (n.done ? ' is-done' : '');
+  item.className = 'tl-item' + (effPri != null ? ' pri-' + effPri : '') + (n.done ? ' is-done' : '');
   var band = document.createElement('span');
   band.className = 'tl-item__priband';
   item.appendChild(band);
@@ -8587,7 +8578,8 @@ function renderTodoCards(container, trees, opts) {
     // 卡片一律可点击进入详情(只要提供了 onEnter); 详情里能加子任务/查看子任务
     var canEnter = !!opts.onEnter;
     var card = document.createElement('div');
-    card.className = 'todo-card' + (root.priority >= 0 ? ' pri-' + root.priority : '') + (root.done ? ' is-done' : '') + (canEnter ? ' clickable' : '');
+    var rootPri = todoRootPri(root);
+    card.className = 'todo-card' + (rootPri != null ? ' pri-' + rootPri : '') + (root.done ? ' is-done' : '') + (canEnter ? ' clickable' : '');
     card.setAttribute('data-id', root.id);
 
     // 顶部色带
@@ -9938,6 +9930,8 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   var cdNative = (!lockedChild && !lockMode && !memoMode)
     ? '<input type="checkbox" id="tfChildDue"' + (childDueOn ? ' checked' : '') + ' class="tform-native">'
     : '';
+  // 优先级/分类可用: 与"能设日期"同义(跟随子任务/备忘录/勾选各自截止时隐藏)
+  var priCatAvailable = !lockedChild && !memoMode && !childDueOn;
   // 底部图标栏: 日期 → 闹钟 → 重复 → 各自截止(勾选框) → 更多
   var dueLabelTxt = !defDue ? '日期' : (defDue === today ? '今天' : tfDateShort(defDue));
   var bar = '<div class="tform-barwrap"><div class="tform-bar">' +
@@ -9951,7 +9945,7 @@ function todoFormHtml(t, isNew, isChild, fopts) {
         : '') +
       (recurNative ? '<button type="button" class="tf-ic' + (t.recurrence ? ' is-on' : '') + '" id="tfRecurIc" data-tfic="recur">' + SVG_REPEAT + '</button>' : '') +
       (cdNative ? '<label class="tf-cd' + (childDueOn ? ' is-on' : '') + '" id="tfCdLabel">' + cdNative + '<span class="tf-cd__box">' + SVG_CHECK + '</span><span class="tf-cd__t">各自截止</span></label>' : '') +
-      '<button type="button" class="tf-ic" data-tfic="more">' + SVG_MORE + '</button>' +
+      (priCatAvailable ? '<button type="button" class="tf-ic" data-tfic="more">' + SVG_MORE + '</button>' : '') +
       '</div>' +
       '<button type="button" id="tfCreate" class="tf-save">保存</button>' +
     '</div>';
@@ -9975,7 +9969,7 @@ function todoFormHtml(t, isNew, isChild, fopts) {
       '<span id="tfRecurCustomRow"></span>' +
     '</div>' : '';
   // 更多设置条：优先级 + 分类（整条横向滑动，分类 chips 不嵌套滚动）
-  var moreStrip = '<div class="tf-strip" data-strip="more">' +
+  var moreStrip = priCatAvailable ? '<div class="tf-strip" data-strip="more">' +
       '<span class="tf-strip-label">优先级</span>' +
       '<button type="button" class="tf-chip2" data-pri="-1"><i class="todo-pri-none-ic"></i>无</button>' +
       '<button type="button" class="tf-chip2" data-pri="0"><i class="todo-priority-dot pri-0"></i>低</button>' +
@@ -9988,7 +9982,7 @@ function todoFormHtml(t, isNew, isChild, fopts) {
         '<button type="button" class="tf-chip2" id="tfCatNewBtn">＋ 新建</button>' +
         '<span class="tf-catnew" id="tfCatNewWrap2"><input id="tfCatNewGui" placeholder="新分类名称，回车确认"><button type="button" id="tfCatNewOk" class="tf-catnew-ok" title="确认添加">＋</button></span>' +
       '</span>' +
-    '</div>';
+    '</div>' : '';
   return '<div class="tform">' + draftScope + head + dueNative + recurNative + priNative + catNative
     + bar + dueStrip + recurStrip + moreStrip + '</div>';
 }
@@ -10026,6 +10020,8 @@ function todoEditFormHtml(t, isChild, fopts) {
       '📌 本任务不设日期；直接子任务可各自设置截止日期与重复，本任务显示最早到期的子任务日期</p>';
   }
   // 折叠区：优先级 / 分类 / 备注（三角两态常驻）
+  // 跟随子任务 / 勾选各自截止时优先级分类不可设, 折叠区只留备注
+  var priCatAvailable = !lockedChild && !childDueOn;
   var priorityField = '<label>优先级</label><div class="todo-priority">' +
       '<label class="todo-priority-option" data-priority="-1"><input type="radio" name="tfPri" value="-1"' + (t.priority == null || t.priority === -1 ? ' checked' : '') + '><i class="todo-pri-none-ic"></i><span>无</span></label>' +
       '<label class="todo-priority-option" data-priority="0"><input type="radio" name="tfPri" value="0"' + (t.priority === 0 ? ' checked' : '') + '><i class="todo-priority-dot pri-0"></i><span>低</span></label>' +
@@ -10038,8 +10034,9 @@ function todoEditFormHtml(t, isChild, fopts) {
   var noteField = '<label>备注（可选）</label>' +
       '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
   var caretSvg = '<span class="tfedit-more__caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></span>';
-  s += '<details class="tfedit-more" id="tfEditMore"><summary>' + caretSvg + ' 更多（优先级 / 分类 / 备注）</summary>' +
-    '<div class="tfedit-more__body">' + priorityField + categoryFields + noteField + '</div></details>';
+  var moreTitle = priCatAvailable ? '更多（优先级 / 分类 / 备注）' : '更多（备注）';
+  s += '<details class="tfedit-more" id="tfEditMore"><summary>' + caretSvg + ' ' + moreTitle + '</summary>' +
+    '<div class="tfedit-more__body">' + (priCatAvailable ? priorityField + categoryFields : '') + noteField + '</div></details>';
   return '<div class="tfedit">' + draftScope + s + '</div>';
 }
 function todoFormRead() {
@@ -10187,6 +10184,9 @@ function todoInitTform(box) {
       cdLabel.classList.toggle('is-on', cd.checked);
       if (recurIc) recurIc.classList.toggle('is-disabled', cd.checked);
     }
+    // 勾选各自截止时同步隐藏「更多(优先级/分类)」, 取消勾选恢复
+    var moreIc = root.querySelector('[data-tfic="more"]');
+    if (moreIc) moreIc.style.display = (cd && cd.checked) ? 'none' : '';
     var priEl = document.querySelector('input[name="tfPri"]:checked');
     Array.prototype.forEach.call(root.querySelectorAll('[data-pri]'), function(b){
       b.classList.toggle('is-on', !!priEl && b.getAttribute('data-pri') === priEl.value);
@@ -11053,9 +11053,9 @@ async function openTodoDetail(node, opts) {
   if (node.recurrence) meta.push('<span class="td-chip">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
   if (node.category) meta.push('<span class="td-chip td-chip--cat">' + esc(node.category) + '</span>');
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
-  var detailPri = todoEffPri(node);
-  if (detailPri >= 0) {
-    var priName = ['⚪ 低', '🟡 中', '🔴 高'][detailPri];
+  // 优先级标签按节点自身: 自身为空(跟随子任务/各自截止主任务)则不显示
+  if (node.priority != null) {
+    var priName = ['⚪ 低', '🟡 中', '🔴 高'][node.priority];
     meta.push('<span class="td-chip">' + esc(priName) + '</span>');
   }
   // 子任务预览: 普通主任务列出第一子层级的未完成项(已完成不显示, 孙级不在此展开);
@@ -11185,6 +11185,20 @@ async function loadTodos() {
   // 共享分类列表不在此刷新: 首屏由初始化并行加载, 成员变动(加入/退出/踢人/解散)后显式刷新,
   // 避免每次勾选/新建都多一个串行请求
   _rows = data.todos || [];
+  // 目录停在文本分类时, 数据变化后该分类在当前时间筛选下已无任务 → 目录回全部 + 定位计划中
+  if (_todoCategory != null && _todoCategory !== '__all__' &&
+      ('' + _todoCategory).indexOf('sc:') !== 0) {
+    var catVisible = todoFilterTrees(todoPruneByCategory(todoBuildTree(_rows)));
+    if (!catVisible.length) {
+      _todoCategory = null;
+      if (_filter !== 'planned') {
+        _filter = 'planned';
+        Array.prototype.forEach.call(document.querySelectorAll('#todoFilter button[data-filter]'), function(b){
+          b.classList.toggle('active', b.getAttribute('data-filter') === 'planned');
+        });
+      }
+    }
+  }
   var s = data.stats || { pending:0, overdue:0, done:0, total:0, memo:0 };
   _stats = s;
   renderPendingStats();
@@ -11213,7 +11227,7 @@ function switchTodoFilter(f) {
 // 按当前 _filter 过滤后的可见顶层树重算 未完成/已逾期/备忘录 三项统计
 // 与已完成一栏保持一致的联动风格; 已完成节点(整枝)不计入
 function renderPendingStats() {
-  var trees = todoFilterTrees(todoBuildTree(todoRowsByCategory(_rows)));
+  var trees = todoFilterTrees(todoPruneByCategory(todoBuildTree(todoRowsByCategory(_rows))));
   var s = todoStatsByVisible(trees, todayStr());
   document.getElementById('stPending').textContent = s.pending;
   document.getElementById('stOverdue').textContent = s.overdue;
@@ -11396,7 +11410,7 @@ function drawTree() {
   // 已完成 tab 下强制显示完成项，否则遵从复选框
   var hideDone = _filter === 'done' ? false : document.getElementById('hideDone').checked;
   // 先按抽屉选中的分类过滤扁平 rows, 再按 filter tab 过滤顶层
-  var trees = todoFilterTrees(todoBuildTree(todoRowsByCategory(_rows)));
+  var trees = todoFilterTrees(todoPruneByCategory(todoBuildTree(todoRowsByCategory(_rows))));
   var container = document.getElementById('todoTree');
   var crumb = document.getElementById('todoCrumb');
   todoRenderView(container, trees, {
@@ -12253,7 +12267,7 @@ function drawTree(trees) {
   // 免密协作页范围本就限定在该子树, 不再叠加日期过滤(与 visibleTrees 一致)
   var effectiveTrees = trees;
   if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
-    effectiveTrees = todoBuildTree(todoRowsByCategory(_rows));
+    effectiveTrees = todoPruneByCategory(todoBuildTree(todoRowsByCategory(_rows)));
   }
   // 免密单链接页只覆盖一个顶层子树, 时间筛选无意义; 仅支持"隐藏已完成"
   var hideBox = document.getElementById('hideDone');
@@ -12382,7 +12396,7 @@ function drawTree() {
   var trees = todoFilterTrees(_trees, _today);
   // 全屏态下按抽屉选中的分类过滤扁平 rows 重新建树
   if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
-    var byCat = todoBuildTree(todoRowsByCategory(_rows));
+    var byCat = todoPruneByCategory(todoBuildTree(todoRowsByCategory(_rows)));
     // 分类过滤后再按当前 filter 过滤一次(保持两者协同)
     trees = todoFilterTrees(byCat, _today);
   }
@@ -12735,7 +12749,7 @@ function drawTree(trees) {
   // done tab: 默认/全屏两口径都按最近完成时间倒序(与登录页/报告页一致)
   if (_filter === 'done') effectiveTrees = effectiveTrees.slice().sort(todoDoneRootCmp);
   if (_todoView !== 'default' && _todoCategory != null && _todoCategory !== '__all__') {
-    var byCat = todoBuildTree(todoRowsByCategory(_rows));
+    var byCat = todoPruneByCategory(todoBuildTree(todoRowsByCategory(_rows)));
     effectiveTrees = todoFilterTrees(byCat, _today);
   }
   // 已完成 tab 强制显示, 其它遵从复选框

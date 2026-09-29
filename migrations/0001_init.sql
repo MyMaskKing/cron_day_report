@@ -281,7 +281,7 @@ CREATE INDEX IF NOT EXISTS idx_push_log_created ON push_log (created_at);
 
 -- ==================== 待办任务 ====================
 -- parent_id: 自引用, 顶层任务为 NULL, 子任务无限嵌套
--- done: 0 未完成 | 1 已完成; priority: 0 低 | 1 中(默认) | 2 高
+-- done: 0 未完成 | 1 已完成; priority: NULL 无(默认) | 0 低 | 1 中 | 2 高
 -- due_date: 截止日期 YYYY-MM-DD 可空; category: 文本分类/标签 可空
 -- sort_order: 同级手动排序, 越小越靠前
 -- share_token: 仅顶层任务用于免密分享链接 /t/:token, 长期有效
@@ -297,7 +297,7 @@ CREATE TABLE IF NOT EXISTS todos (
   parent_id     INTEGER,
   title         TEXT NOT NULL,
   done          INTEGER NOT NULL DEFAULT 0,
-  priority      INTEGER NOT NULL DEFAULT 1,
+  priority      INTEGER,
   due_date      TEXT,
   category      TEXT,
   sort_order    INTEGER NOT NULL DEFAULT 0,

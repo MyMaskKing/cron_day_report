@@ -764,7 +764,7 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, 
     // 无子任务的主任务(selfRoot)下方无叶子列表, 加粗标题行本身即那条待办(降级显示)。
     trees.forEach((root, ri) => {
       const cat = root.category ? ` \`${root.category}\`` : '';
-      const pri = root.priority >= 0 ? (TODO_PRI_ICON[root.priority] || '') : '';
+      const pri = root.priority != null ? (TODO_PRI_ICON[root.priority] || '') : '';
       const rootDue = rootDueOf(root);
       const leaves = collectReportLeaves(root);
       m += `**❇️待办${ri + 1}：${pri}${root.shared_cat_id != null ? '👥' : ''}${root.title}**${cat}（${leaves.length} 件）${dateBadge(rootDue)}\n`;
@@ -772,7 +772,7 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, 
         if (it.selfRoot) return;
         const crumb = it.path.length ? it.path.join(' / ') + '：' : '';
         const icat = it.category ? ` \`${it.category}\`` : '';
-        const ipri = it.priority >= 0 ? (TODO_PRI_ICON[it.priority] || '') : '';
+        const ipri = it.priority != null ? (TODO_PRI_ICON[it.priority] || '') : '';
         const badge = (it.due && it.due !== rootDue) ? dateBadge(it.due) : '';
         m += `- ▸ ${ipri}${crumb}${it.title}${icat}${badge}\n`;
       });
@@ -800,7 +800,7 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remi
   // 优先级圆点色板(红=高 琥珀=中 灰=低)与网页端 .todo-dot 一致
   const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#b4bccb' };
   // 内联圆点: 邮件客户端 emoji 渲染不一, 用 background 画点更统一可控
-  const dot = (p) => p >= 0 ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:8px;vertical-align:middle;"></span>` : '';
+  const dot = (p) => p != null ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:8px;vertical-align:middle;"></span>` : '';
   const catTag = (c) => c
     ? ` <span style="background:#eef1ff;color:#4a6cf7;border-radius:4px;padding:1px 8px;font-size:13px;">${c}</span>` : '';
   // 以子任务(可执行叶子)为单位: 主任务卡片头作分组, 卡内平铺末端叶子; 中间层父任务不单列,
@@ -854,7 +854,7 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remi
 function todoTomorrowSectionHtml(tomorrow, today) {
   // 优先级圆点色板与今日卡片一致（红=高 琥珀=中 灰=低）
   const PRI_DOT = { 2: '#e5484d', 1: '#e8a317', 0: '#b4bccb' };
-  const dot = (p) => p >= 0 ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:8px;vertical-align:middle;"></span>` : '';
+  const dot = (p) => p != null ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${PRI_DOT[p] || '#b4bccb'};margin-right:8px;vertical-align:middle;"></span>` : '';
   const catTag = (c) => c
     ? ` <span style="background:#e6fffb;color:#08979c;border-radius:4px;padding:1px 8px;font-size:13px;">${c}</span>` : '';
   const pill = 'display:inline-block;border-radius:11px;padding:1px 10px;font-size:12px;font-weight:600;line-height:1.7;margin-left:2px;';

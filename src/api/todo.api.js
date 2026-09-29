@@ -25,12 +25,11 @@ async function autoParentOn(storage, ownerUid) {
   return !u || u.todo_auto_parent !== 0;
 }
 
-/** 规范化优先级为 0/1/2，非法回退 1 */
+/** 规范化优先级: null/空/非法 → null(无); 0 低 1 中 2 高 */
 function normPriority(v) {
-  if (v === null || v === undefined || v === '') return -1;
+  if (v === null || v === undefined || v === '') return null;
   const n = parseInt(v, 10);
-  // -1=无; 0 低 1 中 2 高; null/缺失/非法一律归一为无(-1)
-  return (n === -1 || n === 0 || n === 1 || n === 2) ? n : -1;
+  return (n === 0 || n === 1 || n === 2) ? n : null;
 }
 /** 闹钟分钟：null/空→null；0-1439 整数→值；非法抛错 */
 function normAlarmMinute(v) {
@@ -193,9 +192,9 @@ async function createTodo({ request, env }) {
   }
   const id = await storage.todo.create(ownerUid, {
     parent_id: parentId, title,
-    priority: normPriority(body.priority),
+    priority: allowsOwnDate ? normPriority(body.priority) : null,
     due_date: dueDate,
-    category: (body.category || '').trim() || null,
+    category: allowsOwnDate ? ((body.category || '').trim() || null) : null,
     note: (body.note || '').trim() || null,
     child_due: childDue ? 1 : 0,
     recurrence: recFields.recurrence,
@@ -249,11 +248,13 @@ async function updateTodo({ request, env, params }) {
     : (allowsDate ? ((body.due_date || '').trim() || null) : null);
   // 重复: 勾选态不允许; 传统顶层主任务(未勾选)恒允许; 其余须直接父允许(任意层级, 带子女时完成走整树克隆)
   const allowRecur = isRoot ? !selfChildDue : (!selfChildDue && allowsDate);
+  // 优先级/分类门控与截止日期同条件: 能设日期才可设, 否则强制 null
+  const canHavePriCat = !selfChildDue && allowsDate;
   const payload = {
     title,
-    priority: normPriority(body.priority),
+    priority: canHavePriCat ? normPriority(body.priority) : null,
     due_date: dueDate,
-    category: (body.category || '').trim() || null,
+    category: canHavePriCat ? ((body.category || '').trim() || null) : null,
     note: (body.note || '').trim() || null
   };
   // 闹钟: 勾选态清空; 允许自设日期且 body 显式携带才写入; 未携带沿用原值
@@ -736,11 +737,13 @@ async function publicUpdateTodo({ request, env, params }) {
     dueDate = (!selfChildDue && allowsDate) ? ((body.due_date || '').trim() || null) : null;
     allowRecur = !selfChildDue && allowsDate;
   }
+  // 优先级/分类门控与截止日期同条件(协作链接口径一致): 能设日期才可设
+  const canHavePriCat = !selfChildDue && allowsDate;
   const payload = {
     title,
-    priority: normPriority(body.priority),
+    priority: canHavePriCat ? normPriority(body.priority) : null,
     due_date: dueDate,
-    category: (body.category || '').trim() || null,
+    category: canHavePriCat ? ((body.category || '').trim() || null) : null,
     note: (body.note || '').trim() || null
   };
   if (Object.prototype.hasOwnProperty.call(body, 'recurrence')) {
@@ -960,9 +963,9 @@ async function publicAllAdd({ request, env, params }) {
   const recFields = readRecurFields(body, allowsOwnDate);
   const id = await storage.todo.create(userId, {
     parent_id: parentId, title,
-    priority: normPriority(body.priority),
+    priority: allowsOwnDate ? normPriority(body.priority) : null,
     due_date: dueDate,
-    category: (body.category || '').trim() || null,
+    category: allowsOwnDate ? ((body.category || '').trim() || null) : null,
     note: (body.note || '').trim() || null,
     child_due: childDue ? 1 : 0,
     recurrence: recFields.recurrence,
@@ -1039,11 +1042,13 @@ async function publicAllUpdate({ request, env, params }) {
     : (allowsDate ? ((body.due_date || '').trim() || null) : null);
   // 重复任意层级可设(带子女时完成走整树克隆); 勾选态不允许
   const allowRecur = isRoot ? !selfChildDue : (!selfChildDue && allowsDate);
+  // 优先级/分类门控与截止日期同条件: 能设日期才可设, 否则强制 null
+  const canHavePriCat = !selfChildDue && allowsDate;
   const payload = {
     title,
-    priority: normPriority(body.priority),
+    priority: canHavePriCat ? normPriority(body.priority) : null,
     due_date: dueDate,
-    category: (body.category || '').trim() || null,
+    category: canHavePriCat ? ((body.category || '').trim() || null) : null,
     note: (body.note || '').trim() || null
   };
   if (allowsDate && Object.prototype.hasOwnProperty.call(body, 'child_due')) {
