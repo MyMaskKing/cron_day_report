@@ -9971,6 +9971,7 @@ function todoFormHtml(t, isNew, isChild, fopts) {
       '<button type="button" class="tf-chip2" data-dueoff="2">后天</button>' +
       '<button type="button" class="tf-chip2" id="tfDueMon">下周一</button>' +
       '<button type="button" class="tf-chip2" id="tfDueCustom">自定义</button>' +
+      '<span id="tfDueCustomBox" style="flex:0 0 auto;display:none;"></span>' +
       '<button type="button" class="tf-chip2" id="tfDueNone">无日期</button>' +
     '</div>';
   // 重复设置条（自定义频率内联在末尾）
@@ -10213,6 +10214,11 @@ function todoInitTform(box) {
       due.value = v;
       due.dispatchEvent(new Event('change', { bubbles: true }));
     }
+    // 选了快捷项：收起内联自定义日期框（与编辑弹窗互斥的呈现）
+    var cb = document.getElementById('tfDueCustomBox');
+    if (cb) cb.style.display = 'none';
+    var cu = document.getElementById('tfDueCustom');
+    if (cu) cu.classList.remove('is-on');
     sync();
   }
   function setRecur(v) {
@@ -10278,8 +10284,14 @@ function todoInitTform(box) {
   var none = document.getElementById('tfDueNone');
   if (none) none.addEventListener('click', function(){ setDue(''); closeStrips(); });
   var custom = document.getElementById('tfDueCustom');
+  var customBox = document.getElementById('tfDueCustomBox');
   if (custom) custom.addEventListener('click', function(){
-    try { due.showPicker(); } catch (e) { due.click(); }
+    // 与编辑弹窗一致：日期输入框内联可见，用户点击输入框再弹选择器（不再 showPicker 强弹原生）
+    if (customBox) {
+      if (due.parentNode !== customBox) customBox.appendChild(due);
+      customBox.style.display = 'inline-flex';
+    }
+    custom.classList.add('is-on');
   });
   if (due) due.addEventListener('change', function(){
     setTimeout(function(){ sync(); closeStrips(); }, 0);
