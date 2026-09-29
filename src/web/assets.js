@@ -7509,15 +7509,15 @@ function todoPruneByCategory(trees) {
   }
   return trees.map(function(t){ return prune(t, null); }).filter(Boolean);
 }
-// 速览/时间轴叶子色带用优先级: 自身非空用自身, 否则沿 _parent 链找第一个非空优先级
-// (旧模式跟随子任务显示主任务色; child_due 子任务通常显示自身)
+// 速览/时间轴叶子色带用优先级: 沿链(含自身)找第一个有截止日期(due_date 非空)的节点,
+// 用其优先级——跟随态子任务显示第一个有截止时间的上级; child_due 容器无日期自动跳过,
+// 不会误用主任务上残留的旧优先级; 整条链都无日期(备忘录) → null 不显示色带
 function todoEffPri(node) {
-  if (node.priority != null) return node.priority;
-  var p = node._parent, seen = {};
-  while (p && !seen[p.id]) {
-    seen[p.id] = 1;
-    if (p.priority != null) return p.priority;
-    p = p._parent;
+  var cur = node, seen = {};
+  while (cur && !seen[cur.id]) {
+    seen[cur.id] = 1;
+    if (cur.due_date) return cur.priority != null ? cur.priority : null;
+    cur = cur._parent;
   }
   return null;
 }
@@ -7625,9 +7625,10 @@ function renderTodoTree(container, trees, opts) {
     var cardRoot = depth === 0 && !isDetail;
     var rootPri = cardRoot ? todoRootPri(node) : null;
     var wrap = document.createElement('div');
-    wrap.className = 'todo-node' + (cardRoot && rootPri != null ? ' todo-bandcard pri-' + rootPri : '')
+    // bandcard 是卡片容器(白底/圆角), 恒加; pri-X 仅在有代表优先级时追加顶部色带
+    wrap.className = 'todo-node' + (cardRoot ? ' todo-bandcard' + (rootPri != null ? ' pri-' + rootPri : '') : '')
       + (cardRoot && node.child_due ? ' cd-on' : '');
-    if (cardRoot && rootPri != null) {
+    if (cardRoot) {
       var bandEl = document.createElement('div');
       bandEl.className = 'todo-card__band';
       wrap.appendChild(bandEl);
@@ -8010,11 +8011,12 @@ function renderTodoAccordion(container, trees, opts) {
     var cardRoot = depth === 0 && !isDetail;
     var rootPri = cardRoot ? todoRootPri(node) : null;
     var wrap = document.createElement('div');
-    wrap.className = 'todo-node todo-acc' + (cardRoot && rootPri != null ? ' todo-bandcard pri-' + rootPri : '')
+    // bandcard 是卡片容器(白底/圆角), 恒加; pri-X 仅在有代表优先级时追加顶部色带
+    wrap.className = 'todo-node todo-acc' + (cardRoot ? ' todo-bandcard' + (rootPri != null ? ' pri-' + rootPri : '') : '')
       + (cardRoot && node.child_due ? ' cd-on' : '');
     wrap.setAttribute('data-depth', depth);
     wrap.setAttribute('data-id', node.id);
-    if (cardRoot && rootPri != null) {
+    if (cardRoot) {
       var bandEl = document.createElement('div');
       bandEl.className = 'todo-card__band';
       wrap.appendChild(bandEl);
