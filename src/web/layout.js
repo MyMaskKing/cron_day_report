@@ -762,6 +762,7 @@ label { display: block; font-size: 13px; color: var(--label); margin-bottom: 5px
 .todo-priority-dot { width: 8px; height: 8px; border-radius: 50%; background: #b4bccb; }
 .todo-priority-dot.pri-2 { background: #e5484d; }
 .todo-priority-dot.pri-1 { background: #e8a317; }
+.todo-priority-dot.pri-0 { background: #6cc899; }
 /* 「无优先级」图标：空心圆环，跟随 chip 文字色（未选中中性、选中品牌紫），不固定染色 */
 .todo-pri-none-ic {
   display: inline-block; width: 9px; height: 9px; border-radius: 50%;
@@ -1216,7 +1217,7 @@ input[type="date"], input[type="month"] { cursor: pointer; }
 .todo-dot { flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; background: #b4bccb; }
 .todo-dot.pri-2 { background: #e5484d; }
 .todo-dot.pri-1 { background: #e8a317; }
-.todo-dot.pri-0 { background: #b4bccb; }
+.todo-dot.pri-0 { background: #6cc899; }
 /* 层级连接线：非顶层节点左侧竖向引导线 */
 .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before {
   content: ''; position: absolute; left: calc(var(--depth, 0) * 26px - 13px); top: -4px; bottom: 50%;
@@ -1359,7 +1360,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-acc__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
 .todo-acc__dot.pri-2 { background: #e5484d; }
 .todo-acc__dot.pri-1 { background: #e8a317; }
-.todo-acc__dot.pri-0 { background: #b4bccb; }
+.todo-acc__dot.pri-0 { background: #6cc899; }
 .todo-acc__name {
   flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--text-strong);
   word-break: break-word; cursor: pointer;
@@ -1446,7 +1447,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-bandcard:hover { box-shadow: 0 8px 24px rgba(124,58,237,.12); border-color: var(--brand-border); }
 .todo-bandcard.pri-2 > .todo-card__band { background: #E0453E; }
 .todo-bandcard.pri-1 > .todo-card__band { background: #E5A113; }
-.todo-bandcard.pri-0 > .todo-card__band { background: #C9CCD6; }
+.todo-bandcard.pri-0 > .todo-card__band { background: #6cc899; }
 /* 卡内主任务行：去边框/灰底/左紫条，透明融入白卡 */
 .todo-bandcard > .todo-row.is-root {
   background: transparent; border: 0; border-radius: 0; margin: 0;
@@ -1583,10 +1584,10 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .timeline-view .tl-day:last-child .tl-day__cards { padding-bottom: 4px; }
 /* 子任务卡：优先级左条 + 面包屑 + 内容 */
 .tl-item { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(20,20,40,.04); }
-.tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: transparent; }
+.tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #C9CCD6; }
 .tl-item.pri-2 .tl-item__priband { background: #E0453E; }
 .tl-item.pri-1 .tl-item__priband { background: #E5A113; }
-.tl-item.pri-0 .tl-item__priband { background: #C9CCD6; }
+.tl-item.pri-0 .tl-item__priband { background: #6cc899; }
 .tl-item.is-done { background: var(--surface-done); }
 .tl-item.is-done .tl-item__title { color: var(--faint); text-decoration: line-through; }
 /* 层级面包屑按钮（点击进主任务详情） */
@@ -1894,11 +1895,11 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 }
 .todo-card.clickable { cursor: pointer; }
 .todo-card.clickable:hover { box-shadow: 0 6px 20px rgba(124,58,237,.12); border-color: var(--brand-border); }
-/* 优先级顶带 3px: 高=红 / 中=琥珀 / 低=灰 / 无=不显示(透明占位, 卡片高度不变) */
-.todo-card__band { height: 3px; background: transparent; }
+/* 优先级顶带 3px: 高=红 / 中=琥珀 / 低=绿 / 无=灰(均占位, 卡片高度一致) */
+.todo-card__band { height: 3px; background: #C9CCD6; }
 .todo-card.pri-2 .todo-card__band { background: #E0453E; }
 .todo-card.pri-1 .todo-card__band { background: #E5A113; }
-.todo-card.pri-0 .todo-card__band { background: #C9CCD6; }
+.todo-card.pri-0 .todo-card__band { background: #6cc899; }
 .todo-card.is-done { opacity: .78; background: var(--surface-done); }
 .todo-card__body { padding: 12px 14px 9px; }
 .todo-card__head { display: flex; align-items: flex-start; gap: 11px; }
