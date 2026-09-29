@@ -1305,8 +1305,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   padding: 3px 9px 4px 10px; border-bottom-left-radius: 10px;
 }
 .todo-cd-ribbon svg { width: 11px; height: 11px; display: block; }
-/* 卡片标识下移到 3px 优先级顶带下方，避免遮盖优先级色带 */
-.todo-card .todo-cd-ribbon { top: 3px; }
+/* 标识紧贴 3px 顶带(色带现为 border-top, ribbon 在 padding box 内不遮盖它) */
+.todo-card .todo-cd-ribbon { top: 0; }
 /* 角贴避让标题, 防长标题钻到角贴下 */
 .todo-card.cd-on .todo-card__head { padding-right: 88px; }
 /* 根行尾/面包屑/详情行内贴 */
