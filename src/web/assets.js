@@ -9845,7 +9845,7 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   var head =
       '<span class="tform-handle"></span>' +
       '<textarea id="tfTitle" class="tform-title" rows="1" data-autogrow="1" placeholder="准备做什么？">' + esc(t.title || '') + '</textarea>' +
-      '<button type="button" id="tfDescBtn" class="tform-desc' + (t.note ? ' has' : '') + '">描述</button>' +
+      '<button type="button" id="tfDescBtn" class="tform-desc' + (t.note ? ' has' : '') + '">备注</button>' +
       '<div id="tfDescWrap" class="tform-descwrap" style="display:none;">' +
         '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…">' + esc(t.note || '') + '</textarea>' +
       '</div>';
@@ -9871,7 +9871,8 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   var bar = '<div class="tform-barwrap"><div class="tform-bar">' +
       (lockedChild
         ? '<span class="tf-ic is-disabled">' + SVG_CAL + '<span class="tf-ic__t">跟随上级</span></span>'
-        : '<button type="button" class="tf-ic tf-dueitem" id="tfDueIc" data-tfic="due">' + SVG_CAL + '<span class="tf-ic__t" id="tfDueLabel">' + dueLabelTxt + '</span></button>') +
+        : (memoMode ? ''
+          : '<button type="button" class="tf-ic tf-dueitem" id="tfDueIc" data-tfic="due">' + SVG_CAL + '<span class="tf-ic__t" id="tfDueLabel">' + dueLabelTxt + '</span></button>')) +
       ((!lockedChild && !memoMode)
         ? '<button type="button" class="tf-ic tf-dueitem" id="tfAlarmIc">' + SVG_BELL + '<span class="tf-ic__t" id="tfAlarmLabel"></span></button>' +
           '<button type="button" class="tf-alarm-x tf-dueitem" id="tfAlarmClearGui" title="清除闹钟">✕</button>'

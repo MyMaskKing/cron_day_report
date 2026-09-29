@@ -2079,7 +2079,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .modal-mask--sheet .tform-handle { display: block; }
 .tform-title {
   width: 100%; border: 0; background: transparent; outline: none;
-  font-size: 18px; font-weight: 600; resize: none; padding: 0; line-height: 1.5;
+  font-size: 15px; font-weight: 400; resize: none; padding: 0; line-height: 1.5;
 }
 .tform-title::placeholder { color: var(--faint, var(--muted)); font-weight: 400; }
 .tform-desc {
@@ -2176,8 +2176,8 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   margin-right: 6px; vertical-align: -1px; flex: none;
 }
-/* 新建按钮/输入框同位切换容器 */
-.tf-catswitch { flex: 0 0 auto; display: inline-flex; }
+/* 新建按钮/输入框同位切换容器（须垂直居中，否则输入框与按钮错位上移） */
+.tf-catswitch { flex: 0 0 auto; display: inline-flex; align-items: center; }
 /* 勾选各自截止：日期与闹钟图标隐藏，后续图标自动补位 */
 .tform.cd-on .tf-dueitem { display: none; }
 /* 保存钮：文字按钮，品牌填充，固定在底部栏外壳最右（不随图标滚动） */
