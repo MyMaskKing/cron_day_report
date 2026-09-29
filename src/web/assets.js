@@ -8480,7 +8480,11 @@ function renderTodoTimeline(container, trees, opts) {
     var label = document.createElement('div');
     label.className = 'tl-day__label';
     var big = document.createElement('b');
-    big.textContent = isNone ? '未安排' : (+date.slice(5,7)) + '月' + (+date.slice(8,10)) + '日';
+    // 跨年（日期年份 != 今年）显示 YY/MM/DD；today 缺失无法判断时按同年显示
+    var crossYear = !isNone && today.length >= 10 && date.slice(0,4) !== today.slice(0,4);
+    big.textContent = isNone ? '未安排'
+      : crossYear ? date.slice(2,4) + '/' + date.slice(5,7) + '/' + date.slice(8,10)
+      : (+date.slice(5,7)) + '月' + (+date.slice(8,10)) + '日';
     label.appendChild(big);
     label.appendChild(document.createTextNode(isNone ? '无日期'
       : (diff === 0 ? '今天' : _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()])));
