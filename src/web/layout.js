@@ -2155,20 +2155,23 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   width: 132px; border: 1px solid var(--brand); border-radius: 999px;
   padding: 6px 13px; font-size: 13.5px; outline: none; font-family: inherit;
 }
-/* ============ 详情跟手翻页返回 ============ */
-.todo-gesture-layer {
-  display: none; position: fixed; inset: 0; z-index: 1;
-  background: var(--bg); overflow: hidden;
+/* 优先级 chip 内颜色点与文字间距 */
+.tf-chip2 .todo-priority-dot { margin-right: 6px; vertical-align: -1px; }
+/* 新建按钮/输入框同位切换容器 */
+.tf-catswitch { flex: 0 0 auto; display: inline-flex; }
+/* 勾选各自截止：日期与闹钟图标隐藏，后续图标自动补位 */
+.tform.cd-on .tf-dueitem { display: none; }
+/* 图标栏创建钮：品牌色圆形，靠右固定 */
+.tf-create {
+  flex: 0 0 auto; margin-left: 10px;
+  width: 38px; height: 38px; padding: 0;
+  border: 0; border-radius: 50%;
+  background: var(--brand); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
-.todo-gesture-layer.show { display: block; }
-.todo-gesture-main { padding: 12px 16px calc(16px + var(--kb-inset, 0px)); }
-.todo-gesturing {
-  position: relative !important; z-index: 2;
-  box-shadow: -12px 0 32px rgba(0,0,0,.10);
-}
-.todo-gesture-main-inner { will-change: transform; }
+.tf-create svg { width: 20px; height: 20px; }
+.tf-create:active { transform: scale(.94); }
 @media (min-width: 641px) {
-  .todo-gesture-layer.show { display: none; }
   /* PC 居中弹窗 body padding 20px：负 margin 归零，分隔线不溢出卡片 */
   .tform-bar { margin: 8px 0 -2px; }
   .tf-strip { margin: 10px 0 0; padding: 0 0 2px; }
@@ -2428,18 +2431,20 @@ html { scrollbar-gutter: stable; }
   .modal-mask { padding: 16px 10px; }
   /* 键盘弹起·长弹窗: 弹窗靠顶部, 遮罩整体滚动、卡片不裁切(见 .modal-mask.kb-tall 主规则) */
   .modal-mask.kb-tall { padding: 0 10px var(--kb-inset, 0px); }
-  /* 滴答清单式待办表单：贴底 sheet（PC 仍居中，由基础规则负责） */
-  .modal-mask--sheet { align-items: flex-end; padding: 0; background: rgba(0,0,0,.35); }
+  /* 滴答清单式待办表单：贴底 sheet。box 绝对定位 bottom 直接跟随 --kb-inset，
+     键盘上沿无缝贴合（PC 仍居中，由基础规则负责） */
+  .modal-mask--sheet { padding: 0; background: rgba(0,0,0,.35); }
+  /* 盖掉通用 kb-tall 的 padding，避免与 box bottom:inset 双倍抬升 */
+  .modal-mask--sheet.kb-tall { padding: 0; }
   .modal-mask--sheet .modal-box {
+    position: absolute; left: 0; right: 0; bottom: var(--kb-inset, 0);
+    display: flex; flex-direction: column;
     max-width: 100%; width: 100%; margin: 0;
+    max-height: calc(100% - var(--kb-inset, 0));
     border-radius: 18px 18px 0 0; animation: todoSheetUp .24s ease;
   }
-  .modal-mask--sheet .modal-head { padding: 12px 16px; }
-  .modal-mask--sheet .modal-body { padding: 12px 16px 16px; }
-  /* 键盘态维持贴底：overlay 由 padding-bottom 抬到键盘上沿，内容过高靠遮罩滚动 */
-  .modal-mask--sheet.kb-tall { align-items: flex-end; padding: 0 0 var(--kb-inset, 0px); }
-  /* 覆盖通用 kb-tall 的 margin:40px auto 0，sheet 恒贴底无顶部 margin */
-  .modal-mask--sheet.kb-tall .modal-box { margin: 0; }
+  .modal-mask--sheet .modal-head { padding: 12px 16px; flex: none; }
+  .modal-mask--sheet .modal-body { padding: 10px 16px 12px; overflow-y: auto; }
   @keyframes todoSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   /* 多选面板窄屏: 改为居中 modal 弹窗 (JS 侧已把 .mp-menu 移到 body 末尾, 彻底脱离 card 堆叠上下文,
      否则 .card 的 z-index/backdrop-filter 会封印内部 fixed 元素, 导致遮罩必然盖住面板)
