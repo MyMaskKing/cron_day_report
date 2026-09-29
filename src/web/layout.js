@@ -2081,7 +2081,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tform-title::placeholder { color: var(--faint, var(--muted)); font-weight: 400; }
 .tform-desc {
   display: block; width: 100%; text-align: left; border: 0; background: transparent;
-  color: var(--muted); font-size: 15px; font-family: inherit; padding: 8px 0; cursor: pointer;
+  color: var(--muted); font-size: 15px; font-family: inherit; padding: 3px 0 2px; cursor: pointer;
 }
 .tform-desc.is-on, .tform-desc.has { color: var(--text); font-weight: 600; }
 .tform-descwrap { margin-bottom: 4px; }
@@ -2097,7 +2097,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 /* 底部栏外壳：通宽 hairline 分隔；保存钮固定在壳右侧，不随图标滑动 */
 .tform-barwrap {
   display: flex; align-items: center; gap: 9px;
-  margin: 6px -16px -2px; padding: 6px 16px 8px;
+  margin: 5px -16px -2px; padding: 5px 16px 3px;
   border-top: 1px solid var(--border);
 }
 /* 图标滚动区：占满左侧、横向滑动、无滚动条 */
@@ -2460,7 +2460,7 @@ html { scrollbar-gutter: stable; }
     border-radius: 18px 18px 0 0; animation: todoSheetUp .24s ease;
   }
   .modal-mask--sheet .modal-head { padding: 12px 16px; flex: none; }
-  .modal-mask--sheet .modal-body { padding: 10px 16px 12px; overflow-y: auto; }
+  .modal-mask--sheet .modal-body { padding: 10px 16px 8px; overflow-y: auto; }
   @keyframes todoSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   /* 多选面板窄屏: 改为居中 modal 弹窗 (JS 侧已把 .mp-menu 移到 body 末尾, 彻底脱离 card 堆叠上下文,
      否则 .card 的 z-index/backdrop-filter 会封印内部 fixed 元素, 导致遮罩必然盖住面板)
