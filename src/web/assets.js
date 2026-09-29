@@ -9754,7 +9754,7 @@ function todoInitPrioritySegmented(box) {
 
 // 值载体·日期/闹钟整块（todoInitAlarmForm 依赖 #tfDueWrap/#tfDue/#tfAlarmBtn/#tfAlarmClear）
 // hidden=true：视觉隐藏（新建 sheet 图标栏用）；false：可见表单块（编辑弹窗）
-function todoDueNativeHtml(defDue, hidden) {
+function todoDueNativeHtml(defDue, hidden, initMinute) {
   // initMinute：编辑时库存权威闹钟值（即使本周期时间已过也照常回显）
   var initAttr = (initMinute != null && initMinute >= 0 && initMinute < 1440) ? ' data-init-minute="' + initMinute + '"' : '';
   if (hidden) {
