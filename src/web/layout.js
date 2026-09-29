@@ -2091,7 +2091,9 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   width: 100%; border: 1px solid var(--border); border-radius: 12px;
   padding: 10px 12px; resize: vertical; min-height: 72px; font-family: inherit; font-size: 14px; line-height: 1.6;
   margin-bottom: 0; /* 覆盖全局 textarea margin-bottom:12px */
+  color: var(--label); /* 备注文字灰色，焦点态也保持，与任务正文区分 */
 }
+.tform-descwrap textarea::placeholder { color: var(--muted); }
 /* 值载体原生控件：视觉隐藏但仍可被 JS 赋值/触发 */
 .tform-native {
   position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
