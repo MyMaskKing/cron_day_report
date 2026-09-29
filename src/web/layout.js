@@ -1584,8 +1584,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .timeline-view .tl-day:last-child .tl-day__cards { padding-bottom: 4px; }
 /* 子任务卡：优先级左条 + 面包屑 + 内容 */
 .tl-item { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgba(20,20,40,.04); }
-/* 负偏移贴卡片左外缘, 覆盖左边框; overflow:hidden 裁剪圆角 */
-.tl-item__priband { position: absolute; left: -1px; top: -1px; bottom: -1px; width: 4px; background: #C9CCD6; }
+/* 左条位于边框内侧(overflow 裁在 padding box), 完整宽度不被裁细 */
+.tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #C9CCD6; }
 .tl-item.pri-2 .tl-item__priband { background: #E0453E; }
 .tl-item.pri-1 .tl-item__priband { background: #E5A113; }
 .tl-item.pri-0 .tl-item__priband { background: #6cc899; }
@@ -1897,8 +1897,8 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-card.clickable { cursor: pointer; }
 .todo-card.clickable:hover { box-shadow: 0 6px 20px rgba(124,58,237,.12); border-color: var(--brand-border); }
 /* 优先级顶带 3px: 高=红 / 中=琥珀 / 低=绿 / 无=灰。
-   负边距延伸到卡片边框外沿(覆盖 1px 边框), 配合 overflow:hidden 圆角裁剪, 色带与卡片紧密贴合 */
-.todo-card__band { height: 3px; background: #C9CCD6; margin: -1px -1px 0; }
+   卡片 overflow:hidden 会把子元素裁在边框内侧, 负边距只会被裁细色带; margin:0 色带完整 3px */
+.todo-card__band { height: 3px; background: #C9CCD6; margin: 0; }
 .todo-card.pri-2 .todo-card__band { background: #E0453E; }
 .todo-card.pri-1 .todo-card__band { background: #E5A113; }
 .todo-card.pri-0 .todo-card__band { background: #6cc899; }
