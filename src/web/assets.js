@@ -8253,14 +8253,16 @@ function todoLeafCard(leaf, opts, scene) {
 // 速览视图：最终叶子纯拍平卡片流（不按主任务分组），排序/排除口径与时间轴一致
 function renderTodoFlat(container, trees, opts) {
   opts = opts || {};
+  var today = opts.today || '';
   container.innerHTML = '';
+  // 1. 收集最终叶子（child_due 空容器不挂）
   var leaves = [];
   todoEachLeaf(trees, 'root', function (it) {
     var n = it.node;
-    // child_due 空容器（顶层无子女且勾选各自截止）不挂
     if (n.parent_id == null && !(n.children || []).length && n.child_due) return;
     leaves.push({ node: n, path: it.path, effDue: todoDetailEffDue(n) });
   });
+  // 2. 先按有效截止时间全局排序（无日期沉底），同日回退 sort_order+id
   leaves.sort(function (a, b) {
     var ad = a.effDue || '', bd = b.effDue || '';
     if (ad !== bd) { if (!ad) return 1; if (!bd) return -1; return ad < bd ? -1 : 1; }
@@ -8270,10 +8272,31 @@ function renderTodoFlat(container, trees, opts) {
     container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
     return;
   }
-  var list = document.createElement('div');
-  list.className = 'tl-card-list';
-  leaves.forEach(function (it) { list.appendChild(todoLeafCard(it, opts, 'flat')); });
-  container.appendChild(list);
+  // 3. 再按日期分桶（同日叶子同组，不分归属；leaves 已排序，顺序切桶即可）
+  container.className = 'todo-due-groups';
+  var buckets = [];
+  leaves.forEach(function (it) {
+    var key = it.effDue || 'none';
+    var last = buckets[buckets.length - 1];
+    if (!last || last.key !== key) { last = { key: key, items: [] }; buckets.push(last); }
+    last.items.push(it);
+  });
+  buckets.forEach(function (b) {
+    var head = todoBuildDueGroupHead(b.key, b.items.length, today);
+    var body = document.createElement('div');
+    body.className = 'tl-card-list';
+    if (head.classList.contains('is-collapsed')) body.style.display = 'none';
+    // 点组头折叠/展开（与主任务分组层同口径）
+    head.addEventListener('click', function () {
+      if (_todoDueGroupCollapsed.has(b.key)) _todoDueGroupCollapsed.delete(b.key);
+      else _todoDueGroupCollapsed.add(b.key);
+      head.classList.toggle('is-collapsed');
+      body.style.display = body.style.display === 'none' ? '' : 'none';
+    });
+    container.appendChild(head);
+    container.appendChild(body);
+    b.items.forEach(function (it) { body.appendChild(todoLeafCard(it, opts, 'flat')); });
+  });
 }
 
 // ============ 时间轴视图（timeline：竖轴挂日期节点，右侧挂子任务卡；点卡片面包屑进主任务详情） ============
@@ -8794,6 +8817,43 @@ function todoRenderRootsByView(container, trees, opts, view) {
  * （逾期红 / 今天紫 / 明天·本周X黄 / 其余中性），组体按当前视图渲染。
  * memo 筛选或整组无日期（'none'）时没有日期可分，退化为普通渲染。
  */
+// 日期组头构造（主任务分组层与速览叶子分组共用）：
+//   key='YYYY-MM-DD' | 'none'；count=件数；返回带日历方块/标题/件数/箭头的 head 元素（折叠态同步）
+function todoBuildDueGroupHead(key, count, today) {
+  var collapsed = _todoDueGroupCollapsed.has(key);
+  var head = document.createElement('div');
+  head.className = 'todo-due-group__head' + (collapsed ? ' is-collapsed' : '');
+  if (key === 'none') {
+    head.innerHTML =
+      '<span class="todo-due-group__cal todo-due-group__cal--none">—</span>' +
+      '<span class="todo-due-group__name">🗂 未安排</span>' +
+      '<span class="todo-due-group__count">' + count + ' 件</span>' +
+      '<span class="todo-due-group__caret">▾</span>';
+    return head;
+  }
+  var diff = todoDateDiff(key, today);
+  var label = todoDateLabel(key, today);
+  var tone = diff < 0 ? 'overdue'
+    : diff === 0 ? 'today'
+    : ((diff === 1 || label.charAt(0) === '本') ? 'soon' : 'future');
+  var mo = parseInt(key.slice(5, 7), 10);
+  var dayNo = parseInt(key.slice(8, 10), 10);
+  var wk = _CN_WEEKDAY[new Date(key + 'T00:00:00Z').getUTCDay()];
+  // 副标题补标签缺失信息：汉字相对词(今天/本周X)有星期缺日期 → M月D日；
+  // 数字日期(10/22)有月日缺星期 → M月周X（不重复标签里的日号）
+  // 本常量是模板字符串，判断数字开头用 [0-9]，不要写 \d（反斜杠会被剥掉变成 /^d/）
+  var subHTML = /^[0-9]/.test(label)
+    ? '<small>' + mo + '月 · ' + wk + '</small>'
+    : '<small>' + mo + '月' + dayNo + '日</small>';
+  head.innerHTML =
+    '<span class="todo-due-group__cal todo-due-group__cal--' + tone + '">' +
+      '<b>' + dayNo + '</b><small>' + wk + '</small></span>' +
+    '<span class="todo-due-group__name">' + label + subHTML + '</span>' +
+    '<span class="todo-due-group__count">' + count + ' 件</span>' +
+    '<span class="todo-due-group__caret">▾</span>';
+  head.title = key;
+  return head;
+}
 function todoRenderGroupedByDue(container, trees, opts, view) {
   var today = opts.today || '';
   var groups = todoGroupRootsByDue(trees);
@@ -8804,48 +8864,16 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
   container.innerHTML = '';
   container.className = 'todo-due-groups';
   groups.forEach(function (g) {
-    var collapsed = _todoDueGroupCollapsed.has(g.key);
-    var head = document.createElement('div');
-    head.className = 'todo-due-group__head' + (collapsed ? ' is-collapsed' : '');
+    var head = todoBuildDueGroupHead(g.key, g.roots.length, today);
     var body = document.createElement('div');
     // 组体带视图类（与未分组容器同名）：手机端「只留 ⋯」收纳 CSS 等规则以容器类为祖先，
-    // 缺类会导致分组后按钮全暴露。卡片视图渲染器自设 todo-cards，无需预设。
+    // 缺类会导致按钮全暴露。卡片视图渲染器自设 todo-cards，无需预设。
     if (view === 'tree') body.className = 'todo-tree';
     else if (view === 'accordion') body.className = 'todo-acc';
     else if (view === 'flat') body.className = 'flat-view';
     // 折叠用行内 display：组体会被渲染器设 className（卡片视图 todo-cards=display:flex），
     // hidden 属性默认 display:none 会被 flex 覆盖，导致卡片视图折不上
-    if (collapsed) body.style.display = 'none';
-    // S2 日历方块组头：方块(日号+星期, 状态色) + 日期文字 + 件数 + 右侧折叠箭头
-    if (g.key === 'none') {
-      head.innerHTML =
-        '<span class="todo-due-group__cal todo-due-group__cal--none">—</span>' +
-        '<span class="todo-due-group__name">🗂 未安排</span>' +
-        '<span class="todo-due-group__count">' + g.roots.length + ' 件</span>' +
-        '<span class="todo-due-group__caret">▾</span>';
-    } else {
-      var diff = todoDateDiff(g.key, today);
-      var label = todoDateLabel(g.key, today);
-      var tone = diff < 0 ? 'overdue'
-        : diff === 0 ? 'today'
-        : ((diff === 1 || label.charAt(0) === '本') ? 'soon' : 'future');
-      var mo = parseInt(g.key.slice(5, 7), 10);
-      var dayNo = parseInt(g.key.slice(8, 10), 10);
-      var wk = _CN_WEEKDAY[new Date(g.key + 'T00:00:00Z').getUTCDay()];
-      // 副标题补标签缺失信息：汉字相对词(今天/本周X)有星期缺日期 → M月D日；
-      // 数字日期(10/22)有月日缺星期 → M月周X（不重复标签里的日号）
-      // 本常量是模板字符串，判断数字开头用 [0-9]，不要写 \d（反斜杠会被剥掉变成 /^d/）
-      var subHTML = /^[0-9]/.test(label)
-        ? '<small>' + mo + '月 · ' + wk + '</small>'
-        : '<small>' + mo + '月' + dayNo + '日</small>';
-      head.innerHTML =
-        '<span class="todo-due-group__cal todo-due-group__cal--' + tone + '">' +
-          '<b>' + dayNo + '</b><small>' + wk + '</small></span>' +
-        '<span class="todo-due-group__name">' + label + subHTML + '</span>' +
-        '<span class="todo-due-group__count">' + g.roots.length + ' 件</span>' +
-        '<span class="todo-due-group__caret">▾</span>';
-      head.title = g.key;
-    }
+    if (head.classList.contains('is-collapsed')) body.style.display = 'none';
     // 折叠态摘要：列出组内主任务名（单行截断），折叠后也能知道组里有哪些任务
     var summary = document.createElement('div');
     summary.className = 'todo-due-group__summary';
