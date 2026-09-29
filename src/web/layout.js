@@ -2221,6 +2221,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tf-chip2 {
   flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); color: var(--text);
   border-radius: 999px; padding: 5px 12px; font-size: 13px; font-family: inherit; cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center;
 }
 .tf-chip2.is-on { border-color: var(--brand); color: var(--brand); background: var(--hover-brand); }
 /* 重复自定义：搬到 strip 末尾内联显示，不再独占整行 */
