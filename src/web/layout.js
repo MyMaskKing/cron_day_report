@@ -2072,50 +2072,120 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   .todo-view-enter { animation: todoEnterFromLeft .26s ease; }
 }
 
-/* ============ 滴答风格待办表单（新建/编辑统一） ============ */
-.tform { font-size: 14px; }
+/* ============ 滴答风格待办新建 sheet ============ */
+.tform { font-size: 14px; color: var(--text); }
+/* sheet 顶部抓手：仅 sheet 内显示（PC 居中隐藏） */
+.tform-handle { display: none; width: 36px; height: 4px; border-radius: 99px; background: var(--border-strong, var(--border)); margin: 0 auto 10px; }
+.modal-mask--sheet .tform-handle { display: block; }
 .tform-title {
   width: 100%; border: 0; background: transparent; outline: none;
-  font-size: 17px; font-weight: 600; resize: none; padding: 2px 0; line-height: 1.45;
+  font-size: 18px; font-weight: 600; resize: none; padding: 0; line-height: 1.5;
 }
+.tform-title::placeholder { color: var(--faint, var(--muted)); font-weight: 400; }
 .tform-desc {
   display: block; width: 100%; text-align: left; border: 0; background: transparent;
-  color: var(--muted); font-size: 15px; font-family: inherit; padding: 6px 0; cursor: pointer;
+  color: var(--muted); font-size: 15px; font-family: inherit; padding: 8px 0; cursor: pointer;
 }
 .tform-desc.is-on, .tform-desc.has { color: var(--text); font-weight: 600; }
+.tform-descwrap { margin-bottom: 4px; }
 .tform-descwrap textarea {
-  width: 100%; border: 1px solid var(--border); border-radius: 10px;
-  padding: 8px 10px; resize: vertical; min-height: 64px; font-family: inherit; font-size: 14px;
+  width: 100%; border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 12px; resize: vertical; min-height: 72px; font-family: inherit; font-size: 14px; line-height: 1.6;
 }
 /* 值载体原生控件：视觉隐藏但仍可被 JS 赋值/触发 */
 .tform-native {
   position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
   overflow: hidden; clip: rect(0 0 0 0);
 }
-/* 底部图标栏：横向滑动、无滚动条 */
-.tform-bar { display: flex; gap: 16px; overflow-x: auto; margin-top: 10px; padding: 4px 2px; scrollbar-width: none; }
+/* 底部图标栏：横向滑动、通宽 hairline 分隔、无滚动条（负 margin 对齐 sheet body padding） */
+.tform-bar {
+  display: flex; align-items: center; gap: 4px; overflow-x: auto;
+  margin: 8px -16px -2px; padding: 8px 16px 10px;
+  border-top: 1px solid var(--border); scrollbar-width: none;
+}
 .tform-bar::-webkit-scrollbar { display: none; }
 .tf-ic {
-  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
-  border: 0; background: transparent; color: var(--muted-2, var(--muted));
-  font-size: 20px; font-family: inherit; cursor: pointer; padding: 2px;
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+  height: 38px; padding: 0 9px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--muted-2, var(--muted));
+  font-family: inherit; cursor: pointer;
 }
-.tf-ic__t { font-size: 13px; }
-.tf-ic.is-on { color: var(--brand); }
-.tf-ic.is-disabled { opacity: .35; pointer-events: none; }
-/* 图标设置条：横向滑动 chips */
-.tf-strip { display: none; gap: 8px; overflow-x: auto; margin-top: 10px; padding: 2px; scrollbar-width: none; }
+.tf-ic svg { width: 22px; height: 22px; }
+.tf-ic__t { font-size: 14px; white-space: nowrap; }
+.tf-ic.is-on { color: var(--brand); background: var(--hover-brand); }
+.tf-ic.is-disabled { opacity: .3; pointer-events: none; }
+/* 各自截止：勾选框形式（真 checkbox 隐藏在 label 内，box 为视觉载体） */
+.tf-cd {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
+  height: 38px; padding: 0 11px 0 8px; border-radius: 10px;
+  color: var(--muted-2, var(--muted)); cursor: pointer;
+}
+.tf-cd__box {
+  width: 21px; height: 21px; border: 1.8px solid currentColor; border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+}
+.tf-cd__box svg { width: 13px; height: 13px; color: #fff; opacity: 0; }
+.tf-cd.is-on { color: var(--brand); background: var(--hover-brand); }
+.tf-cd.is-on .tf-cd__box { background: var(--brand); border-color: var(--brand); }
+.tf-cd.is-on .tf-cd__box svg { opacity: 1; }
+.tf-cd__t { font-size: 14px; white-space: nowrap; }
+/* 图标设置条：横向滑动 chips，负 margin 通宽 */
+.tf-strip {
+  display: none; align-items: center; gap: 8px; overflow-x: auto;
+  margin: 10px -16px 0; padding: 0 16px 2px; scrollbar-width: none;
+}
 .tf-strip.show { display: flex; }
 .tf-strip::-webkit-scrollbar { display: none; }
+.tf-strip-label { flex: 0 0 auto; font-size: 13px; color: var(--muted); }
+.tf-strip-sep { flex: 0 0 auto; width: 1px; height: 18px; background: var(--border); margin: 0 3px; }
 .tf-chip2 {
   flex: 0 0 auto; border: 1px solid var(--border); background: var(--surface); color: var(--text);
-  border-radius: 999px; padding: 5px 13px; font-size: 13px; font-family: inherit; cursor: pointer; white-space: nowrap;
+  border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-family: inherit; cursor: pointer; white-space: nowrap;
 }
 .tf-chip2.is-on { border-color: var(--brand); color: var(--brand); background: var(--hover-brand); }
-.tf-strip__custom { flex: 0 0 100%; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.tf-catrow { flex: 0 0 100%; display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-.tf-catrow input { flex: 1; min-width: 0; }
-.tf-more-label { flex: 0 0 auto; font-size: 12px; color: var(--muted); align-self: center; }
+/* 重复自定义：搬到 strip 末尾内联显示，不再独占整行 */
+#tfRecurCustomRow { flex: 0 0 auto; display: none; }
+#tfRecurCustomRow.show { display: inline-flex; }
+/* 分类 chips：宽度随内容，由父 strip 统一横滑（不嵌套滚动） */
+#tfCatChips { display: inline-flex; gap: 8px; flex: 0 0 auto; }
+/* 新建分类：原地输入 chip */
+.tf-catnew { display: none; align-items: center; gap: 6px; flex: 0 0 auto; }
+.tf-catnew.show { display: inline-flex; }
+.tf-catnew input {
+  width: 132px; border: 1px solid var(--brand); border-radius: 999px;
+  padding: 6px 13px; font-size: 13.5px; outline: none; font-family: inherit;
+}
+/* ============ 详情跟手翻页返回 ============ */
+.todo-gesture-layer {
+  display: none; position: fixed; inset: 0; z-index: 1;
+  background: var(--bg); overflow: hidden;
+}
+.todo-gesture-layer.show { display: block; }
+.todo-gesture-main { padding: 12px 16px calc(16px + var(--kb-inset, 0px)); }
+.todo-gesturing {
+  position: relative !important; z-index: 2;
+  box-shadow: -12px 0 32px rgba(0,0,0,.10);
+}
+.todo-gesture-main-inner { will-change: transform; }
+@media (min-width: 641px) {
+  .todo-gesture-layer.show { display: none; }
+  /* PC 居中弹窗 body padding 20px：负 margin 归零，分隔线不溢出卡片 */
+  .tform-bar { margin: 8px 0 -2px; }
+  .tf-strip { margin: 10px 0 0; padding: 0 0 2px; }
+}
+/* ============ 编辑弹窗折叠区（三角两态常驻，展开不消失） ============ */
+.tfedit-more { border-top: 1px solid var(--border); margin-top: 12px; }
+.tfedit-more > summary {
+  cursor: pointer; list-style: none; user-select: none;
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 2px; color: var(--muted); font-size: 13.5px;
+}
+.tfedit-more > summary::-webkit-details-marker { display: none; }
+.tfedit-more__caret { display: inline-flex; color: var(--muted); transition: transform .2s ease; }
+.tfedit-more__caret svg { width: 15px; height: 15px; }
+.tfedit-more[open] .tfedit-more__caret { transform: rotate(90deg); }
+.tfedit-more__body { padding-bottom: 8px; }
+.tfedit-more__body > label, .tfedit-more__body .todo-priority { margin-bottom: 10px; }
 
 /* 默认视图"待办清单"卡片头: 始终一行。宽屏标题 flex:1 占满左侧、控件靠右;
    窄屏(≤640px, App/手机浏览器)标题固定在左、"隐藏已完成"固定在右, 中间"卡片视图/新建任务/
@@ -2368,6 +2438,8 @@ html { scrollbar-gutter: stable; }
   .modal-mask--sheet .modal-body { padding: 12px 16px 16px; }
   /* 键盘态维持贴底：overlay 由 padding-bottom 抬到键盘上沿，内容过高靠遮罩滚动 */
   .modal-mask--sheet.kb-tall { align-items: flex-end; padding: 0 0 var(--kb-inset, 0px); }
+  /* 覆盖通用 kb-tall 的 margin:40px auto 0，sheet 恒贴底无顶部 margin */
+  .modal-mask--sheet.kb-tall .modal-box { margin: 0; }
   @keyframes todoSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   /* 多选面板窄屏: 改为居中 modal 弹窗 (JS 侧已把 .mp-menu 移到 body 末尾, 彻底脱离 card 堆叠上下文,
      否则 .card 的 z-index/backdrop-filter 会封印内部 fixed 元素, 导致遮罩必然盖住面板)
