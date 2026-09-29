@@ -6610,6 +6610,20 @@ function todoSortRoots(trees, mode) {
   });
   return out;
 }
+/** 速览/时间轴叶子排序: default 与 due_desc 按有效截止时间倒序(晚→早, 与其他视图默认一致),
+ *  due_asc 升序; 无日期恒沉底; 同日回退 sort_order+id */
+function todoSortFlatLeaves(leaves, mode) {
+  var desc = mode !== 'due_asc';
+  leaves.sort(function (a, b) {
+    var ad = a.effDue || '', bd = b.effDue || '';
+    if (ad !== bd) {
+      if (!ad) return 1; if (!bd) return -1; // 无日期恒沉底
+      var ascFirst = ad < bd;
+      return desc ? (ascFirst ? 1 : -1) : (ascFirst ? -1 : 1);
+    }
+    return (a.node.sort_order - b.node.sort_order) || (a.node.id - b.node.id);
+  });
+}
 /**
  * 顶层树按代表日期归组（主列表分组层，组内顺序不变）：
  * key 'YYYY-MM-DD' 升序（逾期最早 → 未来），无日期 'none' 沉最后
@@ -8283,12 +8297,8 @@ function renderTodoFlat(container, trees, opts) {
     if (n.parent_id == null && !(n.children || []).length && n.child_due) return;
     leaves.push({ node: n, path: it.path, effDue: todoDetailEffDue(n) });
   });
-  // 2. 先按有效截止时间全局排序（无日期沉底），同日回退 sort_order+id
-  leaves.sort(function (a, b) {
-    var ad = a.effDue || '', bd = b.effDue || '';
-    if (ad !== bd) { if (!ad) return 1; if (!bd) return -1; return ad < bd ? -1 : 1; }
-    return (a.node.sort_order - b.node.sort_order) || (a.node.id - b.node.id);
-  });
+  // 2. 按排序规则全局排: 默认倒序(晚→早, 同其他视图), 用户选升序才升; 无日期沉底
+  todoSortFlatLeaves(leaves, _todoSortMode);
   if (!leaves.length) {
     container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
     return;
@@ -8343,12 +8353,8 @@ function renderTodoTimeline(container, trees, opts) {
     if (n.parent_id == null && !(n.children || []).length && n.child_due) return;
     leaves.push({ node: n, path: it.path, effDue: todoDetailEffDue(n) });
   });
-  // 按有效日期升序全局排序，无日期沉底；同日回退 sort_order+id
-  leaves.sort(function (a, b) {
-    var ad = a.effDue || '', bd = b.effDue || '';
-    if (ad !== bd) { if (!ad) return 1; if (!bd) return -1; return ad < bd ? -1 : 1; }
-    return (a.node.sort_order - b.node.sort_order) || (a.node.id - b.node.id);
-  });
+  // 按排序规则全局排: 默认倒序(晚→早, 同其他视图), 用户选升序才升; 无日期沉底
+  todoSortFlatLeaves(leaves, _todoSortMode);
 
   // 单个日期行：日期标签列 / 轴列(竖线+节点圆点) / 卡片列
   function dayRow(date, items, isEmpty, isNone) {
@@ -8413,9 +8419,17 @@ function renderTodoTimeline(container, trees, opts) {
   });
 
   if (_todoTimelineFullAxis && buckets.length) {
-    var present = {};
-    buckets.forEach(function (b) { present[b.key] = b.items; });
-    enumerateDays(buckets[0].key, buckets[buckets.length - 1].key).forEach(function (d) {
+    // 枚举范围取全部日期的 min/max(不依赖 bucket 顺序, 倒序时首尾会互换);
+    // 日期行的排列方向跟随当前排序: 默认倒序(晚→早), 升序才早→晚
+    var present = {}, dmin = null, dmax = null;
+    buckets.forEach(function (b) {
+      present[b.key] = b.items;
+      if (!dmin || b.key < dmin) dmin = b.key;
+      if (!dmax || b.key > dmax) dmax = b.key;
+    });
+    var allDays = enumerateDays(dmin, dmax);
+    if (_todoSortMode !== 'due_asc') allDays.reverse();
+    allDays.forEach(function (d) {
       container.appendChild(dayRow(d, present[d] || [], !present[d], false));
     });
   } else {
