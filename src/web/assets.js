@@ -9843,7 +9843,6 @@ function todoFormHtml(t, isNew, isChild, fopts) {
   var draftScope = '<input type="hidden" id="tfDraftScope" value="' + (t.id ? 'edit:' + t.id : 'new') + '">';
   // 抓手 + 标题 + 折叠的描述
   var head =
-      '<span class="tform-handle"></span>' +
       '<textarea id="tfTitle" class="tform-title" rows="1" data-autogrow="1" placeholder="准备做什么？">' + esc(t.title || '') + '</textarea>' +
       '<button type="button" id="tfDescBtn" class="tform-desc' + (t.note ? ' has' : '') + '">备注</button>' +
       '<div id="tfDescWrap" class="tform-descwrap" style="display:none;">' +

@@ -2074,9 +2074,6 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 
 /* ============ 滴答风格待办新建 sheet ============ */
 .tform { font-size: 14px; color: var(--text); }
-/* sheet 顶部抓手：仅 sheet 内显示（PC 居中隐藏） */
-.tform-handle { display: none; width: 36px; height: 4px; border-radius: 99px; background: var(--border-strong, var(--border)); margin: 0 auto 10px; }
-.modal-mask--sheet .tform-handle { display: block; }
 .tform-title {
   width: 100%; border: 0; background: transparent; outline: none;
   font-size: 15px; font-weight: 400; resize: none; padding: 0; line-height: 1.5;
