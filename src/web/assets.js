@@ -8877,6 +8877,7 @@ function todoBuildDueGroupHead(key, count, today) {
     : '<small>' + mo + '月' + dayNo + '日</small>';
   head.innerHTML =
     '<span class="todo-due-group__cal todo-due-group__cal--' + tone + '">' +
+      (tone === 'overdue' ? '<i class="todo-due-group__overflag">逾</i>' : '') +
       '<b>' + dayNo + '</b><small>' + wk + '</small></span>' +
     '<span class="todo-due-group__name">' + label + subHTML + '</span>' +
     '<span class="todo-due-group__count">' + count + ' 件</span>' +

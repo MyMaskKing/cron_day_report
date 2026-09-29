@@ -538,7 +538,15 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .todo-due-group__cal {
   flex: none; width: 40px; height: 40px; border-radius: 11px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  line-height: 1;
+  line-height: 1; position: relative;
+}
+/* 逾期角标: 日历右上角实色红底白字「逾」, 与浅红日历底拉开 */
+.todo-due-group__overflag {
+  position: absolute; top: -5px; right: -6px;
+  font-style: normal; font-size: 9px; font-weight: 800; line-height: 1;
+  color: #fff; background: var(--danger);
+  border-radius: 7px; padding: 2px 3.5px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
 }
 .todo-due-group__cal b { font-size: 17px; font-weight: 800; }
 .todo-due-group__cal small { font-size: 9px; margin-top: 2px; opacity: .8; }
