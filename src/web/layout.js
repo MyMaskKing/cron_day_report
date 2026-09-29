@@ -2363,6 +2363,17 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tdp-today-now:hover { background: var(--hover-brand); }
 .tdp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .tdp-dow { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 0 6px; }
+/* 标题年/月：可点切换到对应选择视图 */
+.tdp-nav__pick {
+  border: none; background: none; padding: 2px 7px; margin: 0; border-radius: 8px;
+  color: inherit; font-family: inherit; font-size: 15px; font-weight: 600; line-height: 1.4; cursor: pointer;
+}
+.tdp-nav__pick:hover { background: var(--hover-brand); color: var(--brand); }
+/* 月/年选择：4 列宽格，不沿用圆形日格 */
+.tdp-mgrid, .tdp-ygrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.tdp-mgrid .tdp-cell, .tdp-ygrid .tdp-cell {
+  aspect-ratio: 1.9; border-radius: 10px; font-size: 13.5px;
+}
 .tdp-cell {
   aspect-ratio: 1; width: 100%; padding: 0;
   border: none; border-radius: 50%; background: transparent;

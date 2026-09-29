@@ -10552,6 +10552,7 @@ function todoOpenDatePicker(opts) {
   var anchor = hasVal ? opts.value : today;
   var ap = anchor.split('-');
   var viewY = parseInt(ap[0], 10), viewM = parseInt(ap[1], 10); // 月 1..12
+  var mode = 'day'; // day=日视图；month=选月；year=选年（动作对齐编辑弹窗的系统选择器）
   var selected = hasVal ? opts.value : '';
   function pad(n){ return (n < 10 ? '0' : '') + n; }
   function ymdOf(y, m, d){ return y + '-' + pad(m) + '-' + pad(d); }
@@ -10564,10 +10565,45 @@ function todoOpenDatePicker(opts) {
   function draw() {
     if (!bodyEl) return;
     var tp = today.split('-');
-    var atCurrent = viewY === parseInt(tp[0], 10) && viewM === parseInt(tp[1], 10);
-    var h = '<div class="tdp-nav">' +
+    var curY = parseInt(tp[0], 10), curM = parseInt(tp[1], 10);
+    var h;
+    if (mode === 'year') {
+      // 年视图：12 年一页，‹ › 翻页
+      var yStart = Math.floor(viewY / 12) * 12;
+      h = '<div class="tdp-nav">' +
+        '<button type="button" class="tdp-nav__btn" id="tdpPrev" aria-label="上一组">‹</button>' +
+        '<span class="tdp-nav__title">' + yStart + ' – ' + (yStart + 11) + '</span>' +
+        '<button type="button" class="tdp-nav__btn" id="tdpNext" aria-label="下一组">›</button></div>';
+      h += '<div class="tdp-ygrid">';
+      for (var yi = 0; yi < 12; yi++) {
+        var yy = yStart + yi;
+        h += '<button type="button" class="tdp-cell' + (yy === curY ? ' is-today' : '') + '" data-y="' + yy + '">' + yy + '</button>';
+      }
+      h += '</div>';
+      bodyEl.innerHTML = h;
+      return;
+    }
+    if (mode === 'month') {
+      // 月视图：本年 12 月，‹ › 翻年；标题年可点进年视图
+      h = '<div class="tdp-nav">' +
+        '<button type="button" class="tdp-nav__btn" id="tdpPrev" aria-label="上一年">‹</button>' +
+        '<span class="tdp-nav__title"><button type="button" class="tdp-nav__pick" id="tdpGoYear">' + viewY + ' 年</button></span>' +
+        '<button type="button" class="tdp-nav__btn" id="tdpNext" aria-label="下一年">›</button></div>';
+      h += '<div class="tdp-mgrid">';
+      for (var mi = 1; mi <= 12; mi++) {
+        h += '<button type="button" class="tdp-cell' + (viewY === curY && mi === curM ? ' is-today' : '') + '" data-m="' + mi + '">' + mi + ' 月</button>';
+      }
+      h += '</div>';
+      bodyEl.innerHTML = h;
+      return;
+    }
+    // 日视图：标题年、月均可点，分别进年/月选择
+    var atCurrent = viewY === curY && viewM === curM;
+    h = '<div class="tdp-nav">' +
       '<button type="button" class="tdp-nav__btn" id="tdpPrev" aria-label="上一月">‹</button>' +
-      '<span class="tdp-nav__title">' + viewY + ' 年 ' + viewM + ' 月' +
+      '<span class="tdp-nav__title">' +
+        '<button type="button" class="tdp-nav__pick" id="tdpGoYear">' + viewY + ' 年</button>' +
+        '<button type="button" class="tdp-nav__pick" id="tdpGoMonth">' + viewM + ' 月</button>' +
         (atCurrent ? '' : '<button type="button" class="tdp-today-now" id="tdpNow">回到本月</button>') +
       '</span>' +
       '<button type="button" class="tdp-nav__btn" id="tdpNext" aria-label="下一月">›</button></div>';
@@ -10625,12 +10661,20 @@ function todoOpenDatePicker(opts) {
     if (!t || !box.contains(t)) return;
     var tp = today.split('-');
     if (t.id === 'tdpClose') close();
-    else if (t.id === 'tdpPrev') shiftMonth(-1);
-    else if (t.id === 'tdpNext') shiftMonth(1);
-    else if (t.id === 'tdpNow') { viewY = parseInt(tp[0], 10); viewM = parseInt(tp[1], 10); draw(); }
+    else if (t.id === 'tdpGoYear') { mode = 'year'; draw(); }
+    else if (t.id === 'tdpGoMonth') { mode = 'month'; draw(); }
+    else if (t.id === 'tdpPrev' || t.id === 'tdpNext') {
+      var dir = t.id === 'tdpPrev' ? -1 : 1;
+      if (mode === 'day') shiftMonth(dir);
+      else if (mode === 'month') { viewY += dir; draw(); }
+      else { viewY += dir * 12; draw(); }
+    }
+    else if (t.id === 'tdpNow') { mode = 'day'; viewY = parseInt(tp[0], 10); viewM = parseInt(tp[1], 10); draw(); }
     else if (t.id === 'tdpQToday') finish(today);
     else if (t.id === 'tdpQTomorrow') finish(addDays(+tp[0], +tp[1], +tp[2], 1));
     else if (t.id === 'tdpQNextWeek') finish(addDays(+tp[0], +tp[1], +tp[2], 7));
+    else if (t.getAttribute('data-m')) { viewM = parseInt(t.getAttribute('data-m'), 10); mode = 'day'; draw(); }
+    else if (t.getAttribute('data-y')) { viewY = parseInt(t.getAttribute('data-y'), 10); mode = 'day'; draw(); }
     else if (t.getAttribute('data-d')) finish(t.getAttribute('data-d'));
   });
   document.addEventListener('keydown', onKey, true);
