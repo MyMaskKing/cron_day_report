@@ -9971,7 +9971,6 @@ function todoFormHtml(t, isNew, isChild, fopts) {
       '<button type="button" class="tf-chip2" data-dueoff="2">后天</button>' +
       '<button type="button" class="tf-chip2" id="tfDueMon">下周一</button>' +
       '<button type="button" class="tf-chip2" id="tfDueCustom">自定义</button>' +
-      '<span id="tfDueCustomBox" style="flex:0 0 auto;display:none;"></span>' +
       '<button type="button" class="tf-chip2" id="tfDueNone">无日期</button>' +
     '</div>';
   // 重复设置条（自定义频率内联在末尾）
@@ -10214,11 +10213,6 @@ function todoInitTform(box) {
       due.value = v;
       due.dispatchEvent(new Event('change', { bubbles: true }));
     }
-    // 选了快捷项：收起内联自定义日期框（与编辑弹窗互斥的呈现）
-    var cb = document.getElementById('tfDueCustomBox');
-    if (cb) cb.style.display = 'none';
-    var cu = document.getElementById('tfDueCustom');
-    if (cu) cu.classList.remove('is-on');
     sync();
   }
   function setRecur(v) {
@@ -10284,14 +10278,12 @@ function todoInitTform(box) {
   var none = document.getElementById('tfDueNone');
   if (none) none.addEventListener('click', function(){ setDue(''); closeStrips(); });
   var custom = document.getElementById('tfDueCustom');
-  var customBox = document.getElementById('tfDueCustomBox');
   if (custom) custom.addEventListener('click', function(){
-    // 与编辑弹窗一致：日期输入框内联可见，用户点击输入框再弹选择器（不再 showPicker 强弹原生）
-    if (customBox) {
-      if (due.parentNode !== customBox) customBox.appendChild(due);
-      customBox.style.display = 'inline-flex';
-    }
-    custom.classList.add('is-on');
+    // 项目自带日历选择器（手机底部 sheet / PC 居中弹窗），不再使用系统原生
+    todoOpenDatePicker({
+      value: due.value || '',
+      onPick: function(v){ setDue(v || ''); }
+    });
   });
   if (due) due.addEventListener('change', function(){
     setTimeout(function(){ sync(); closeStrips(); }, 0);
@@ -10549,6 +10541,97 @@ function todoAlarmReconcile(rows, full) {
   catch (e) {}
 }
 function todoTodayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
+// 待办日期选择器：复用 #modalMask——手机底部 sheet（modal-mask--sheet），PC 居中小弹窗。
+// 纯 UTC 日期运算，周起始为周日（与体重页 renderCalendar 一致）。
+// opts.value：当前值 YYYY-MM-DD（可空）；opts.onPick(ymd)：选中回调，''=清除日期；取消不回调。
+function todoOpenDatePicker(opts) {
+  opts = opts || {};
+  var today = todoTodayStr();
+  var hasVal = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(opts.value || '');
+  var anchor = hasVal ? opts.value : today;
+  var ap = anchor.split('-');
+  var viewY = parseInt(ap[0], 10), viewM = parseInt(ap[1], 10); // 月 1..12
+  var selected = hasVal ? opts.value : '';
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function ymdOf(y, m, d){ return y + '-' + pad(m) + '-' + pad(d); }
+  // base 日期加 n 天（UTC 进位，自动处理跨月/跨年）
+  function addDays(y, m, d, n) {
+    var dt = new Date(Date.UTC(y, m - 1, d + n));
+    return ymdOf(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+  }
+  function draw() {
+    var body = document.getElementById('modalBody');
+    if (!body) return;
+    var tp = today.split('-');
+    var atCurrent = viewY === parseInt(tp[0], 10) && viewM === parseInt(tp[1], 10);
+    var h = '<div class="tdp-nav">' +
+      '<button type="button" class="tdp-nav__btn" id="tdpPrev" aria-label="上一月">‹</button>' +
+      '<span class="tdp-nav__title">' + viewY + ' 年 ' + viewM + ' 月' +
+        (atCurrent ? '' : '<button type="button" class="tdp-today-now" id="tdpNow">回到本月</button>') +
+      '</span>' +
+      '<button type="button" class="tdp-nav__btn" id="tdpNext" aria-label="下一月">›</button></div>';
+    h += '<div class="tdp-grid">';
+    ['日','一','二','三','四','五','六'].forEach(function(d){ h += '<div class="tdp-dow">' + d + '</div>'; });
+    var firstWd = new Date(Date.UTC(viewY, viewM - 1, 1)).getUTCDay();
+    // 固定 42 格：从上月周日起；上下月补位日灰色显示，但仍可直接点选
+    var start = new Date(Date.UTC(viewY, viewM - 1, 1 - firstWd));
+    for (var i = 0; i < 42; i++) {
+      var c = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + i));
+      var ds = ymdOf(c.getUTCFullYear(), c.getUTCMonth() + 1, c.getUTCDate());
+      var cls = 'tdp-cell';
+      if (c.getUTCMonth() + 1 !== viewM) cls += ' is-out';
+      if (ds === today) cls += ' is-today';
+      if (ds === selected) cls += ' is-sel';
+      h += '<button type="button" class="' + cls + '" data-d="' + ds + '">' + c.getUTCDate() + '</button>';
+    }
+    h += '</div>';
+    h += '<div class="tdp-foot">' +
+      '<button type="button" class="tdp-quick" id="tdpQToday">今天</button>' +
+      '<button type="button" class="tdp-quick" id="tdpQTomorrow">明天</button>' +
+      '<button type="button" class="tdp-quick is-clear" id="tdpQClear">清除日期</button></div>';
+    body.innerHTML = h;
+  }
+  function shiftMonth(k) {
+    var idx = (viewY * 12 + (viewM - 1)) + k;
+    viewY = Math.floor(idx / 12); viewM = (idx % 12) + 1;
+    draw();
+  }
+  var mask = document.getElementById('modalMask');
+  function cleanup() {
+    document.removeEventListener('keydown', onKey, true);
+    obs.disconnect();
+  }
+  function finish(v) {
+    cleanup();
+    closeModal();
+    if (opts.onPick) opts.onPick(v);
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') { e.stopPropagation(); cleanup(); closeModal(); }
+  }
+  var isSheet = window.matchMedia('(max-width: 767px)').matches;
+  openModal('选择截止日期', '', isSheet ? 'modal-mask--sheet' : 'modal-mask--datepick');
+  draw();
+  // 遮罩/× 等非选择路径关闭时，同步摘掉本组件的键盘监听
+  var obs = new MutationObserver(function(){
+    if (!mask.classList.contains('show')) cleanup();
+  });
+  obs.observe(mask, { attributes: true, attributeFilter: ['class'] });
+  document.addEventListener('keydown', onKey, true);
+  var bodyEl = document.getElementById('modalBody');
+  bodyEl.addEventListener('click', function(e){
+    var t = e.target.closest ? e.target.closest('button') : null;
+    if (!t || !bodyEl.contains(t)) return;
+    var tp = today.split('-');
+    if (t.id === 'tdpPrev') shiftMonth(-1);
+    else if (t.id === 'tdpNext') shiftMonth(1);
+    else if (t.id === 'tdpNow') { viewY = parseInt(tp[0], 10); viewM = parseInt(tp[1], 10); draw(); }
+    else if (t.id === 'tdpQToday') finish(today);
+    else if (t.id === 'tdpQTomorrow') finish(addDays(+tp[0], +tp[1], +tp[2], 1));
+    else if (t.id === 'tdpQClear') finish('');
+    else if (t.getAttribute('data-d')) finish(t.getAttribute('data-d'));
+  });
+}
 // 待办趋势三线图（逐天直接计数，恒非负）：
 //   总任务=未完成+当天完成(含逾期/完成/未完成全部)；未完成=当天到期+历史逾期；完成=当天勾选完成
 var _todoChartInst = null;

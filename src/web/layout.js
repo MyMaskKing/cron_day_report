@@ -2321,6 +2321,48 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .tf-save:active { transform: scale(.96); }
+/* ============ 日期选择器（复用 #modalMask：手机底部 sheet / PC 居中弹窗） ============ */
+.modal-mask--datepick .modal-box { max-width: 320px; }
+.tdp-nav { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 2px 0 10px; }
+.tdp-nav__btn {
+  flex: none; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text);
+  font-size: 17px; line-height: 1; font-family: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.tdp-nav__btn:hover { background: var(--hover-brand); }
+.tdp-nav__title { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--text); min-width: 0; }
+.tdp-today-now {
+  flex: none; border: 1px solid var(--brand); border-radius: 999px; padding: 2px 9px;
+  background: var(--surface); color: var(--brand);
+  font-size: 12px; line-height: 1.4; font-family: inherit; cursor: pointer; white-space: nowrap;
+}
+.tdp-today-now:hover { background: var(--hover-brand); }
+.tdp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.tdp-dow { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 0 6px; }
+.tdp-cell {
+  aspect-ratio: 1; width: 100%; padding: 0;
+  border: none; border-radius: 50%; background: transparent;
+  color: var(--text); font-size: 14px; font-family: inherit; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.tdp-cell:hover { background: var(--hover-brand); }
+.tdp-cell.is-out { color: var(--muted); opacity: .4; }
+.tdp-cell.is-today { color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+.tdp-cell.is-today:hover { background: var(--hover-brand); }
+.tdp-cell.is-sel { background: var(--brand); color: #fff; }
+.tdp-cell.is-sel.is-today { color: #fff; box-shadow: none; }
+.tdp-foot { display: flex; gap: 8px; padding: 12px 0 2px; }
+.tdp-quick {
+  flex: 1; min-width: 0; padding: 8px 4px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface); color: var(--text);
+  font-size: 13.5px; font-family: inherit; cursor: pointer; white-space: nowrap;
+}
+.tdp-quick:hover { border-color: var(--brand); color: var(--brand); }
+.tdp-quick.is-clear { flex: 0 0 auto; padding: 8px 14px; color: var(--muted); }
+.modal-mask--sheet .tdp-foot { padding-bottom: calc(2px + env(safe-area-inset-bottom)); }
 @media (min-width: 641px) {
   /* PC 居中弹窗 body padding 20px：负 margin 归零，分隔线不溢出卡片 */
   .tform-barwrap { margin: 8px 0 0; }
