@@ -1592,21 +1592,9 @@ function initGlobalSwipeBack() {
       var back = crumb.querySelector('.todo-crumb__back');
       if (back) { back.click(); return; }
     }
-    // 5. 待办全屏
-    if (document.body.classList.contains('todo-fs-on')) {
-      var exitBtn = document.getElementById('exitFullscreen');
-      // 直接调 exitTodoFullscreen 兜底; 回调必须取 _todoEscCtx 里的最新值而不能传 null:
-      // applyTodoView 末尾靠 onDrawTree 重绘, 传 null 不重绘, 从完整树全屏退出后默认页会残留树 DOM。
-      // 首次进入全屏、数据加载完成前 ctx 尚为 null, 那时本就只有空壳, 不重绘也无残留。
-      if (typeof exitTodoFullscreen === 'function') {
-        try { exitTodoFullscreen(_todoEscCtx.getRows, _todoEscCtx.onDraw); return; } catch(err){ /* fallthrough */ }
-      }
-      if (exitBtn && exitBtn.__exitBound) { exitBtn.click(); return; }
-      // 兜底: 手动切回默认页
-      try { if (typeof _todoView !== 'undefined') { _todoView = 'default'; localStorage.setItem('todoView', 'default'); } } catch(err){}
-      document.body.classList.remove('todo-fs-on');
-      return;
-    }
+    // 5. 待办全屏: 非详情态(第4步已先处理详情内返回卡片列表)右滑手势不退出全屏——
+    // 五个视图行为统一, 退出全屏只走顶栏「退出」按钮, 避免浏览列表时横向滑动误退
+    if (document.body.classList.contains('todo-fs-on')) return;
     // 6. 兜底: history.back / 回 dashboard
     var canBack = false;
     try {
