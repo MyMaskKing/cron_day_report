@@ -2077,6 +2077,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tform-title {
   width: 100%; border: 0; background: transparent; outline: none;
   font-size: 15px; font-weight: 400; resize: none; padding: 0; line-height: 1.5;
+  margin-bottom: 2px; /* 覆盖全局 textarea margin-bottom:12px */
 }
 .tform-title::placeholder { color: var(--faint, var(--muted)); font-weight: 400; }
 .tform-desc {
@@ -2088,6 +2089,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tform-descwrap textarea {
   width: 100%; border: 1px solid var(--border); border-radius: 12px;
   padding: 10px 12px; resize: vertical; min-height: 72px; font-family: inherit; font-size: 14px; line-height: 1.6;
+  margin-bottom: 0; /* 覆盖全局 textarea margin-bottom:12px */
 }
 /* 值载体原生控件：视觉隐藏但仍可被 JS 赋值/触发 */
 .tform-native {
@@ -2097,7 +2099,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 /* 底部栏外壳：通宽 hairline 分隔；保存钮固定在壳右侧，不随图标滑动 */
 .tform-barwrap {
   display: flex; align-items: center; gap: 9px;
-  margin: 5px -16px -2px; padding: 5px 16px 3px;
+  margin: 5px -16px 0; padding: 5px 16px 2px;
   border-top: 1px solid var(--border);
 }
 /* 图标滚动区：占满左侧、横向滑动、无滚动条；PC 鼠标按住拖拽（grab 光标，按钮自身仍 pointer） */
@@ -2191,7 +2193,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tf-save:active { transform: scale(.96); }
 @media (min-width: 641px) {
   /* PC 居中弹窗 body padding 20px：负 margin 归零，分隔线不溢出卡片 */
-  .tform-barwrap { margin: 8px 0 -2px; }
+  .tform-barwrap { margin: 8px 0 0; }
   .tf-strip { margin: 10px 0 0; padding: 0 0 2px; }
 }
 /* ============ 编辑弹窗折叠区（三角两态常驻，展开不消失） ============ */
@@ -2462,7 +2464,7 @@ html { scrollbar-gutter: stable; }
     border-radius: 18px 18px 0 0; animation: todoSheetUp .24s ease;
   }
   .modal-mask--sheet .modal-head { padding: 12px 16px; flex: none; }
-  .modal-mask--sheet .modal-body { padding: 10px 16px 8px; overflow-y: auto; }
+  .modal-mask--sheet .modal-body { padding: 10px 16px 5px; overflow-y: auto; }
   @keyframes todoSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   /* 多选面板窄屏: 改为居中 modal 弹窗 (JS 侧已把 .mp-menu 移到 body 末尾, 彻底脱离 card 堆叠上下文,
      否则 .card 的 z-index/backdrop-filter 会封印内部 fixed 元素, 导致遮罩必然盖住面板)
