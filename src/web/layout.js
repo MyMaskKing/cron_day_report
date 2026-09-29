@@ -2100,12 +2100,13 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   margin: 5px -16px -2px; padding: 5px 16px 3px;
   border-top: 1px solid var(--border);
 }
-/* 图标滚动区：占满左侧、横向滑动、无滚动条 */
+/* 图标滚动区：占满左侧、横向滑动、无滚动条；PC 鼠标按住拖拽（grab 光标，按钮自身仍 pointer） */
 .tform-bar {
   flex: 1; min-width: 0;
   display: flex; align-items: center; gap: 4px;
-  overflow-x: auto; scrollbar-width: none;
+  overflow-x: auto; scrollbar-width: none; cursor: grab;
 }
+.tform-bar.dragging { cursor: grabbing; user-select: none; }
 .tform-bar::-webkit-scrollbar { display: none; }
 .tf-ic {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px;
@@ -2144,8 +2145,9 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 /* 图标设置条：横向滑动 chips，负 margin 通宽 */
 .tf-strip {
   display: none; align-items: center; gap: 8px; overflow-x: auto;
-  margin: 10px -16px 0; padding: 0 16px 2px; scrollbar-width: none;
+  margin: 10px -16px 0; padding: 0 16px 2px; scrollbar-width: none; cursor: grab;
 }
+.tf-strip.dragging { cursor: grabbing; user-select: none; }
 .tf-strip.show { display: flex; }
 .tf-strip::-webkit-scrollbar { display: none; }
 .tf-strip-label { flex: 0 0 auto; font-size: 13px; color: var(--muted); }

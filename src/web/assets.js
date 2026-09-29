@@ -10253,7 +10253,38 @@ function todoInitTform(box) {
   }
   if (catSel) new MutationObserver(function(){ try { syncCatChips(); } catch (e) {} })
     .observe(catSel, { childList: true, attributes: true });
+  // PC：图标栏与各设置条支持鼠标按住拖拽横向滚动（拖动超过 4px 即判拖拽、吞掉随后 click）
+  var fineMouse = window.matchMedia && window.matchMedia('(pointer:fine)').matches;
+  if (fineMouse) {
+    addDragScroll(root.querySelector('.tform-bar'));
+    Array.prototype.forEach.call(root.querySelectorAll('.tf-strip'), addDragScroll);
+  }
   sync();
+}
+// 鼠标拖拽横向滚动：mousedown 记录起点，移动超 4px 才拖拽，mouseup 拦截一次 click 防误触按钮
+function addDragScroll(el) {
+  if (!el) return;
+  var down=false,moved=false,px=0,sl=0;
+  el.addEventListener('mousedown', function(e){
+    if (e.button !== 0) return;
+    down=true;moved=false;px=e.pageX;sl=el.scrollLeft;
+  });
+  document.addEventListener('mousemove', function(e){
+    if (!down) return;
+    var d=e.pageX-px;
+    if (!moved && Math.abs(d)>4) { moved=true; el.classList.add('dragging'); }
+    if (moved) { el.scrollLeft=sl-d; e.preventDefault(); }
+  });
+  document.addEventListener('mouseup', function(){
+    if (!down) return;
+    down=false;
+    el.classList.remove('dragging');
+    if (moved) {
+      var block=function(ev){ ev.preventDefault(); ev.stopPropagation(); el.removeEventListener('click',block,true); };
+      el.addEventListener('click',block,true);
+      setTimeout(function(){ el.removeEventListener('click',block,true); },0);
+    }
+  });
 }
 function todoAlarmNative() {
   try {
