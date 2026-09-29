@@ -6546,10 +6546,10 @@ function todoRootDue(root) {
   })(root, null);
   return min;
 }
-// 按到期日分组开关：localStorage 'todoGroupByDue'；未存默认开启，"0" 关闭
+// 按到期日分组开关：localStorage 'todoGroupByDue'；未存默认关闭，"1" 开启
 function todoLoadGroupByDue() {
-  try { return localStorage.getItem('todoGroupByDue') !== '0'; }
-  catch (e) { return true; }
+  try { return localStorage.getItem('todoGroupByDue') === '1'; }
+  catch (e) { return false; }
 }
 function todoSaveGroupByDue(v) {
   try { localStorage.setItem('todoGroupByDue', v ? '1' : '0'); }
