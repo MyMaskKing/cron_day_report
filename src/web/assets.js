@@ -11212,8 +11212,8 @@ async function openTodoDetail(node, opts) {
   if (node.recurrence) meta.push('<span class="td-chip">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
   if (node.category) meta.push('<span class="td-chip td-chip--cat">' + esc(node.category) + '</span>');
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
-  // 优先级标签按节点自身: 自身为空(跟随子任务/各自截止主任务)则不显示
-  if (node.priority != null) {
+  // 优先级标签按节点自身: null/-1(无)或非法值不显示(跟随子任务/各自截止主任务同样不显示)
+  if (node.priority === 0 || node.priority === 1 || node.priority === 2) {
     var priName = ['⚪ 低', '🟡 中', '🔴 高'][node.priority];
     meta.push('<span class="td-chip">' + esc(priName) + '</span>');
   }
