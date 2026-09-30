@@ -6947,18 +6947,64 @@ function shiftDateLocal(dueDate, recurrence, jumpToCurrent, todayStr, interval, 
   }
   return dueDate;
 }
-// 分类计数(顶层任务口径): 目录展示与卡片列表可见性一致 —— 只数顶层任务
+// 分类计数(叶子口径, 与 services countStats 同一套统计逻辑):
 // 返回 { __all__: N, __none__: N, '工作': N, ... }
-// 抽屉分类计数: 仅统计未完成的顶层任务(与时间筛选今日/逾期等未完成口径一致; 已完成不计)
+// 仅统计最低层叶子: 有子女的父任务不计、child_due 空壳不计、已完成祖先枝下不计;
+// 日期/分类均沿 parent 链继承解析(自身优先; child_due 容器隔断分类继承)——
+// 旧模式叶子继承主任务日期/分类, 与历史只数顶层主任务的结果一致
 function todoCatCounts(rows) {
+  var byId = {};
+  rows.forEach(function(r){ byId[r.id] = r; });
+  var hasChild = {}; // 有子任务的父 id 集合: 非叶子不计数
+  rows.forEach(function(r){ if (r.parent_id != null) hasChild[r.parent_id] = 1; });
+  // 是否存在已完成祖先: 已结束枝下后代状态保留但不占计数(同 countStats)
+  function hasDoneAncestor(r) {
+    var cur = r, guard = {};
+    while (cur.parent_id != null && byId[cur.parent_id]) {
+      if (guard[cur.parent_id]) return false; // 防御异常环
+      guard[cur.parent_id] = 1;
+      cur = byId[cur.parent_id];
+      if (cur.done) return true;
+    }
+    return false;
+  }
+  // 有效截止日期: 自身优先, 否则沿 parent 链继承(复刻 services effDueOf)
+  function effDue(r) {
+    var cur = r, guard = {};
+    while (cur) {
+      if (cur.due_date) return cur.due_date;
+      if (cur.parent_id == null) break;
+      if (guard[cur.parent_id]) break;
+      guard[cur.parent_id] = 1;
+      cur = byId[cur.parent_id];
+    }
+    return null;
+  }
+  // 有效分类: 自身优先, 否则沿链继承; child_due 容器隔断(与 todoPruneByCategory 命中口径一致)
+  function effCat(r) {
+    var cur = r, guard = {};
+    while (cur) {
+      if (cur.child_due) return null;
+      if (cur.category) return cur.category;
+      if (cur.parent_id == null) break;
+      if (guard[cur.parent_id]) break;
+      guard[cur.parent_id] = 1;
+      cur = byId[cur.parent_id];
+    }
+    return null;
+  }
   var m = { __all__: 0, __none__: 0 };
   rows.forEach(function(r){
-    if (r.parent_id != null) return;
-    if (r.shared_cat_id != null) return; // 共享分类任务不计入个人文本分类
+    if (hasChild[r.id]) return; // 非叶子(父任务)跳过
+    if (r.child_due) return; // 分组空壳跳过
+    if (hasDoneAncestor(r)) return;
     if (r.done) return; // 已完成任务不占分类计数
+    if (r.shared_cat_id != null) return; // 共享分类任务不计入个人文本分类
+    if (!effDue(r)) return; // 无有效截止日期(备忘录)不计
     m.__all__++;
-    if (!r.category) m.__none__++;
-    else { m[r.category] = (m[r.category] || 0) + 1; }
+    var c = effCat(r);
+    if (!c) m.__none__++;
+    else { m[c] = (m[c] || 0) + 1; }
   });
   return m;
 }
