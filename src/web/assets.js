@@ -6947,62 +6947,37 @@ function shiftDateLocal(dueDate, recurrence, jumpToCurrent, todayStr, interval, 
   }
   return dueDate;
 }
-// 分类计数(叶子口径, 与 services countStats 同一套统计逻辑):
-// 返回 { __all__: N, __none__: N, '工作': N, ... }
-// 仅统计最低层叶子: 有子女的父任务不计、child_due 空壳不计、已完成祖先枝下不计;
-// 日期/分类均沿 parent 链继承解析(自身优先; child_due 容器隔断分类继承)——
-// 旧模式叶子继承主任务日期/分类, 与历史只数顶层主任务的结果一致
+// 分类计数(口径跟随当前视图):
+//   卡片视图(card/default): 数顶层主任务 —— 画面展示多少张主任务卡片就是多少, 一棵任务树算 1
+//   其余视图(手风琴/速览/完整树/时间轴): 子任务已暴露, 数末端叶子 —— 与速览 renderTodoFlat 的叶子同口径
+// 返回 { __all__: N, __none__: N, '工作': N, ... }; 仅未完成任务占计数(已完成不计)
 function todoCatCounts(rows) {
-  var byId = {};
-  rows.forEach(function(r){ byId[r.id] = r; });
-  var hasChild = {}; // 有子任务的父 id 集合: 非叶子不计数
-  rows.forEach(function(r){ if (r.parent_id != null) hasChild[r.parent_id] = 1; });
-  // 是否存在已完成祖先: 已结束枝下后代状态保留但不占计数(同 countStats)
-  function hasDoneAncestor(r) {
-    var cur = r, guard = {};
-    while (cur.parent_id != null && byId[cur.parent_id]) {
-      if (guard[cur.parent_id]) return false; // 防御异常环
-      guard[cur.parent_id] = 1;
-      cur = byId[cur.parent_id];
-      if (cur.done) return true;
-    }
-    return false;
-  }
-  // 有效截止日期: 自身优先, 否则沿 parent 链继承(复刻 services effDueOf)
-  function effDue(r) {
-    var cur = r, guard = {};
-    while (cur) {
-      if (cur.due_date) return cur.due_date;
-      if (cur.parent_id == null) break;
-      if (guard[cur.parent_id]) break;
-      guard[cur.parent_id] = 1;
-      cur = byId[cur.parent_id];
-    }
-    return null;
-  }
-  // 有效分类: 自身优先, 否则沿链继承; child_due 容器隔断(与 todoPruneByCategory 命中口径一致)
-  function effCat(r) {
-    var cur = r, guard = {};
-    while (cur) {
-      if (cur.child_due) return null;
-      if (cur.category) return cur.category;
-      if (cur.parent_id == null) break;
-      if (guard[cur.parent_id]) break;
-      guard[cur.parent_id] = 1;
-      cur = byId[cur.parent_id];
-    }
-    return null;
-  }
   var m = { __all__: 0, __none__: 0 };
-  rows.forEach(function(r){
-    if (hasChild[r.id]) return; // 非叶子(父任务)跳过
-    if (r.child_due) return; // 分组空壳跳过
-    if (hasDoneAncestor(r)) return;
-    if (r.done) return; // 已完成任务不占分类计数
-    if (r.shared_cat_id != null) return; // 共享分类任务不计入个人文本分类
-    if (!effDue(r)) return; // 无有效截止日期(备忘录)不计
+  var cardView = (typeof _todoView === 'undefined' || _todoView === 'default' || _todoView === 'card');
+  if (cardView) {
+    rows.forEach(function(r){
+      if (r.parent_id != null) return;
+      if (r.shared_cat_id != null) return; // 共享分类任务不计入个人文本分类
+      if (r.done) return; // 已完成任务不占分类计数
+      m.__all__++;
+      if (!r.category) m.__none__++;
+      else { m[r.category] = (m[r.category] || 0) + 1; }
+    });
+    return m;
+  }
+  // 叶子口径: 与速览同套叶子(todoEachLeaf; 自身或祖先完成均视为已完成);
+  // 分类沿 parent 链继承、遇 child_due 容器隔断(与 todoPruneByCategory 命中口径一致)
+  todoEachLeaf(todoBuildTree(rows), 'root', function(it){
+    var n = it.node;
+    if (it.done) return; // 已完成(含被完成祖先收编的叶子)不计
+    if (n.shared_cat_id != null) return; // 共享分类不计入个人文本分类
+    if (n.child_due) return; // 分组空壳无文本分类归属
     m.__all__++;
-    var c = effCat(r);
+    var c = null;
+    for (var cur = n; cur; cur = cur._parent){
+      if (cur.child_due) break;
+      if (cur.category) { c = cur.category; break; }
+    }
     if (!c) m.__none__++;
     else { m[c] = (m[c] || 0) + 1; }
   });
@@ -7270,20 +7245,37 @@ function renderTodoDrawer(rows, onSelect) {
   var foot = document.getElementById('drawerFoot');
   if (foot) foot.textContent = '共 ' + cats.length + ' 个分类' + (scs.length ? ' · ' + scs.length + ' 个共享' : '');
 }
-// 时间维度顶层任务计数(顶层口径, 与 todoFilterTrees 同): 全部/计划中/今日+逾期/今日/逾期/未来/备忘录/已完成
-// 只统计顶层任务, 日期取顶层显示日期 todoRootDue(旧模式=自身 due_date; 新模式=最早到期子任务), 不重复计数
-// 桶互斥: 已完成任务归入 done, 不再计入 overdue/today/future/memo
-// cur = today + overdue (与 filter=cur 的口径一致, 已完成不计入)
-// planned = 有截止日期(全部-备忘录), 与 todoRootPassFilter 的 planned 同口径(含已完成有日期任务)
+// 时间维度计数(口径跟随当前视图):
+//   卡片视图(card/default): 顶层树口径(与 todoFilterTrees 同) —— 一棵主任务树算 1, 日期取 todoRootDue
+//   其余视图(手风琴/速览/完整树/时间轴): 叶子口径 —— 与速览 renderTodoFlat 暴露的叶子一一对应,
+//     日期取 todoDetailEffDue(沿 parent 链继承); 桶互斥: 已完成(含祖先完成)只进 done
+// 桶: 全部/计划中/今日+逾期/今日/逾期/未来/备忘录/已完成
 function todoTimeCounts(rows) {
   var today = new Date(Date.now() + 8*3600*1000).toISOString().slice(0,10);
   var m = { all: 0, planned: 0, cur: 0, today: 0, overdue: 0, future: 0, memo: 0, done: 0 };
-  todoBuildTree(rows).forEach(function(r){
+  var cardView = (typeof _todoView === 'undefined' || _todoView === 'default' || _todoView === 'card');
+  if (cardView) {
+    todoBuildTree(rows).forEach(function(r){
+      m.all++;
+      if (r.done) { m.done++; return; } // 已完成仅进 done 桶; 计划中等未完成口径不计
+      if (r.due_date || r.child_due) m.planned++; // 计划中(仅未完成): 顶层自身有日期 或 child_due 容器(子任务带日期)
+      var due = todoRootDue(r);
+      if (!due) { if (!r.child_due) m.memo++; return; } // child_due 空容器(分组壳)不计备忘录
+      if (due === today) { m.today++; m.cur++; }
+      else if (due < today) { m.overdue++; m.cur++; }
+      else m.future++;
+    });
+    return m;
+  }
+  // 叶子口径: 收集规则与 renderTodoFlat 完全一致(含顶层 child_due 空壳排除)
+  todoEachLeaf(todoBuildTree(rows), 'root', function(it){
+    var n = it.node;
+    if (n.parent_id == null && !(n.children || []).length && n.child_due) return;
     m.all++;
-    if (r.done) { m.done++; return; } // 已完成仅进 done 桶; 计划中等未完成口径不计
-    if (r.due_date || r.child_due) m.planned++; // 计划中(仅未完成): 顶层自身有日期 或 child_due 容器(子任务带日期)
-    var due = todoRootDue(r);
-    if (!due) { if (!r.child_due) m.memo++; return; } // child_due 空容器(分组壳)不计备忘录
+    if (it.done) { m.done++; return; }
+    var due = todoDetailEffDue(n);
+    if (!due) { if (!n.child_due) m.memo++; return; } // child_due 壳(非顶层)不占备忘录
+    m.planned++;
     if (due === today) { m.today++; m.cur++; }
     else if (due < today) { m.overdue++; m.cur++; }
     else m.future++;
