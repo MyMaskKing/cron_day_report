@@ -8412,12 +8412,18 @@ function renderTodoTimeline(container, trees, opts) {
       : crossYear ? date.slice(2,4) + '/' + date.slice(5,7) + '/' + date.slice(8,10)
       : (isRel ? human : mdCN);
     label.appendChild(big);
-    // 汉字主词时小字补 M月D日；其余显示星期，未来非汉字再附「· N天后」
+    // 汉字主词时小字补 M月D日；其余小字显示星期（逾期显示「逾期 N 天」）
     var wkText = _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()];
     if (!isRel && diff != null && diff < 0) wkText = '逾期 ' + (-diff) + ' 天';
-    else if (!isRel && diff != null && diff > 0) wkText += ' · ' + diff + '天后';
     label.appendChild(document.createTextNode(isNone ? '无日期'
       : (isRel ? mdCN : wkText)));
+    // 方案C：未来非汉字且 ≤30 天，倒计时单列第三行；超过 30 天只留周X
+    if (!isNone && !isRel && diff != null && diff > 0 && diff <= 30) {
+      var cd = document.createElement('span');
+      cd.style.display = 'block';
+      cd.textContent = diff + '天后';
+      label.appendChild(cd);
+    }
     row.appendChild(label);
 
     var rail = document.createElement('div');
