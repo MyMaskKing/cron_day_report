@@ -8849,11 +8849,27 @@ function todoAttachDoneLinkToTip(container, root, opts) {
       opts.onEdit(root);
     });
   }
+  // "删除主任务"同排同级同样式文字链, 点击走 onDel(confirmDeleteTodo 二次确认)
+  var delLink = null;
+  if (opts.onDel) {
+    delLink = document.createElement('button');
+    delLink.type = 'button';
+    delLink.className = 'todo-detail-del';
+    delLink.textContent = '✕ 删除主任务';
+    delLink.addEventListener('click', function(e){
+      e.stopPropagation();
+      opts.onDel(root);
+    });
+  }
   if (tipEl) {
     // 命中提示文: 追加到文字流末尾, 与提示同段同行
     link.style.cssText = 'background:none;border:0;padding:2px 6px;margin-left:8px;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;';
     tipEl.appendChild(link);
     if (editLink) { editLink.style.cssText = link.style.cssText; tipEl.appendChild(editLink); }
+    if (delLink) {
+      delLink.style.cssText = link.style.cssText;
+      tipEl.appendChild(delLink);
+    }
   } else {
     // 无提示文兜底: 独立一行, 靠右轻量文字链(免密页/报告页/全屏视图)
     link.style.cssText = 'background:none;border:0;padding:6px 8px;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;';
@@ -8862,6 +8878,10 @@ function todoAttachDoneLinkToTip(container, root, opts) {
     wrap.style.cssText = 'text-align:right;margin:12px 0 4px;';
     wrap.appendChild(link);
     if (editLink) { editLink.style.cssText = link.style.cssText; wrap.appendChild(editLink); }
+    if (delLink) {
+      delLink.style.cssText = link.style.cssText;
+      wrap.appendChild(delLink);
+    }
     homeBox.appendChild(wrap);
   }
 }
@@ -9155,16 +9175,6 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
     }
     if (!opts.hideDone && data.done.length) {
       todoMountDoneZone(container, data.done, opts, '已完成', '仅本任务 · 详情内沉底');
-    }
-    // 底部危险操作: 删除整棵主任务(复用列表 onDel → confirmDeleteTodo, 删除成功自动退回列表)
-    if (opts.onDel) {
-      var delWrap = document.createElement('div');
-      delWrap.style.cssText = 'text-align:center;padding:20px 0 10px;';
-      var delBtn = document.createElement('button');
-      delBtn.type = 'button'; delBtn.className = 'btn sm danger'; delBtn.textContent = '删除主任务';
-      delBtn.addEventListener('click', function () { opts.onDel(root); });
-      delWrap.appendChild(delBtn);
-      container.appendChild(delWrap);
     }
   }
   todoPersistDetail(root.id);
