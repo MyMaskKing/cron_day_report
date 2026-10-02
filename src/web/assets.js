@@ -8412,9 +8412,12 @@ function renderTodoTimeline(container, trees, opts) {
       : crossYear ? date.slice(2,4) + '/' + date.slice(5,7) + '/' + date.slice(8,10)
       : (isRel ? human : mdCN);
     label.appendChild(big);
-    // 汉字主词时小字补 M月D日；其余显示星期
+    // 汉字主词时小字补 M月D日；其余显示星期，未来非汉字再附「· N天后」
+    var wkText = _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()];
+    if (!isRel && diff != null && diff < 0) wkText = '逾期 ' + (-diff) + ' 天';
+    else if (!isRel && diff != null && diff > 0) wkText += ' · ' + diff + '天后';
     label.appendChild(document.createTextNode(isNone ? '无日期'
-      : (isRel ? mdCN : _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()])));
+      : (isRel ? mdCN : wkText)));
     row.appendChild(label);
 
     var rail = document.createElement('div');
