@@ -8954,10 +8954,11 @@ function todoBuildDueGroupHead(key, count, today) {
   var dayNo = parseInt(key.slice(8, 10), 10);
   var wk = _CN_WEEKDAY[new Date(key + 'T00:00:00Z').getUTCDay()];
   // 副标题补标签缺失信息：汉字相对词(今天/本周X)有星期缺日期 → M月D日；
-  // 数字日期(10/22)有月日缺星期 → M月周X（不重复标签里的日号）
+  // 数字日期(10/22)主标签已含月日、日历方块已有周X，未来 → M月·N天后（周X不再重复）；
+  // 逾期/无 today 无法用「天后」，仍显示 M月·周X
   // 本常量是模板字符串，判断数字开头用 [0-9]，不要写 \d（反斜杠会被剥掉变成 /^d/）
   var subHTML = /^[0-9]/.test(label)
-    ? '<small>' + mo + '月 · ' + wk + '</small>'
+    ? '<small>' + mo + '月 · ' + ((diff != null && diff > 0) ? diff + '天后' : wk) + '</small>'
     : '<small>' + mo + '月' + dayNo + '日</small>';
   head.innerHTML =
     '<span class="todo-due-group__cal todo-due-group__cal--' + tone + '">' +
