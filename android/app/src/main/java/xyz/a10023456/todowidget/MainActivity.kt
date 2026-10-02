@@ -393,18 +393,43 @@ private fun AppShell(
 
     // 小组件再次点入的深链：同步选中对应底部 Tab（待办/基金/体重/资产）
     androidx.compose.runtime.DisposableEffect(Unit) {
+        // 强制重新加载：同一深链 URL 第二次点入也要重跑网页 init（?edit/?addChild 弹窗）。
+        // wv.url 在 replaceState 清参后不可靠，直接 loadUrl；加时间戳 nonce 保证同 URL 也必重载，
+        // 页面只认 root/edit/addChild 参数、replaceState(pathname) 会把 nonce 一起清掉。
+        fun loadDeepLink(wv: WebView, url: String) {
+            CookieManager.getInstance().setCookie(baseUrl, "app_shell=1; Path=/")
+            val sep = if (url.contains('?')) '&' else '?'
+            wv.loadUrl("$url${sep}_t=${System.currentTimeMillis()}", APP_HEADERS)
+            lastLoadedUrl = url // 记逻辑 URL（不含 nonce），供 update 去重
+        }
         DeepLinkBus.listener = { url ->
             targetUrl = url
             selected = tabIndexFor(url)
             showMe = false
-            // 强制重新加载：同一深链 URL 第二次点入也要重跑网页 init（?edit/?addChild 弹窗）。
-            // wv.url 在 replaceState 清参后不可靠，直接 loadUrl；加时间戳 nonce 保证同 URL 也必重载，
-            // 页面只认 root/edit/addChild 参数、replaceState(pathname) 会把 nonce 一起清掉。
             webViewRef?.let { wv ->
-                CookieManager.getInstance().setCookie(baseUrl, "app_shell=1; Path=/")
-                val sep = if (url.contains('?')) '&' else '?'
-                wv.loadUrl("$url${sep}_t=${System.currentTimeMillis()}", APP_HEADERS)
-                lastLoadedUrl = url // 记逻辑 URL（不含 nonce），供 update 去重
+                // 详情深链去重：网页当前已在同一主任务详情+同一查看弹层时不重载，
+                // 否则 WebView 历史栈多压一条，退出详情要按两次返回。
+                val targetUri = runCatching { Uri.parse(url) }.getOrNull()
+                val targetRoot = targetUri?.getQueryParameter("root")
+                val targetEdit = targetUri?.getQueryParameter("edit")
+                if (targetRoot != null || targetEdit != null) {
+                    wv.evaluateJavascript(
+                        "window._appTodoDeeplinkState ? window._appTodoDeeplinkState() : 'null'"
+                    ) { cur ->
+                        val same = runCatching {
+                            if (cur == null || cur == "null") false
+                            else {
+                                val o = org.json.JSONObject(cur)
+                                fun field(k: String): String? =
+                                    if (o.isNull(k)) null else o.get(k).toString()
+                                field("root") == targetRoot && field("view") == targetEdit
+                            }
+                        }.getOrDefault(false)
+                        if (!same) loadDeepLink(wv, url)
+                    }
+                } else {
+                    loadDeepLink(wv, url)
+                }
             }
         }
         onDispose { DeepLinkBus.listener = null }

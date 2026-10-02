@@ -1135,6 +1135,8 @@ function closeModal() {
   var wasOpen = mask.classList.contains('show');
   // 任务表单关闭(保存或取消)即清草稿; 进程被杀不经过这里, 草稿得以保留
   try { if (typeof window.__todoDraftClose === 'function') window.__todoDraftClose(); } catch (e) {}
+  // 查看弹层随任意路径关闭(X/遮罩/Esc/跳编辑/勾选完成)同步清除当前 id
+  _todoViewingId = null;
   mask.classList.remove('show');
   if (wasOpen) unlockBodyScroll();
   // 弹窗关闭后按当前滚动位置恢复原生下拉刷新开关
@@ -6404,6 +6406,9 @@ if (document.getElementById('todoFullscreen')) {
 var _todoEscCtx = { getRows: null, onDraw: null };
 // 卡片模式下打开的顶层任务 id；null 表示卡片列表
 var _todoDetailRootId = null;
+// 当前「任务详情」查看弹层(openTodoDetail)的任务 id；无弹层为 null。
+// 供原生壳深链去重：已在同详情时不再整页 loadUrl，避免历史栈多一层要返回两次
+var _todoViewingId = null;
 // 详情视图持久化(App 切后台进程被系统回收后, restoreState 只恢复历史栈不恢复 JS 运行时状态,
 // 页面会重新加载回卡片列表 → 打开的详情连同底部子任务输入框一起消失): 按页面路径隔离,
 // 渲染时写入, 退出详情清除, 重载首帧校验该 id 仍是当前树的顶层任务后恢复
@@ -8389,18 +8394,24 @@ function renderTodoTimeline(container, trees, opts) {
     var diff = isNone ? null : todoDateDiff(date, today);
     if (diff != null && diff < 0) row.classList.add('is-over');
     else if (diff === 0) row.classList.add('is-today');
+    // 未来日: 明天/本周X 与卡片视图同口径显示汉字并标黄(数字 MM/DD 不转换)
+    var human = (!isNone && diff != null && diff > 0) ? todoDateLabel(date, today) : '';
+    var isHumanSoon = !!(human && (diff === 1 || human.charAt(0) === '本'));
+    if (isHumanSoon) row.classList.add('is-soon');
 
     var label = document.createElement('div');
     label.className = 'tl-day__label';
     var big = document.createElement('b');
     // 跨年（日期年份 != 今年）显示 YY/MM/DD；today 缺失无法判断时按同年显示
     var crossYear = !isNone && today.length >= 10 && date.slice(0,4) !== today.slice(0,4);
+    var mdCN = isNone ? '' : (+date.slice(5,7)) + '月' + (+date.slice(8,10)) + '日';
     big.textContent = isNone ? '未安排'
       : crossYear ? date.slice(2,4) + '/' + date.slice(5,7) + '/' + date.slice(8,10)
-      : (+date.slice(5,7)) + '月' + (+date.slice(8,10)) + '日';
+      : (isHumanSoon ? human : mdCN);
     label.appendChild(big);
+    // 汉字主词时小字补数字日期；其余保持星期
     label.appendChild(document.createTextNode(isNone ? '无日期'
-      : (diff === 0 ? '今天' : _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()])));
+      : (diff === 0 ? '今天' : (isHumanSoon ? mdCN : _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()]))));
     row.appendChild(label);
 
     var rail = document.createElement('div');
@@ -9138,6 +9149,16 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
     }
     if (!opts.hideDone && data.done.length) {
       todoMountDoneZone(container, data.done, opts, '已完成', '仅本任务 · 详情内沉底');
+    }
+    // 底部危险操作: 删除整棵主任务(复用列表 onDel → confirmDeleteTodo, 删除成功自动退回列表)
+    if (opts.onDel) {
+      var delWrap = document.createElement('div');
+      delWrap.style.cssText = 'text-align:center;padding:20px 0 10px;';
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button'; delBtn.className = 'btn sm danger'; delBtn.textContent = '删除主任务';
+      delBtn.addEventListener('click', function () { opts.onDel(root); });
+      delWrap.appendChild(delBtn);
+      container.appendChild(delWrap);
     }
   }
   todoPersistDetail(root.id);
@@ -11326,6 +11347,7 @@ async function openTodoDetail(node, opts) {
     ? '<button type="button" class="btn sm" id="tdEditBtn">' + ICONS.edit + ' 编辑</button>'
     : '';
   openModal('📝 任务详情', headActions + body, 'modal-mask--lg');
+  _todoViewingId = node.id;
   mdTaskToBoxes(document.getElementById('tdNote'));
   if (opts.editable) {
     document.getElementById('tdEditBtn').addEventListener('click', function(){
@@ -11366,6 +11388,10 @@ async function openTodoDetail(node, opts) {
     box.innerHTML = '<div class="muted" style="font-size:13px;">附件加载失败</div>';
   }
 }
+// 原生壳深链去重查询：当前主任务详情 root 与查看弹层 view（无则对应字段为 null）
+window._appTodoDeeplinkState = function () {
+  return JSON.stringify({ root: _todoDetailRootId, view: _todoViewingId });
+};
 `;
 
 // ============ 待办清单页（登录态） ============

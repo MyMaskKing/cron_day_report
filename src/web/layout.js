@@ -1585,6 +1585,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .tl-day__label b { display: block; font-size: 13.5px; color: var(--text-strong); }
 .tl-day.is-over .tl-day__label b { color: var(--danger); }
 .tl-day.is-today .tl-day__label b { color: var(--brand); }
+.tl-day.is-soon .tl-day__label b { color: var(--warn); }
 .tl-day.is-empty .tl-day__label { opacity: .55; }
 .tl-day.is-empty .tl-day__label b { font-size: 12.5px; font-weight: 500; color: var(--muted-2); }
 /* 轴竖线 + 节点圆点（中线对齐） */
