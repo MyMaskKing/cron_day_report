@@ -8421,6 +8421,7 @@ function renderTodoTimeline(container, trees, opts) {
     if (!isNone && !isRel && diff != null && diff > 0 && diff <= 30) {
       var cd = document.createElement('span');
       cd.style.display = 'block';
+      cd.style.color = 'var(--faint)';
       cd.textContent = diff + '天后';
       label.appendChild(cd);
     }
