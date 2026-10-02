@@ -1596,6 +1596,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .tl-dot { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2.5px solid var(--brand); z-index: 2; }
 .tl-day.is-over .tl-dot { border-color: var(--danger); }
 .tl-day.is-today .tl-dot { width: 15px; height: 15px; top: 3px; background: var(--brand); border-color: transparent; box-shadow: 0 0 0 4px var(--brand-tint); }
+.tl-day.is-soon .tl-dot { width: 14px; height: 14px; top: 3.5px; background: var(--warn); border-color: transparent; box-shadow: 0 0 0 4px var(--warn-bg); }
 .tl-day.is-empty .tl-dot { width: 8px; height: 8px; top: 7px; border-width: 2px; border-color: var(--faint); }
 .tl-day__cards { display: flex; flex-direction: column; gap: 10px; padding: 0 0 18px 14px; }
 .tl-day.is-empty .tl-day__cards { padding-bottom: 14px; }

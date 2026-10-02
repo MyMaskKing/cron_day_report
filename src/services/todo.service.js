@@ -6,7 +6,7 @@
  */
 
 // ============ 日期 label（网页 UI 与日报共用的显示语义） ============
-// 语义: 今天/昨天/明天 → 中文; 本周内(ISO 周, 周一为首) → 本周一~本周日;
+// 语义: 昨天/今天/明天/后天 → 中文; 本周内(ISO 周, 周一为首) → 本周一~本周日;
 //       范围外: 本年 MM/DD, 跨年 yy/MM/DD(2 位年, 如 26/08/01)
 // 输入均为 YYYY-MM-DD 北京日历串; 空/非法返回 ''
 // 与前端 COMMON_JS 里的同名函数逻辑必须保持一致(唯一事实源)
@@ -21,6 +21,7 @@ function todoDateLabel(dueDate, today) {
   if (diff === 0) return '今天';
   if (diff === -1) return '昨天';
   if (diff === 1) return '明天';
+  if (diff === 2) return '后天';
   // ISO 周: 周一为首。today 的周一距 today 的天数 = (dow+6)%7, dow: 0=周日..6=周六
   const tDow = new Date(tMs).getUTCDay();
   const monOff = (tDow + 6) % 7;

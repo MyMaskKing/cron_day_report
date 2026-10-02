@@ -1441,7 +1441,7 @@ function bindQuickLogin(kind) {
 // 依赖 Chart.js v4 的 ResizeObserver：canvas 移入新尺寸容器后自动重绘，无需操作图表实例
 // (注意: initChartFullscreen 定义在本片段中段, 见下方同名函数)
 // ============ 日期人性化 label(与后端 services/todo.service.js 逻辑一致) ============
-// 今天/昨天/明天 → 中文; 本周内(ISO 周, 周一为首) → 本周一~本周日; 否则 MM/DD
+// 昨天/今天/明天/后天 → 中文; 本周内(ISO 周, 周一为首) → 本周一~本周日; 否则 MM/DD
 var _CN_WEEKDAY = ['周日','周一','周二','周三','周四','周五','周六'];
 function todoDateLabel(dueDate, today) {
   if (!dueDate || dueDate.length < 10) return '';
@@ -1453,6 +1453,7 @@ function todoDateLabel(dueDate, today) {
   if (diff === 0) return '今天';
   if (diff === -1) return '昨天';
   if (diff === 1) return '明天';
+  if (diff === 2) return '后天';
   var tDow = new Date(tMs).getUTCDay();
   var monOff = (tDow + 6) % 7;
   var monMs = tMs - monOff * 86400000;
@@ -1470,8 +1471,8 @@ function todoDateDiff(dueDate, today) {
   return Math.round((dMs - tMs) / 86400000);
 }
 // 日期 chip(四级语义): 逾期(未完成且过期)=红底"逾期 N 天"; 今天=品牌紫实心;
-//   临近=琥珀, 仅"明天/本周X"这类汉字相对日期(数字 MM/DD 即使只差几天也保持中性灰);
-//   更远=中性灰; 后两者附"· N天后"(今天/明天 label 已达意, 不附)。
+//   临近=琥珀, 仅"明天/后天/本周X"这类汉字相对日期(数字 MM/DD 即使只差几天也保持中性灰);
+//   更远=中性灰; 后两者附"· N天后"(今天/明天/后天 label 已达意, 不附)。
 //   已完成恒中性且不附天数。无日期返回 null。
 function todoDueChip(dueDate, today, done, icon) {
   if (!dueDate) return null;
@@ -1482,10 +1483,10 @@ function todoDueChip(dueDate, today, done, icon) {
   var label = todoDateLabel(dueDate, today);
   var cls = 'todo-chip due';
   if (!done && diff === 0) cls += ' today';
-  else if (!done && (diff === 1 || label.charAt(0) === '本')) cls += ' soon';
+  else if (!done && (diff === 1 || label === '后天' || label.charAt(0) === '本')) cls += ' soon';
   else if (!done && diff != null) cls += ' future';
   var html = (icon || ICONS.calendar) + esc(label);
-  if (!done && diff != null && diff >= 2) html += ' <span class="due-days">· ' + diff + '天后</span>';
+  if (!done && diff != null && diff >= 2 && label !== '后天') html += ' <span class="due-days">· ' + diff + '天后</span>';
   return { cls: cls, html: html };
 }
 
@@ -7909,8 +7910,8 @@ function renderTodoTree(container, trees, opts) {
   todoRestoreInlineAdd(container);
 }
 // 手风琴专用截止日期 chip（手机空间有限的精简口径）:
-// 未完成逾期=红"逾期 N 天"; 其余 label 复用 todoDateLabel——今天/明天、本周X、
-// 本年 MM/DD、跨年 YY/MM/DD；配色同卡片视图(今天紫、明天/本周X琥珀)；
+// 未完成逾期=红"逾期 N 天"; 其余 label 复用 todoDateLabel——今天/明天/后天、本周X、
+// 本年 MM/DD、跨年 YY/MM/DD；配色同卡片视图(今天紫、明天/后天/本周X琥珀)；
 // 不显示"N天后"、不带日历图标；已完成恒中性。无日期返回 null。
 function todoAccDueChip(dueDate, today, done) {
   if (!dueDate) return null;
@@ -7919,10 +7920,10 @@ function todoAccDueChip(dueDate, today, done) {
     return { cls: 'todo-chip due overdue', html: '逾期 ' + (-diff) + ' 天' };
   }
   var label = todoDateLabel(dueDate, today);
-  // 配色与卡片视图 todoDueChip 对齐：今天=today 紫；明天/本周X=soon 琥珀；其余中性灰
+  // 配色与卡片视图 todoDueChip 对齐：今天=today 紫；明天/后天/本周X=soon 琥珀；其余中性灰
   var cls = 'todo-chip due';
   if (!done && diff === 0) cls += ' today';
-  else if (!done && (diff === 1 || label.charAt(0) === '本')) cls += ' soon';
+  else if (!done && (diff === 1 || label === '后天' || label.charAt(0) === '本')) cls += ' soon';
   return { cls: cls, html: esc(label) };
 }
 // 手风琴视图：仪表盘式圆点行（行间细分隔线、无卡片框），悬停浮现操作组；
@@ -8394,10 +8395,12 @@ function renderTodoTimeline(container, trees, opts) {
     var diff = isNone ? null : todoDateDiff(date, today);
     if (diff != null && diff < 0) row.classList.add('is-over');
     else if (diff === 0) row.classList.add('is-today');
-    // 未来日: 明天/本周X 与卡片视图同口径显示汉字并标黄(数字 MM/DD 不转换)
-    var human = (!isNone && diff != null && diff > 0) ? todoDateLabel(date, today) : '';
-    var isHumanSoon = !!(human && (diff === 1 || human.charAt(0) === '本'));
-    if (isHumanSoon) row.classList.add('is-soon');
+    // 相对日期汉字(与卡片视图同口径): 昨天/今天/明天/后天/本周X; 数字 MM/DD 不转换
+    var human = (!isNone && diff != null) ? todoDateLabel(date, today) : '';
+    var isRel = !!(human && ((diff >= -1 && diff <= 2) || human.charAt(0) === '本'));
+    // 未来汉字(明天/后天/本周X)标黄; 昨天随 is-over 标红、今天随 is-today 标紫
+    var isSoonWord = !!(isRel && diff != null && diff > 0 && (diff <= 2 || human.charAt(0) === '本'));
+    if (isSoonWord) row.classList.add('is-soon');
 
     var label = document.createElement('div');
     label.className = 'tl-day__label';
@@ -8407,11 +8410,11 @@ function renderTodoTimeline(container, trees, opts) {
     var mdCN = isNone ? '' : (+date.slice(5,7)) + '月' + (+date.slice(8,10)) + '日';
     big.textContent = isNone ? '未安排'
       : crossYear ? date.slice(2,4) + '/' + date.slice(5,7) + '/' + date.slice(8,10)
-      : (isHumanSoon ? human : mdCN);
+      : (isRel ? human : mdCN);
     label.appendChild(big);
-    // 汉字主词时小字补数字日期；其余保持星期
+    // 汉字主词时小字补 M月D日；其余显示星期
     label.appendChild(document.createTextNode(isNone ? '无日期'
-      : (diff === 0 ? '今天' : (isHumanSoon ? mdCN : _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()]))));
+      : (isRel ? mdCN : _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()]))));
     row.appendChild(label);
 
     var rail = document.createElement('div');
@@ -8916,7 +8919,7 @@ function todoBuildDueGroupHead(key, count, today) {
   var label = todoDateLabel(key, today);
   var tone = diff < 0 ? 'overdue'
     : diff === 0 ? 'today'
-    : ((diff === 1 || label.charAt(0) === '本') ? 'soon' : 'future');
+    : ((diff === 1 || label === '后天' || label.charAt(0) === '本') ? 'soon' : 'future');
   var mo = parseInt(key.slice(5, 7), 10);
   var dayNo = parseInt(key.slice(8, 10), 10);
   var wk = _CN_WEEKDAY[new Date(key + 'T00:00:00Z').getUTCDay()];
