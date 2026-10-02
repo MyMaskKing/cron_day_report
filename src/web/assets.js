@@ -8414,7 +8414,7 @@ function renderTodoTimeline(container, trees, opts) {
     label.appendChild(big);
     // 汉字主词时小字补 M月D日；其余显示星期
     label.appendChild(document.createTextNode(isNone ? '无日期'
-      : (isRel ? mdCN : _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()]))));
+      : (isRel ? mdCN : _CN_WEEKDAY[new Date(date + 'T00:00:00Z').getUTCDay()])));
     row.appendChild(label);
 
     var rail = document.createElement('div');
