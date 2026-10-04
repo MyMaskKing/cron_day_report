@@ -224,6 +224,68 @@ function adminPage(user) {
       </div>
     </div>
     <div class="card">
+      <h2>系统数据自动备份（WebDAV）</h2>
+      <div id="wbMsg" class="msg"></div>
+      <p class="muted">按设定周期自动把全量数据 JSON 上传到 WebDAV 目录，备份文件可用上方「导入」恢复；默认保留最近 30 份并自动清理旧文件。备份文件内含账号密码摘要等敏感信息，请使用有权限控制的 WebDAV 目录。</p>
+      <div class="row">
+        <div style="display:flex;align-items:center;margin-bottom:12px;">
+          <label style="margin:0;"><input type="checkbox" id="wbEnabled"> 启用自动备份</label>
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1;"><label>服务器地址</label><input id="wbUrl" type="text" placeholder="https://dav.example.com/dav/"></div>
+        <div><label>保存文件夹（可空）</label><input id="wbDir" type="text" placeholder="cron-backup"></div>
+        <div><label>账号</label><input id="wbUser" type="text" autocomplete="off"></div>
+        <div><label>密码（留空=不修改）</label><input id="wbPass" type="password" autocomplete="new-password"></div>
+      </div>
+      <div class="row">
+        <div><label>备份周期</label>
+          <select id="wbFreq">
+            <option value="daily">每天</option>
+            <option value="weekly">每周</option>
+            <option value="monthly">每月</option>
+          </select>
+        </div>
+        <div><label>备份时间（整点）</label><select id="wbHour"></select></div>
+        <div id="wbWeekdayWrap" style="display:none;"><label>星期</label>
+          <select id="wbWeekday">
+            <option value="1">周一</option>
+            <option value="2">周二</option>
+            <option value="3">周三</option>
+            <option value="4">周四</option>
+            <option value="5">周五</option>
+            <option value="6">周六</option>
+            <option value="7">周日</option>
+          </select>
+        </div>
+        <div id="wbMonthdayWrap" style="display:none;"><label>日期</label><select id="wbMonthday"></select></div>
+        <div><label>保留份数</label><input id="wbKeep" type="number" min="1" max="365" step="1"></div>
+      </div>
+      <div class="row">
+        <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:12px;">
+          <button class="btn gray" id="wbTest">测试连接</button>
+          <button class="btn" id="wbRunNow">立即备份</button>
+          <button class="btn" id="wbSave">保存设置</button>
+        </div>
+      </div>
+      <label>快速录入 / 复制配置（四行顺序：地址 / 用户 / 密码 / 文件夹，任一行可缺省）</label>
+      <div class="row">
+        <div style="flex:1;margin-bottom:12px;">
+          <textarea id="wbBulkInput" rows="4" style="width:100%;font-family:monospace;"
+            placeholder="https://dav.example.com/dav/&#10;myuser&#10;mypassword&#10;cron-backup"></textarea>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+          <button class="btn sm gray" id="wbParse" type="button">一键解析</button>
+          <button class="btn sm" id="wbCopy" type="button">一键复制</button>
+        </div>
+      </div>
+      <p class="muted" id="wbLast" style="font-size:12px;margin:4px 0 10px;"></p>
+      <table>
+        <thead><tr><th>时间</th><th>文件</th><th>大小</th><th>状态</th></tr></thead>
+        <tbody id="wbLogTbody"></tbody>
+      </table>
+    </div>
+    <div class="card">
       <h2>全部用户
         <button class="btn sm" id="newUserBtn" style="float:right;">+ 新建用户</button>
       </h2>

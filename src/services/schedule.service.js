@@ -18,6 +18,7 @@ function nowCN(nowMs, offset = 8) {
     hour: d.getUTCHours(),
     day: d.getUTCDate(),
     month: d.getUTCMonth() + 1,
+    weekday: ((d.getUTCDay() + 6) % 7) + 1,
     dateStr: d.toISOString().slice(0, 10)
   };
 }
@@ -46,4 +47,26 @@ function shouldRun(module, cfg, now) {
   return true;
 }
 
-export { nowCN, shouldRun };
+/**
+ * 判断 WebDAV 计划备份此刻是否应执行
+ * @param {Object} cfg - { freq, hour, weekday, monthday }（值为字符串）
+ * @param {Object} now - nowCN() 结果（含 weekday）
+ * @returns {boolean}
+ * 规则: 先判 hour; weekly 再判 weekday; monthly 再判 day; 其他(含 daily/非法 freq)按 daily
+ */
+function shouldBackupRun(cfg, now) {
+  const hour = parseInt(cfg && cfg.hour, 10);
+  if (isNaN(hour) || hour !== now.hour) return false;
+  const freq = cfg && cfg.freq;
+  if (freq === 'weekly') {
+    const weekday = parseInt(cfg.weekday, 10);
+    return !isNaN(weekday) && weekday === now.weekday;
+  }
+  if (freq === 'monthly') {
+    const monthday = parseInt(cfg.monthday, 10);
+    return !isNaN(monthday) && monthday === now.day;
+  }
+  return true;
+}
+
+export { nowCN, shouldRun, shouldBackupRun };

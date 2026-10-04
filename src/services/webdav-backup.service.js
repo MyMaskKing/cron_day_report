@@ -1,0 +1,110 @@
+/**
+ * WebDAV 自动备份编排
+ * - runScheduledBackup: 每小时调度调用, 按开关与判时决定是否执行
+ * - runBackupNow: 超管「立即备份」调用, 忽略开关与判时
+ * 注意: 本文件从 backup.api.js 引入 buildBackupPayload, backup.api.js 的 handler
+ * 又引入本文件——函数声明在 ESM 中提升且仅在运行时调用, 循环依赖安全。
+ */
+
+import { buildBackupPayload } from '../api/backup.api.js';
+import { nowCN, shouldBackupRun } from './schedule.service.js';
+import { createWebdavClient, resolveDavUrl } from './webdav.service.js';
+import { parseOffset } from './time.service.js';
+
+// 配置缺省值（存储键名 = webdav_ + 键名）
+const WEBDAV_DEFAULTS = {
+  enabled: '0', url: '', dir: '', user: '', pass: '',
+  freq: 'daily', hour: '2', weekday: '1', monthday: '1', keep: '30'
+};
+
+/**
+ * 读全部 WebDAV 配置; app_settings 中缺失的键回默认值
+ * @returns {Promise<Object>}
+ */
+async function readWebdavConfig(storage) {
+  const out = {};
+  for (const k of Object.keys(WEBDAV_DEFAULTS)) {
+    const v = await storage.settings.get('webdav_' + k);
+    out[k] = v == null ? WEBDAV_DEFAULTS[k] : v;
+  }
+  return out;
+}
+
+/**
+ * 生成备份文件名（配置时区口径）: backup-YYYY-MM-DD-HH.json
+ */
+function backupFilename(now) {
+  return 'backup-' + now.dateStr + '-' + String(now.hour).padStart(2, '0') + '.json';
+}
+
+/**
+ * 保留清理: 成功记录按 id 倒序, 超出 keep 份的远端删除并删本地行;
+ * 单个删除失败跳过, 下次备份再试
+ */
+async function pruneOldBackups(client, storage, keep) {
+  const rows = await storage.backupLog.listSuccess();
+  for (const row of rows.slice(keep)) {
+    try {
+      await client.deleteFile(row.filename);
+      await storage.backupLog.delete(row.id);
+    } catch {
+      // 忽略单条删除失败
+    }
+  }
+}
+
+/**
+ * 执行一次备份（不判开关/时间）; 失败不外抛, 落 fail 日志后返回 error
+ * @returns {Promise<{filename:string, size?:number, error?:string}>}
+ */
+async function executeBackup(env, storage, now) {
+  const cfg = await readWebdavConfig(storage);
+  const filename = backupFilename(now);
+  try {
+    const payload = await buildBackupPayload(storage);
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    const client = createWebdavClient(resolveDavUrl(cfg.url, cfg.dir), cfg.user, cfg.pass);
+    await client.putFile(filename, bytes);
+    await storage.backupLog.upsertSuccess(filename, bytes.length);
+    const keep = parseInt(cfg.keep, 10);
+    await pruneOldBackups(client, storage, Number.isInteger(keep) && keep > 0 ? keep : 30);
+    return { filename, size: bytes.length };
+  } catch (e) {
+    const message = e && e.message ? e.message : String(e);
+    await storage.backupLog.upsertFail(filename, message);
+    return { filename, error: message };
+  }
+}
+
+/**
+ * 按计划执行（handleScheduled 调用）
+ * - url/user/pass 缺失: skipped
+ * - 非 manual: 要求 enabled='1' 且 shouldBackupRun 通过
+ * - manual(/cron 手动触发): 忽略开关与判时
+ */
+async function runScheduledBackup(env, storage, now, manual) {
+  const cfg = await readWebdavConfig(storage);
+  if (!cfg.url || !cfg.user || !cfg.pass) {
+    return { skipped: true, reason: 'WebDAV 未配置完整（地址/账号/密码）' };
+  }
+  if (!manual) {
+    if (cfg.enabled !== '1') return { skipped: true, reason: '自动备份未启用' };
+    if (!shouldBackupRun(cfg, now)) return { skipped: true, reason: '此刻不在备份计划时间' };
+  }
+  return await executeBackup(env, storage, now);
+}
+
+/**
+ * 立即备份（超管 API 调用）; 未配置完整直接返回 error 结果
+ */
+async function runBackupNow(env, storage) {
+  const cfg = await readWebdavConfig(storage);
+  if (!cfg.url || !cfg.user || !cfg.pass) {
+    return { error: 'WebDAV 未配置完整（地址/账号/密码），请先保存配置' };
+  }
+  const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
+  const now = nowCN(Date.now(), tzOffset);
+  return await executeBackup(env, storage, now);
+}
+
+export { readWebdavConfig, runScheduledBackup, runBackupNow };

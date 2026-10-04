@@ -408,6 +408,17 @@ CREATE TABLE IF NOT EXISTS app_settings (
 );
 INSERT OR IGNORE INTO app_settings (key, value) VALUES ('tz_offset', '8');
 
+-- ==================== WebDAV 自动备份执行历史 ====================
+-- filename 唯一: 同一计划时间点的各类触发共用一行; status: success / fail
+CREATE TABLE IF NOT EXISTS webdav_backup_logs (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  filename   TEXT NOT NULL UNIQUE,
+  size       INTEGER,
+  status     TEXT NOT NULL DEFAULT 'success',
+  error      TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- ==================== 以后如何升级 ====================
 -- 本文件是"全新部署的全量基线", 已部署环境按文件名记录在 _migrations, 改本文件内容不会重跑。
 -- 老库升级请【新建】 migrations/0002_xxx.sql(编号紧接递增), 写幂等语句:

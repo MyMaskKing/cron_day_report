@@ -50,11 +50,16 @@ import {
 import { buildAssetReportData } from './services/asset.service.js';
 import { getPushConfig, setPushConfig, getMyShareTokens, resetMyModuleShare, adminResetModuleShare } from './api/push.api.js';
 import { listPushLogs, countPushLogs, deletePushLogsRange } from './api/pushLog.api.js';
-import { exportBackup, importBackup } from './api/backup.api.js';
+import {
+  exportBackup, importBackup,
+  getWebdavConfig, getWebdavConfigRaw, saveWebdavConfig,
+  testWebdav, runWebdavBackupNow, listWebdavLogs
+} from './api/backup.api.js';
 import {
   fileStats, listAdminFiles, deleteAdminFiles, scanOrphanFiles, deleteOrphanFiles
 } from './api/admin-file.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
+import { runScheduledBackup } from './services/webdav-backup.service.js';
 import { buildFundReport, buildAssetReport, buildWeightReport, buildTodoReport, filterTodayOverdue, todoTomorrowPreview } from './services/report.service.js';
 import { buildTree, flattenPending } from './services/todo.service.js';
 import {
@@ -148,6 +153,12 @@ router.put('/api/admin/settings/app-download', setAppDownload);
 // 数据全量备份与恢复（仅超管）
 router.get('/api/admin/backup/export', exportBackup);
 router.post('/api/admin/backup/import', importBackup);
+router.get('/api/admin/backup/webdav', getWebdavConfig);
+router.get('/api/admin/backup/webdav/raw', getWebdavConfigRaw);
+router.post('/api/admin/backup/webdav', saveWebdavConfig);
+router.post('/api/admin/backup/webdav/test', testWebdav);
+router.post('/api/admin/backup/webdav/run-now', runWebdavBackupNow);
+router.get('/api/admin/backup/webdav/logs', listWebdavLogs);
 
 // --- 超管附件存储管理 API（统计/列表/批量删除/孤儿扫描清理）---
 router.get('/api/admin/files/stats', fileStats);
@@ -635,7 +646,7 @@ async function handleScheduled(cron, env, ctx) {
   const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
   const now = nowCN(Date.now(), tzOffset);
   const manual = !cron; // /cron 手动调用时 cron 为空，全部执行
-  const summary = { at: `${now.dateStr} ${now.hour}:00`, monitor: null, fund: null, weight: null, asset: null, todo: null };
+  const summary = { at: `${now.dateStr} ${now.hour}:00`, monitor: null, fund: null, weight: null, asset: null, todo: null, backup: null };
 
   // 1. 监控任务：每个用户按自己 push_config(module=monitor) 的时间执行其启用任务
   try {
@@ -676,6 +687,10 @@ async function handleScheduled(cron, env, ctx) {
   // 5. 待办日报
   try { summary.todo = await runModulePush(env, storage, 'todo', now, manual, tzOffset); }
   catch (err) { summary.todo = { error: err.message }; }
+
+  // 6. WebDAV 自动备份（未配置/未启用/非计划时间返回 skipped；manual 立即执行一次）
+  try { summary.backup = await runScheduledBackup(env, storage, now, manual); }
+  catch (err) { summary.backup = { error: err.message }; }
 
   return json({ success: true, message: '定时调度执行完成', ...summary });
 }

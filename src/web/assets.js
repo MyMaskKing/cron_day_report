@@ -3337,6 +3337,189 @@ if (bkImport) bkImport.addEventListener('click', async function(){
   }
 });
 
+// ============ 系统数据自动备份（WebDAV，仅超管页）============
+var wbSave = document.getElementById('wbSave');
+if (wbSave) {
+  // 整点/日期下拉由 JS 填充（星期 7 个选项服务端直出）
+  function wbFillSelect(el, from, to, fmt) {
+    for (var i = from; i <= to; i++) {
+      var opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = fmt ? fmt(i) : String(i);
+      el.appendChild(opt);
+    }
+  }
+  wbFillSelect(document.getElementById('wbHour'), 0, 23, function(i){
+    return String(i).padStart(2, '0') + ':00';
+  });
+  wbFillSelect(document.getElementById('wbMonthday'), 1, 31);
+
+  // 周期切换: weekly 显示星期、monthly 显示日期
+  function wbToggleFreq() {
+    var freq = document.getElementById('wbFreq').value;
+    document.getElementById('wbWeekdayWrap').style.display = freq === 'weekly' ? '' : 'none';
+    document.getElementById('wbMonthdayWrap').style.display = freq === 'monthly' ? '' : 'none';
+  }
+  document.getElementById('wbFreq').addEventListener('change', wbToggleFreq);
+
+  function wbFmtSize(n) {
+    n = Number(n) || 0;
+    if (n >= 1048576) return (n / 1048576).toFixed(2) + ' MB';
+    if (n >= 1024) return (n / 1024).toFixed(1) + ' KB';
+    return n + ' B';
+  }
+
+  // 拉配置与历史并渲染
+  async function wbLoad() {
+    var cfg = await api('/api/admin/backup/webdav');
+    document.getElementById('wbEnabled').checked = cfg.enabled === '1';
+    document.getElementById('wbUrl').value = cfg.url || '';
+    document.getElementById('wbDir').value = cfg.dir || '';
+    document.getElementById('wbUser').value = cfg.user || '';
+    document.getElementById('wbPass').placeholder = cfg.hasPass ? '已设置，留空=不修改' : '密码';
+    document.getElementById('wbFreq').value = cfg.freq || 'daily';
+    document.getElementById('wbHour').value = String(cfg.hour);
+    document.getElementById('wbWeekday').value = String(cfg.weekday);
+    document.getElementById('wbMonthday').value = String(cfg.monthday);
+    document.getElementById('wbKeep').value = String(cfg.keep);
+    wbToggleFreq();
+
+    var logs = await api('/api/admin/backup/webdav/logs');
+    var tbody = document.getElementById('wbLogTbody');
+    tbody.innerHTML = '';
+    var lastOk = null, lastFail = null;
+    (logs.rows || []).forEach(function(r){
+      if (r.status === 'success' && !lastOk) lastOk = r;
+      if (r.status === 'fail' && !lastFail) lastFail = r;
+      var tr = document.createElement('tr');
+      var tdTime = document.createElement('td'); tdTime.textContent = r.created_at || '';
+      var tdFile = document.createElement('td'); tdFile.textContent = r.filename || '';
+      var tdSize = document.createElement('td');
+      tdSize.textContent = r.status === 'success' ? wbFmtSize(r.size) : '-';
+      var tdStatus = document.createElement('td');
+      tdStatus.textContent = r.status === 'success' ? '成功' : ('失败：' + (r.error || ''));
+      tdStatus.style.color = r.status === 'success' ? 'var(--ok)' : 'var(--danger)';
+      tr.appendChild(tdTime); tr.appendChild(tdFile); tr.appendChild(tdSize); tr.appendChild(tdStatus);
+      tbody.appendChild(tr);
+    });
+    document.getElementById('wbLast').textContent =
+      '上次成功：' + (lastOk ? (lastOk.created_at + ' ' + lastOk.filename) : '无') +
+      '　｜　上次失败：' + (lastFail ? (lastFail.created_at + ' ' + (lastFail.error || '')) : '无');
+  }
+
+  wbSave.addEventListener('click', async function(){
+    var body = {
+      enabled: document.getElementById('wbEnabled').checked,
+      url: document.getElementById('wbUrl').value,
+      dir: document.getElementById('wbDir').value,
+      user: document.getElementById('wbUser').value,
+      freq: document.getElementById('wbFreq').value,
+      hour: document.getElementById('wbHour').value,
+      weekday: document.getElementById('wbWeekday').value,
+      monthday: document.getElementById('wbMonthday').value,
+      keep: document.getElementById('wbKeep').value
+    };
+    // 密码留空不传 = 不修改
+    var pass = document.getElementById('wbPass').value;
+    if (pass) body.pass = pass;
+    try {
+      await api('/api/admin/backup/webdav', { method: 'POST', body: body });
+      showMsg(document.getElementById('wbMsg'), '设置已保存', true);
+      await wbLoad();
+    } catch (err) {
+      showMsg(document.getElementById('wbMsg'), err.message || '保存失败', false);
+    }
+  });
+
+  document.getElementById('wbTest').addEventListener('click', async function(){
+    var btn = this;
+    btn.disabled = true;
+    var body = {
+      url: document.getElementById('wbUrl').value,
+      dir: document.getElementById('wbDir').value,
+      user: document.getElementById('wbUser').value
+    };
+    var pass = document.getElementById('wbPass').value;
+    if (pass) body.pass = pass;
+    try {
+      var r = await api('/api/admin/backup/webdav/test', { method: 'POST', body: body });
+      showMsg(document.getElementById('wbMsg'),
+        r.message || (r.success ? '连接成功' : '连接失败'), !!r.success);
+    } catch (err) {
+      showMsg(document.getElementById('wbMsg'), err.message || '测试失败', false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('wbRunNow').addEventListener('click', async function(){
+    if (!confirm('立即向 WebDAV 上传一份全量备份，并按保留份数清理旧文件。\\n确定继续吗？')) return;
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var r = await api('/api/admin/backup/webdav/run-now', { method: 'POST', body: {} });
+      showMsg(document.getElementById('wbMsg'),
+        r.success ? ('备份完成：' + (r.filename || '')) : ('备份失败：' + (r.error || '')),
+        !!r.success);
+      await wbLoad();
+    } catch (err) {
+      showMsg(document.getElementById('wbMsg'), err.message || '备份失败', false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // 一键解析: 四行顺序 地址/用户/密码/文件夹, 缺省行清空对应字段
+  document.getElementById('wbParse').addEventListener('click', function(){
+    var lines = document.getElementById('wbBulkInput').value.split(/\\r?\\n/);
+    document.getElementById('wbUrl').value = (lines[0] || '').trim();
+    document.getElementById('wbUser').value = (lines[1] || '').trim();
+    document.getElementById('wbPass').value = (lines[2] || '').trim();
+    document.getElementById('wbDir').value = (lines[3] || '').trim();
+    showMsg(document.getElementById('wbMsg'), '已解析填入，请核对后点「保存设置」（密码需保存才生效）', true);
+  });
+
+  // 复制兜底: textarea + execCommand（navigator.clipboard 不可用时）
+  function wbFallbackCopy(text, done) {
+    var t = document.createElement('textarea');
+    t.value = text;
+    document.body.appendChild(t);
+    t.select();
+    try { document.execCommand('copy'); done(); }
+    catch (e) { showMsg(document.getElementById('wbMsg'), '请手动复制：' + text, false); }
+    document.body.removeChild(t);
+  }
+  function wbDoCopy(text) {
+    var done = function(){ showMsg(document.getElementById('wbMsg'), '已复制配置（含明文密码，请注意保密）', true); };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function(){ wbFallbackCopy(text, done); });
+        return;
+      }
+    } catch (e) {}
+    wbFallbackCopy(text, done);
+  }
+  // 一键复制: 生成四行; 密码框空时调 raw 接口取已存明文
+  document.getElementById('wbCopy').addEventListener('click', async function(){
+    var url = document.getElementById('wbUrl').value.trim();
+    var user = document.getElementById('wbUser').value.trim();
+    var dir = document.getElementById('wbDir').value.trim();
+    var pass = document.getElementById('wbPass').value;
+    if (!pass) {
+      try {
+        var raw = await api('/api/admin/backup/webdav/raw');
+        pass = raw.pass || '';
+      } catch (err) {
+        showMsg(document.getElementById('wbMsg'), '读取已存密码失败：' + (err.message || ''), false);
+        return;
+      }
+    }
+    wbDoCopy([url, user, pass, dir].join('\\n'));
+  });
+
+  wbLoad();
+}
+
 loadUsers();
 
 // ============ 推送日志管理 ============

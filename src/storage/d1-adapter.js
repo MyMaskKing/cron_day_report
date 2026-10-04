@@ -1182,6 +1182,47 @@ function createD1Adapter(env) {
       }
     },
 
+    // ==================== WebDAV 备份日志 ====================
+    backupLog: {
+      // 成功 upsert: 同 filename 覆盖为最新成功状态, 清掉 error
+      async upsertSuccess(filename, size) {
+        await db.prepare(`
+          INSERT INTO webdav_backup_logs (filename, size, status, error)
+          VALUES (?, ?, 'success', NULL)
+          ON CONFLICT(filename) DO UPDATE SET
+            size=excluded.size, status='success', error=NULL, created_at=datetime('now')
+        `).bind(filename, size).run();
+      },
+      // 失败 upsert: size 未知置 NULL, 记录截断后的错误信息
+      async upsertFail(filename, error) {
+        await db.prepare(`
+          INSERT INTO webdav_backup_logs (filename, size, status, error)
+          VALUES (?, NULL, 'fail', ?)
+          ON CONFLICT(filename) DO UPDATE SET
+            status='fail', error=excluded.error, created_at=datetime('now')
+        `).bind(filename, String(error).slice(0, 500)).run();
+      },
+      // 全部成功记录(保留清理事实源), 按 id 倒序(与 created_at 同序)
+      async listSuccess() {
+        const { results } = await db.prepare(`
+          SELECT id, filename, created_at FROM webdav_backup_logs
+          WHERE status='success' ORDER BY id DESC
+        `).all();
+        return results || [];
+      },
+      // 最近历史(页面用)
+      async listRecent(limit = 30) {
+        const { results } = await db.prepare(`
+          SELECT id, filename, size, status, error, created_at FROM webdav_backup_logs
+          ORDER BY id DESC LIMIT ?
+        `).bind(limit).all();
+        return results || [];
+      },
+      async delete(id) {
+        await db.prepare('DELETE FROM webdav_backup_logs WHERE id = ?').bind(id).run();
+      }
+    },
+
     // ==================== 推送日志 ====================
     // 每次真正调用 sendNotification 都记一条; 无自动清理, 靠超管画面按区间手动删除
     pushLog: {
