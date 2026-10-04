@@ -1,4 +1,6 @@
 .**
+video/
+video_assets
 !.env
 !.gitignore
 !.github

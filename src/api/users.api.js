@@ -383,10 +383,29 @@ async function setAnnouncement({ request, env }) {
   return json({ success: true, message: '公告已下线', content: '', updated_at: '' });
 }
 
+/**
+ * PUT /api/admin/settings/app-download  保存 APP 下载页 Markdown 内容
+ * body: { content: markdown }  trim 后为空 = 未发布（下载页显示空状态）
+ */
+async function setAppDownload({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const content = typeof body.content === 'string' ? body.content : '';
+  if (content.length > 20000) return error('内容最长 20000 字符');
+  const storage = getStorage(env);
+  const has = !!content.trim();
+  const updated_at = has ? String(Date.now()) : '';
+  await storage.settings.set('app_download', has ? content : '');
+  await storage.settings.set('app_download_updated_at', updated_at);
+  return json({ success: true, message: '已保存', content: has ? content : '', updated_at });
+}
+
 export {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
   getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
   getRegisterLimit, setRegisterLimit,
-  getAnnouncementPublic, markAnnouncementRead, getAnnouncement, setAnnouncement
+  getAnnouncementPublic, markAnnouncementRead, getAnnouncement, setAnnouncement,
+  setAppDownload
 };

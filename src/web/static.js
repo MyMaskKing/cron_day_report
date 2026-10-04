@@ -18,7 +18,8 @@ import {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
-  TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS
+  TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS,
+  DOWNLOAD_JS
 } from './assets.js';
 import { KUAILE_WOFF2_B64 } from './fonts.js';
 
@@ -64,6 +65,7 @@ function buildAssets() {
     'page-todo-report.js': { body: TODO_REPORT_JS, type: JS },
     'page-todo-collab.js': { body: TODO_COLLAB_JS, type: JS },
     'page-storage.js': { body: STORAGE_ADMIN_JS, type: JS },
+    'page-download.js': { body: DOWNLOAD_JS, type: JS },
     // 座右铭快乐体（二进制，响应不带 charset；getter 惰性解码避免启动即占内存）
     'motto-kuaile.woff2': { get body() { return kuaileFont(); }, type: WOFF2, binary: true }
   };

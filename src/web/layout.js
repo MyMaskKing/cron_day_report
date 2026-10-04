@@ -867,6 +867,9 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .msg { padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; display: none; }
 .msg.err { background: var(--danger-bg); color: var(--danger); display: block; }
 .msg.ok { background: var(--ok-bg); color: var(--ok); display: block; }
+/* 登录面板底部 APP 下载入口：品牌浅紫描边卡，与主按钮区分 */
+.lg-dl-link { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 4px; padding: 9px 0; font-size: 13px; font-weight: 600; color: var(--brand-strong); border: 1.5px solid var(--brand-border); border-radius: 8px; background: var(--brand-tint); }
+.lg-dl-link:hover { text-decoration: none; filter: brightness(.97); }
 .md-body { font-size: 14px; line-height: 1.6; word-break: break-word; }
 .md-body > p { margin: 8px 0; }
 .md-body > h3 { margin: 12px 0 6px; font-size: 16px; }
@@ -878,6 +881,12 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .row { display: flex; gap: 12px; flex-wrap: wrap; }
 .row > * { flex: 1; min-width: 140px; }
 .muted { color: var(--muted); font-size: 13px; }
+/* APP 下载页：标题与编辑钮两端对齐；空状态虚线卡 */
+.dl-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.dl-head h2 { margin-bottom: 0; }
+.dl-meta { margin-top: 6px; }
+.dl-empty { margin-top: 14px; padding: 34px 16px; border: 1.5px dashed var(--border-strong); border-radius: 12px; text-align: center; color: var(--muted); }
+.dl-empty .btn { margin-top: 14px; }
 .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; }
 /* stat: 实色面 + hairline, 数字深墨黑 + tabular-nums; 不可点卡不浮起 */
 .stat {
@@ -922,6 +931,9 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .stat-nav .stat[data-nav="admin"] .num--icon { color: #ec4899; }
 .stat-nav .stat[data-nav="admin"]:hover { box-shadow: 0 6px 18px rgba(236,72,153,.14); border-color: rgba(236,72,153,.35); }
 .stat-nav .stat[data-nav="admin"]:hover .num--icon { background-color: rgba(236,72,153,.12); color: #ec4899; }
+.stat-nav .stat[data-nav="download"] .num--icon { color: var(--brand); }
+.stat-nav .stat[data-nav="download"]:hover { box-shadow: 0 6px 18px rgba(124,58,237,.14); border-color: var(--brand-border); }
+.stat-nav .stat[data-nav="download"]:hover .num--icon { background-color: var(--hover-brand); color: var(--brand); }
 .stat .lbl { font-size: 13px; color: var(--label); margin-top: 4px; }
 .asset-title { font-size: 19px; margin-bottom: 6px; }
 .asset-small { font-size: 12px; color: var(--muted); font-weight: 400; }

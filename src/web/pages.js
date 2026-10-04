@@ -8,7 +8,8 @@ import {
   LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS, PUBLIC_BUY_JS,
   WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
-  TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS
+  TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS,
+  DOWNLOAD_JS
 } from './assets.js';
 
 // ============ 统一 SVG 图标(currentColor 描边, 替代微信 X5 内核 emoji 失渲染) ============
@@ -92,6 +93,7 @@ function loginPage() {
       <label>密码</label>
       <input id="lp" type="password" autocomplete="current-password" required>
       <button class="btn" style="width:100%;" type="submit">登录</button>
+      <a href="/download" class="lg-dl-link">📱 下载 Android App</a>
     </form>
     <form id="regForm" style="display:none;">
       <label>用户名 (3-32位，登录用)</label>
@@ -117,6 +119,7 @@ function dashboardPage(user) {
     asset:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>',
     weight:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21h12l-1.5-13a2 2 0 0 0-2-1.8H9.5a2 2 0 0 0-2 1.8L6 21z"/><circle cx="12" cy="10" r="2.2"/><path d="M9 4.5c0-1.4 1.3-2.5 3-2.5s3 1.1 3 2.5"/></svg>',
     todo:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/><polyline points="9 14 11 16 15 12"/></svg>',
+    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>',
     admin:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
   };
   const body = renderTopbar(user, 'dashboard') + `<div class="container">
@@ -145,6 +148,7 @@ function dashboardPage(user) {
         <a class="stat" data-nav="fund" href="/fund"><div class="num num--icon">${NAV_ICONS.fund}</div><div class="lbl">基金追踪</div></a>
         <a class="stat" data-nav="asset" href="/asset"><div class="num num--icon">${NAV_ICONS.asset}</div><div class="lbl">资产报表</div></a>
         <a class="stat" data-nav="weight" href="/weight"><div class="num num--icon">${NAV_ICONS.weight}</div><div class="lbl">体重曲线</div></a>
+        <a class="stat" data-nav="download" href="/download"><div class="num num--icon">${NAV_ICONS.download}</div><div class="lbl">APP下载</div></a>
         ${user.role === 'admin' ? `<a class="stat" data-nav="admin" href="/admin"><div class="num num--icon">${NAV_ICONS.admin}</div><div class="lbl">用户管理</div></a>` : ''}
       </div>
     </div>
@@ -1318,9 +1322,36 @@ function todoCollabPage() {
   return renderPage({ title: '待办协作', body, scripts: ['todo-core.js','page-todo-collab.js'] });
 }
 
+/**
+ * APP 下载页：正文 Markdown 由超管维护，普通用户只读展示
+ * @param {Object} user - 登录用户
+ * @param {string} mdContent - 当前 Markdown 正文（空 = 未发布）
+ * @param {string} updatedAt - 更新时间戳
+ */
+function downloadPage(user, mdContent, updatedAt) {
+  const isAdmin = user.role === 'admin';
+  const has = !!(mdContent && mdContent.trim());
+  // 原文随 JSON script 下发（前端渲染 + 编辑回填）；< 转义防 </script> 截断
+  const dlData = JSON.stringify({ md: mdContent || '', at: updatedAt || '' }).replace(/</g, '\\u003c');
+  const body = renderTopbar(user, 'download') + `<div class="container">
+    <div class="card">
+      <div class="dl-head">
+        <h2>📱 APP 下载</h2>
+        ${isAdmin ? '<button class="btn sm gray" id="dlEditBtn">✏️ 编辑内容</button>' : ''}
+      </div>
+      <div id="dlMeta" class="muted dl-meta"></div>
+      <script type="application/json" id="dlData">${dlData}<\/script>
+      ${has ? '<div id="dlContent" class="md-body"></div>' :
+        `<div class="dl-empty">📱 暂未提供下载内容${isAdmin
+          ? '<div><button class="btn sm" id="dlEmptyEditBtn">✏️ 编辑内容</button></div>' : ''}</div>`}
+    </div>
+  </div>`;
+  return renderPage({ title: 'APP 下载', body, scripts: ['page-download.js'], theme: user.theme });
+}
+
 export {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
   weightReportPage, assetReportPage, fundReportPage,
-  todoPage, publicTodoPage, todoReportPage, todoCollabPage, storageAdminPage
+  todoPage, publicTodoPage, todoReportPage, todoCollabPage, storageAdminPage, downloadPage
 };

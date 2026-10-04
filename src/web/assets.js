@@ -13135,9 +13135,85 @@ if (_tf) _tf.addEventListener('click', function(e){
 loadCollab();
 `;
 
+// APP 下载页 JS（正文渲染 + 超管 Markdown 编辑弹窗）
+const DOWNLOAD_JS = `
+(function(){
+  var data = { md: '', at: '' };
+  var dataEl = document.getElementById('dlData');
+  try { data = JSON.parse(dataEl.textContent || '{}'); } catch (e) {}
+
+  // 更新时间按全局时区显示（与公告同口径）
+  function fmtTime(v){
+    var n = parseInt(v, 10);
+    if (!n) return '';
+    var off = (typeof window.__TZ_OFFSET__ === 'number' && isFinite(window.__TZ_OFFSET__)) ? window.__TZ_OFFSET__ : 8;
+    var d = new Date(n + off * 3600 * 1000);
+    var p = function(x){ return (x < 10 ? '0' : '') + x; };
+    return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+  }
+  var meta = document.getElementById('dlMeta');
+  if (meta) meta.textContent = data.at ? ('最后更新：' + fmtTime(data.at)) : '';
+
+  var box = document.getElementById('dlContent');
+  if (box && data.md) box.innerHTML = renderMarkdown(data.md);
+
+  function openEditor(){
+    openModal('APP 下载页内容',
+      '<div style="margin-bottom:12px;"><textarea id="dlEdText" rows="10" style="width:100%;" placeholder="支持 Markdown：用 [⬇ 下载 APK](下载地址) 放置下载链接，也可上传二维码图片"></textarea></div>' +
+      '<div id="dlEdMsg" class="msg"></div>' +
+      '<div style="text-align:right;margin-top:12px;">' +
+        '<button type="button" class="btn gray" id="dlEdCancel">取消</button> ' +
+        '<button type="button" class="btn" id="dlEdSave">保存</button>' +
+      '</div>', 'modal-mask--lg', true);
+    var ta = document.getElementById('dlEdText');
+    // 附件/图片上传通道与公告编辑器一致；单文件上限默认 5MB（服务端另按系统设置强校验）
+    mountMarkdownEditor(ta, {
+      maxMb: 5,
+      upload: async function(file){
+        var fd = new FormData();
+        fd.append('file', file);
+        var res = await fetch('/api/files/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+        var d = await res.json().catch(function(){ return {}; });
+        if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
+        return d.attachment;
+      }
+    });
+    ta.value = data.md || '';
+    ta.dispatchEvent(new Event('input'));
+    document.getElementById('dlEdCancel').addEventListener('click', closeModal);
+    document.getElementById('dlEdSave').addEventListener('click', function(){
+      var btn = this;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      var done = function(){ btn.disabled = false; };
+      var put = async function(md){
+        try {
+          await api('/api/admin/settings/app-download', { method: 'PUT', body: { content: md } });
+          location.reload();
+        } catch (e) {
+          var em = document.getElementById('dlEdMsg');
+          if (em) showMsg(em, e.message, false); else showToast(e.message, false);
+          done();
+        }
+      };
+      if (ta.value.trim()) { put(ta.value); return; }
+      // 空内容保存 = 下线：二次确认，避免误清空
+      confirmModal('清空下载页', '内容保存为空后，所有用户将看到「暂未提供下载内容」。确认清空？', function(){ put(''); });
+      done();
+    });
+  }
+
+  var editBtn = document.getElementById('dlEditBtn');
+  if (editBtn) editBtn.addEventListener('click', openEditor);
+  var emptyBtn = document.getElementById('dlEmptyEditBtn');
+  if (emptyBtn) emptyBtn.addEventListener('click', openEditor);
+})();
+`;
+
 export {
   COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
-  TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS
+  TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS,
+  DOWNLOAD_JS
 };

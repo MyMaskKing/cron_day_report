@@ -22,7 +22,8 @@ import {
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
   getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
   getRegisterLimit, setRegisterLimit,
-  getAnnouncementPublic, markAnnouncementRead, getAnnouncement, setAnnouncement
+  getAnnouncementPublic, markAnnouncementRead, getAnnouncement, setAnnouncement,
+  setAppDownload
 } from './api/users.api.js';
 import { listChannels, createChannel, updateChannel, setChannelStatus, removeChannel } from './api/notify.api.js';
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
@@ -80,7 +81,7 @@ import {
   loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
   weightReportPage, assetReportPage, fundReportPage,
-  todoPage, publicTodoPage, todoReportPage, todoCollabPage, storageAdminPage
+  todoPage, publicTodoPage, todoReportPage, todoCollabPage, storageAdminPage, downloadPage
 } from './web/pages.js';
 import { serveStaticAsset, assetUrl } from './web/static.js';
 
@@ -142,6 +143,7 @@ router.get('/api/announcement', getAnnouncementPublic);
 router.post('/api/announcement/read', markAnnouncementRead);
 router.get('/api/admin/settings/announcement', getAnnouncement);
 router.put('/api/admin/settings/announcement', setAnnouncement);
+router.put('/api/admin/settings/app-download', setAppDownload);
 
 // 数据全量备份与恢复（仅超管）
 router.get('/api/admin/backup/export', exportBackup);
@@ -383,7 +385,8 @@ async function handlePages(request, env) {
     '/todo': 'todo',
     '/settings': 'settings',
     '/admin': 'admin',
-    '/storage': 'storage'
+    '/storage': 'storage',
+    '/download': 'download'
   };
   if (path in pageMap) {
     const token = getTokenFromRequest(request);
@@ -460,6 +463,11 @@ async function handlePages(request, env) {
       case 'storage':
         if (user.role !== 'admin') return html(dashboardPage(user));
         return html(storageAdminPage(user));
+      case 'download': {
+        const md = (await _storage.settings.get('app_download')) || '';
+        const at = (await _storage.settings.get('app_download_updated_at')) || '';
+        return html(downloadPage(user, md, at));
+      }
     }
   }
   return null;
