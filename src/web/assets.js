@@ -13178,6 +13178,8 @@ loadCollab();
 // APP 下载页 JS（正文渲染 + 超管 Markdown 编辑弹窗）
 const DOWNLOAD_JS = `
 (function(){
+  // 页面级弹窗绑定（叉号/遮罩点击）：COMMON_JS 不含此绑定，须由页面 JS 自行调用
+  bindModal();
   var data = { md: '', at: '' };
   var dataEl = document.getElementById('dlData');
   try { data = JSON.parse(dataEl.textContent || '{}'); } catch (e) {}

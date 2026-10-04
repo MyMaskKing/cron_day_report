@@ -1762,12 +1762,14 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .mde-chip-st { color: var(--muted); }
 /* PC 大弹窗：左右分栏，写/预览分段隐藏；选择器需压过 [data-mode] 的单栏显隐规则 */
 @media (min-width: 640px) {
-  .modal-mask--lg .mde-panes { display: grid; grid-template-columns: 1fr 1fr; }
+  .modal-mask--lg .mde-panes { display: grid; grid-template-columns: 1fr 1fr; height: 62vh; }
   .modal-mask--lg .mde[data-mode] .mde-write,
-  .modal-mask--lg .mde[data-mode] .mde-preview { display: block; }
+  .modal-mask--lg .mde[data-mode] .mde-preview { display: block; min-width: 0; min-height: 0; }
   .modal-mask--lg .mde-seg { display: none; }
-  .modal-mask--lg .mde-write { border-right: 1px solid var(--border); }
-  .modal-mask--lg .mde-text, .modal-mask--lg .mde-preview { min-height: 230px; }
+  .modal-mask--lg .mde-write { border-right: 1px solid var(--border); overflow: hidden; }
+  /* 两栏同高：panes 固定 62vh，textarea 与预览各自填满、内部滚动（压过基础类的 46vh/150px） */
+  .modal-mask--lg .mde-text { height: 100%; min-height: 0; max-height: none; resize: none; }
+  .modal-mask--lg .mde-preview { height: 100%; min-height: 0; max-height: none; }
 }
 /* 图表卡片头部 + 区间选择 */
 .todo-chart-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
