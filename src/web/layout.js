@@ -871,6 +871,29 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .lg-dl-link { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 4px; padding: 9px 0; font-size: 13px; font-weight: 600; color: var(--brand-strong); border: 1.5px solid var(--brand-border); border-radius: 8px; background: var(--brand-tint); }
 .lg-dl-link:hover { text-decoration: none; filter: brightness(.97); }
 .md-body { font-size: 14px; line-height: 1.6; word-break: break-word; }
+/* 两张图片左右并排（旧格式，保留兼容已插入内容）：<div class="img-row"> 包两个 <img> */
+.img-row { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; }
+.img-row img { flex: 1 1 0; min-width: 0; max-width: 100%; height: auto; border-radius: 8px; }
+/* 分栏选择弹窗：列数分段按钮 */
+.ly-opt-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
+.ly-opt-seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 6px; font-size: 13px; color: var(--label); cursor: pointer; font-family: inherit; }
+.ly-opt-seg button.on { background: var(--surface); color: var(--text-strong); font-weight: 600; box-shadow: 0 1px 3px rgba(20,20,40,.1); }
+/* 通用分栏布局：格子内图片/文字/链接任意，格子超出列数自动换到下一排 */
+.ly-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 10px 0; }
+.ly-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.ly-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.ly-cell { min-width: 0; }
+.ly-cell img { max-width: 100%; height: auto; border-radius: 8px; display: block; }
+/* 窄屏：3/4 列先降为 2 列（默认 2 列保持，手机也要能并排看图）；
+   含文字格子（任一格内无 img）的分栏进一步变单列，纯图片分栏保持并排 */
+@media (max-width: 699px) {
+  .ly-grid--4 { grid-template-columns: repeat(2, 1fr); }
+  .ly-grid--4:has(.ly-cell:not(:has(img))) { grid-template-columns: 1fr; }
+}
+@media (max-width: 599px) {
+  .ly-grid--3 { grid-template-columns: repeat(2, 1fr); }
+  .ly-grid:has(.ly-cell:not(:has(img))) { grid-template-columns: 1fr; }
+}
 .md-body > p { margin: 8px 0; }
 .md-body > h3 { margin: 12px 0 6px; font-size: 16px; }
 .md-body > h4 { margin: 10px 0 4px; font-size: 14px; }

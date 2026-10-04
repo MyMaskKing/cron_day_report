@@ -1945,6 +1945,8 @@ function mountMarkdownEditor(textarea, opts) {
       '<span class="mde-sep mde-sep--upload"></span>' +
       '<button type="button" class="mde-btn" data-a="img" title="上传图片">' +
         '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L9 20"/></svg></button>' +
+      '<button type="button" class="mde-btn" data-a="layout" title="分栏布局（多列/多排，内容任意）">' +
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></button>' +
       '<button type="button" class="mde-btn" data-a="file" title="添加附件">📎</button>' +
       '<input type="file" class="mde-file" hidden>' +
     '</div>' +
@@ -2008,7 +2010,62 @@ function mountMarkdownEditor(textarea, opts) {
   function pickAndUpload(accept) {
     fileInput.value = '';
     fileInput.accept = accept;
+    fileInput.multiple = false;
+    delete fileInput.dataset.pick;
     fileInput.click();
+  }
+  // 分栏容器 class：2 列为默认 .ly-grid，3/4 列加修饰类
+  function layoutGridClass(cols) {
+    return 'ly-grid' + (cols > 2 ? ' ly-grid--' + cols : '');
+  }
+  // 插入空白分栏：cols 个空 cell（1 排，复制 cell 即可加列/排）
+  function insertLayoutBlank(cols) {
+    var cells = [];
+    for (var i = 0; i < cols; i++) {
+      cells.push('<div class="ly-cell">\\n\\n内容\\n\\n</div>');
+    }
+    insert('\\n<div class="' + layoutGridClass(cols) + '">\\n' + cells.join('\\n') + '\\n</div>\\n\\n');
+  }
+  // 分栏选择弹窗：选列数后，可插空白骨架或选多张图片自动排入
+  function openLayoutPicker() {
+    openModal('分栏布局',
+      '<div style="margin-bottom:12px;">' +
+        '<div class="muted" style="margin-bottom:7px;">每排列数</div>' +
+        '<div class="ly-opt-seg">' +
+          '<button type="button" data-cols="2" class="on">2 列</button>' +
+          '<button type="button" data-cols="3">3 列</button>' +
+          '<button type="button" data-cols="4">4 列</button>' +
+        '</div>' +
+      '</div>' +
+      '<p class="muted" style="font-size:12px;margin:0;">每个格子可放图片、文字或链接；格子超过列数自动换到下一排，插入后可直接修改。</p>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">' +
+        '<button type="button" class="btn gray" id="lyCancel">取消</button>' +
+        '<button type="button" class="btn gray" id="lyBlank">插入空白分栏</button>' +
+        '<button type="button" class="btn" id="lyPickImg">选图片自动排入</button>' +
+      '</div>', null, true);
+    var cols = 2;
+    Array.prototype.forEach.call(document.querySelectorAll('.ly-opt-seg button'), function(sb){
+      sb.addEventListener('click', function(){
+        cols = parseInt(sb.dataset.cols, 10);
+        Array.prototype.forEach.call(this.parentNode.querySelectorAll('button'), function(x){
+          x.classList.toggle('on', x === sb);
+        });
+      });
+    });
+    document.getElementById('lyCancel').addEventListener('click', closeModal);
+    document.getElementById('lyBlank').addEventListener('click', function(){
+      closeModal();
+      insertLayoutBlank(cols);
+    });
+    document.getElementById('lyPickImg').addEventListener('click', function(){
+      closeModal();
+      fileInput.value = '';
+      fileInput.accept = 'image/*';
+      fileInput.multiple = true;
+      fileInput.dataset.pick = 'layout';
+      fileInput.dataset.cols = String(cols);
+      fileInput.click();
+    });
   }
   // 统一上传：大小预检 → 上传 chip → 插入 Markdown（工具栏选文件与粘贴图片共用）
   async function uploadOne(file, nameOverride) {
@@ -2031,10 +2088,44 @@ function mountMarkdownEditor(textarea, opts) {
       alertModal(e.message || '上传失败', { ok: false });
     }
   }
-  fileInput.addEventListener('change', function() {
-    var file = fileInput.files && fileInput.files[0];
-    if (!file || !opts.upload) return;
-    uploadOne(file);
+  // 分栏多图：逐张预检/上传（各带 chip），每张进一个 ly-cell；超出列数自动多排
+  async function uploadLayoutImages(files, cols) {
+    for (var k = 0; k < files.length; k++) {
+      if (maxMb && files[k].size > maxMb * 1048576) { alertModal('文件超过 ' + maxMb + 'MB 上限', { ok: false }); return; }
+    }
+    var cells = [];
+    for (var i = 0; i < files.length; i++) {
+      var gchip = addChip({ origin_name: files[i].name || 'image', is_image: true, url: '' }, true);
+      try {
+        var gatt = await opts.upload(files[i]);
+        gchip.classList.remove('up');
+        var gst = gchip.querySelector('.mde-chip-st'); if (gst) gst.remove();
+        var gim = gchip.querySelector('img'); if (gim) gim.src = gatt.url;
+        var nm = esc(gatt.origin_name || ('image' + (i + 1)));
+        cells.push('<div class="ly-cell">\\n\\n![' + nm + '](' + gatt.url + ')\\n\\n</div>');
+      } catch (e) {
+        gchip.remove();
+        alertModal(e.message || '上传中断', { ok: false });
+        return;
+      }
+    }
+    insert('\\n<div class="' + layoutGridClass(cols) + '">\\n' + cells.join('\\n') + '\\n</div>\\n\\n');
+  }
+  fileInput.addEventListener('change', async function() {
+    if (!opts.upload) return;
+    var files = Array.prototype.slice.call(fileInput.files || []);
+    var mode = fileInput.dataset.pick;
+    var cols = parseInt(fileInput.dataset.cols, 10) || 2;
+    fileInput.multiple = false;
+    delete fileInput.dataset.pick;
+    delete fileInput.dataset.cols;
+    if (!files.length) return;
+    if (mode === 'layout') {
+      var imgs = files.filter(function(f){ return f.type.indexOf('image/') === 0; });
+      if (imgs.length) await uploadLayoutImages(imgs, cols);
+      return;
+    }
+    uploadOne(files[0]);
   });
   // 粘贴图片：剪贴板内含图片（截图/右键复制图片）时自动上传并插入
   textarea.addEventListener('paste', function(e){
@@ -2063,6 +2154,7 @@ function mountMarkdownEditor(textarea, opts) {
       else if (a === 'ul') wrapLine('- ');
       else if (a === 'task') wrapLine('- [ ] ');
       else if (a === 'img') pickAndUpload('image/*');
+      else if (a === 'layout') openLayoutPicker();
       else if (a === 'file') pickAndUpload('');
     });
   });
