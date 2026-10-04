@@ -13,7 +13,7 @@ import { parseOffset } from './time.service.js';
 
 // 配置缺省值（存储键名 = webdav_ + 键名）
 const WEBDAV_DEFAULTS = {
-  enabled: '0', url: '', dir: '', user: '', pass: '',
+  enabled: '0', url: '', dir: 'cron-day-report', user: '', pass: '',
   freq: 'daily', hour: '2', weekday: '1', monthday: '1', keep: '30'
 };
 
@@ -64,6 +64,8 @@ async function executeBackup(env, storage, now) {
     const payload = await buildBackupPayload(storage);
     const bytes = new TextEncoder().encode(JSON.stringify(payload));
     const client = createWebdavClient(resolveDavUrl(cfg.url, cfg.dir), cfg.user, cfg.pass);
+    // 先逐级 MKCOL 创建保存文件夹（已存在自动跳过），避免目录不存在导致 PUT 404
+    await client.ensureDir();
     await client.putFile(filename, bytes);
     await storage.backupLog.upsertSuccess(filename, bytes.length);
     const keep = parseInt(cfg.keep, 10);

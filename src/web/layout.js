@@ -867,6 +867,23 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .msg { padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; display: none; }
 .msg.err { background: var(--danger-bg); color: var(--danger); display: block; }
 .msg.ok { background: var(--ok-bg); color: var(--ok); display: block; }
+/* WebDAV 启用开关（switch）：原生 checkbox 隐藏，轨道+圆点纯 CSS 控制 */
+.wb-switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+.wb-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.wb-switch .wb-switch-track {
+  position: relative; width: 42px; height: 24px; flex: 0 0 auto;
+  border-radius: 999px; background: var(--check-ring);
+  transition: background .18s ease;
+}
+.wb-switch .wb-switch-track::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: transform .18s ease;
+}
+.wb-switch input:checked + .wb-switch-track { background: var(--brand); }
+.wb-switch input:checked + .wb-switch-track::after { transform: translateX(18px); }
+.wb-switch input:focus-visible + .wb-switch-track { box-shadow: 0 0 0 3px var(--brand-tint); }
 /* 登录面板底部 APP 下载入口：品牌浅紫描边卡，与主按钮区分 */
 .lg-dl-link { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 4px; padding: 9px 0; font-size: 13px; font-weight: 600; color: var(--brand-strong); border: 1.5px solid var(--brand-border); border-radius: 8px; background: var(--brand-tint); }
 .lg-dl-link:hover { text-decoration: none; filter: brightness(.97); }

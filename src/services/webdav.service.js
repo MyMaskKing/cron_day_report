@@ -49,8 +49,29 @@ function createWebdavClient(baseUrl, user, pass) {
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: bytes
       });
+      if (res.status === 404) {
+        throw new Error('备份目录不存在（HTTP 404），系统会先尝试自动创建目录，仍失败请检查服务器地址与保存文件夹');
+      }
       if (![200, 201, 204].includes(res.status)) {
         throw new Error('WebDAV 上传失败：HTTP ' + res.status);
+      }
+    },
+    /**
+     * 逐级创建备份目录（MKCOL）:
+     * 201=创建成功; 405=目录已存在(RFC4918); 200=部分服务器对已存在目录的响应
+     */
+    async ensureDir() {
+      const u = new URL(baseUrl);
+      let cur = u.origin;
+      const segs = u.pathname.split('/').filter(Boolean);
+      for (const seg of segs) {
+        cur = cur + '/' + seg;
+        const res = await request(cur, 'MKCOL');
+        if ([200, 201, 405].includes(res.status)) continue;
+        if ([401, 403].includes(res.status)) {
+          throw new Error('无权限创建备份目录（HTTP ' + res.status + '）');
+        }
+        throw new Error('无法创建备份目录：HTTP ' + res.status);
       }
     },
     async deleteFile(filename) {

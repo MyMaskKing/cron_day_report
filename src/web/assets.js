@@ -3469,15 +3469,42 @@ if (wbSave) {
     }
   });
 
-  // 一键解析: 四行顺序 地址/用户/密码/文件夹, 缺省行清空对应字段
-  document.getElementById('wbParse').addEventListener('click', function(){
-    var lines = document.getElementById('wbBulkInput').value.split(/\\r?\\n/);
+  // 一键解析: 弹窗内粘贴四行配置（地址/用户/密码/文件夹），粘贴后自动解析回填
+  function wbApplyParse(text) {
+    var lines = text.split(/\\r?\\n/);
     document.getElementById('wbUrl').value = (lines[0] || '').trim();
     document.getElementById('wbUser').value = (lines[1] || '').trim();
     document.getElementById('wbPass').value = (lines[2] || '').trim();
     document.getElementById('wbDir').value = (lines[3] || '').trim();
-    showMsg(document.getElementById('wbMsg'), '已解析填入，请核对后点「保存设置」（密码需保存才生效）', true);
-  });
+  }
+  function wbOpenParse() {
+    openModal('一键解析 WebDAV 配置',
+      '<p class="muted" style="margin:0 0 8px;">粘贴四行配置（地址 / 用户 / 密码 / 保存文件夹，任一行可缺省），粘贴后自动解析填入。</p>' +
+      '<textarea id="wbParseInput" rows="5" style="width:100%;font-family:monospace;" ' +
+      'placeholder="https://dav.example.com/dav/&#10;myuser&#10;mypassword&#10;cron-day-report"></textarea>' +
+      '<div style="text-align:right;margin-top:14px;">' +
+      '<button class="btn gray" type="button" onclick="closeModal()">取消</button> ' +
+      '<button class="btn" id="wbParseOk" type="button">解析填入</button></div>');
+    var ta = document.getElementById('wbParseInput');
+    function apply() {
+      wbApplyParse(ta.value);
+      closeModal();
+      showMsg(document.getElementById('wbMsg'), '已解析填入，请核对后点「保存设置」（密码需保存才生效）', true);
+    }
+    // 粘贴后首行是 http(s) 地址即自动解析
+    ta.addEventListener('paste', function(){
+      setTimeout(function(){ if (/^\\s*https?:\\/\\//.test(ta.value)) apply(); }, 0);
+    });
+    document.getElementById('wbParseOk').addEventListener('click', function(){
+      if (!/^\\s*https?:\\/\\//.test(ta.value)) {
+        showMsg(document.getElementById('wbMsg'), '第一行需为 http:// 或 https:// 开头的服务器地址', false);
+        return;
+      }
+      apply();
+    });
+    setTimeout(function(){ try { ta.focus(); } catch (e) {} }, 60);
+  }
+  document.getElementById('wbParse').addEventListener('click', wbOpenParse);
 
   // 复制兜底: textarea + execCommand（navigator.clipboard 不可用时）
   function wbFallbackCopy(text, done) {
