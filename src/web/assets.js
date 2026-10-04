@@ -668,7 +668,26 @@ document.addEventListener('click', function(e){
     } catch (err) { return; }
   }
   if (!isRelative && !isSameOrigin) return;
+  // 二进制下载类链接（按扩展名）不弹 loading：浏览器直接下载、页面不跳转，遮罩会卡死
+  var pathOnly = href.split('#')[0].split('?')[0];
+  var dot = pathOnly.lastIndexOf('.');
+  if (dot >= 0) {
+    var ext = pathOnly.slice(dot + 1).toLowerCase();
+    if ('apk,aab,ipa,zip,rar,7z,tar,gz,tgz,exe,dmg,pkg,csv,mp3,mp4,wav,mov'.split(',').indexOf(ext) !== -1) return;
+  }
   _showLoadingImmediate('正在打开页面…');
+  // 兜底：链接没有真正卸载页面（如无扩展名、Content-Disposition:attachment 的下载）时，
+  // 1s 后自动收起遮罩；真正导航触发的 pagehide 会取消它
+  var navHideTimer = setTimeout(onNavStuck, 1000);
+  function onNavHide(){
+    clearTimeout(navHideTimer);
+    window.removeEventListener('pagehide', onNavHide);
+  }
+  function onNavStuck(){
+    window.removeEventListener('pagehide', onNavHide);
+    hideLoading();
+  }
+  window.addEventListener('pagehide', onNavHide);
 });
 // ===== 启动阶段的 loading 生命周期 =====
 // 静态页面兜底: 若 DOM ready 后 LOADING_BOOT_FALLBACK 内既没首屏 api 也没导航追加 count,
@@ -1991,24 +2010,46 @@ function mountMarkdownEditor(textarea, opts) {
     fileInput.accept = accept;
     fileInput.click();
   }
-  fileInput.addEventListener('change', async function() {
-    var file = fileInput.files && fileInput.files[0];
-    if (!file || !opts.upload) return;
+  // 统一上传：大小预检 → 上传 chip → 插入 Markdown（工具栏选文件与粘贴图片共用）
+  async function uploadOne(file, nameOverride) {
     if (maxMb && file.size > maxMb * 1048576) { alertModal('文件超过 ' + maxMb + 'MB 上限', { ok: false }); return; }
-    var chip = addChip({ origin_name: file.name, is_image: file.type.indexOf('image/') === 0, url: '' }, true);
+    var originName = nameOverride || file.name || '未命名文件';
+    var chip = addChip({ origin_name: originName, is_image: file.type.indexOf('image/') === 0, url: '' }, true);
     try {
       var att = await opts.upload(file);
       chip.classList.remove('up');
       var st = chip.querySelector('.mde-chip-st'); if (st) st.remove();
+      var nm = att.origin_name || originName;
       if (att.is_image) {
         var im = chip.querySelector('img'); if (im) im.src = att.url;
-        insert('\\n![' + att.origin_name + '](' + att.url + ')\\n');
+        insert('\\n![' + nm + '](' + att.url + ')\\n');
       } else {
-        insert('\\n[' + att.origin_name + '](' + att.url + ')\\n');
+        insert('\\n[' + nm + '](' + att.url + ')\\n');
       }
     } catch (e) {
       chip.remove();
       alertModal(e.message || '上传失败', { ok: false });
+    }
+  }
+  fileInput.addEventListener('change', function() {
+    var file = fileInput.files && fileInput.files[0];
+    if (!file || !opts.upload) return;
+    uploadOne(file);
+  });
+  // 粘贴图片：剪贴板内含图片（截图/右键复制图片）时自动上传并插入
+  textarea.addEventListener('paste', function(e){
+    if (!opts.upload) return;
+    var items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file' && items[i].type.indexOf('image/') === 0) {
+        var f = items[i].getAsFile();
+        if (!f) continue;
+        e.preventDefault();
+        var piext = ({'image/png':'png','image/jpeg':'jpg','image/gif':'gif','image/webp':'webp'})[f.type] || 'png';
+        uploadOne(f, 'pasted-' + Date.now() + '.' + piext);
+        break;
+      }
     }
   });
   Array.prototype.forEach.call(root.querySelectorAll('.mde-btn'), function(b) {
