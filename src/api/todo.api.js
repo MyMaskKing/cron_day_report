@@ -575,7 +575,8 @@ async function todoAttachmentUpload({ request, env }) {
   if (!files) return error('附件存储未配置，请联系管理员绑定 R2', 503);
   return await saveFile({
     storage, files, source: 'todo', ownerUid: acc.ownerUid, todoId: t.id, file: parsed.file,
-    uploaderUid: acc.catId != null ? auth.user_id : acc.ownerUid
+    uploaderUid: acc.catId != null ? auth.user_id : acc.ownerUid,
+    isAdmin: auth.role === 'admin'
   });
 }
 

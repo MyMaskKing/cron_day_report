@@ -1909,7 +1909,8 @@ window.fmtSign = fmtSign;
 // 不传 upload 时自动隐藏图片/附件按钮（纯文本 md 场景）；预览统一走 renderMarkdown 消毒。
 function mountMarkdownEditor(textarea, opts) {
   opts = opts || {};
-  var maxMb = opts.maxMb || 5;
+  // maxMb:0 = 超管不限制（不能用 || 5，会把 0 吞掉）
+  var maxMb = opts.maxMb != null ? opts.maxMb : 5;
   var root = document.createElement('div');
   root.className = 'mde';
   root.innerHTML =
@@ -1993,7 +1994,7 @@ function mountMarkdownEditor(textarea, opts) {
   fileInput.addEventListener('change', async function() {
     var file = fileInput.files && fileInput.files[0];
     if (!file || !opts.upload) return;
-    if (file.size > maxMb * 1048576) { alertModal('文件超过 ' + maxMb + 'MB 上限', { ok: false }); return; }
+    if (maxMb && file.size > maxMb * 1048576) { alertModal('文件超过 ' + maxMb + 'MB 上限', { ok: false }); return; }
     var chip = addChip({ origin_name: file.name, is_image: file.type.indexOf('image/') === 0, url: '' }, true);
     try {
       var att = await opts.upload(file);
@@ -3080,11 +3081,9 @@ function annOpenEditor(){
       '<button type="button" class="btn" id="annEdPublish">保存并发布</button>' +
     '</div>', 'modal-mask--lg', true);
   var ta = document.getElementById('annEdText');
-  // 附件上限复用本页系统设置里的同一项（服务端另有强校验）
-  var mbInput = document.getElementById('attachMaxMbInput');
-  var maxMb = parseInt(mbInput && mbInput.value, 10) || 5;
+  // 公告仅超管可编辑：大小上限对超管豁免（maxMb:0=不限，服务端同样豁免）
   mountMarkdownEditor(ta, {
-    maxMb: maxMb,
+    maxMb: 0,
     upload: async function(file){
       var fd = new FormData();
       fd.append('file', file);
@@ -11509,7 +11508,7 @@ function openTodoEdit(node) {
       if (!noteEl) return;
       var lim = await api('/api/public/attach-max-mb').catch(function(){ return { max_mb: 5 }; });
       mountMarkdownEditor(noteEl, {
-        maxMb: lim.max_mb || 5,
+        maxMb: window.__ROLE__ === 'admin' ? 0 : (lim.max_mb || 5),
         upload: async function(file) {
           var fd = new FormData();
           fd.append('todo_id', node.id);
@@ -13166,9 +13165,9 @@ const DOWNLOAD_JS = `
         '<button type="button" class="btn" id="dlEdSave">保存</button>' +
       '</div>', 'modal-mask--lg', true);
     var ta = document.getElementById('dlEdText');
-    // 附件/图片上传通道与公告编辑器一致；单文件上限默认 5MB（服务端另按系统设置强校验）
+    // 附件/图片上传通道与公告编辑器一致；超管豁免大小上限（maxMb:0=不限，服务端同样豁免）
     mountMarkdownEditor(ta, {
-      maxMb: 5,
+      maxMb: 0,
       upload: async function(file){
         var fd = new FormData();
         fd.append('file', file);

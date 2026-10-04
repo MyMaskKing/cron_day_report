@@ -1329,15 +1329,19 @@ function todoCollabPage() {
  * @param {string} updatedAt - 更新时间戳
  */
 function downloadPage(user, mdContent, updatedAt) {
-  const isAdmin = user.role === 'admin';
+  const isAdmin = !!user && user.role === 'admin';
   const has = !!(mdContent && mdContent.trim());
   // 原文随 JSON script 下发（前端渲染 + 编辑回填）；< 转义防 </script> 截断
   const dlData = JSON.stringify({ md: mdContent || '', at: updatedAt || '' }).replace(/</g, '\\u003c');
-  const body = renderTopbar(user, 'download') + `<div class="container">
+  // user 为 null = 未登录公开访问：不渲染侧栏外壳，标题右侧改放登录入口
+  const headBtn = isAdmin
+    ? '<button class="btn sm gray" id="dlEditBtn">✏️ 编辑内容</button>'
+    : (user ? '' : '<a href="/login" class="btn sm gray">🔑 登录</a>');
+  const body = (user ? renderTopbar(user, 'download') : '') + `<div class="container">
     <div class="card">
       <div class="dl-head">
         <h2>📱 APP 下载</h2>
-        ${isAdmin ? '<button class="btn sm gray" id="dlEditBtn">✏️ 编辑内容</button>' : ''}
+        ${headBtn}
       </div>
       <div id="dlMeta" class="muted dl-meta"></div>
       <script type="application/json" id="dlData">${dlData}<\/script>
@@ -1346,7 +1350,7 @@ function downloadPage(user, mdContent, updatedAt) {
           ? '<div><button class="btn sm" id="dlEmptyEditBtn">✏️ 编辑内容</button></div>' : ''}</div>`}
     </div>
   </div>`;
-  return renderPage({ title: 'APP 下载', body, scripts: ['page-download.js'], theme: user.theme });
+  return renderPage({ title: 'APP 下载', body, scripts: ['page-download.js'], theme: user ? user.theme : 'light' });
 }
 
 export {

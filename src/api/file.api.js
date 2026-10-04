@@ -40,11 +40,12 @@ function imageExt(mime) {
  * @param {number} p.ownerUid 归属用户（任务附件=任务归属人；用户文件=本人）
  * @param {number=} p.todoId source='todo' 时的任务 id
  * @param {number=} p.uploaderUid 实际上传者（共享分类成员/匿名留空）
+ * @param {boolean=} p.isAdmin 超管上传豁免大小上限
  */
-async function saveFile({ storage, files, source, ownerUid, todoId, uploaderUid, file }) {
+async function saveFile({ storage, files, source, ownerUid, todoId, uploaderUid, file, isAdmin }) {
   const src = source === 'todo' ? 'todo' : 'user';
   const maxMb = await attachMaxMb(storage);
-  if (file.size > maxMb * 1048576) {
+  if (!isAdmin && file.size > maxMb * 1048576) {
     return error('文件超过大小上限（' + maxMb + 'MB）', 413);
   }
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -77,7 +78,7 @@ async function uploadUserFile({ request, env }) {
   if (!(file instanceof File) || file.size <= 0) return error('缺少上传文件', 400);
   const files = getFileStore(env);
   if (!files) return error('附件存储未配置，请联系管理员绑定 R2', 503);
-  return await saveFile({ storage: getStorage(env), files, source: 'user', ownerUid: auth.user_id, file });
+  return await saveFile({ storage: getStorage(env), files, source: 'user', ownerUid: auth.user_id, file, isAdmin: auth.role === 'admin' });
 }
 
 /** GET /todo-file/:fileToken  长期免密下载（file_token 全局唯一，R2 key 前缀按 source） */

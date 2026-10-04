@@ -374,6 +374,18 @@ async function handlePages(request, env) {
     return html(todoCollabPage());
   }
 
+  // APP 下载页：未登录也可访问；已登录则落入下方登录态流程（保留完整外壳）
+  if (path === '/download') {
+    const dlToken = getTokenFromRequest(request);
+    const dlSession = await getSession(env, dlToken);
+    if (!dlSession) {
+      const dlStorage = getStorage(env);
+      const dlMd = (await dlStorage.settings.get('app_download')) || '';
+      const dlAt = (await dlStorage.settings.get('app_download_updated_at')) || '';
+      return html(downloadPage(null, dlMd, dlAt));
+    }
+  }
+
   // 需登录页面
   const pageMap = {
     '/': 'dashboard', '/dashboard': 'dashboard',
