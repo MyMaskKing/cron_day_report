@@ -238,7 +238,7 @@ function adminPage(user) {
       </div>
       <div class="row">
         <div style="flex:1;"><label>服务器地址</label><input id="wbUrl" type="text" placeholder="https://dav.example.com/dav/"></div>
-        <div><label>保存文件夹（可空）</label><input id="wbDir" type="text" placeholder="默认 cron-day-report；清空=直接传到服务器地址"></div>
+        <div><label>保存文件夹</label><input id="wbDir" type="text" placeholder="留空=默认 cron-day-report"></div>
         <div><label>账号</label><input id="wbUser" type="text" autocomplete="off"></div>
         <div><label>密码（留空=不修改）</label><input id="wbPass" type="password" autocomplete="new-password"></div>
       </div>

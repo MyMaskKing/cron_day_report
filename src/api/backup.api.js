@@ -8,7 +8,7 @@
 import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
 import { requireAdmin } from '../auth/middleware.js';
-import { readWebdavConfig, runBackupNow } from '../services/webdav-backup.service.js';
+import { DEFAULT_DIR, readWebdavConfig, runBackupNow } from '../services/webdav-backup.service.js';
 import { createWebdavClient, resolveDavUrl } from '../services/webdav.service.js';
 
 const BACKUP_FORMAT = 'cron-day-report-backup';
@@ -139,7 +139,9 @@ async function saveWebdavConfig({ request, env }) {
   if (!Number.isInteger(monthday) || monthday < 1 || monthday > 31) return error('日期需为 1–31 的整数', 400);
   const keep = parseInt(body.keep, 10);
   if (!Number.isInteger(keep) || keep < 1 || keep > 365) return error('保留份数需为 1–365 的整数', 400);
-  const dir = String(body.dir == null ? '' : body.dir).trim().replace(/^\/+/, '');
+  // 保存文件夹留空 = 默认目录（不允许直传根目录；坚果云等根目录 PUT 文件会 404）
+  const dir = String(body.dir == null ? '' : body.dir).trim()
+    .replace(/^\/+/, '').replace(/\/+$/, '') || DEFAULT_DIR;
   const user = String(body.user || '').trim();
 
   const sets = {

@@ -16,6 +16,8 @@ const WEBDAV_DEFAULTS = {
   enabled: '0', url: '', dir: 'cron-day-report', user: '', pass: '',
   freq: 'daily', hour: '2', weekday: '1', monthday: '1', keep: '30'
 };
+// 保存文件夹留空时落的默认目录
+const DEFAULT_DIR = WEBDAV_DEFAULTS.dir;
 
 /**
  * 读全部 WebDAV 配置; app_settings 中缺失的键回默认值
@@ -26,6 +28,8 @@ async function readWebdavConfig(storage) {
   for (const k of Object.keys(WEBDAV_DEFAULTS)) {
     const v = await storage.settings.get('webdav_' + k);
     out[k] = v == null ? WEBDAV_DEFAULTS[k] : v;
+    // 老数据 dir 为空串也回默认目录（根目录直传在坚果云等服务上不可用）
+    if (k === 'dir' && out[k] === '') out[k] = DEFAULT_DIR;
   }
   return out;
 }
@@ -66,11 +70,23 @@ async function executeBackup(env, storage, now) {
     // 保存文件夹相对服务器地址的增量段（服务器地址指向的目录视为已存在）
     const dirSegs = String(cfg.dir || '').trim().replace(/^\/+/, '')
       .split('/').map(s => s.trim()).filter(Boolean);
-    const target = dirSegs.length ? joinUrl(cfg.url, dirSegs.join('/')) : cfg.url;
+    const target = joinUrl(cfg.url, dirSegs.join('/'));
+    // 先探测服务器地址本身是否存在（诊断用，不阻断）
+    const urlStatus = await createWebdavClient(cfg.url, cfg.user, cfg.pass).probe();
     const client = createWebdavClient(target, cfg.user, cfg.pass);
-    // 先逐级 MKCOL 创建保存文件夹（403/405 等乐观跳过），避免目录不存在导致 PUT 404
-    await client.ensureDir(cfg.url, dirSegs);
-    await client.putFile(filename, bytes);
+    // 逐级 MKCOL 创建保存文件夹，记录每级状态码供 PUT 失败时诊断
+    const mkTrace = await client.ensureDir(cfg.url, dirSegs);
+    try {
+      await client.putFile(filename, bytes);
+    } catch (e) {
+      if (/HTTP 404/.test(e.message)) {
+        const detail = mkTrace.map(t => t.seg + '→' + t.status).join('；');
+        throw new Error('备份目录不存在（PUT 404）。服务器地址探测：' + urlStatus
+          + '；建目录结果：' + detail
+          + '。若地址探测为 404，请修改「服务器地址」；若为 401/403，账号无写入权限');
+      }
+      throw e;
+    }
     await storage.backupLog.upsertSuccess(filename, bytes.length);
     const keep = parseInt(cfg.keep, 10);
     await pruneOldBackups(client, storage, Number.isInteger(keep) && keep > 0 ? keep : 30);
@@ -113,4 +129,4 @@ async function runBackupNow(env, storage) {
   return await executeBackup(env, storage, now);
 }
 
-export { readWebdavConfig, runScheduledBackup, runBackupNow };
+export { DEFAULT_DIR, readWebdavConfig, runScheduledBackup, runBackupNow };
