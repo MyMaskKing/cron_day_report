@@ -874,10 +874,13 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 /* 两张图片左右并排（旧格式，保留兼容已插入内容）：<div class="img-row"> 包两个 <img> */
 .img-row { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; }
 .img-row img { flex: 1 1 0; min-width: 0; max-width: 100%; height: auto; border-radius: 8px; }
-/* 分栏选择弹窗：列数分段按钮 */
-.ly-opt-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
-.ly-opt-seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 6px; font-size: 13px; color: var(--label); cursor: pointer; font-family: inherit; }
-.ly-opt-seg button.on { background: var(--surface); color: var(--text-strong); font-weight: 600; box-shadow: 0 1px 3px rgba(20,20,40,.1); }
+/* 分栏选择小气泡：工具栏图标下方出现，不走弹窗系统 */
+.mde-pop { position: fixed; z-index: 10003; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 30px rgba(20,20,40,.16); padding: 8px; }
+.mde-pop__grp { display: flex; align-items: center; gap: 4px; padding: 3px; }
+.mde-pop__grp + .mde-pop__grp { border-top: 1px solid var(--border); margin-top: 2px; padding-top: 5px; }
+.mde-pop__lb { font-size: 12px; color: var(--muted); width: 56px; flex: none; }
+.mde-pop__grp button { border: 1px solid var(--border); background: var(--surface); color: var(--label); font-size: 12px; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-family: inherit; }
+.mde-pop__grp button:hover { background: var(--brand-tint); border-color: var(--brand-border); color: var(--brand-strong); }
 /* 通用分栏布局：格子内图片/文字/链接任意，格子超出列数自动换到下一排 */
 .ly-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 10px 0; }
 .ly-grid--3 { grid-template-columns: repeat(3, 1fr); }

@@ -2027,44 +2027,53 @@ function mountMarkdownEditor(textarea, opts) {
     insert('\\n<div class="' + layoutGridClass(cols) + '">\\n' + cells.join('\\n') + '\\n</div>\\n\\n');
   }
   // 分栏选择弹窗：选列数后，可插空白骨架或选多张图片自动排入
-  function openLayoutPicker() {
-    openModal('分栏布局',
-      '<div style="margin-bottom:12px;">' +
-        '<div class="muted" style="margin-bottom:7px;">每排列数</div>' +
-        '<div class="ly-opt-seg">' +
-          '<button type="button" data-cols="2" class="on">2 列</button>' +
-          '<button type="button" data-cols="3">3 列</button>' +
-          '<button type="button" data-cols="4">4 列</button>' +
-        '</div>' +
-      '</div>' +
-      '<p class="muted" style="font-size:12px;margin:0;">每个格子可放图片、文字或链接；格子超过列数自动换到下一排，插入后可直接修改。</p>' +
-      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">' +
-        '<button type="button" class="btn gray" id="lyCancel">取消</button>' +
-        '<button type="button" class="btn gray" id="lyBlank">插入空白分栏</button>' +
-        '<button type="button" class="btn" id="lyPickImg">选图片自动排入</button>' +
-      '</div>', null, true);
-    var cols = 2;
-    Array.prototype.forEach.call(document.querySelectorAll('.ly-opt-seg button'), function(sb){
+  // 分栏选择小气泡：挂在图标下方的普通 DOM（不走 openModal，否则会关掉编辑器弹窗）
+  function openLayoutPop(btn) {
+    var exist = document.getElementById('mdeLayoutPop');
+    if (exist) { exist.remove(); return; }   // 再点一次图标 = 收起
+    var pop = document.createElement('div');
+    pop.id = 'mdeLayoutPop';
+    pop.className = 'mde-pop';
+    pop.innerHTML =
+      '<div class="mde-pop__grp" data-kind="blank"><span class="mde-pop__lb">空白分栏</span>' +
+        '<button type="button" data-cols="2">2列</button><button type="button" data-cols="3">3列</button><button type="button" data-cols="4">4列</button></div>' +
+      '<div class="mde-pop__grp" data-kind="img"><span class="mde-pop__lb">图片排入</span>' +
+        '<button type="button" data-cols="2">2列</button><button type="button" data-cols="3">3列</button><button type="button" data-cols="4">4列</button></div>';
+    document.body.appendChild(pop);
+    var b = btn.getBoundingClientRect();
+    var left = Math.max(8, Math.min(b.left, window.innerWidth - pop.offsetWidth - 8));
+    pop.style.top = (b.bottom + 6) + 'px';
+    pop.style.left = left + 'px';
+    function close(){
+      pop.remove();
+      document.removeEventListener('mousedown', onDocDown, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+    }
+    // 点气泡/图标外部、滚动、缩放时收起（fixed 定位不跟随滚动）
+    function onDocDown(e){
+      if (e.target === btn || pop.contains(e.target)) return;
+      close();
+    }
+    document.addEventListener('mousedown', onDocDown, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    Array.prototype.forEach.call(pop.querySelectorAll('button'), function(sb){
       sb.addEventListener('click', function(){
-        cols = parseInt(sb.dataset.cols, 10);
-        Array.prototype.forEach.call(this.parentNode.querySelectorAll('button'), function(x){
-          x.classList.toggle('on', x === sb);
-        });
+        var cols = parseInt(sb.dataset.cols, 10);
+        var kind = sb.parentNode.dataset.kind;
+        close();
+        if (kind === 'img') {
+          fileInput.value = '';
+          fileInput.accept = 'image/*';
+          fileInput.multiple = true;
+          fileInput.dataset.pick = 'layout';
+          fileInput.dataset.cols = String(cols);
+          fileInput.click();
+        } else {
+          insertLayoutBlank(cols);
+        }
       });
-    });
-    document.getElementById('lyCancel').addEventListener('click', closeModal);
-    document.getElementById('lyBlank').addEventListener('click', function(){
-      closeModal();
-      insertLayoutBlank(cols);
-    });
-    document.getElementById('lyPickImg').addEventListener('click', function(){
-      closeModal();
-      fileInput.value = '';
-      fileInput.accept = 'image/*';
-      fileInput.multiple = true;
-      fileInput.dataset.pick = 'layout';
-      fileInput.dataset.cols = String(cols);
-      fileInput.click();
     });
   }
   // 统一上传：大小预检 → 上传 chip → 插入 Markdown（工具栏选文件与粘贴图片共用）
@@ -2154,7 +2163,7 @@ function mountMarkdownEditor(textarea, opts) {
       else if (a === 'ul') wrapLine('- ');
       else if (a === 'task') wrapLine('- [ ] ');
       else if (a === 'img') pickAndUpload('image/*');
-      else if (a === 'layout') openLayoutPicker();
+      else if (a === 'layout') openLayoutPop(b);
       else if (a === 'file') pickAndUpload('');
     });
   });
