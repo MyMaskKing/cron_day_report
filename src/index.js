@@ -53,7 +53,7 @@ import { listPushLogs, countPushLogs, deletePushLogsRange } from './api/pushLog.
 import {
   exportBackup, importBackup,
   getWebdavConfig, getWebdavConfigRaw, saveWebdavConfig,
-  testWebdav, runWebdavBackupNow, listWebdavLogs
+  testWebdav, runWebdavBackupNow, listWebdavLogs, clearWebdavLogs
 } from './api/backup.api.js';
 import {
   fileStats, listAdminFiles, deleteAdminFiles, scanOrphanFiles, deleteOrphanFiles
@@ -159,6 +159,7 @@ router.post('/api/admin/backup/webdav', saveWebdavConfig);
 router.post('/api/admin/backup/webdav/test', testWebdav);
 router.post('/api/admin/backup/webdav/run-now', runWebdavBackupNow);
 router.get('/api/admin/backup/webdav/logs', listWebdavLogs);
+router.delete('/api/admin/backup/webdav/logs', clearWebdavLogs);
 
 // --- 超管附件存储管理 API（统计/列表/批量删除/孤儿扫描清理）---
 router.get('/api/admin/files/stats', fileStats);

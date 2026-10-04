@@ -8,7 +8,7 @@
 
 import { buildBackupPayload } from '../api/backup.api.js';
 import { nowCN, shouldBackupRun } from './schedule.service.js';
-import { createWebdavClient, resolveDavUrl } from './webdav.service.js';
+import { createWebdavClient, joinUrl } from './webdav.service.js';
 import { parseOffset } from './time.service.js';
 
 // 配置缺省值（存储键名 = webdav_ + 键名）
@@ -63,9 +63,13 @@ async function executeBackup(env, storage, now) {
   try {
     const payload = await buildBackupPayload(storage);
     const bytes = new TextEncoder().encode(JSON.stringify(payload));
-    const client = createWebdavClient(resolveDavUrl(cfg.url, cfg.dir), cfg.user, cfg.pass);
-    // 先逐级 MKCOL 创建保存文件夹（已存在自动跳过），避免目录不存在导致 PUT 404
-    await client.ensureDir();
+    // 保存文件夹相对服务器地址的增量段（服务器地址指向的目录视为已存在）
+    const dirSegs = String(cfg.dir || '').trim().replace(/^\/+/, '')
+      .split('/').map(s => s.trim()).filter(Boolean);
+    const target = dirSegs.length ? joinUrl(cfg.url, dirSegs.join('/')) : cfg.url;
+    const client = createWebdavClient(target, cfg.user, cfg.pass);
+    // 先逐级 MKCOL 创建保存文件夹（403/405 等乐观跳过），避免目录不存在导致 PUT 404
+    await client.ensureDir(cfg.url, dirSegs);
     await client.putFile(filename, bytes);
     await storage.backupLog.upsertSuccess(filename, bytes.length);
     const keep = parseInt(cfg.keep, 10);

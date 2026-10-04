@@ -229,8 +229,20 @@ async function listWebdavLogs({ request, env }) {
   return json({ rows });
 }
 
+/**
+ * DELETE /api/admin/backup/webdav/logs  一键清空全部备份日志
+ * 仅清本地执行历史，不删除 WebDAV 上已上传的备份文件
+ */
+async function clearWebdavLogs({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  await storage.backupLog.clear();
+  return json({ success: true, message: '备份日志已清空' });
+}
+
 export {
   exportBackup, importBackup, buildBackupPayload,
   getWebdavConfig, getWebdavConfigRaw, saveWebdavConfig,
-  testWebdav, runWebdavBackupNow, listWebdavLogs
+  testWebdav, runWebdavBackupNow, listWebdavLogs, clearWebdavLogs
 };

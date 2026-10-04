@@ -269,16 +269,13 @@ function adminPage(user) {
         <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
           <button class="btn gray" id="wbTest">测试连接</button>
           <button class="btn" id="wbRunNow">立即备份</button>
+          <button class="btn gray" id="wbLogBtn" type="button">备份日志</button>
           <button class="btn gray" id="wbParse" type="button">一键解析…</button>
           <button class="btn gray" id="wbCopy" type="button">一键复制</button>
           <button class="btn" id="wbSave">保存设置</button>
         </div>
       </div>
       <p class="muted" id="wbLast" style="font-size:12px;margin:4px 0 10px;"></p>
-      <table>
-        <thead><tr><th>时间</th><th>文件</th><th>大小</th><th>状态</th></tr></thead>
-        <tbody id="wbLogTbody"></tbody>
-      </table>
     </div>
     <div class="card">
       <h2>全部用户

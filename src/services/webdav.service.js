@@ -57,21 +57,22 @@ function createWebdavClient(baseUrl, user, pass) {
       }
     },
     /**
-     * 逐级创建备份目录（MKCOL）:
-     * 201=创建成功; 405=目录已存在(RFC4918); 200=部分服务器对已存在目录的响应
+     * 逐级创建保存文件夹（MKCOL），只创建相对服务器地址的增量段:
+     * 201=创建成功; 405=目录已存在(RFC4918); 403=部分服务器(坚果云等)对已存在
+     * 目录的响应; 409=父目录状态异常。一律乐观继续——PUT 是最终裁判，
+     * 真无权限时 PUT 会失败并给出准确错误。网络错误同样由 PUT 兜底。
+     * @param {string} existingBase - 服务器地址指向的已存在目录（不发 MKCOL）
+     * @param {string[]} segments - 保存文件夹的路径段
      */
-    async ensureDir() {
-      const u = new URL(baseUrl);
-      let cur = u.origin;
-      const segs = u.pathname.split('/').filter(Boolean);
-      for (const seg of segs) {
-        cur = cur + '/' + seg;
-        const res = await request(cur, 'MKCOL');
-        if ([200, 201, 405].includes(res.status)) continue;
-        if ([401, 403].includes(res.status)) {
-          throw new Error('无权限创建备份目录（HTTP ' + res.status + '）');
+    async ensureDir(existingBase, segments) {
+      let cur = existingBase;
+      for (const seg of segments) {
+        cur = joinUrl(cur, seg);
+        try {
+          await request(cur, 'MKCOL');
+        } catch {
+          // 网络错误不阻断，PUT 阶段会再次暴露同一问题
         }
-        throw new Error('无法创建备份目录：HTTP ' + res.status);
       }
     },
     async deleteFile(filename) {

@@ -3385,22 +3385,10 @@ if (wbSave) {
     wbToggleFreq();
 
     var logs = await api('/api/admin/backup/webdav/logs');
-    var tbody = document.getElementById('wbLogTbody');
-    tbody.innerHTML = '';
     var lastOk = null, lastFail = null;
     (logs.rows || []).forEach(function(r){
       if (r.status === 'success' && !lastOk) lastOk = r;
       if (r.status === 'fail' && !lastFail) lastFail = r;
-      var tr = document.createElement('tr');
-      var tdTime = document.createElement('td'); tdTime.textContent = r.created_at || '';
-      var tdFile = document.createElement('td'); tdFile.textContent = r.filename || '';
-      var tdSize = document.createElement('td');
-      tdSize.textContent = r.status === 'success' ? wbFmtSize(r.size) : '-';
-      var tdStatus = document.createElement('td');
-      tdStatus.textContent = r.status === 'success' ? '成功' : ('失败：' + (r.error || ''));
-      tdStatus.style.color = r.status === 'success' ? 'var(--ok)' : 'var(--danger)';
-      tr.appendChild(tdTime); tr.appendChild(tdFile); tr.appendChild(tdSize); tr.appendChild(tdStatus);
-      tbody.appendChild(tr);
     });
     document.getElementById('wbLast').textContent =
       '上次成功：' + (lastOk ? (lastOk.created_at + ' ' + lastOk.filename) : '无') +
@@ -3468,6 +3456,39 @@ if (wbSave) {
       btn.disabled = false;
     }
   });
+
+  // 备份日志弹窗: 表格展示历史, 支持一键清空全部日志
+  function wbLogsTableHtml(rows){
+    var bodyHtml = (rows || []).map(function(r){
+      var ok = r.status === 'success';
+      return '<tr><td>' + esc(r.created_at || '') + '</td><td>' + esc(r.filename || '') +
+        '</td><td>' + (ok ? esc(wbFmtSize(r.size)) : '-') + '</td>' +
+        '<td style="color:' + (ok ? 'var(--ok)' : 'var(--danger)') + '">' +
+        (ok ? '成功' : esc('失败：' + (r.error || ''))) + '</td></tr>';
+    }).join('');
+    return '<table><thead><tr><th>时间</th><th>文件</th><th>大小</th><th>状态</th></tr></thead>' +
+      '<tbody>' + bodyHtml + '</tbody></table>';
+  }
+  async function wbOpenLogs(){
+    var logs = await api('/api/admin/backup/webdav/logs');
+    openModal('备份日志',
+      wbLogsTableHtml(logs.rows) +
+      '<div style="text-align:right;margin-top:14px;">' +
+      '<button class="btn danger" id="wbLogClear" type="button">清空全部日志</button> ' +
+      '<button class="btn gray" type="button" onclick="closeModal()">关闭</button></div>');
+    document.getElementById('wbLogClear').addEventListener('click', function(){
+      confirmModal('清空全部备份日志',
+        '将删除全部备份执行历史记录（不影响 WebDAV 上已上传的备份文件）。\\n确认清空吗？',
+        async function(){
+          await api('/api/admin/backup/webdav/logs', { method: 'DELETE' });
+          // confirm 已由 confirmModal 关闭，这里再关闭其下层的日志弹窗
+          closeModal();
+          showMsg(document.getElementById('wbMsg'), '备份日志已清空', true);
+          await wbLoad();
+        });
+    });
+  }
+  document.getElementById('wbLogBtn').addEventListener('click', wbOpenLogs);
 
   // 一键解析: 弹窗内粘贴四行配置（地址/用户/密码/文件夹），粘贴后自动解析回填
   function wbApplyParse(text) {

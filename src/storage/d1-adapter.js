@@ -1220,6 +1220,10 @@ function createD1Adapter(env) {
       },
       async delete(id) {
         await db.prepare('DELETE FROM webdav_backup_logs WHERE id = ?').bind(id).run();
+      },
+      // 一键清空全部日志（不影响 WebDAV 上已上传的备份文件）
+      async clear() {
+        await db.prepare('DELETE FROM webdav_backup_logs').run();
       }
     },
 
