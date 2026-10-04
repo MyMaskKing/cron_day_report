@@ -16,6 +16,8 @@ function nowCN(nowMs, offset = 8) {
   const d = new Date(nowMs + offset * 3600 * 1000);
   return {
     hour: d.getUTCHours(),
+    minute: d.getUTCMinutes(),
+    second: d.getUTCSeconds(),
     day: d.getUTCDate(),
     month: d.getUTCMonth() + 1,
     weekday: ((d.getUTCDay() + 6) % 7) + 1,

@@ -1202,11 +1202,10 @@ function createD1Adapter(env) {
             status='fail', error=excluded.error, created_at=datetime('now')
         `).bind(filename, String(error).slice(0, 500)).run();
       },
-      // 全部成功记录(保留清理事实源), 按 id 倒序(与 created_at 同序)
-      async listSuccess() {
+      // 全部记录(保留清理事实源, 含失败), 按 id 倒序(与 created_at 同序)
+      async listAll() {
         const { results } = await db.prepare(`
-          SELECT id, filename, created_at FROM webdav_backup_logs
-          WHERE status='success' ORDER BY id DESC
+          SELECT id, filename, created_at FROM webdav_backup_logs ORDER BY id DESC
         `).all();
         return results || [];
       },

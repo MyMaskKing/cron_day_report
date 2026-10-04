@@ -35,18 +35,22 @@ async function readWebdavConfig(storage) {
 }
 
 /**
- * 生成备份文件名（配置时区口径）: backup-YYYY-MM-DD-HH.json
+ * 生成备份文件名（配置时区口径）: backup-YYYY-MM-DD-HHMMSS.json
+ * 精确到秒: 每次备份都是独立文件、不互相覆盖
  */
 function backupFilename(now) {
-  return 'backup-' + now.dateStr + '-' + String(now.hour).padStart(2, '0') + '.json';
+  const p = n => String(n).padStart(2, '0');
+  return 'backup-' + now.dateStr + '-'
+    + p(now.hour) + p(now.minute) + p(now.second) + '.json';
 }
 
 /**
- * 保留清理: 成功记录按 id 倒序, 超出 keep 份的远端删除并删本地行;
+ * 保留清理: 全部记录（含失败）按 id 倒序, 超出 keep 份的远端删除并删本地行;
+ * 失败记录对应的远端文件可能从未上传成功, DELETE 返回 404 同样视为成功;
  * 单个删除失败跳过, 下次备份再试
  */
 async function pruneOldBackups(client, storage, keep) {
-  const rows = await storage.backupLog.listSuccess();
+  const rows = await storage.backupLog.listAll();
   for (const row of rows.slice(keep)) {
     try {
       await client.deleteFile(row.filename);
