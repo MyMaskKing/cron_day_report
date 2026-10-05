@@ -3391,8 +3391,8 @@ if (wbSave) {
       if (r.status === 'fail' && !lastFail) lastFail = r;
     });
     document.getElementById('wbLast').textContent =
-      '上次成功：' + (lastOk ? (lastOk.created_at + ' ' + lastOk.filename) : '无') +
-      '　｜　上次失败：' + (lastFail ? (lastFail.created_at + ' ' + (lastFail.error || '')) : '无');
+      '上次成功：' + (lastOk ? (fmtDbTime(lastOk.created_at) + ' ' + lastOk.filename) : '无') +
+      '　｜　上次失败：' + (lastFail ? (fmtDbTime(lastFail.created_at) + ' ' + (lastFail.error || '')) : '无');
   }
 
   wbSave.addEventListener('click', async function(){
@@ -3461,7 +3461,7 @@ if (wbSave) {
   function wbLogsTableHtml(rows){
     var bodyHtml = (rows || []).map(function(r){
       var ok = r.status === 'success';
-      return '<tr><td>' + esc(r.created_at || '') + '</td><td>' + esc(r.filename || '') +
+      return '<tr><td>' + fmtDbTime(r.created_at || '') + '</td><td>' + esc(r.filename || '') +
         '</td><td>' + (ok ? esc(wbFmtSize(r.size)) : '-') + '</td>' +
         '<td style="color:' + (ok ? 'var(--ok)' : 'var(--danger)') + '">' +
         (ok ? '成功' : esc('失败：' + (r.error || ''))) + '</td></tr>';

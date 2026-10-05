@@ -45,7 +45,8 @@ function backupFilename(now) {
 }
 
 /**
- * 保留清理: 全部记录（含失败）按 id 倒序, 超出 keep 份的远端删除并删本地行;
+ * 保留清理: 全部记录（含失败）按 id 倒序, 超出 keep 份的仅删远端文件;
+ * 本地执行日志始终保留（仅「清空全部日志」可清）, keep 只约束 WebDAV 文件份数。
  * 失败记录对应的远端文件可能从未上传成功, DELETE 返回 404 同样视为成功;
  * 单个删除失败跳过, 下次备份再试
  */
@@ -54,7 +55,6 @@ async function pruneOldBackups(client, storage, keep) {
   for (const row of rows.slice(keep)) {
     try {
       await client.deleteFile(row.filename);
-      await storage.backupLog.delete(row.id);
     } catch {
       // 忽略单条删除失败
     }
