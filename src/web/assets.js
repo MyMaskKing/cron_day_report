@@ -4643,6 +4643,8 @@ document.getElementById('anRun').addEventListener('click', async function(){
       }).join('');
       return '<div style="background:var(--surface-2);border-radius:6px;padding:12px;margin-bottom:10px;">' +
         '<div><b>' + esc(it.name) + ' (' + it.code + ')</b> · 占比 ' + it.weight + '%</div>' +
+        '<div class="muted" style="font-size:13px;margin-top:2px;">持仓 ' + esc(it.shares) +
+          ' 份 · 当前净值 ' + esc(it.current_nav) + ' · 购买净值 ' + esc(it.cost_nav) + '</div>' +
         sig +
         '<div class="muted" style="font-size:13px;margin-top:6px;">' +
           '止损参考净值: ' + it.targets.stopLossNav + ' · 止盈参考净值: ' + it.targets.takeProfitNav + '</div>' +

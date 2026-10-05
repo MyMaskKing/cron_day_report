@@ -234,7 +234,7 @@ function analyzePortfolio(portfolio, rules = {}) {
 
     return {
       code: it.code, name: it.name, rate: it.rate, profit: it.profit,
-      weight, current_nav: it.current_nav, cost_nav: it.cost_nav,
+      weight, shares: it.shares, current_nav: it.current_nav, cost_nav: it.cost_nav,
       signals, targets
     };
   });
