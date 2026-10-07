@@ -136,6 +136,13 @@ function createD1Adapter(env) {
       },
       async setInvestmentStrategy(userId, content) {
         await db.prepare('UPDATE users SET investment_strategy = ? WHERE id = ?').bind(content, userId).run();
+      },
+      // 全部非空投资策略正文（附件自动清理的全局引用保护用）
+      async allStrategyContents() {
+        const q = await db.prepare(
+          "SELECT investment_strategy AS content FROM users WHERE investment_strategy IS NOT NULL AND investment_strategy <> ''"
+        ).all();
+        return q.results || [];
       }
     },
 
@@ -758,6 +765,13 @@ function createD1Adapter(env) {
           childDue, rec, iv, nth, wd, alarmMinute, id, userId
         ).run();
       },
+      // 全部非空备注正文（附件自动清理的全局引用保护用）
+      async allTodoNotes() {
+        const q = await db.prepare(
+          "SELECT note FROM todos WHERE note IS NOT NULL AND note <> ''"
+        ).all();
+        return q.results || [];
+      },
       // 删除个人文本分类: 该用户下同分类名的任务(含父子任务)一律摘为未分类;
       // shared_cat_id IS NULL 保险, 不触碰共享分类任务(共享分类解散走 sharedCat.deleteCatCascade)
       async clearCategory(userId, name) {
@@ -1059,16 +1073,16 @@ function createD1Adapter(env) {
 
     // ==================== 统一文件（元数据；本体在 env.FILES: R2/磁盘，key 前缀按 source 分 todo/user） ====================
     file: {
-      // r: { owner_uid, source('todo'|'user'), todo_id?, uploader_uid?, file_token, origin_name, mime, size, is_image }
+      // r: { owner_uid, source('todo'|'user'), todo_id?, uploader_uid?, file_token, origin_name, mime, size, is_image, ref_kind? }
       async create(r) {
         const res = await db.prepare(
-          `INSERT INTO files (owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO files (owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image, ref_kind)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
           r.owner_uid, r.source || 'user', r.todo_id == null ? null : r.todo_id,
           r.uploader_uid == null ? null : r.uploader_uid,
           r.file_token, r.origin_name, r.mime == null ? null : r.mime,
-          r.size, r.is_image ? 1 : 0
+          r.size, r.is_image ? 1 : 0, r.ref_kind == null ? null : r.ref_kind
         ).run();
         return res.meta && res.meta.last_row_id;
       },
@@ -1120,6 +1134,22 @@ function createD1Adapter(env) {
         ).bind(limit, offset).all();
         const totalQ = await db.prepare(`SELECT COUNT(*) AS c FROM files`).first();
         return { rows: rowsQ.results || [], total: totalQ ? totalQ.c : 0 };
+      },
+      // 按归属用户+编辑框标记取文件（source='user' 附件自动清理候选行）
+      async listByOwnerRef(ownerUid, refKind) {
+        const q = await db.prepare(
+          `SELECT id, owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image, created_at
+           FROM files WHERE source='user' AND owner_uid=? AND ref_kind=? ORDER BY id`
+        ).bind(ownerUid, refKind).all();
+        return q.results || [];
+      },
+      // 按任务+标记取备注文件（source='todo' 备注自动清理候选行）
+      async listByTodoRef(todoId, refKind) {
+        const q = await db.prepare(
+          `SELECT id, owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image, created_at
+           FROM files WHERE source='todo' AND todo_id=? AND ref_kind=? ORDER BY id`
+        ).bind(todoId, refKind).all();
+        return q.results || [];
       },
       // 全量 file_token（孤儿扫描差集用）
       async allTokens() {

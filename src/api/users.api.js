@@ -10,8 +10,21 @@ import { hashPassword } from '../auth/password.js';
 import { getTokenFromRequest, getSession, impersonate, stopImpersonate } from '../auth/session.js';
 import { parseOffset, DEFAULT_TZ_OFFSET } from '../services/time.service.js';
 import { kvGetAnnRead, kvSetAnnRead } from '../storage/kv-store.js';
+import { getFileStore } from '../storage/file-store.js';
+import { pruneRefFiles } from './file.api.js';
 
 const DEFAULT_PASSWORD = '123456';
+
+// 设置类正文保存后的附件清理（best-effort）：未绑定文件存储或清理失败均不影响保存结果
+async function pruneSettingsFiles(storage, env, ownerUid, refKind, content) {
+  const files = getFileStore(env);
+  if (!files) return 0;
+  try {
+    const rows = await storage.file.listByOwnerRef(ownerUid, refKind);
+    return await pruneRefFiles({ storage, files, rows, content });
+  } catch { /* 附件清理失败忽略 */ }
+  return 0;
+}
 
 /**
  * GET /api/admin/users  列出所有用户
@@ -376,11 +389,13 @@ async function setAnnouncement({ request, env }) {
     await storage.settings.set('announcement_updated_at', updated_at);
     // 发布者本人直接标记已读，避免发布后跳转页面被自己的公告弹窗打断
     await kvSetAnnRead(env.KV, auth.user_id, updated_at);
-    return json({ success: true, message: '公告已发布', content, updated_at });
+    const deleted = await pruneSettingsFiles(storage, env, auth.user_id, 'announcement', content);
+    return json({ success: true, message: '公告已发布', content, updated_at, deleted });
   }
   await storage.settings.set('announcement', '');
   await storage.settings.set('announcement_updated_at', '');
-  return json({ success: true, message: '公告已下线', content: '', updated_at: '' });
+  const deletedOff = await pruneSettingsFiles(storage, env, auth.user_id, 'announcement', '');
+  return json({ success: true, message: '公告已下线', content: '', updated_at: '', deleted: deletedOff });
 }
 
 /**
@@ -398,7 +413,8 @@ async function setAppDownload({ request, env }) {
   const updated_at = has ? String(Date.now()) : '';
   await storage.settings.set('app_download', has ? content : '');
   await storage.settings.set('app_download_updated_at', updated_at);
-  return json({ success: true, message: '已保存', content: has ? content : '', updated_at });
+  const deleted = await pruneSettingsFiles(storage, env, auth.user_id, 'app_download', content);
+  return json({ success: true, message: '已保存', content: has ? content : '', updated_at, deleted });
 }
 
 export {

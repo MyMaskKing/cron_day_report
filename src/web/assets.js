@@ -3256,6 +3256,7 @@ function annOpenEditor(){
     upload: async function(file){
       var fd = new FormData();
       fd.append('file', file);
+      fd.append('ref', 'announcement');
       // 裸 fetch 传 FormData（不经 api()：它固定 JSON 编码）；与基金策略编辑器同一上传通道
       var res = await fetch('/api/files/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
       var d = await res.json().catch(function(){ return {}; });
@@ -4800,6 +4801,7 @@ function _stratShowEdit(content){
       upload: async function(file){
         var fd = new FormData();
         fd.append('file', file);
+        fd.append('ref', 'strategy');
         // 裸 fetch 传 FormData(不经 api(): 它固定 JSON 编码); 通用登录态上传, 个人数据不带 X-Data-As
         var res = await fetch('/api/files/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
         var d = await res.json().catch(function(){ return {}; });
@@ -11926,6 +11928,7 @@ function openTodoEdit(node) {
           var fd = new FormData();
           fd.append('todo_id', node.id);
           fd.append('file', file);
+          fd.append('ref', 'todo_note');
           var headers = {};
           var asUid = dataShareGet('todo');
           if (asUid) headers['X-Data-As'] = asUid;
@@ -12868,6 +12871,7 @@ function openPublicEdit(node) {
         var fd = new FormData();
         fd.append('todo_id', node.id);
         fd.append('file', file);
+        fd.append('ref', 'todo_note');
         var res = await fetch('/api/public/todo-att/' + _token, { method: 'POST', body: fd });
         var d = await res.json().catch(function(){ return {}; });
         if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
@@ -13171,6 +13175,7 @@ function openReportEdit(node) {
         var fd = new FormData();
         fd.append('todo_id', node.id);
         fd.append('file', file);
+        fd.append('ref', 'todo_note');
         var res = await fetch('/api/public/todo-att/' + _token, { method: 'POST', body: fd });
         var d = await res.json().catch(function(){ return {}; });
         if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
@@ -13368,6 +13373,7 @@ function openPublicEdit(node) {
         var fd = new FormData();
         fd.append('todo_id', node.id);
         fd.append('file', file);
+        fd.append('ref', 'todo_note');
         var res = await fetch('/api/public/todo-att/' + _token, { method: 'POST', body: fd });
         var d = await res.json().catch(function(){ return {}; });
         if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
@@ -13607,6 +13613,7 @@ const DOWNLOAD_JS = `
       upload: async function(file){
         var fd = new FormData();
         fd.append('file', file);
+        fd.append('ref', 'app_download');
         var res = await fetch('/api/files/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
         var d = await res.json().catch(function(){ return {}; });
         if (!res.ok || !d.success) throw new Error(d.message || '上传失败');

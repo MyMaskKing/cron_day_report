@@ -11,10 +11,13 @@ import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
 import { generateToken } from '../auth/password.js';
 import { getFileStore } from '../storage/file-store.js';
+import { selectPrunableFiles } from '../services/markdown.service.js';
 
 // 允许内联渲染的图片类型；SVG 永远不算图片（可内嵌脚本，强制下载）
 const IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 const DEFAULT_ATTACH_MAX_MB = 5;
+// 附件所属编辑框白名单（files.ref_kind；未带/非法值=NULL，不参与自动清理）
+const REF_KINDS = new Set(['strategy', 'announcement', 'app_download', 'todo_note']);
 
 async function attachMaxMb(storage) {
   const raw = parseInt(await storage.settings.get('todo_attach_max_mb'), 10);
@@ -41,8 +44,9 @@ function imageExt(mime) {
  * @param {number=} p.todoId source='todo' 时的任务 id
  * @param {number=} p.uploaderUid 实际上传者（共享分类成员/匿名留空）
  * @param {boolean=} p.isAdmin 超管上传豁免大小上限
+ * @param {string=} p.refKind 所属编辑框标记（REF_KINDS 之一）
  */
-async function saveFile({ storage, files, source, ownerUid, todoId, uploaderUid, file, isAdmin }) {
+async function saveFile({ storage, files, source, ownerUid, todoId, uploaderUid, file, isAdmin, refKind }) {
   const src = source === 'todo' ? 'todo' : 'user';
   const maxMb = await attachMaxMb(storage);
   if (!isAdmin && file.size > maxMb * 1048576) {
@@ -60,7 +64,8 @@ async function saveFile({ storage, files, source, ownerUid, todoId, uploaderUid,
     origin_name: file.name || '未命名文件',
     mime: file.type || null,
     size: file.size,
-    is_image: isImage ? 1 : 0
+    is_image: isImage ? 1 : 0,
+    ref_kind: refKind != null && REF_KINDS.has(refKind) ? refKind : null
   });
   await files.put(src + '/' + fileToken, bytes, { contentType: file.type || 'application/octet-stream' });
   const row = await storage.file.findById(id);
@@ -76,9 +81,14 @@ async function uploadUserFile({ request, env }) {
   catch { return error('上传数据格式不正确', 400); }
   const file = form.get('file');
   if (!(file instanceof File) || file.size <= 0) return error('缺少上传文件', 400);
+  const refRaw = form.get('ref');
+  const refKind = typeof refRaw === 'string' && REF_KINDS.has(refRaw) ? refRaw : null;
   const files = getFileStore(env);
   if (!files) return error('附件存储未配置，请联系管理员绑定 R2', 503);
-  return await saveFile({ storage: getStorage(env), files, source: 'user', ownerUid: auth.user_id, file, isAdmin: auth.role === 'admin' });
+  return await saveFile({
+    storage: getStorage(env), files, source: 'user', ownerUid: auth.user_id, file,
+    isAdmin: auth.role === 'admin', refKind
+  });
 }
 
 /** GET /todo-file/:fileToken  长期免密下载（file_token 全局唯一，R2 key 前缀按 source） */
@@ -113,7 +123,49 @@ async function publicAttachMaxMb({ env }) {
   return json({ success: true, max_mb: mb });
 }
 
+/**
+ * 删除给定文件行：逐行先删本体、成功才摘 DB 行（与 admin-file 同口径）。
+ * @returns {Promise<number>} 实际删除行数
+ */
+async function deleteFileRows(storage, files, rows) {
+  const okIds = [];
+  for (const r of rows) {
+    try {
+      await files.delete((r.source === 'todo' ? 'todo/' : 'user/') + r.file_token);
+      okIds.push(r.id);
+    } catch {
+      // 单个本体删除失败则保留该行，避免制造死链，不阻塞其余
+    }
+  }
+  await storage.file.removeByIds(okIds);
+  return okIds.length;
+}
+
+/**
+ * 保存正文后的附件对账：候选行中当前正文未引用、且不在任何其他受管正文里的，一律删除。
+ * @param {Object} p
+ * @param {Array} p.rows 候选文件行（listByOwnerRef / listByTodoRef）
+ * @param {string} p.content 本次保存的正文
+ */
+async function pruneRefFiles({ storage, files, rows, content }) {
+  const [strategyRows, noteRows, announcement, appDownload] = await Promise.all([
+    storage.users.allStrategyContents(),
+    storage.todo.allTodoNotes(),
+    storage.settings.get('announcement'),
+    storage.settings.get('app_download')
+  ]);
+  const otherContents = [
+    ...strategyRows.map(r => r.content),
+    ...noteRows.map(r => r.note),
+    announcement || '',
+    appDownload || ''
+  ];
+  const prunable = selectPrunableFiles(rows, content, otherContents);
+  return await deleteFileRows(storage, files, prunable);
+}
+
 export {
-  IMAGE_MIME, attachMaxMb, attachmentJson, saveFile,
-  uploadUserFile, fileDownload, publicAttachMaxMb
+  IMAGE_MIME, REF_KINDS, attachMaxMb, attachmentJson, saveFile,
+  uploadUserFile, fileDownload, publicAttachMaxMb,
+  deleteFileRows, pruneRefFiles
 };

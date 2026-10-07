@@ -16,6 +16,8 @@ import { buildFundReport } from '../services/report.service.js';
 import { parseOffset, fmtShort, localParts } from '../services/time.service.js';
 import { resolveBaseUrl, ALLOWED_FORMATS, effectiveFormat } from '../config.js';
 import { requireDataContext } from './share.api.js';
+import { getFileStore } from '../storage/file-store.js';
+import { pruneRefFiles } from './file.api.js';
 
 /** 校验持仓字段 */
 function validateFund(f) {
@@ -535,7 +537,16 @@ async function setStrategy({ request, env }) {
   if (content.length > 20000) return error('投资策略内容不能超过 20000 字符');
   const storage = getStorage(env);
   await storage.users.setInvestmentStrategy(auth.user_id, content || null);
-  return json({ success: true, message: '投资策略已保存' });
+  // 保存后清理本编辑框不再引用的附件（best-effort，失败不影响保存结果）
+  let deleted = 0;
+  const files = getFileStore(env);
+  if (files) {
+    try {
+      const rows = await storage.file.listByOwnerRef(auth.user_id, 'strategy');
+      deleted = await pruneRefFiles({ storage, files, rows, content });
+    } catch { /* 附件清理失败忽略 */ }
+  }
+  return json({ success: true, message: '投资策略已保存', deleted });
 }
 
 export {

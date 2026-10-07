@@ -10,7 +10,7 @@ import { generateToken } from '../auth/password.js';
 import { resolveBaseUrl } from '../config.js';
 import { requireDataContext } from './share.api.js';
 import { getFileStore } from '../storage/file-store.js';
-import { attachmentJson, saveFile } from './file.api.js';
+import { attachmentJson, saveFile, REF_KINDS, pruneRefFiles } from './file.api.js';
 import { countStats, reminderActionTargets, buildWidgetGroups, buildChartSeries, buildAnalysis, CHART_RANGES } from '../services/todo.service.js';
 
 /** 取北京时区当天 YYYY-MM-DD */
@@ -71,9 +71,22 @@ async function readAttachmentForm(request) {
   catch { return { err: error('上传数据格式不正确', 400) }; }
   const todoId = parseInt(form.get('todo_id'), 10);
   const file = form.get('file');
+  const refRaw = form.get('ref');
+  const refKind = typeof refRaw === 'string' && REF_KINDS.has(refRaw) ? refRaw : null;
   if (!todoId || isNaN(todoId)) return { err: error('缺少任务 id', 400) };
   if (!(file instanceof File) || file.size <= 0) return { err: error('缺少上传文件', 400) };
-  return { todoId, file };
+  return { todoId, file, refKind };
+}
+
+// 任务保存后的备注附件清理（best-effort）：未绑定文件存储或清理失败均不影响保存结果
+async function pruneTodoNotes(storage, env, todoId, content) {
+  const files = getFileStore(env);
+  if (!files) return 0;
+  try {
+    const rows = await storage.file.listByTodoRef(todoId, 'todo_note');
+    return await pruneRefFiles({ storage, files, rows, content: content || '' });
+  } catch { /* 附件清理失败忽略 */ }
+  return 0;
 }
 
 /**
@@ -360,7 +373,8 @@ async function updateTodo({ request, env, params }) {
       }
     }
   }
-  return json({ success: true, message: '任务已更新' });
+  const deleted = await pruneTodoNotes(storage, env, id, payload.note);
+  return json({ success: true, message: '任务已更新', deleted });
 }
 
 /** PUT /api/todo/:id/done  勾选/取消完成当前任务  body: { done } */
@@ -636,7 +650,7 @@ async function todoAttachmentUpload({ request, env }) {
   return await saveFile({
     storage, files, source: 'todo', ownerUid: acc.ownerUid, todoId: t.id, file: parsed.file,
     uploaderUid: acc.catId != null ? auth.user_id : acc.ownerUid,
-    isAdmin: auth.role === 'admin'
+    isAdmin: auth.role === 'admin', refKind: parsed.refKind
   });
 }
 
@@ -815,7 +829,8 @@ async function publicUpdateTodo({ request, env, params }) {
     payload.recur_weekday = recFields.recur_weekday;
   }
   await storage.todo.update(id, root.user_id, payload);
-  return json({ success: true, message: '任务已更新' });
+  const deleted = await pruneTodoNotes(storage, env, id, payload.note);
+  return json({ success: true, message: '任务已更新', deleted });
 }
 
 /** GET /api/public/todo-report/:token  免密报告查看：该用户全部待办
@@ -967,7 +982,10 @@ async function publicTodoAttachmentUpload({ request, env, params }) {
   const files = getFileStore(env);
   if (!files) return error('附件存储未配置，请联系管理员', 503);
   // 公开链接无登录身份：归属记任务 owner，uploader_uid 留空
-  return await saveFile({ storage, files, source: 'todo', ownerUid: t.user_id, todoId: parsed.todoId, file: parsed.file });
+  return await saveFile({
+    storage, files, source: 'todo', ownerUid: t.user_id, todoId: parsed.todoId,
+    file: parsed.file, refKind: parsed.refKind
+  });
 }
 
 /** GET /api/public/todo-att/:token?todo_id=  附件列表 */
@@ -1123,7 +1141,8 @@ async function publicAllUpdate({ request, env, params }) {
     payload.recur_weekday = recFields.recur_weekday;
   }
   await storage.todo.update(id, userId, payload);
-  return json({ success: true, message: '任务已更新' });
+  const deleted = await pruneTodoNotes(storage, env, id, payload.note);
+  return json({ success: true, message: '任务已更新', deleted });
 }
 
 /** PUT /api/public/todo-all/:token/reminder/complete 免密通知快捷完成 */
