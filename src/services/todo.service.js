@@ -330,6 +330,7 @@ function buildWidgetGroups(rows, today, scope, limit) {
       recurring: !!root.recurrence || hasRecur,
       // 共享分类任务(shared_cat_id 非空)标记; groups 结构其余不变, Android 旧版本自动忽略该字段
       shared: root.shared_cat_id != null,
+      ghost: root._ghost === 1,
       collapsible: items.length > 1 || items[0].id !== root.id,
       children: items
     });

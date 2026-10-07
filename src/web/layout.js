@@ -3431,6 +3431,7 @@ function renderTopbar(user, active = '') {
       : '';
     return `<style>.container{margin-top:0 !important;}</style>` + appFab +
       `<script>window.__ROLE__=${JSON.stringify(user.role)};
+window.__USER_ID__=${JSON.stringify(user.id)};
 document.addEventListener('click',function(e){
   var fab=e.target.closest&&e.target.closest('.m-fab');
   if(fab){var id=document.body.classList.contains('todo-fs-on')?'tAddFs':'tAdd';
@@ -3526,6 +3527,7 @@ document.addEventListener('click',function(e){
   // 时钟按配置时区(app_settings.tz_offset)显示; FAB/移动登出为视觉代理, 委托到页内真实按钮
   `<script>window.__TZ_OFFSET__=${Number.isFinite(user.tzOffset) ? user.tzOffset : 8};
 window.__ROLE__=${JSON.stringify(user.role)};
+window.__USER_ID__=${JSON.stringify(user.id)};
 document.addEventListener('click', function(e){
   var fab = e.target.closest && e.target.closest('.m-fab');
   // 全屏态代理全屏顶栏 #tAddFs, 默认态代理卡片头 #tAdd（App 壳同此逻辑）

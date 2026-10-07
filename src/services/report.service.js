@@ -716,7 +716,8 @@ function buildTodoReportText(trees, base, token, reportToken, today, stats, remi
       const leaves = collectReportLeaves(root);
       // 组内可执行叶子数(无子任务的降级主任务自身计 1 件), 与顶部"N 件待办"逐组对账
       // text 版不加优先级圆圈: 微信/短信客户端里各家 emoji 尺寸不一, 反而挤占标题空间
-      t += `❇️待办${ri + 1}：${root.shared_cat_id != null ? '👥' : ''}${root.title}${cat}(${leaves.length}件)${dateBadge(rootDue)}\n`;
+      var _rootMark = root._ghost === 1 ? '🔒' : (root.shared_cat_id != null ? '👥' : '');
+      t += `❇️待办${ri + 1}：${_rootMark}${root.title}${cat}(${leaves.length}件)${dateBadge(rootDue)}\n`;
       // 叶子扁平成树: ├─ 串接、组内末项 └─; 不画跨层 │(中间层父任务不成行, 竖线会悬空),
       // 层级深度经面包屑(path)体现。每行前缀等长, 微信窄屏省空间, 也无竖线对齐问题
       leaves.forEach((it, li) => {
@@ -767,7 +768,8 @@ function buildTodoReportMarkdown(trees, base, token, reportToken, today, stats, 
       const pri = root.priority != null ? (TODO_PRI_ICON[root.priority] || '') : '';
       const rootDue = rootDueOf(root);
       const leaves = collectReportLeaves(root);
-      m += `**❇️待办${ri + 1}：${pri}${root.shared_cat_id != null ? '👥' : ''}${root.title}**${cat}（${leaves.length} 件）${dateBadge(rootDue)}\n`;
+      var _rootMarkM = root._ghost === 1 ? '🔒' : (root.shared_cat_id != null ? '👥' : '');
+      m += `**❇️待办${ri + 1}：${pri}${_rootMarkM}${root.title}**${cat}（${leaves.length} 件）${dateBadge(rootDue)}\n`;
       leaves.forEach((it) => {
         if (it.selfRoot) return;
         const crumb = it.path.length ? it.path.join(' / ') + '：' : '';
@@ -815,7 +817,7 @@ function buildTodoReportHTML(trees, base, token, reportToken, today, stats, remi
     // 主任务卡片: 品牌蓝分组条头(层级通道) + 优先级圆点 + 加粗标题 + 主任务显示日期 + 子任务数提示
     h += `<div style="margin:16px 0;border:1px solid #eceff5;border-radius:8px;overflow:hidden;">
       <div style="padding:11px 14px;background:#f7f8fa;border-left:4px solid #4a6cf7;">
-        ${dot(root.priority)}<span style="font-size:18px;font-weight:700;color:#1f2430;vertical-align:middle;">${root.shared_cat_id != null ? '👥 ' : ''}${root.title}</span>${catTag(root.category)}${todoDateTag(rootDue, today, 'html')}${subBadge}
+        ${dot(root.priority)}<span style="font-size:18px;font-weight:700;color:${root._ghost === 1 ? 'var(--muted)' : '#1f2430'};vertical-align:middle;">${root._ghost === 1 ? '🔒 ' : (root.shared_cat_id != null ? '👥 ' : '')}${root.title}</span>${catTag(root.category)}${todoDateTag(rootDue, today, 'html')}${subBadge}
       </div>`;
     if (leaves.length) {
       h += `<div style="padding:8px 12px 10px;">`;

@@ -625,11 +625,32 @@ function createD1Adapter(env) {
         return results || [];
       },
       // 登录态可见全集: 本人个人任务(shared_cat_id IS NULL) ∪ 我作为成员的共享分类全部任务
+      // 可见行 = 本人个人任务 ∪ 我加入的共享分类全部行；
+      // 再用递归 CTE 补出可见行的全部祖先作为投影壳(_ghost=1)：
+      // 深层挂载的共享子任务挂在别人个人父任务下，成员需要看到祖先壳但壳只读。
       async listVisibleForUser(userId) {
         const { results } = await db.prepare(
-          `SELECT t.* FROM todos t
-           WHERE (t.user_id = ? AND t.shared_cat_id IS NULL)
-              OR t.shared_cat_id IN (SELECT m.cat_id FROM todo_shared_cat_members m WHERE m.user_id = ?)
+          `WITH RECURSIVE
+           visible(id) AS (
+             SELECT t.id FROM todos t
+             WHERE (t.user_id = ? AND t.shared_cat_id IS NULL)
+                OR t.shared_cat_id IN (SELECT m.cat_id FROM todo_shared_cat_members m WHERE m.user_id = ?)
+           ),
+           ghost(id) AS (
+             SELECT t.parent_id FROM todos t
+             JOIN visible v ON t.id = v.id
+             WHERE t.parent_id IS NOT NULL
+             UNION
+             SELECT t.parent_id FROM todos t
+             JOIN ghost g ON t.id = g.id
+             WHERE t.parent_id IS NOT NULL
+           )
+           SELECT t.*,
+                  CASE WHEN v.id IS NOT NULL THEN 0 ELSE 1 END AS _ghost
+           FROM todos t
+           LEFT JOIN visible v ON v.id = t.id
+           WHERE t.id IN (SELECT id FROM visible)
+              OR t.id IN (SELECT id FROM ghost)
            ORDER BY t.sort_order, t.id`
         ).bind(userId, userId).all();
         return results || [];
@@ -640,6 +661,31 @@ function createD1Adapter(env) {
           'SELECT * FROM todos WHERE user_id=? AND shared_cat_id IS NULL ORDER BY sort_order, id'
         ).bind(userId).all();
         return results || [];
+      },
+      // 深层挂载/摘除共享分类：批量只改 shared_cat_id（不动 user_id，区别于 reassignSubtree）。
+      // catId 为 null 即摘除；调用方负责全部权限与子树范围校验。
+      async setSharedCatForRows(ids, catId) {
+        if (!ids || ids.length === 0) return;
+        const placeholders = ids.map(() => '?').join(',');
+        if (catId == null) {
+          await db.prepare(
+            `UPDATE todos SET shared_cat_id=NULL WHERE id IN (${placeholders})`
+          ).bind(...ids).run();
+          return;
+        }
+        await db.prepare(
+          `UPDATE todos SET shared_cat_id=? WHERE id IN (${placeholders})`
+        ).bind(catId, ...ids).run();
+      },
+      // ids 各行中出现的共享分类 id 去重列表（深层挂载的子树交叉检查用）
+      async findSharedCatsAmong(ids) {
+        if (!ids || ids.length === 0) return [];
+        const placeholders = ids.map(() => '?').join(',');
+        const { results } = await db.prepare(
+          `SELECT DISTINCT shared_cat_id AS cid FROM todos
+           WHERE id IN (${placeholders}) AND shared_cat_id IS NOT NULL`
+        ).bind(...ids).all();
+        return (results || []).map(r => r.cid);
       },
       async findById(id) {
         return await db.prepare('SELECT * FROM todos WHERE id=?').bind(id).first();

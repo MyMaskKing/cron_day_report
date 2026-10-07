@@ -190,6 +190,16 @@ async function createTodo({ request, env }) {
     catId = cid;
     ownerUid = cat.owner_user_id;
   }
+  // 个人父任务下【新建子任务】时直接选了共享分类：
+  // 行归属保持父任务(树主人, 不转分类 owner)，仅打 shared_cat_id；成员资格校验同顶层移入。
+  else if (parentId != null && parentAcc && parentAcc.catId == null && body.shared_cat_id) {
+    const cid = parseInt(body.shared_cat_id, 10);
+    const cat = await storage.sharedCat.findCatById(cid);
+    if (!cat) return error('共享分类不存在', 404);
+    if (!(await storage.sharedCat.findMember(cid, dc.uid))) return error('你不是该共享分类成员', 403);
+    catId = cid;
+    ownerUid = parentRow.user_id;
+  }
   const id = await storage.todo.create(ownerUid, {
     parent_id: parentId, title,
     priority: allowsOwnDate ? normPriority(body.priority) : null,
@@ -292,6 +302,11 @@ async function updateTodo({ request, env, params }) {
         if (!cat) return error('共享分类不存在', 404);
         const member = await storage.sharedCat.findMember(wantCatId, dc.uid);
         if (!member) return error('你不是该共享分类成员', 403);
+        // 子树内已有深层挂载的共享分类时拒绝整树移入（否则 reassignSubtree 会静默覆盖其标签）
+        const _priorCats = await storage.todo.findSharedCatsAmong(
+          [id, ...(await storage.todo.collectDescendantIds(id))]
+        );
+        if (_priorCats.length) return error('子任务中已有其他共享分类，请先移出');
         newOwnerId = cat.owner_user_id;
         newCatId = wantCatId;
       } else if (curCatId != null && wantCatId == null) {
@@ -305,6 +320,44 @@ async function updateTodo({ request, env, params }) {
       // 整树（root + 全部后代）一次性迁移，保证每行 user_id/shared_cat_id 一致
       const ids = [id, ...(await storage.todo.collectDescendantIds(id))];
       await storage.todo.reassignSubtree(ids, newOwnerId, newCatId);
+    }
+  }
+  // 非根（个人树上的子任务）深层挂载：仅行主人(树主人)本人可改归属；
+  // 共享分类内的子任务(父已有共享标签)不允许单独分类；成员在别人树上该字段一律忽略/拒绝。
+  if (!isRoot && Object.prototype.hasOwnProperty.call(body, 'shared_cat_id')) {
+    const wantCatId = body.shared_cat_id ? parseInt(body.shared_cat_id, 10) : null;
+    const curCatId = t.shared_cat_id != null ? t.shared_cat_id : null;
+    if (wantCatId !== curCatId) {
+      const descIds = await storage.todo.collectDescendantIds(id);
+      if (curCatId == null) {
+        // 个人 → 共享（挂载）
+        if (parentRow && parentRow.shared_cat_id != null) {
+          return error('共享分类内的子任务随整支归属，不能单独分类');
+        }
+        if (t.user_id !== dc.uid) return error('仅任务主人可设置共享分类', 403);
+        const cat = await storage.sharedCat.findCatById(wantCatId);
+        if (!cat) return error('共享分类不存在', 404);
+        if (!(await storage.sharedCat.findMember(wantCatId, dc.uid))) {
+          return error('你不是该共享分类成员', 403);
+        }
+        const otherCats = await storage.todo.findSharedCatsAmong(descIds);
+        if (otherCats.length) return error('子任务中已有其他共享分类，请先移出');
+        await storage.todo.setSharedCatForRows([id, ...descIds], wantCatId);
+      } else {
+        // 共享 → 个人（摘除）或换挂：仅行主人；子树内若混入别的分类先拦截
+        if (t.user_id !== dc.uid) return error('仅任务主人可变更共享分类归属', 403);
+        const stray = (await storage.todo.findSharedCatsAmong(descIds))
+          .filter(c => c !== curCatId);
+        if (stray.length) return error('子任务中已有其他共享分类，请先移出');
+        if (wantCatId != null) {
+          const cat = await storage.sharedCat.findCatById(wantCatId);
+          if (!cat) return error('共享分类不存在', 404);
+          if (!(await storage.sharedCat.findMember(wantCatId, dc.uid))) {
+            return error('你不是该共享分类成员', 403);
+          }
+        }
+        await storage.todo.setSharedCatForRows([id, ...descIds], wantCatId);
+      }
     }
   }
   return json({ success: true, message: '任务已更新' });
@@ -460,9 +513,16 @@ async function removeTodo({ request, env, params }) {
   if (!t) return error('任务不存在', 404);
   const acc = await todoAccess(storage, dc, t);
   if (!acc) return error('任务不存在', 404);
-  // 共享分类内删除是破坏性操作, 收口给分类 owner(editor 可增改勾排, 不能删)
-  if (acc.catId != null && acc.role !== 'owner') {
-    return error('共享分类中仅创建者可删除任务', 403);
+  // 共享分类内删除是破坏性操作。两种形态：
+  //   深层挂载子任务(parent_id 非空, 行归属仍是树主人) → 仅行主人本人可删
+  //     (分类 owner 也不能删别人个人树里挂过来的任务)；
+  //   共享分类顶层任务 → 收口给分类 owner(editor 可增改勾排, 不能删)
+  if (acc.catId != null) {
+    if (t.parent_id != null) {
+      if (t.user_id !== dc.uid) return error('仅任务主人可删除', 403);
+    } else if (acc.role !== 'owner') {
+      return error('共享分类中仅创建者可删除任务', 403);
+    }
   }
   const descendants = await storage.todo.collectDescendantIds(id);
   // 附件级联：先删文件本体（尽力，失败不阻断），再批量删元数据（listByTodoIds 内部已限定 source='todo'）

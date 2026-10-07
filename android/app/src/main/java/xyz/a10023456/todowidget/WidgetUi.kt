@@ -448,8 +448,12 @@ private fun GroupTitleRow(g: WidgetGroup, widgetId: Int, isCollapsed: Boolean, f
             Spacer(GlanceModifier.width(2.dp))
         }
         Text(
-            g.title,
-            style = TextStyle(fontWeight = FontWeight.Bold, fontSize = fs(fontScale, 13), color = w.text),
+            if (g.ghost) "🔒 ${g.title}" else g.title,
+            style = TextStyle(
+                fontWeight = FontWeight.Bold,
+                fontSize = fs(fontScale, 13),
+                color = if (g.ghost) w.sub else w.text
+            ),
             maxLines = 1,
             modifier = GlanceModifier.defaultWeight()
         )
@@ -469,14 +473,17 @@ private fun GroupTitleRow(g: WidgetGroup, widgetId: Int, isCollapsed: Boolean, f
             )
         }
         // 「＋」添加子任务：独立点击区，折叠组整行的折叠 clickable 不影响此按钮（子 View 点击优先）
-        Spacer(GlanceModifier.width(8.dp))
-        Text(
-            "＋",
-            style = TextStyle(fontSize = fs(fontScale, 15), color = w.brand, fontWeight = FontWeight.Bold),
-            modifier = GlanceModifier.clickable(
-                actionStartActivity<MainActivity>(actionParametersOf(Keys.Url to addChildUrl))
+        // ghost 投影壳只读：不显示添子（后端同样按 todoAccess 拒绝）
+        if (!g.ghost) {
+            Spacer(GlanceModifier.width(8.dp))
+            Text(
+                "＋",
+                style = TextStyle(fontSize = fs(fontScale, 15), color = w.brand, fontWeight = FontWeight.Bold),
+                modifier = GlanceModifier.clickable(
+                    actionStartActivity<MainActivity>(actionParametersOf(Keys.Url to addChildUrl))
+                )
             )
-        )
+        }
     }
 }
 

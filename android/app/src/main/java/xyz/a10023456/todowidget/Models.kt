@@ -33,6 +33,8 @@ data class WidgetGroup(
     val overdue: Boolean = false,
     val recurring: Boolean = false,
     val collapsible: Boolean = false,
+    /** 投影祖先壳（别人个人树的主任务）：只读，标题加 🔒、不显示添子＋ */
+    val ghost: Boolean = false,
     val children: List<WidgetItem> = emptyList()
 )
 
