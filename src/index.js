@@ -16,7 +16,7 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen } from './api/auth.api.js';
+import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen, updateDefaultHome } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
@@ -113,6 +113,7 @@ router.get('/api/auth/profile', getProfile);
 router.put('/api/auth/profile', updateProfile);
 router.put('/api/auth/theme', updateTheme);
 router.put('/api/auth/bg', updateBg);
+router.put('/api/auth/default-home', updateDefaultHome);
 router.put('/api/auth/password', changePassword);
 router.put('/api/auth/quicklogin-restrict', updateQuickloginRestrict);
 router.put('/api/auth/todo-auto-parent', updateTodoAutoParent);
@@ -463,6 +464,15 @@ async function handlePages(request, env) {
     user.mottoSeen = (() => {
       try { return _me && _me.motto_seen ? JSON.parse(_me.motto_seen) : {}; } catch { return {}; }
     })();
+
+    // 默认首页（账号级偏好，窄屏/ App 生效）：登录落地页与底部「仪表盘」Tab 显隐据此
+    user.defaultHome = (_me && ['todo', 'dashboard'].includes(_me.default_home)) ? _me.default_home : 'todo';
+    // 根路径按偏好落地（否则 pageMap 把 '/' 固定渲染为仪表盘）；受限免密会话已在上方重定向，不会到此
+    if (path === '/') {
+      return new Response(null, { status: 302, headers: {
+        Location: user.defaultHome === 'dashboard' ? '/dashboard' : '/todo'
+      }});
+    }
 
     switch (pageMap[path]) {
       case 'dashboard':

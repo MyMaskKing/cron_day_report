@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
   todo_bg_theme        TEXT NOT NULL DEFAULT '',
   todo_auto_parent     INTEGER NOT NULL DEFAULT 1,
   todo_view_list       TEXT,
+  default_home         TEXT NOT NULL DEFAULT 'todo',
   motto                TEXT,
   motto_style          TEXT NOT NULL DEFAULT 'a',
   motto_seen_date      TEXT,

@@ -254,19 +254,22 @@ private val TABS = listOf(
     Tab("我的", R.drawable.ic_tab_me, null)
 )
 
+// 条件展示的仪表盘 Tab：默认首页=仪表盘时插到最左（底部共 6 项）；不并入 TABS，现有顺序定义不动
+private val DASH_TAB = Tab("仪表盘", R.drawable.ic_tab_dashboard, "/dashboard")
+
 // 标记原生壳：每次 loadUrl 都带此头，服务端据此隐藏顶部网站导航（cookie 因 setCookie 异步有竞态，用头保证当次请求立即生效）
 private val APP_HEADERS = mapOf("X-App-Shell" to "1")
 
 /**
  * 深链/页面 URL → 底部 Tab 下标（按路径前缀匹配）。
- * null（App 冷启动无深链）→ 0（待办，默认首页）；
- * 已登录但不属于四个业务 Tab 的页面（仪表盘/定时任务/渠道/设置等，均从「我的」进入）→ -1，
- * 底部高亮「我的」（见 NavigationBarItem 选中判定）。
+ * null（App 冷启动无深链）→ 0；
+ * 已登录但不属于当前业务 Tab 的页面（定时任务/渠道/设置等，均从「我的」进入；
+ * 仪表盘仅在仪表盘 Tab 未展示时如此）→ -1，底部高亮「我的」（见 NavigationBarItem 选中判定）。
  */
-private fun tabIndexFor(url: String?): Int {
+private fun tabIndexFor(url: String?, tabs: List<Tab>): Int {
     if (url == null) return 0
     val path = runCatching { Uri.parse(url).path }.getOrNull() ?: return -1
-    val idx = TABS.indexOfFirst { it.path != null && (path == it.path || path.startsWith(it.path + "/")) }
+    val idx = tabs.indexOfFirst { it.path != null && (path == it.path || path.startsWith(it.path + "/")) }
     return if (idx >= 0) idx else -1
 }
 
@@ -293,15 +296,29 @@ private fun AppShell(
     var baseUrl by remember { mutableStateOf(AppConfig.getBaseUrl(context)) }
     // 当前账号角色：sid 变化时拉 /api/auth/me 更新；「我的」页据此隐藏用户管理
     var accountRole by remember { mutableStateOf(Prefs.getRole(context)) }
-    var selected by rememberSaveable { mutableStateOf(tabIndexFor(initialUrl)) }
+    // 底部仪表盘 Tab：默认首页=仪表盘时展示（由下方偏好同步与 AppShell 桥驱动）
+    var dashTab by rememberSaveable { mutableStateOf(false) }
+    val tabs = if (dashTab) listOf(DASH_TAB) + TABS else TABS
+    var selected by rememberSaveable { mutableStateOf(tabIndexFor(initialUrl, tabs)) }
     var showMe by rememberSaveable { mutableStateOf(false) }
-    var targetUrl by rememberSaveable { mutableStateOf(initialUrl ?: (baseUrl + TABS[0].path)) }
+    // 冷启动（无深链）加载根路径，服务端按默认首页偏好 302；深链原样打开
+    var targetUrl by rememberSaveable { mutableStateOf(initialUrl ?: (baseUrl + "/")) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     // 最近一次实际 loadUrl 的地址（自己维护，不用 wv.url——网页 replaceState 清深链参数后
     // wv.url 不可靠）。深链即使与目标相同也要强制重载，保证 ?edit/?addChild 弹窗每次都重跑。
     var lastLoadedUrl by remember { mutableStateOf<String?>(null) }
     // WebViewClient 只在 factory 创建一次，用 rememberUpdatedState 让它始终读到最新 baseUrl
     val currentBaseUrl by rememberUpdatedState(baseUrl)
+
+    // 已登录冷启动：拉默认首页偏好决定底部仪表盘 Tab 显隐；未登录时等 App 内登录后由 onPageFinished 同步
+    LaunchedEffect(baseUrl) {
+        val sid = Prefs.getSid(context)
+        if (sid.isBlank()) return@LaunchedEffect
+        val home = withContext(Dispatchers.IO) {
+            runCatching { ApiClient.fetchDefaultHome(baseUrl, sid) }.getOrNull()
+        }
+        if (home != null) dashTab = home == "dashboard"
+    }
 
     // WebView <input type=file> 选择回调（待办附件上传）：网页发起文件选择 → 系统选择器 → 回传 Uri
     var filePathCallback by remember { mutableStateOf<android.webkit.ValueCallback<Array<Uri>>?>(null) }
@@ -404,7 +421,7 @@ private fun AppShell(
         }
         DeepLinkBus.listener = { url ->
             targetUrl = url
-            selected = tabIndexFor(url)
+            selected = tabIndexFor(url, tabs)
             showMe = false
             webViewRef?.let { wv ->
                 // 详情深链去重：网页当前已在同一主任务详情+同一查看弹层时不重载，
@@ -437,9 +454,9 @@ private fun AppShell(
 
     fun openPath(path: String) {
         targetUrl = baseUrl + path
-        // 从「我的」进入非业务 Tab 页（如 /dashboard）时返回 -1，底部保持「我的」高亮；
-        // 点业务 Tab 时这里算出对应下标，与 onClick 显式赋值一致
-        selected = tabIndexFor(targetUrl)
+        // 从「我的」进入非业务 Tab 页（定时任务/渠道/设置等）时返回 -1，底部保持「我的」高亮；
+        // 仪表盘 Tab 未展示时 /dashboard 同样归「我的」；点业务 Tab 时算出对应下标
+        selected = tabIndexFor(targetUrl, tabs)
         showMe = false
     }
 
@@ -467,7 +484,8 @@ private fun AppShell(
                     )
                 }
             ) {
-                TABS.forEachIndexed { i, tab ->
+                val sixTabs = tabs.size > 5
+                tabs.forEachIndexed { i, tab ->
                     // 「我的」高亮：原生我的面板打开(showMe)，或停在从我的进入的非业务页(selected=-1)
                     val isSel = if (tab.path == null) (showMe || selected == -1) else (!showMe && selected == i)
                     NavigationBarItem(
@@ -492,7 +510,7 @@ private fun AppShell(
                                     androidx.compose.foundation.layout.Box(
                                         modifier = Modifier
                                             .align(androidx.compose.ui.Alignment.TopCenter)
-                                            .width(22.dp)
+                                            .width(if (sixTabs) 20.dp else 22.dp)
                                             .height(2.5.dp)
                                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
                                             .background(brandColor)
@@ -501,14 +519,14 @@ private fun AppShell(
                                 Icon(
                                     painter = painterResource(tab.iconRes),
                                     contentDescription = tab.label,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(if (sixTabs) 20.dp else 22.dp)
                                 )
                             }
                         },
                         label = {
                             Text(
                                 tab.label,
-                                fontSize = 11.sp,
+                                fontSize = if (sixTabs) 10.sp else 11.sp,
                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium
                             )
                         },
@@ -572,7 +590,7 @@ private fun AppShell(
                             override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
                                 super.doUpdateVisitedHistory(view, url, isReload)
                                 val path = url?.let { runCatching { Uri.parse(it).path }.getOrNull() } ?: return
-                                val idx = TABS.indexOfFirst {
+                                val idx = tabs.indexOfFirst {
                                     it.path != null && (path == it.path || path.startsWith(it.path + "/"))
                                 }
                                 if (idx >= 0) {
@@ -615,15 +633,14 @@ private fun AppShell(
                                             Prefs.setRole(context, role)
                                             withContext(Dispatchers.Main) { accountRole = role }
                                         }
-                                        // 登录成功后若停在登录页/dashboard 等非 Tab 页，自动切到待办 Tab
-                                        val path = url?.let { Uri.parse(it).path } ?: ""
-                                        val onTab = TABS.any { t ->
-                                            t.path != null && (path == t.path || path.startsWith(t.path + "/"))
-                                        }
-                                        if (!onTab) {
-                                            selected = 0
-                                            showMe = false
-                                            targetUrl = currentBaseUrl + "/todo"
+                                        // 登录落地由网页 doLogin 按默认首页偏好导航；这里同步偏好以显隐底部仪表盘 Tab
+                                        kotlinx.coroutines.MainScope().launch(Dispatchers.IO) {
+                                            val home = runCatching {
+                                                ApiClient.fetchDefaultHome(roleBaseUrl, sid)
+                                            }.getOrNull()
+                                            if (home != null) {
+                                                withContext(Dispatchers.Main) { dashTab = home == "dashboard" }
+                                            }
                                         }
                                         // 立即直接拉取所有桌面小组件数据并刷新（WorkManager 一次性任务可能被系统延迟，
                                         // 这里进程内直连拉取保证登录后马上出数据；成功会清掉旧的 failed 标志）。
@@ -631,10 +648,11 @@ private fun AppShell(
                                         RefreshWorker.refreshAllNow(context)
                                     }
                                     sid.isNullOrBlank() && oldSid.isNotBlank() -> {
-                                        // 登出/会话失效：清除并刷新小组件
+                                        // 登出/会话失效：清除并刷新小组件、底部收回仪表盘 Tab
                                         Prefs.clearSid(context)
                                         Prefs.clearRole(context)
                                         accountRole = "user"
+                                        dashTab = false
                                         kotlinx.coroutines.MainScope().launch(Dispatchers.IO) {
                                             withContext(Dispatchers.Main) { TodoAppWidget().updateAll(context) }
                                         }
@@ -813,6 +831,12 @@ private fun AppShell(
                                 } catch (e: Throwable) {
                                     android.util.Log.e("TodoTaskAlarm", "reconcileTodoAlarms failed", e)
                                 }
+                            }
+
+                            // 网页设置页保存默认首页时即时驱动底部仪表盘 Tab 显隐（无需等 onResume）
+                            @JavascriptInterface
+                            fun setDefaultHome(home: String) {
+                                Handler(Looper.getMainLooper()).post { dashTab = home == "dashboard" }
                             }
 
                         }, "AppShell")

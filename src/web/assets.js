@@ -637,9 +637,13 @@ function _showLoadingImmediate(text) {
 }
 // 统一封装的页面跳转: 立即显示 loading → 触发 location.href.
 // 相比裸 location.href, 用户在点击后立刻看到反馈, 不用干等到新页面渲染.
-// 登录落地页：窄屏（手机浏览器 / App 壳，与底部 Tab 的 640px 断点一致）首屏去待办（底部首个 Tab）；
-// 宽屏去仪表盘（PC 侧栏「概览」首项）。旋转/缩放即时取值，登录页本身无底部 Tab 不影响。
-function homePath() { return window.innerWidth <= 640 ? '/todo' : '/dashboard'; }
+// 登录落地页：宽屏固定仪表盘（PC 侧栏「概览」首项）；窄屏（手机浏览器 / App 壳，与底部
+// Tab 的 640px 断点一致）按登录响应携带的默认首页偏好 pref（todo|dashboard），缺省去待办。
+// 旋转/缩放即时取值，登录页本身无底部 Tab 不影响。
+function homePath(pref) {
+  if (window.innerWidth > 640) return '/dashboard';
+  return pref === 'dashboard' ? '/dashboard' : '/todo';
+}
 function navTo(url, text) {
   _showLoadingImmediate(text || '正在打开页面…');
   location.href = url;
@@ -2255,11 +2259,11 @@ var tabReg = document.getElementById('tabReg');
 // 登录提交：表单底部"登录"按钮与顶部"登录"标签（已在登录页时）共用
 async function doLogin() {
   try {
-    await api('/api/auth/login', { method: 'POST', body: {
+    var r = await api('/api/auth/login', { method: 'POST', body: {
       username: document.getElementById('lu').value,
       password: document.getElementById('lp').value
     }});
-    navTo(homePath());
+    navTo(homePath(r.user && r.user.default_home));
   } catch (err) { showMsg(msg, err.message, false); }
 }
 loginForm.addEventListener('submit', function(e) { e.preventDefault(); doLogin(); });
@@ -2510,6 +2514,8 @@ var showMsg = function(_el, text, ok){ showToast(text, ok); };
     if (ql) ql.checked = d.profile.restrict_quicklogin != 0;
     var tap = document.getElementById('todoAutoParent');
     if (tap) tap.checked = d.profile.todo_auto_parent !== 0;
+    var dh = document.getElementById('defaultHome');
+    if (dh) dh.value = d.profile.default_home;
     viewCycle = Array.isArray(d.profile.todo_view_list) ? d.profile.todo_view_list.slice() : [];
     renderViewCycle();
     var mi0 = document.getElementById('mottoInput');
@@ -2536,6 +2542,24 @@ if (qlEl) qlEl.addEventListener('change', async function(){
     await api('/api/auth/quicklogin-restrict', { method:'PUT', body:{ enabled: qlEl.checked } });
     showMsg(msg, '免密登录设置已保存', true);
   } catch(err){ showMsg(msg, err.message, false); qlEl.checked = !qlEl.checked; }
+});
+// 默认首页：切换即保存；App 壳经桥即时更新底部 Tab，普通浏览器 reload 展示新 Tab 构成
+var dhEl = document.getElementById('defaultHome');
+if (dhEl) dhEl.addEventListener('change', async function(){
+  // 仅两个选项，旧值即另一个（失败时回滚）
+  var prev = dhEl.value === 'dashboard' ? 'todo' : 'dashboard';
+  try {
+    await api('/api/auth/default-home', { method:'PUT', body:{ home: dhEl.value } });
+    if (window.AppShell && typeof window.AppShell.setDefaultHome === 'function') {
+      window.AppShell.setDefaultHome(dhEl.value);
+      showMsg(msg, '默认首页已保存', true);
+    } else {
+      location.reload();
+    }
+  } catch(err){
+    showMsg(msg, err.message, false);
+    dhEl.value = prev;
+  }
 });
 // 待办偏好：子任务全部完成后自动完成父任务，切换即保存
 var tapEl = document.getElementById('todoAutoParent');

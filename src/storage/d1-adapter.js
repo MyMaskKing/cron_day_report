@@ -109,6 +109,10 @@ function createD1Adapter(env) {
       async updateTodoViewList(id, listJson) {
         await db.prepare('UPDATE users SET todo_view_list = ? WHERE id = ?').bind(listJson, id).run();
       },
+      // 默认首页: home ∈ todo|dashboard，由 api 层校验后传入
+      async updateDefaultHome(id, home) {
+        await db.prepare('UPDATE users SET default_home = ? WHERE id = ?').bind(home, id).run();
+      },
       // 每日勉励卡：motto 为空串即清空（不弹）；style/freqJson 由 api 层校验后传入
       async updateMotto(id, motto, style, freqJson) {
         await db.prepare('UPDATE users SET motto = ?, motto_style = ?, motto_freq = ? WHERE id = ?')

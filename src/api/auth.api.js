@@ -25,6 +25,8 @@ function validateCredentials(username, password) {
 
 // 界面主题合法值（与前端 data-theme 取值一致）；非法值回退 light
 const THEMES = ['light', 'dark', 'eye'];
+// 默认首页合法值（手机浏览器 / App 登录落地页）；非法值回退 todo
+const DEFAULT_HOMES = ['todo', 'dashboard'];
 // 界面背景合法值（与 html data-bg 取值一致，空串 = 默认）；非法值回退空串
 const BG_THEMES = ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk'];
 // 每日勉励卡风格：a=极光能量(默认) c=手账打气 h1=战书令 h2=最后通牒；非法值回退 a
@@ -139,8 +141,11 @@ async function login({ request, env }) {
   const token = await createSession(env, user);
   // 记录最后登录时间 (UTC now); 用于超管用户管理页展示
   await storage.users.updateLastLogin(user.id);
+  const defaultHome = DEFAULT_HOMES.includes(user.default_home) ? user.default_home : 'todo';
   return json(
-    { success: true, message: '登录成功', user: { id: user.id, username: user.username, role: user.role } },
+    { success: true, message: '登录成功', user: {
+      id: user.id, username: user.username, role: user.role, default_home: defaultHome
+    } },
     200,
     { 'Set-Cookie': buildSessionCookie(token, request) }
   );
@@ -189,6 +194,7 @@ async function getProfile({ request, env }) {
     todo_bg_theme: BG_THEMES.includes(u.todo_bg_theme) ? u.todo_bg_theme : '',
     todo_auto_parent: u.todo_auto_parent === 0 ? 0 : 1,
     todo_view_list: normalizeTodoViewList(u.todo_view_list),
+    default_home: DEFAULT_HOMES.includes(u.default_home) ? u.default_home : 'todo',
     motto: u.motto || '',
     motto_style: MOTTO_STYLES.includes(u.motto_style) ? u.motto_style : 'a',
     motto_freq: normalizeMottoFreq(parseMottoJson(u.motto_freq))
@@ -456,6 +462,21 @@ async function markMottoSeen({ request, env }) {
 }
 
 /**
+ * PUT /api/auth/default-home  保存默认首页（手机浏览器 / App）  body: { home: 'todo'|'dashboard' }
+ */
+async function updateDefaultHome({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  const home = body.home;
+  if (!DEFAULT_HOMES.includes(home)) return error('首页值非法', 400);
+  const storage = getStorage(env);
+  await storage.users.updateDefaultHome(session.user_id, home);
+  return json({ success: true, message: '默认首页已保存' });
+}
+
+/**
  * PUT /api/auth/quicklogin-restrict  设置免密登录访问限制  body: { enabled }
  */
 async function updateQuickloginRestrict({ request, env }) {
@@ -471,5 +492,6 @@ async function updateQuickloginRestrict({ request, env }) {
 export {
   register, login, logout, me, bootstrap, setupStatus, registerStatus,
   getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict,
-  updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen
+  updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen,
+  updateDefaultHome
 };

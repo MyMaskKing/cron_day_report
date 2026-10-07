@@ -442,6 +442,9 @@ a.app-side__item.active { background: var(--hover-brand); color: var(--brand); f
     content: ''; position: absolute; top: 0; width: 24px; height: 2.5px; border-radius: 99px; background: var(--brand);
   }
   .m-tabbar svg { width: 21px; height: 21px; }
+  /* 6 项（默认首页=仪表盘）：字号图标收一档，避免小屏挤压 */
+  .m-tabbar--six a { font-size: 9.5px; gap: 2px; }
+  .m-tabbar--six svg { width: 19px; height: 19px; }
   body:has(.m-tabbar) .container { padding-bottom: 80px; }
   /* 新建任务 FAB: 仅待办页(renderTopbar 按 active 输出); 默认态代理 #tAdd, 全屏态代理 #tAddFs
      (renderTopbar 的内联脚本按 body.todo-fs-on 自动选择)。App 壳无 .m-tabbar 时贴底 20px。 */
@@ -3478,17 +3481,23 @@ document.addEventListener('click',function(e){
     ).join('')
   ).join('');
 
+  // 默认首页=仪表盘且非受限会话时，底部最左条件展示「仪表盘」Tab（共 6 项）
+  const dashTab = !restricted && user.defaultHome === 'dashboard';
   // 手机底部 Tab: 4 个生活模块 + 我的; 受限会话只保留对应模块 + 登出入口
   const tabDefs = [
+    ...(dashTab ? [{ key: 'dashboard', href: '/dashboard', text: '仪表盘' }] : []),
     { key: 'todo', href: '/todo', text: '待办' },
     { key: 'fund', href: '/fund', text: '基金' },
     { key: 'weight', href: '/weight', text: '体重' },
     { key: 'asset', href: '/asset', text: '资产' },
     { key: 'settings', href: '/settings', text: '我的' }
   ];
-  // 「我的」Tab 归属：设置页本身 + 仅能从「我的」功能入口到达的页面（仪表盘/定时任务/渠道/用户管理/存储）
+  // 「我的」Tab 归属：设置页本身 + 仅能从「我的」功能入口到达的页面（定时任务/渠道/用户管理/存储）；
+  // 仪表盘仅在仪表盘 Tab 不展示（默认首页=待办）时归「我的」高亮
   const MY_TAB_PAGES = { settings: 1, dashboard: 1, monitor: 1, channels: 1, admin: 1, storage: 1 };
-  const tabOn = k => (k === 'settings' ? !!MY_TAB_PAGES[active] : active === k);
+  const myPages = Object.assign({}, MY_TAB_PAGES);
+  if (dashTab) delete myPages.dashboard;
+  const tabOn = k => (k === 'settings' ? !!myPages[active] : active === k);
   const tabHtml = restricted
     ? tabDefs.filter(t => t.key === user.quickloginModule)
         .map(t => `<a href="${t.href}" class="${tabOn(t.key) ? 'on' : ''}">${SIDE_ICONS[t.key]}${t.text}</a>`).join('')
@@ -3519,7 +3528,7 @@ document.addEventListener('click',function(e){
       </div>
     </div>
   </aside>
-  <nav class="m-tabbar" aria-label="主导航">${tabHtml}</nav>
+  <nav class="m-tabbar${dashTab ? ' m-tabbar--six' : ''}" aria-label="主导航">${tabHtml}</nav>
   ${fabHtml}` + (user.impersonating ? `<div class="impersonate-banner">
     ⚠️ 你（超管 ${user.admin_username || ''}）正在以 <b>${user.username}</b> 的身份浏览
     <a href="#" id="stopImpersonateBtn">点此退出</a>

@@ -752,6 +752,12 @@ function settingsPage(user) {
         <input id="pfNick" maxlength="32">
         <button class="btn" type="submit">保存昵称</button>
       </form>
+      <label style="margin:14px 0 4px;display:block;">默认首页（手机浏览器 / App）</label>
+      <select id="defaultHome" style="width:auto;">
+        <option value="todo">待办</option>
+        <option value="dashboard">仪表盘</option>
+      </select>
+      <p class="muted" style="font-size:12px;margin:4px 0 0;">登录后打开的第一个页面；选仪表盘时，底部导航最左侧会出现「仪表盘」入口。</p>
       <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <h2 style="font-size:15px;">每日勉励</h2>
       <p class="muted" style="font-size:12px;">写一句给自己的话，每天首次打开面板时全屏展示一次；当天关闭后手机 / PC / Android 都不再出现，留空则完全不展示。支持加粗、删除线、下划线、波浪线、放大与快乐体。</p>

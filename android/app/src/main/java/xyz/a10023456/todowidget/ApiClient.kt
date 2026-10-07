@@ -96,6 +96,25 @@ object ApiClient {
         }
     }
 
+    /**
+     * 查询默认首页偏好（GET /api/auth/profile 的 default_home），供底部仪表盘 Tab 显隐。
+     * 失败（网络错误/非 2xx/会话失效/解析失败）返回 null，调用方按 todo 兜底。
+     */
+    fun fetchDefaultHome(baseUrl: String, sid: String): String? {
+        if (sid.isBlank()) return null
+        val req = Request.Builder().url("${baseUrlOf(baseUrl)}/api/auth/profile").get()
+            .header("Cookie", "sid=$sid")
+            .build()
+        execute(req).use { resp ->
+            if (!resp.isSuccessful) return null
+            val body = resp.body?.string().orEmpty()
+            val v = runCatching {
+                JSONObject(body).getJSONObject("profile").getString("default_home")
+            }.getOrNull()
+            return v?.takeIf { it == "todo" || it == "dashboard" }
+        }
+    }
+
     /** 勾选完成（已完成的重复任务由后端自动滚动到下一次）。 */
     fun markDone(baseUrl: String, sid: String, token: String, id: Long): DoneResponse {
         val base = baseUrlOf(baseUrl)
