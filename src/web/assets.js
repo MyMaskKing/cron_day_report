@@ -2547,22 +2547,23 @@ if (tapEl) tapEl.addEventListener('change', async function(){
 });
 // ===== 待办视图循环自定义（首项=默认视图；空=系统三循环） =====
 var VIEW_META = { card: '卡片视图', accordion: '手风琴', flat: '速览视图', tree: '完整树', timeline: '时间轴' };
+// 系统默认循环（与待办 core TODO_DEFAULT_VIEW_CYCLE 一致，含时间轴）
+var DEFAULT_VIEW_CYCLE = ['card', 'tree', 'accordion', 'flat', 'timeline'];
 var viewCycle = [];
 function renderViewCycle() {
-  var eff = viewCycle.length ? viewCycle : ['card', 'tree', 'accordion', 'flat'];
-  var custom = viewCycle.length > 0;
+  // 空态展示系统默认；任一排序/删除操作都会先把默认副本写入 viewCycle 转成自定义
+  var eff = viewCycle.length ? viewCycle : DEFAULT_VIEW_CYCLE;
   document.getElementById('viewCycleList').innerHTML = eff.map(function(v, i){
     return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;">'
       + '<span style="flex:1;min-width:0;">' + VIEW_META[v]
-      + (custom && i === 0 ? ' <span class="muted" style="font-size:11px;">· 默认</span>' : '') + '</span>'
-      + (custom
-          ? '<button type="button" class="btn sm gray" data-vup="' + i + '"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
-            + '<button type="button" class="btn sm gray" data-vdown="' + i + '"' + (i === eff.length - 1 ? ' disabled' : '') + '>↓</button>'
-            + '<button type="button" class="btn sm gray" data-vdel="' + i + '">✕</button>'
-          : '') + '</div>';
+      + (i === 0 ? ' <span class="muted" style="font-size:11px;">· 默认</span>' : '') + '</span>'
+      + '<button type="button" class="btn sm gray" data-vup="' + i + '"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
+      + '<button type="button" class="btn sm gray" data-vdown="' + i + '"' + (i === eff.length - 1 ? ' disabled' : '') + '>↓</button>'
+      + '<button type="button" class="btn sm gray" data-vdel="' + i + '">✕</button>'
+      + '</div>';
   }).join('');
-  // 「添加」下拉只列未加入的视图
-  var remain = Object.keys(VIEW_META).filter(function(v){ return viewCycle.indexOf(v) < 0; });
+  // 「添加」下拉只列当前生效列表中没有的视图（默认已含全部 5 项时为空、禁用）
+  var remain = Object.keys(VIEW_META).filter(function(v){ return eff.indexOf(v) < 0; });
   var sel = document.getElementById('addViewChoice');
   sel.innerHTML = remain.map(function(v){ return '<option value="' + v + '">' + VIEW_META[v] + '</option>'; }).join('');
   sel.disabled = document.getElementById('addViewBtn').disabled = remain.length === 0;
@@ -2575,6 +2576,8 @@ document.getElementById('viewCycleList').addEventListener('click', async functio
   var b = e.target.closest('[data-vup],[data-vdown],[data-vdel]');
   if (!b || b.disabled) return;
   var i = Number(b.dataset.vup != null ? b.dataset.vup : b.dataset.vdown != null ? b.dataset.vdown : b.dataset.vdel);
+  // 首次在系统默认上操作：以默认副本为起点转自定义（索引与展示一致）
+  if (!viewCycle.length) viewCycle = DEFAULT_VIEW_CYCLE.slice();
   if (b.hasAttribute('data-vup')) {
     if (i > 0) { var t0 = viewCycle[i - 1]; viewCycle[i - 1] = viewCycle[i]; viewCycle[i] = t0; }
   } else if (b.hasAttribute('data-vdown')) {
@@ -2589,9 +2592,9 @@ document.getElementById('viewCycleList').addEventListener('click', async functio
 var addBtn = document.getElementById('addViewBtn');
 if (addBtn) addBtn.addEventListener('click', async function(){
   var v = document.getElementById('addViewChoice').value;
+  // 首次添加先以系统默认副本为起点，再查重：默认列表里已有的视图不会被重复加入
+  if (!viewCycle.length) viewCycle = DEFAULT_VIEW_CYCLE.slice();
   if (!v || viewCycle.indexOf(v) >= 0) return;
-  // 首次自定义：从系统三循环当前配置开始（保留全部视图，用户再按需删/排）
-  if (!viewCycle.length) viewCycle = ['card', 'tree', 'accordion', 'flat'];
   viewCycle.push(v);
   renderViewCycle();
   try { await saveViewCycle(); showMsg(msg, '视图循环已保存', true); }
@@ -7873,10 +7876,13 @@ function swapTodoFullscreenMode(getRowsFn, onDrawTree) {
 }
 // 应用账号自定义视图循环(profile 到达后, 仅待办页调用): list 空/非法 = 系统三循环;
 // 当前视图不在新循环内 → 落到首项(账号默认)并重绘
-function todoApplyViewCycle(list, getRowsFn, onDrawTree) {
+// enterFirst: 页面加载时传 true，兑现「进入待办时显示列表首项」：
+// 全屏态一律按循环首项校正；默认页('default')不动，点视图切换进全屏时 enterTodoFullscreen 取首项。
+function todoApplyViewCycle(list, getRowsFn, onDrawTree, enterFirst) {
   var cycle = Array.isArray(list) && list.length ? list : TODO_DEFAULT_VIEW_CYCLE;
   _todoViewCycle = cycle.slice();
-  if (_todoViewCycle.indexOf(_todoView) < 0) {
+  var toFirst = !!enterFirst && _todoView !== 'default';
+  if (toFirst || _todoViewCycle.indexOf(_todoView) < 0) {
     _todoView = _todoViewCycle[0] || 'card';
     _todoDetailRootId = null;
     try { localStorage.setItem('todoView', _todoView); } catch(e){}
@@ -12692,7 +12698,7 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
     // 账号自定义视图循环（设置页配置）：profile 到达后校正，当前视图不在循环内则落首项（账号默认）
     try {
       var _viewPf = await api('/api/auth/profile');
-      todoApplyViewCycle(_viewPf.profile.todo_view_list, _todoGetRows, drawTree);
+      todoApplyViewCycle(_viewPf.profile.todo_view_list, _todoGetRows, drawTree, true);
     } catch(_e){}
     // ?join=<code>: 邀请链接落地, 确认后加入共享分类(加入成功会刷新列表, 抽屉出现该分类)
     var _joinCode = _q.get('join');
