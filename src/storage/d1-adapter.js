@@ -1093,6 +1093,13 @@ function createD1Adapter(env) {
            FROM files WHERE file_token=?`
         ).bind(token).first()) || null;
       },
+      // 访问计数：免密下载接口每次 GET 递增并记录最后访问时间
+      async touchAccess(token) {
+        await db.prepare(
+          `UPDATE files SET access_count = access_count + 1, last_access_at = datetime('now')
+           WHERE file_token=?`
+        ).bind(token).run();
+      },
       async findById(id) {
         return (await db.prepare(
           `SELECT id, owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image, created_at
@@ -1134,7 +1141,7 @@ function createD1Adapter(env) {
       },
       // 超管文件列表（倒序分页），LEFT JOIN users 带归属用户名
       async listForAdmin({ limit = 50, offset = 0 } = {}) {
-        const cols = 'f.id, f.owner_uid, f.source, f.todo_id, f.uploader_uid, f.file_token, f.origin_name, f.mime, f.size, f.is_image, f.created_at';
+        const cols = 'f.id, f.owner_uid, f.source, f.todo_id, f.uploader_uid, f.file_token, f.origin_name, f.mime, f.size, f.is_image, f.access_count, f.last_access_at, f.created_at';
         const rowsQ = await db.prepare(
           `SELECT ${cols}, u.username AS owner_name
            FROM files f LEFT JOIN users u ON u.id = f.owner_uid

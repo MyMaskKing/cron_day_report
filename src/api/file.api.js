@@ -100,6 +100,8 @@ async function fileDownload({ env, params }) {
   if (!files) return error('附件存储未配置', 503);
   const bytes = await files.get((row.source === 'todo' ? 'todo/' : 'user/') + row.file_token);
   if (!bytes) return error('文件不存在或已删除', 404);
+  // 每次访问递增计数（失败不阻断下载）
+  try { await storage.file.touchAccess(row.file_token); } catch { /* 忽略 */ }
   const mime = row.mime || 'application/octet-stream';
   const headers = {
     'Content-Type': mime,

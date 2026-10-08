@@ -396,6 +396,8 @@ CREATE TABLE IF NOT EXISTS files (
   size          INTEGER NOT NULL,
   is_image      INTEGER NOT NULL DEFAULT 0,
   ref_kind      TEXT,
+  access_count  INTEGER NOT NULL DEFAULT 0,
+  last_access_at TEXT,
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_files_todo ON files(source, todo_id);

@@ -25,6 +25,7 @@ import sql0009 from '../../migrations/0009_todo_bg.sql';
 import sql0010 from '../../migrations/0010_webdav_backup.sql';
 import sql0011 from '../../migrations/0011_default_home.sql';
 import sql0012 from '../../migrations/0012_file_ref_kind.sql';
+import sql0013 from '../../migrations/0013_file_access_count.sql';
 
 // 显式迁移登记表：[文件名, SQL 文本]，数组顺序即执行顺序（新增 000N 时在此追加）
 const MIGRATIONS = [
@@ -39,7 +40,8 @@ const MIGRATIONS = [
   ['0009_todo_bg.sql', sql0009],
   ['0010_webdav_backup.sql', sql0010],
   ['0011_default_home.sql', sql0011],
-  ['0012_file_ref_kind.sql', sql0012]
+  ['0012_file_ref_kind.sql', sql0012],
+  ['0013_file_access_count.sql', sql0013]
 ];
 
 const MIGRATIONS_TABLE_SQL = `

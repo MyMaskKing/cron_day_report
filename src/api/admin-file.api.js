@@ -58,6 +58,8 @@ function fileRowJson(r) {
     mime: r.mime,
     size: r.size,
     isImage: !!r.is_image,
+    accessCount: r.access_count || 0,
+    lastAccessAt: r.last_access_at || null,
     createdAt: r.created_at,
     url: '/todo-file/' + r.file_token
   };

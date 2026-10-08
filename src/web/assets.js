@@ -3779,7 +3779,7 @@ function renderFmRows() {
   var body = document.getElementById('fmTbody');
   var rows = fmState.rows;
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="8" class="muted cell-empty" style="text-align:center;padding:30px;">暂无文件</td></tr>';
+    body.innerHTML = '<tr><td colspan="10" class="muted cell-empty" style="text-align:center;padding:30px;">暂无文件</td></tr>';
   } else {
     body.innerHTML = rows.map(function(r) {
       var typeCell = r.isImage ? '<span class="tag ok">图片</span>' : '<span class="tag">文件</span>';
@@ -3798,7 +3798,9 @@ function renderFmRows() {
         + '<td data-label="来源">' + srcCell + '</td>'
         + '<td data-label="归属">' + esc(r.ownerName || ('#' + r.ownerUid)) + '</td>'
         + '<td data-label="大小">' + fmFmtSize(r.size) + '</td>'
+        + '<td data-label="访问">' + r.accessCount + ' 次</td>'
         + '<td data-label="上传时间">' + fmtDbTime(r.createdAt) + '</td>'
+        + '<td data-label="最后访问">' + (r.lastAccessAt ? fmtDbTime(r.lastAccessAt) : '—') + '</td>'
         + '<td data-label="操作" style="white-space:nowrap;">' + act + '</td>'
         + '</tr>';
     }).join('');

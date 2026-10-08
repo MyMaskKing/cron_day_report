@@ -389,7 +389,7 @@ function storageAdminPage(user) {
         <table>
           <thead><tr>
             <th style="width:36px;"><input type="checkbox" id="fmCheckAll" style="width:auto;margin:0;flex:none;" aria-label="全选"></th>
-            <th>文件名</th><th>类型</th><th>来源</th><th>归属</th><th>大小</th><th>上传时间</th><th>操作</th>
+            <th>文件名</th><th>类型</th><th>来源</th><th>归属</th><th>大小</th><th>访问</th><th>上传时间</th><th>最后访问</th><th>操作</th>
           </tr></thead>
           <tbody id="fmTbody"></tbody>
         </table>
