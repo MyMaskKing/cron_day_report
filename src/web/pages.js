@@ -93,6 +93,7 @@ function loginPage() {
       <label>密码</label>
       <input id="lp" type="password" autocomplete="current-password" required>
       <button class="btn" style="width:100%;" type="submit">登录</button>
+      <a href="/change-password" class="lg-dl-link">🔑 修改密码</a>
       <a href="/download" class="lg-dl-link">📱 下载 Android App</a>
     </form>
     <form id="regForm" style="display:none;">
@@ -108,6 +109,30 @@ function loginPage() {
 
   const body = `<div class="lg-fs">${field}${brand}${panel}</div>`;
   return renderPage({ title: '登录', body, scripts: ['page-login.js'] });
+}
+
+/** 免登录修改密码页（凭原密码，成功后回登录页） */
+function changePasswordPage() {
+  const body = `<div class="login-wrap">
+    <div class="card">
+      <h1>${ICO_KEY}修改密码</h1>
+      <p class="muted" style="text-align:center;margin-bottom:16px;">凭原密码设置新密码，修改成功后请重新登录</p>
+      <div id="cpMsg" class="msg"></div>
+      <form id="cpForm">
+        <label>用户名</label>
+        <input id="cu" autocomplete="username" required>
+        <label>原密码</label>
+        <input id="cop" type="password" autocomplete="current-password" required>
+        <label>新密码 (至少6位)</label>
+        <input id="cnp" type="password" autocomplete="new-password" required>
+        <label>确认新密码</label>
+        <input id="cnp2" type="password" autocomplete="new-password" required>
+        <button class="btn" style="width:100%;" type="submit">确认修改</button>
+        <div style="text-align:center;margin-top:12px;"><a href="/login" class="muted">← 返回登录</a></div>
+      </form>
+    </div>
+  </div>`;
+  return renderPage({ title: '修改密码', body, scripts: ['page-change-password.js'] });
 }
 
 /** 仪表盘：今日概览（KPI 数据由 page-dashboard.js 聚合现有只读接口） */
@@ -352,7 +377,9 @@ function storageAdminPage(user) {
     <div class="card">
       <h2>文件管理
         <button class="btn sm gray" id="fmRefresh" style="float:right;">刷新</button>
+        <button class="btn sm" id="fmUpload" style="float:right;margin-right:8px;">⬆ 手动上传</button>
       </h2>
+      <input type="file" id="fmUploadInput" style="display:none;">
       <div id="fmMsg" class="msg"></div>
       <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <label class="fm-mobile-sel"><input type="checkbox" id="fmCheckAllM" style="width:auto;margin:0;flex:none;">全选本页</label>

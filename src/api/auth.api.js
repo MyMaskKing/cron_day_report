@@ -269,6 +269,27 @@ async function changePassword({ request, env }) {
 }
 
 /**
+ * POST /api/auth/reset-password  免登录凭原密码修改密码（登录页入口）
+ * body: { username, oldPassword, newPassword }；不签发会话，成功后回登录页
+ */
+async function selfChangePassword({ request, env }) {
+  const body = await request.json().catch(() => ({}));
+  const { username, oldPassword, newPassword } = body;
+  if (!username || !oldPassword || !newPassword) return error('请填写完整信息');
+  if (newPassword.length < 6) return error('新密码至少 6 位');
+
+  const storage = getStorage(env);
+  const u = await storage.users.findByName(String(username).trim());
+  const ok = u ? await verifyPassword(oldPassword || '', u.password_hash) : false;
+  // 用户不存在与原密码错误统一文案，避免枚举用户名
+  if (!u || !ok) return error('用户名或原密码错误', 401);
+
+  const password_hash = await hashPassword(newPassword);
+  await storage.users.updatePassword(u.id, password_hash);
+  return json({ success: true, message: '密码已修改' });
+}
+
+/**
  * GET /api/auth/setup-status  查询是否需要初始化超管（供 /setup 页面判断）
  * 判断依据是"是否已存在超管"，而非是否有任何用户
  * 返回 { needSetup: bool, tokenRequired: bool }
@@ -491,7 +512,7 @@ async function updateQuickloginRestrict({ request, env }) {
 
 export {
   register, login, logout, me, bootstrap, setupStatus, registerStatus,
-  getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict,
+  getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, updateQuickloginRestrict,
   updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen,
   updateDefaultHome
 };

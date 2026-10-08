@@ -1099,6 +1099,14 @@ function createD1Adapter(env) {
            FROM files WHERE id=?`
         ).bind(id).first()) || null;
       },
+      // 覆盖上传: file_token/链接不变, 仅同步本体替换后的元数据(文件名/类型/大小/图片标志)
+      async updateContent(id, u) {
+        await db.prepare(
+          `UPDATE files SET origin_name=?, mime=?, size=?, is_image=? WHERE id=?`
+        ).bind(
+          u.origin_name, u.mime == null ? null : u.mime, u.size, u.is_image ? 1 : 0, id
+        ).run();
+      },
       // 任务附件查询统一带 source='todo' 过滤，杜绝跨来源串数据
       async listByTodo(id) {
         const q = await db.prepare(

@@ -103,7 +103,7 @@ async function fileDownload({ env, params }) {
   const mime = row.mime || 'application/octet-stream';
   const headers = {
     'Content-Type': mime,
-    'Cache-Control': 'private, max-age=31536000, immutable',
+    'Cache-Control': 'private, no-cache',
     'X-Content-Type-Options': 'nosniff'
   };
   if (row.is_image) {

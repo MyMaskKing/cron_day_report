@@ -12,7 +12,7 @@ import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
 import { getFileStore } from '../storage/file-store.js';
 import { requireAdmin } from '../auth/middleware.js';
-import { attachMaxMb } from './file.api.js';
+import { attachMaxMb, IMAGE_MIME } from './file.api.js';
 
 // 合法对象 key：<source>/<file_token>，token 为 16~64 位 base64url 字符（generateToken 产 32 位）
 const KEY_RE = /^(todo|user)\/[A-Za-z0-9_-]{16,64}$/;
@@ -111,6 +111,40 @@ async function deleteAdminFiles({ request, env }) {
   return json({ success: true, deletedCount: okIds.length, failed });
 }
 
+/** POST /api/admin/files/:id/overwrite  multipart: file
+ *  超管覆盖：同 file_token/同免密链接替换文件本体，并同步更新元数据；超管豁免大小上限 */
+async function overwriteAdminFile({ request, env, params }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+
+  const id = parseInt(params.id, 10);
+  if (!Number.isInteger(id) || id <= 0) return error('文件不存在', 404);
+  const storage = getStorage(env);
+  const row = await storage.file.findById(id);
+  if (!row) return error('文件不存在或已删除', 404);
+
+  let form;
+  try { form = await request.formData(); } catch { return error('上传数据格式不正确', 400); }
+  const file = form.get('file');
+  if (!(file instanceof File) || file.size <= 0) return error('缺少上传文件', 400);
+
+  const files = getFileStore(env);
+  if (!files) return error('附件存储未配置，请联系管理员绑定 R2', 503);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const isImage = IMAGE_MIME.has(file.type || '');
+  // 同 key 覆盖本体，file_token 与免密链接保持不变
+  await files.put((row.source === 'todo' ? 'todo/' : 'user/') + row.file_token, bytes,
+    { contentType: file.type || 'application/octet-stream' });
+  await storage.file.updateContent(id, {
+    origin_name: file.name || '未命名文件',
+    mime: file.type || null,
+    size: file.size,
+    is_image: isImage ? 1 : 0
+  });
+  const updated = await storage.file.findById(id);
+  return json({ success: true, row: fileRowJson(updated) });
+}
+
 /** GET /api/admin/files/orphans */
 async function scanOrphanFiles({ request, env }) {
   const auth = await requireAdmin(request, env);
@@ -172,4 +206,4 @@ async function deleteOrphanFiles({ request, env }) {
   return json({ success: true, deleted, skipped, failed });
 }
 
-export { fileStats, listAdminFiles, deleteAdminFiles, scanOrphanFiles, deleteOrphanFiles };
+export { fileStats, listAdminFiles, deleteAdminFiles, overwriteAdminFile, scanOrphanFiles, deleteOrphanFiles };

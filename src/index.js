@@ -16,7 +16,7 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen, updateDefaultHome } from './api/auth.api.js';
+import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen, updateDefaultHome } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
@@ -56,7 +56,7 @@ import {
   testWebdav, runWebdavBackupNow, listWebdavLogs, clearWebdavLogs
 } from './api/backup.api.js';
 import {
-  fileStats, listAdminFiles, deleteAdminFiles, scanOrphanFiles, deleteOrphanFiles
+  fileStats, listAdminFiles, deleteAdminFiles, overwriteAdminFile, scanOrphanFiles, deleteOrphanFiles
 } from './api/admin-file.api.js';
 import { shouldRun, nowCN } from './services/schedule.service.js';
 import { runScheduledBackup } from './services/webdav-backup.service.js';
@@ -83,7 +83,7 @@ import { parseOffset, fmtShort } from './services/time.service.js';
 
 // Pages
 import {
-  loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
+  loginPage, changePasswordPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
   weightReportPage, assetReportPage, fundReportPage,
   todoPage, publicTodoPage, todoReportPage, todoCollabPage, storageAdminPage, downloadPage
@@ -115,6 +115,7 @@ router.put('/api/auth/theme', updateTheme);
 router.put('/api/auth/bg', updateBg);
 router.put('/api/auth/default-home', updateDefaultHome);
 router.put('/api/auth/password', changePassword);
+router.post('/api/auth/reset-password', selfChangePassword);
 router.put('/api/auth/quicklogin-restrict', updateQuickloginRestrict);
 router.put('/api/auth/todo-auto-parent', updateTodoAutoParent);
 router.put('/api/auth/todo-view-list', updateTodoViewList);
@@ -166,6 +167,7 @@ router.delete('/api/admin/backup/webdav/logs', clearWebdavLogs);
 router.get('/api/admin/files/stats', fileStats);
 router.get('/api/admin/files', listAdminFiles);
 router.post('/api/admin/files/delete', deleteAdminFiles);
+router.post('/api/admin/files/:id/overwrite', overwriteAdminFile);
 router.get('/api/admin/files/orphans', scanOrphanFiles);
 router.post('/api/admin/files/orphans/delete', deleteOrphanFiles);
 
@@ -334,6 +336,7 @@ async function handlePages(request, env) {
 
   // 公开页
   if (path === '/login') return html(loginPage());
+  if (path === '/change-password') return html(changePasswordPage());
   if (path === '/setup') return html(setupPage());
   // App「在浏览器中打开」免密桥接 /auth/bridge?sid=<会话token>&to=<站内路径>
   // 系统浏览器与 App WebView 的 cookie 仓库相互独立，sid 带不过去；

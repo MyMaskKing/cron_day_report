@@ -15,7 +15,7 @@
  */
 import { BASE_CSS, FAVICON_SVG } from './layout.js';
 import {
-  COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
+  COMMON_JS, LOGIN_JS, CHANGE_PASSWORD_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
   TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS,
@@ -45,6 +45,7 @@ function buildAssets() {
     'common.js': { body: COMMON_JS, type: JS },
     'todo-core.js': { body: TODO_TREE_CORE, type: JS },
     'page-login.js': { body: LOGIN_JS, type: JS },
+    'page-change-password.js': { body: CHANGE_PASSWORD_JS, type: JS },
     'page-dashboard.js': { body: DASHBOARD_JS, type: JS },
     'page-admin.js': { body: ADMIN_JS, type: JS },
     'page-setup.js': { body: SETUP_JS, type: JS },

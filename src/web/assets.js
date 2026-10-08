@@ -2306,6 +2306,31 @@ async function applyRegLimit() {
   } catch (e) {}
 }
 applyRegLimit();
+// 从改密页跳回：提示用新密码登录
+try {
+  if (new URLSearchParams(location.search).get('changed') === '1') {
+    showMsg(msg, '密码已修改，请用新密码登录', true);
+  }
+} catch (e) {}
+`;
+
+// 免登录修改密码页 JS
+const CHANGE_PASSWORD_JS = `
+var cpForm = document.getElementById('cpForm');
+var cpMsg = document.getElementById('cpMsg');
+cpForm.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var np = document.getElementById('cnp').value;
+  if (np !== document.getElementById('cnp2').value) { showMsg(cpMsg, '两次输入的新密码不一致', false); return; }
+  try {
+    await api('/api/auth/reset-password', { method: 'POST', body: {
+      username: document.getElementById('cu').value,
+      oldPassword: document.getElementById('cop').value,
+      newPassword: np
+    }});
+    navTo('/login?changed=1');
+  } catch (err) { showMsg(cpMsg, err.message, false); }
+});
 `;
 
 // 仪表盘 JS
@@ -3763,6 +3788,8 @@ function renderFmRows() {
       var act = '<span style="display:inline-flex;gap:6px;align-items:center;white-space:nowrap;">';
       if (r.isImage) act += '<button type="button" class="btn sm" data-act="preview" data-token="' + esc(r.fileToken) + '" data-name="' + esc(r.originName) + '">预览</button>';
       act += '<a class="btn sm gray" href="' + esc(r.url) + '" download="' + esc(r.originName) + '">下载</a>';
+      act += '<button type="button" class="btn sm gray" data-act="copy" data-token="' + esc(r.fileToken) + '">复制链接</button>';
+      act += '<button type="button" class="btn sm gray" data-act="overwrite" data-id="' + r.id + '" data-name="' + esc(r.originName) + '">覆盖</button>';
       act += '</span>';
       return '<tr>'
         + '<td data-label="选择"><input type="checkbox" class="fm-cb" style="width:auto;margin:0;flex:none;" value="' + r.id + '"></td>'
@@ -3808,9 +3835,79 @@ function previewImage(token, name) {
   }
 }
 
+// 复制文本：优先剪贴板 API；非 HTTPS/旧浏览器降级为 prompt 手工复制
+function fmCopyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function(resolve) { window.prompt('请手工复制：', text); resolve(); });
+}
+
+// 手动上传：隐藏 input 选文件后直传（个人文件，不绑任务）
+async function fmDoUpload(file) {
+  var fd = new FormData();
+  fd.append('file', file);
+  var res = await fetch('/api/files/upload', { method: 'POST', body: fd });
+  var d = await res.json().catch(function(){ return { success: false, message: '上传失败' }; });
+  if (!d.success) throw new Error(d.message || '上传失败');
+  return d;
+}
+document.getElementById('fmUpload').addEventListener('click', function() {
+  document.getElementById('fmUploadInput').click();
+});
+document.getElementById('fmUploadInput').addEventListener('change', function() {
+  var file = this.files && this.files[0];
+  this.value = ''; // 清空允许再次选择同一文件
+  if (!file) return;
+  fmDoUpload(file).then(function(d) {
+    alertModal('已上传：' + (d.attachment && d.attachment.origin_name), { ok: true });
+    loadFmStats(); loadFmFiles();
+  }).catch(function(err) { alertModal(err.message, { ok: false }); });
+});
+
+// 覆盖：确认后动态选文件，同 token/同链接替换本体并同步元数据
+async function fmDoOverwrite(id, file) {
+  var fd = new FormData();
+  fd.append('file', file);
+  var res = await fetch('/api/admin/files/' + id + '/overwrite', { method: 'POST', body: fd });
+  var d = await res.json().catch(function(){ return { success: false, message: '覆盖失败' }; });
+  if (!d.success) throw new Error(d.message || '覆盖失败');
+  return d;
+}
+function fmStartOverwrite(id, name) {
+  confirmModal('覆盖文件',
+    '将用新文件覆盖「' + name + '」，免密链接保持不变、原内容无法恢复。确认后请选择新文件。',
+    function() {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.addEventListener('change', function() {
+        var file = input.files && input.files[0];
+        if (!file) return;
+        fmDoOverwrite(id, file).then(function(d) {
+          alertModal('已覆盖：' + (d.row && d.row.originName), { ok: true });
+          loadFmStats(); loadFmFiles();
+        }).catch(function(err) { alertModal(err.message, { ok: false }); });
+      });
+      input.click();
+    }
+  );
+}
+
 document.getElementById('fmTbody').addEventListener('click', function(e) {
-  var btn = e.target.closest ? e.target.closest('button[data-act="preview"]') : null;
-  if (btn) previewImage(btn.getAttribute('data-token'), btn.getAttribute('data-name'));
+  var btn = e.target.closest ? e.target.closest('button[data-act]') : null;
+  if (!btn) return;
+  var act = btn.getAttribute('data-act');
+  if (act === 'preview') {
+    previewImage(btn.getAttribute('data-token'), btn.getAttribute('data-name'));
+  } else if (act === 'copy') {
+    var fullUrl = location.origin + '/todo-file/' + encodeURIComponent(btn.getAttribute('data-token'));
+    fmCopyText(fullUrl).then(function() {
+      var old = btn.textContent; btn.textContent = '已复制';
+      setTimeout(function(){ btn.textContent = old; }, 1200);
+    });
+  } else if (act === 'overwrite') {
+    fmStartOverwrite(parseInt(btn.getAttribute('data-id'), 10), btn.getAttribute('data-name'));
+  }
 });
 document.getElementById('fmTbody').addEventListener('change', function(e) {
   if (e.target.classList && e.target.classList.contains('fm-cb')) syncFmBatchBtn();
@@ -7007,18 +7104,38 @@ function todoSortRoots(trees, mode) {
   });
   return out;
 }
-/** 速览/时间轴叶子排序: default 与 due_desc 按有效截止时间倒序(晚→早, 与其他视图默认一致),
- *  due_asc 升序; 无日期恒沉底; 同日回退 sort_order+id */
+/** 速览/时间轴叶子排序: 先按所属主任务定位(主任务 sort_order→代表日期→创建时间),
+ *  同一主任务内再按叶子自身(sort_order→有效截止日→创建时间);
+ *  due_asc 日期/创建时间早→晚, 其余晚→早(与其他视图默认一致); 无日期恒沉底。
+ *  避免同一天多个主任务的子任务全局混排互相穿插(A-1,B-1,B-2,A-2) */
 function todoSortFlatLeaves(leaves, mode) {
-  var desc = mode !== 'due_asc';
-  leaves.sort(function (a, b) {
-    var ad = a.effDue || '', bd = b.effDue || '';
-    if (ad !== bd) {
-      if (!ad) return 1; if (!bd) return -1; // 无日期恒沉底
-      var ascFirst = ad < bd;
-      return desc ? (ascFirst ? 1 : -1) : (ascFirst ? -1 : 1);
+  var asc = mode === 'due_asc';
+  // 日期/创建时间方向比较: asc 早→晚, 其余晚→早
+  function dirCmp(a, b) { return ((a < b) === asc) ? -1 : 1; }
+  // 单个任务比较: sort_order 恒升序 → 日期(方向, 空沉底) → 创建时间(方向, 空沉底) → id
+  function entityCmp(a, b) {
+    if (a.sort !== b.sort) return a.sort < b.sort ? -1 : 1;
+    if (a.due !== b.due) {
+      if (!a.due) return 1; if (!b.due) return -1; // 无日期恒沉底
+      return dirCmp(a.due, b.due);
     }
-    return (a.node.sort_order - b.node.sort_order) || (a.node.id - b.node.id);
+    if (a.created !== b.created) {
+      if (!a.created) return 1; if (!b.created) return -1;
+      return dirCmp(a.created, b.created);
+    }
+    return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+  }
+  function rootKey(leaf) {
+    var r = leaf.node._root;
+    return { sort: r.sort_order, due: todoRootDue(r) || '', created: r.created_at || '', id: r.id };
+  }
+  function leafKey(leaf) {
+    var n = leaf.node;
+    return { sort: n.sort_order, due: leaf.effDue || '', created: n.created_at || '', id: n.id };
+  }
+  leaves.sort(function (a, b) {
+    var rc = entityCmp(rootKey(a), rootKey(b));
+    return rc !== 0 ? rc : entityCmp(leafKey(a), leafKey(b));
   });
 }
 /**
@@ -8753,30 +8870,36 @@ function renderTodoFlat(container, trees, opts) {
     container.appendChild(flatList);
     return;
   }
-  // 4. 勾选后再按日期分桶（同日叶子同组，不分归属；leaves 已排序，顺序切桶即可）
+  // 4. 勾选后再按日期分桶: 同日叶子(可能跨主任务、在 leaves 中不相邻)并入同组;
+  //    组顺序显式按日期方向排序(叶子已按主任务聚簇, 不能再靠相邻切桶), 无日期 'none' 沉底
   container.className = 'todo-due-groups';
-  var buckets = [];
+  var bucketMap = new Map();
   leaves.forEach(function (it) {
     var key = it.effDue || 'none';
-    var last = buckets[buckets.length - 1];
-    if (!last || last.key !== key) { last = { key: key, items: [] }; buckets.push(last); }
-    last.items.push(it);
+    if (!bucketMap.has(key)) bucketMap.set(key, []);
+    bucketMap.get(key).push(it);
   });
-  buckets.forEach(function (b) {
-    var head = todoBuildDueGroupHead(b.key, b.items.length, today);
+  var bucketKeys = Array.from(bucketMap.keys()).filter(function (k) { return k !== 'none'; });
+  bucketKeys.sort(function (a, b) {
+    return _todoSortMode === 'due_asc' ? (a < b ? -1 : 1) : (a < b ? 1 : -1);
+  });
+  if (bucketMap.has('none')) bucketKeys.push('none');
+  bucketKeys.forEach(function (key) {
+    var items = bucketMap.get(key);
+    var head = todoBuildDueGroupHead(key, items.length, today);
     var body = document.createElement('div');
     body.className = 'tl-card-list';
     if (head.classList.contains('is-collapsed')) body.style.display = 'none';
     // 点组头折叠/展开（与主任务分组层同口径）
     head.addEventListener('click', function () {
-      if (_todoDueGroupCollapsed.has(b.key)) _todoDueGroupCollapsed.delete(b.key);
-      else _todoDueGroupCollapsed.add(b.key);
+      if (_todoDueGroupCollapsed.has(key)) _todoDueGroupCollapsed.delete(key);
+      else _todoDueGroupCollapsed.add(key);
       head.classList.toggle('is-collapsed');
       body.style.display = body.style.display === 'none' ? '' : 'none';
     });
     container.appendChild(head);
     container.appendChild(body);
-    b.items.forEach(function (it) { body.appendChild(todoLeafCard(it, opts, 'flat')); });
+    items.forEach(function (it) { body.appendChild(todoLeafCard(it, opts, 'flat')); });
   });
 }
 
@@ -8869,23 +8992,22 @@ function renderTodoTimeline(container, trees, opts) {
     return;
   }
 
-  // 有日期叶子按日分桶（leaves 已排序）
-  var buckets = [], noneItems = [];
+  // 有日期叶子按日分桶: 同日叶子(跨主任务不相邻)并入同一行, 行内保持主任务聚簇顺序
+  var buckets = new Map(), noneItems = [];
   leaves.forEach(function (it) {
     if (!it.effDue) { noneItems.push(it); return; }
-    var last = buckets[buckets.length - 1];
-    if (!last || last.key !== it.effDue) { last = { key: it.effDue, items: [] }; buckets.push(last); }
-    last.items.push(it);
+    if (!buckets.has(it.effDue)) buckets.set(it.effDue, []);
+    buckets.get(it.effDue).push(it);
   });
 
-  if (_todoTimelineFullAxis && buckets.length) {
+  if (_todoTimelineFullAxis && buckets.size) {
     // 枚举范围取全部日期的 min/max(不依赖 bucket 顺序, 倒序时首尾会互换);
     // 日期行的排列方向跟随当前排序: 默认倒序(晚→早), 升序才早→晚
     var present = {}, dmin = null, dmax = null;
-    buckets.forEach(function (b) {
-      present[b.key] = b.items;
-      if (!dmin || b.key < dmin) dmin = b.key;
-      if (!dmax || b.key > dmax) dmax = b.key;
+    buckets.forEach(function (items, key) {
+      present[key] = items;
+      if (!dmin || key < dmin) dmin = key;
+      if (!dmax || key > dmax) dmax = key;
     });
     var allDays = enumerateDays(dmin, dmax);
     if (_todoSortMode !== 'due_asc') allDays.reverse();
@@ -8893,7 +9015,14 @@ function renderTodoTimeline(container, trees, opts) {
       container.appendChild(dayRow(d, present[d] || [], !present[d], false));
     });
   } else {
-    buckets.forEach(function (b) { container.appendChild(dayRow(b.key, b.items, false, false)); });
+    // Map 按主任务聚簇插入, 日期行须显式按日期方向排序(升序早→晚, 默认倒序晚→早)
+    var axisKeys = Array.from(buckets.keys());
+    axisKeys.sort(function (a, b) {
+      return _todoSortMode === 'due_asc' ? (a < b ? -1 : 1) : (a < b ? 1 : -1);
+    });
+    axisKeys.forEach(function (key) {
+      container.appendChild(dayRow(key, buckets.get(key), false, false));
+    });
   }
   // 无日期叶子：末尾虚线「未安排」节点
   if (noneItems.length) container.appendChild(dayRow(null, noneItems, false, true));
@@ -13653,7 +13782,7 @@ const DOWNLOAD_JS = `
 `;
 
 export {
-  COMMON_JS, LOGIN_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
+  COMMON_JS, LOGIN_JS, CHANGE_PASSWORD_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
   TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS,
