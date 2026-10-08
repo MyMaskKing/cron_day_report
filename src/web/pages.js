@@ -1441,7 +1441,7 @@ function downloadPage(user, mdContent, updatedAt) {
 }
 
 export {
-  loginPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
+  loginPage, changePasswordPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
   weightReportPage, assetReportPage, fundReportPage,
   todoPage, publicTodoPage, todoReportPage, todoCollabPage, storageAdminPage, downloadPage
