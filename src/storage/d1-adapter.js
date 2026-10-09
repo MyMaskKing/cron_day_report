@@ -842,6 +842,12 @@ function createD1Adapter(env) {
         if (!self.recurrence) return { cloned: false };
         if (!self.due_date) return { cloned: false };
         const nextDue = shiftDate(self.due_date, self.recurrence, !!jumpToCurrent, todayStr, self.recur_interval, self.recur_nth, self.recur_weekday);
+        // 防重复克隆: 旧画面/多端并发二次勾选同一已完成实例时, 同源(recur_from_id)同到期日的
+        // 实例已存在则跳过, 避免多出一条重复任务(新克隆行 recur_from_id 均指向本实例 id)
+        const dup = await db.prepare(
+          'SELECT 1 AS x FROM todos WHERE recur_from_id=? AND due_date=? AND user_id=? LIMIT 1'
+        ).bind(self.id, nextDue, userId).first();
+        if (dup) return { cloned: false };
         // 任何层级的重复任务只要有子女都走整树克隆(新根保持原 parent_id); 无子女的叶子单行克隆
         const hasKids = !!(await db.prepare('SELECT 1 AS x FROM todos WHERE parent_id=? LIMIT 1').bind(id).first());
         if (hasKids) {
