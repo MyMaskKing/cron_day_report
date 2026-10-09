@@ -8656,7 +8656,7 @@ function renderTodoAccordion(container, trees, opts) {
     if (node.recurrence) {
       var repEl = document.createElement('span');
       repEl.className = 'todo-metatxt';
-      repEl.textContent = '🔁 ' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday);
+      repEl.innerHTML = ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday));
       rowEl.appendChild(repEl);
     }
     var opsEl = buildOps(node, depth, rowEl, function(){
@@ -8846,7 +8846,7 @@ function todoLeafCard(leaf, opts, scene) {
   if (n.recurrence) {
     var rc = document.createElement('span');
     rc.className = 'todo-metatxt';
-    rc.textContent = '🔁 ' + todoRecurLabel(n.recurrence, n.recur_interval, n.recur_nth, n.recur_weekday);
+    rc.innerHTML = ICONS.repeat + esc(todoRecurLabel(n.recurrence, n.recur_interval, n.recur_nth, n.recur_weekday));
     meta.appendChild(rc);
   }
   if (meta.childNodes.length) main.appendChild(meta);
