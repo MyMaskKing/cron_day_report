@@ -8296,7 +8296,7 @@ function renderTodoTree(container, trees, opts) {
       meta.appendChild(cdMark);
     }
     if (node.category) {
-      var cc = document.createElement('span'); cc.className = 'todo-chip cat'; cc.textContent = node.category; meta.appendChild(cc);
+      var cc = document.createElement('span'); cc.className = 'todo-metatxt'; cc.textContent = node.category; meta.appendChild(cc);
     }
     // 完整树顶层同卡片视图(todoRootDue)；其余节点只显示自身日期。
     // 跟随父级的任务不重复挂 chip；effDue 仍用于勾选/排序等业务判断。
@@ -8312,14 +8312,14 @@ function renderTodoTree(container, trees, opts) {
     // 重复徽章: 哪个节点设了重复就显示在哪个节点(旧模式仅顶层; 新模式可在叶子子任务上)
     if (node.recurrence) {
       var rc = document.createElement('span');
-      rc.className = 'todo-chip repeat';
+      rc.className = 'todo-metatxt';
       rc.innerHTML = ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday));
       meta.appendChild(rc);
     }
     // 完成时间 chip：已完成且有完成日期时显示
     if (node.done && node.done_at) {
       var doneC = document.createElement('span');
-      doneC.className = 'todo-chip done-at';
+      doneC.className = 'todo-metatxt';
       doneC.innerHTML = ICONS.check_circle + '完成于 ' + esc(node.done_at);
       meta.appendChild(doneC);
     }
@@ -8655,7 +8655,8 @@ function renderTodoAccordion(container, trees, opts) {
     }
     if (node.recurrence) {
       var repEl = document.createElement('span');
-      repEl.className = 'todo-acc__repeat'; repEl.textContent = '🔁';
+      repEl.className = 'todo-metatxt';
+      repEl.textContent = '🔁 ' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday);
       rowEl.appendChild(repEl);
     }
     var opsEl = buildOps(node, depth, rowEl, function(){
@@ -8837,14 +8838,14 @@ function todoLeafCard(leaf, opts, scene) {
     var rootNode = n._root || n;
     if (rootNode.category && rootNode.shared_cat_id == null) {
       var catEl = document.createElement('span');
-      catEl.className = 'todo-chip cat';
+      catEl.className = 'todo-metatxt';
       catEl.textContent = rootNode.category;
       meta.appendChild(catEl);
     }
   }
   if (n.recurrence) {
     var rc = document.createElement('span');
-    rc.className = 'todo-chip repeat';
+    rc.className = 'todo-metatxt';
     rc.textContent = '🔁 ' + todoRecurLabel(n.recurrence, n.recur_interval, n.recur_nth, n.recur_weekday);
     meta.appendChild(rc);
   }
@@ -9243,7 +9244,7 @@ function renderTodoCards(container, trees, opts) {
     // meta 行：分类/重复/完成时间为弱化灰字, 日期 + 叶子进度保留语义 chip
     var meta = document.createElement('div'); meta.className = 'todo-card__meta';
     if (root.category) {
-      var cc = document.createElement('span'); cc.className = 'todo-card__metatxt'; cc.textContent = root.category; meta.appendChild(cc);
+      var cc = document.createElement('span'); cc.className = 'todo-metatxt'; cc.textContent = root.category; meta.appendChild(cc);
     }
     // 卡片日期: 顶层显示日期 todoRootDue(旧模式=root.due_date; 新模式=最早到期的未完成子任务)
     var rootDue = todoRootDue(root);
@@ -9257,7 +9258,7 @@ function renderTodoCards(container, trees, opts) {
     }
     if (root.done && root.done_at) {
       var doneC = document.createElement('span');
-      doneC.className = 'todo-card__metatxt';
+      doneC.className = 'todo-metatxt';
       doneC.innerHTML = ICONS.check_circle + '完成于 ' + esc(root.done_at);
       meta.appendChild(doneC);
     }
@@ -9266,7 +9267,7 @@ function renderTodoCards(container, trees, opts) {
       var lastDone = todoSubtreeDoneInfo(root).last;
       if (lastDone) {
         var ldChip = document.createElement('span');
-        ldChip.className = 'todo-card__metatxt';
+        ldChip.className = 'todo-metatxt';
         ldChip.innerHTML = ICONS.check_circle + '最近完成 ' + esc(todoDateLabel(lastDone, today));
         meta.appendChild(ldChip);
       }
@@ -9285,7 +9286,7 @@ function renderTodoCards(container, trees, opts) {
     }
     if (recurNode) {
       var rc = document.createElement('span');
-      rc.className = 'todo-card__metatxt';
+      rc.className = 'todo-metatxt';
       rc.innerHTML = ICONS.repeat + esc(todoRecurLabel(recurNode.recurrence, recurNode.recur_interval, recurNode.recur_nth, recurNode.recur_weekday));
       meta.appendChild(rc);
     }
@@ -11862,8 +11863,8 @@ async function openTodoDetail(node, opts) {
       + ICONS.calendar + esc(todoDateLabel(due, today))
       + (dueInherited ? '<span style="opacity:.65;">·跟随上级</span>' : '') + '</span>');
   }
-  if (node.recurrence) meta.push('<span class="td-chip">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
-  if (node.category) meta.push('<span class="td-chip td-chip--cat">' + esc(node.category) + '</span>');
+  if (node.recurrence) meta.push('<span class="todo-metatxt">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
+  if (node.category) meta.push('<span class="todo-metatxt">' + esc(node.category) + '</span>');
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
   // 优先级标签按节点自身: null/-1(无)或非法值不显示(跟随子任务/各自截止主任务同样不显示)
   if (node.priority === 0 || node.priority === 1 || node.priority === 2) {
