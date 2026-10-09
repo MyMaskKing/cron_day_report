@@ -9727,6 +9727,10 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
     if (!opts.hideDone && data.done.length) {
       todoMountDoneZone(container, data.done, opts, '已完成', '仅本任务 · 详情内沉底');
     }
+    // 整卡点击进入详情时容器被整体重建：浏览器本次点击产生的 selection 因原锚点(卡片)被移除，
+    // 会被重新锚定到新 DOM（实测落到底部「添加子任务」按钮内）并在按钮中显示闪烁 caret；
+    // 用户随后点面包屑，该 caret 还会迁移到面包屑文本。重绘完成后清掉这个误锚的 selection。
+    try { window.getSelection().removeAllRanges(); } catch (e) {}
   }
   todoPersistDetail(root.id);
   todoPreserveScroll(scrollScroller, todoScrollKey('card', root.id, scrollScroller), render, after);
