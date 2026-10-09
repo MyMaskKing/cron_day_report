@@ -746,7 +746,7 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .btn.danger { background: #dc2626; font-weight: 600; }
 .btn.danger:hover:not(:active) { background: #b91c1c; }
 .btn.gray { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); font-weight: 600; }
-.btn.gray:hover:not(:active) { background: var(--hover-bg); }
+.btn.gray:hover:not(:active) { background: var(--hover-bg); border-color: var(--border-strong); }
 .btn.sm { padding: 4px 10px; font-size: 12px; }
 /* select 复用 .btn 样式时(如 profitRange/unitSel), select 本身是灰底白字,
    但原生 <option> 展开层由浏览器接管、白底继承 color:#fff 会出现"白底白字看不清";
@@ -2229,6 +2229,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; gap: 5px;
 }
+.fs-segbtn:hover:not(:active) { background: var(--hover-bg); border-color: var(--border-strong); }
 .fs-segbtn svg { width: 18px; height: 18px; flex: none; }
 .fs-segbtn-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .fs-exitbtn {
@@ -2237,6 +2238,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
   background: var(--surface); color: var(--danger);
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
 }
+.fs-exitbtn:hover:not(:active) { background: var(--danger-bg); }
 
 /* 手机端详情→清单：详情卡片右滑退出、清单自左滑入（PC 无动画，瞬时切换） */
 @keyframes todoExitRight {
