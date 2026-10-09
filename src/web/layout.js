@@ -89,6 +89,8 @@ const BASE_CSS = `
    装饰性品牌渐变(topbar/按钮)、模块 accent、优先级色等三套主题保留, 不在此列。 */
 :root {
   --bg: #F6F5F2;
+  /* 主题表面：跟随全站主题的不透明实色（供全屏内"不透明抽屉/浮层"引用，区别于白磨砂） */
+  --surface-global: #fff;
   /* 圆角尺度（唯一事实源）：小=控件 / 中=浮层菜单 / 大=卡片 */
   --r-sm: 8px;
   --r-md: 12px;
@@ -183,6 +185,7 @@ const BASE_CSS = `
 }
 [data-theme="dark"] {
   --bg: #17181F;
+  --surface-global: #22242e;
   --bgimg-default:
     radial-gradient(1000px 600px at 12% -5%, rgba(255,122,89,.08), transparent 55%),
     radial-gradient(900px 550px at 88% 8%, rgba(168,85,247,.12), transparent 55%),
@@ -259,6 +262,7 @@ const BASE_CSS = `
 }
 [data-theme="eye"] {
   --bg: #f3eee0;
+  --surface-global: #faf6ea;
   --bgimg-default:
     radial-gradient(1000px 600px at 12% -5%, rgba(214,168,90,.14), transparent 55%),
     radial-gradient(900px 550px at 88% 8%, rgba(168,85,247,.10), transparent 55%),
@@ -346,7 +350,7 @@ html[data-bg="dusk"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: v
    内置背景图都是浅色，故选了任一非空 bg 后，全屏内与全站主题解耦、一律按浅色渲染
    （白磨砂表面 + 深色文字 + 统一品牌紫）——暗色/护眼主题进全屏不会出现深卡片+浅背景冲突；
    表面白度/模糊严格对齐背景面板「预览图」(.56 白 + blur12)。仅作用于全屏，不影响全屏外。 */
-html[data-bg]:not([data-bg=""]) :is(.todo-drawer, .todo-fs-main) {
+html[data-bg]:not([data-bg=""]) .todo-fs-main {
   /* 白磨砂表面 */
   --surface: rgba(255,255,255,.56);
   --surface-2: rgba(255,255,255,.42);
@@ -393,9 +397,9 @@ html[data-bg]:not([data-bg=""]) body.todo-fs-on
   border-color: transparent;
   box-shadow: 0 6px 20px rgba(20,50,40,.08);
 }
-/* 分类目录抽屉：跟随半透明白磨砂（补模糊） */
+/* 分类目录抽屉：不透明，跟随全站主题表面（手机浮层不透出后方内容） */
 html[data-bg]:not([data-bg=""]) body.todo-fs-on .todo-drawer {
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  background: var(--surface-global); backdrop-filter: none; -webkit-backdrop-filter: none;
 }
 /* 顶栏：纯白不透明（对齐预览图） */
 html[data-bg]:not([data-bg=""]) body.todo-fs-on .todo-fs-top {
