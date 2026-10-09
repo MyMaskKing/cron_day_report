@@ -182,11 +182,11 @@ const BASE_CSS = `
   --code-bg: rgba(127,127,127,.15);
 }
 [data-theme="dark"] {
-  --bg: #14141E;
+  --bg: #17181F;
   --bgimg-default:
-    radial-gradient(1000px 600px at 12% -5%, rgba(255,122,89,.10), transparent 55%),
-    radial-gradient(900px 550px at 88% 8%, rgba(168,85,247,.16), transparent 55%),
-    radial-gradient(1100px 700px at 50% 100%, rgba(59,130,246,.14), transparent 55%), #14141E;
+    radial-gradient(1000px 600px at 12% -5%, rgba(255,122,89,.08), transparent 55%),
+    radial-gradient(900px 550px at 88% 8%, rgba(168,85,247,.12), transparent 55%),
+    radial-gradient(1100px 700px at 50% 100%, rgba(59,130,246,.10), transparent 55%), #17181F;
   --bgimg-aurora:
     radial-gradient(720px 480px at 12% -8%, rgba(52,211,153,.32), transparent 62%),
     radial-gradient(620px 480px at 102% 12%, rgba(96,165,250,.30), transparent 60%),
@@ -213,19 +213,19 @@ const BASE_CSS = `
     radial-gradient(700px 560px at 50% 108%, rgba(217,150,255,.22), transparent 66%),
     linear-gradient(180deg,#130e20 0%,#1a0f1e 100%);
   --bg-veil: rgba(14,16,28,.50);
-  --text: #e6e8f0;
-  --text-strong: #f2f3f8;
-  --label: #a8b0c4;
-  --link-dim: #b6bed6;
+  --text: #dde0ea;
+  --text-strong: #e6e9f2;
+  --label: #a4abc0;
+  --link-dim: #b2bacf;
   --muted: #8a90a6;
   --muted-2: #8890b8;
   --faint: #8288a8;
-  --surface: #1e2230;
-  --surface-2: #262b3d;
-  --surface-3: #232839;
-  --surface-done: #1b1f2c;
-  --card-glass: rgba(30,34,48,.72);
-  --card-glass-solid: rgba(30,34,48,.94);
+  --surface: #22242e;
+  --surface-2: #292c38;
+  --surface-3: #262936;
+  --surface-done: #20222d;
+  --card-glass: rgba(34,36,46,.72);
+  --card-glass-solid: rgba(34,36,46,.94);
   --card-border: rgba(255,255,255,.08);
   --stat-glass: rgba(255,255,255,.04);
   --input-bg: rgba(255,255,255,.06);
@@ -254,7 +254,7 @@ const BASE_CSS = `
   --th-bg: rgba(255,255,255,.04);
   --th-border: rgba(255,255,255,.08);
   --loading-mask: rgba(10,12,20,.6);
-  --sticky-th: rgba(30,34,48,.96);
+  --sticky-th: rgba(34,36,46,.96);
   --code-bg: rgba(255,255,255,.12);
 }
 [data-theme="eye"] {
