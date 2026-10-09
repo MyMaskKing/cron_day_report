@@ -357,14 +357,11 @@ html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on
   :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.todo-crumb) {
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
 }
-/* 玻璃边缘光：灰描边改透明 + 顶部受光高光 + 边缘一圈亮折射（对齐预览卡的晶莹感） */
+/* 对齐预览内卡：无边框、无白色高光（避免冲淡背景绿），仅极淡外影分隔卡片 */
 html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on
   :is(.todo-card,.todo-bandcard,.tl-card) {
-  border-color: rgba(255,255,255,.4);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.6),
-    inset 0 0 0 1px rgba(255,255,255,.25),
-    0 8px 24px rgba(20,50,70,.10);
+  border-color: transparent;
+  box-shadow: 0 6px 20px rgba(20,50,40,.08);
 }
 /* 分类目录抽屉：跟随半透明白磨砂（背景 var(--surface) 已随全屏降透，补模糊） */
 html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on .todo-drawer {
