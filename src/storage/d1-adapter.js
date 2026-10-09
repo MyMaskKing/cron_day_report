@@ -836,6 +836,9 @@ function createD1Adapter(env) {
       async markDoneWithRecur(id, userId, done, jumpToCurrent, todayStr, doneBy, cloneMode) {
         const self = await db.prepare('SELECT * FROM todos WHERE id=? AND user_id=?').bind(id, userId).first();
         if (!self) return { cloned: false };
+        // 旧画面/多端重复勾选: 任务已是完成态则不再写任何数据(普通/重复任务均覆盖),
+        // 返回 duplicated 由上层提示"已在其他设备完成"并刷新
+        if (done && self.done === 1) return { duplicated: true };
         await this.setDone(id, !!done, todayStr, doneBy);
         // 判断是否需要 clone: 必须 done=1, 有 recurrence, 有 due_date（层级不限）
         if (!done) return { cloned: false };
@@ -847,7 +850,7 @@ function createD1Adapter(env) {
         const dup = await db.prepare(
           'SELECT 1 AS x FROM todos WHERE recur_from_id=? AND due_date=? AND user_id=? LIMIT 1'
         ).bind(self.id, nextDue, userId).first();
-        if (dup) return { cloned: false };
+        if (dup) return { duplicated: true };
         // 任何层级的重复任务只要有子女都走整树克隆(新根保持原 parent_id); 无子女的叶子单行克隆
         const hasKids = !!(await db.prepare('SELECT 1 AS x FROM todos WHERE parent_id=? LIMIT 1').bind(id).first());
         if (hasKids) {

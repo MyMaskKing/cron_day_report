@@ -2437,11 +2437,14 @@ bindModal();
       // 完成时复用待办页同款撒花+激励 toast(todoCelebrate 定义在 todo-core)
       onToggle: async function(n, done){
         try {
-          await api('/api/todo/' + n.id + '/done', { method: 'PUT', body: { done: done } });
+          var r0 = await api('/api/todo/' + n.id + '/done', { method: 'PUT', body: { done: done } });
           await loadDashTodos();
           if (done) {
-            var cc0 = todoCelebrationCount(todoBuildTree(dashTodoRows), true);
-            todoCelebrate(cc0.remaining, cc0.total);
+            if (r0.duplicated) showToast(r0.message, false);
+            else {
+              var cc0 = todoCelebrationCount(todoBuildTree(dashTodoRows), true);
+              todoCelebrate(cc0.remaining, cc0.total);
+            }
           }
           return true;
         } catch (err) { alertModal(err.message, { ok: false }); return false; }
@@ -2468,8 +2471,9 @@ bindModal();
       e.preventDefault();
       e.stopPropagation();
       api('/api/todo/' + chk.dataset.check + '/done', { method: 'PUT', body: { done: true } })
-        .then(function(){ return loadDashTodos(); })
-        .then(function(){
+        .then(function(r0){ return loadDashTodos().then(function(){ return r0; }); })
+        .then(function(r0){
+          if (r0.duplicated) { showToast(r0.message, false); return; }
           // 与待办页一致: 撒花+分级激励 toast
           var cc0 = todoCelebrationCount(todoBuildTree(dashTodoRows), true);
           todoCelebrate(cc0.remaining, cc0.total);
@@ -12196,13 +12200,16 @@ async function todoToggleDone(node, done) {
   if (!(await todoConfirmDoneIfPending(node, done))) return false;
   try {
     var alarmRows = _rows.slice();
-    await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+    var r0 = await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
     await loadTodos(); await loadChart();
     if (done) {
       todoTransferSubtreeAlarms(node, alarmRows, _rows);
       todoCancelSubtreeAlarms(node, alarmRows);
-      var cc = todoCelebrationCount(todoBuildTree(_rows), true);
-      todoCelebrate(cc.remaining, cc.total);
+      if (r0.duplicated) showToast(r0.message, false);
+      else {
+        var cc = todoCelebrationCount(todoBuildTree(_rows), true);
+        todoCelebrate(cc.remaining, cc.total);
+      }
     }
     return true;
   }
@@ -12291,13 +12298,16 @@ function drawTree() {
         var rm = document.querySelector('input[name="rmode"]:checked');
         var cloneMode = rm ? rm.value : 'all';
         var alarmRows = _rows.slice();
-        await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent, cloneMode: cloneMode } });
+        var r0 = await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent, cloneMode: cloneMode } });
         closeModal();
         await loadTodos(); await loadChart();
         todoTransferSubtreeAlarms(node, alarmRows, _rows);
         todoCancelSubtreeAlarms(node, alarmRows);
-        var cc = todoCelebrationCount(todoBuildTree(_rows), true);
-        todoCelebrate(cc.remaining, cc.total);
+        if (r0.duplicated) showToast(r0.message, false);
+        else {
+          var cc = todoCelebrationCount(todoBuildTree(_rows), true);
+          todoCelebrate(cc.remaining, cc.total);
+        }
       });
     },
     onToggle: function(node, done){ return todoToggleDone(node, done); },
@@ -13112,12 +13122,15 @@ function drawTree(trees) {
     onToggle: async function(node, done){
       if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
-        await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+        var r0 = await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadPublic();
         if (done) {
-          // 庆祝口径与可见列表一致：完成父任务后整枝不再计入
-          var cc = todoCelebrationCount(visibleTrees());
-          todoCelebrate(cc.remaining, cc.total);
+          if (r0.duplicated) { showToast(r0.message, false); }
+          else {
+            // 庆祝口径与可见列表一致：完成父任务后整枝不再计入
+            var cc = todoCelebrationCount(visibleTrees());
+            todoCelebrate(cc.remaining, cc.total);
+          }
         }
       }
       catch(e){ alertModal(e.message, {ok:false}); }
@@ -13258,20 +13271,24 @@ function drawTree() {
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');
-        await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent } });
+        var r0 = await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent } });
         closeModal();
         await reloadReport();
+        if (r0.duplicated) showToast(r0.message, false);
       });
     },
     onToggle: async function(node, done){
       if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
-        await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+        var r0 = await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await reloadReport();
         if (done) {
-          // 庆祝口径与当前任务树一致：完成父任务后整枝不再计入
-          var cc = todoCelebrationCount(_trees, true);
-          todoCelebrate(cc.remaining, cc.total);
+          if (r0.duplicated) { showToast(r0.message, false); }
+          else {
+            // 庆祝口径与当前任务树一致：完成父任务后整枝不再计入
+            var cc = todoCelebrationCount(_trees, true);
+            todoCelebrate(cc.remaining, cc.total);
+          }
         }
       }
       catch(e){ alertModal(e.message, {ok:false}); }
@@ -13612,20 +13629,24 @@ function drawTree(trees) {
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');
         // 汇总协作页仍走 public API, 但可传 jumpToCurrent(后端会忽略并强制 false)
-        await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent } });
+        var r0 = await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: true, jumpToCurrent: jumpToCurrent } });
         closeModal();
         await loadCollab();
+        if (r0.duplicated) showToast(r0.message, false);
       });
     },
     onToggle: async function(node, done){
       if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
-        await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+        var r0 = await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
         await loadCollab();
         if (done) {
-          // datedOnly=true 排除备忘录, 与画面未完成栏(todoStatsByVisible)口径一致
-          var cc = todoCelebrationCount(visibleTrees(), true);
-          todoCelebrate(cc.remaining, cc.total);
+          if (r0.duplicated) { showToast(r0.message, false); }
+          else {
+            // datedOnly=true 排除备忘录, 与画面未完成栏(todoStatsByVisible)口径一致
+            var cc = todoCelebrationCount(visibleTrees(), true);
+            todoCelebrate(cc.remaining, cc.total);
+          }
         }
       }
       catch(e){ alertModal(e.message, {ok:false}); }
