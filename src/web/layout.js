@@ -346,16 +346,24 @@ html[data-bg="dusk"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: v
    只把内容表面改为半透明白磨砂、让背景隐约透出；强调色仍为品牌紫、文字仍为主题墨色、
    顶栏与 acc 整块仍走 --bg-veil 白磨砂（既有规则）。仅 matcha / aurora，不影响全屏外。 */
 html:is([data-bg="matcha"],[data-bg="aurora"]) .todo-fullscreen {
-  --surface: rgba(255,255,255,.72);
-  --surface-2: rgba(255,255,255,.55);
-  --surface-3: rgba(255,255,255,.60);
-  --surface-done: rgba(255,255,255,.50);
-  --input-bg: rgba(255,255,255,.78);
+  --surface: rgba(255,255,255,.56);
+  --surface-2: rgba(255,255,255,.42);
+  --surface-3: rgba(255,255,255,.46);
+  --surface-done: rgba(255,255,255,.38);
+  --input-bg: rgba(255,255,255,.62);
 }
 /* 卡片/树/速览/时间轴：卡片各自半透明白 + 磨砂（acc 由主区整块磨砂，不在此列） */
 html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on
   :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.todo-crumb) {
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+/* 分类目录抽屉：跟随半透明白磨砂（背景 var(--surface) 已随全屏降透，补模糊） */
+html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on .todo-drawer {
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+/* 顶栏：对齐预览图改为纯白不透明（覆盖 bg 默认的半透明磨砂） */
+html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on .todo-fs-top {
+  background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none;
 }
 
 /* body 纯色底（光斑仅保留在待办全屏背景内） */
