@@ -319,7 +319,7 @@ const BASE_CSS = `
   --brand-tint: #f0e6f8;
   --danger: #c0392b;
   --ok: #2f9e44;
-  --ok-text: #1a7f37;
+  --ok-text: #1a7c37;
   --danger-bg: #fbeae7;
   --ok-bg: #e9f5ea;
   --warn: #93611a;
@@ -553,7 +553,7 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .todo-due-group__cal small { font-size: 9px; margin-top: 2px; opacity: .8; }
 /* 配色与卡片 .todo-chip.due 完全同源（日历即从主任务卡提到组头） */
 .todo-due-group__cal--overdue { background: var(--danger-bg); color: var(--danger); }
-.todo-due-group__cal--today { background: var(--brand-grad); color: #fff; }
+.todo-due-group__cal--today { background: var(--brand-strong); color: #fff; }
 .todo-due-group__cal--soon { background: var(--warn-bg); color: var(--warn); }
 .todo-due-group__cal--future,
 .todo-due-group__cal--none { background: var(--surface-2); color: var(--link-dim); }
@@ -998,7 +998,7 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .asset-summary-stats .num.is-flat, .asset-status-number.is-flat, .asset-metric__value.is-flat, .asset-delta.is-flat { color: var(--muted); }
 .asset-progress { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin: 10px 0 8px; }
 .asset-progress.is-achieved { background: var(--ok-bg); }
-.asset-progress__fill { width: 0; height: 100%; border-radius: 999px; background: var(--brand-grad); box-shadow: 0 0 16px rgba(124,58,237,.22); }
+.asset-progress__fill { width: 0; height: 100%; border-radius: 999px; background: var(--brand-strong); }
 .asset-progress.is-achieved .asset-progress__fill { background: var(--ok); box-shadow: 0 0 16px rgba(52,179,74,.28); }
 .asset-goal-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
 .asset-metric { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--th-border); font-size: 14px; }
@@ -1172,12 +1172,12 @@ input[type="date"], input[type="month"] { cursor: pointer; }
 .strat-fab {
   position: fixed; right: 24px; bottom: 24px; z-index: 998;
   width: 52px; height: 52px; border-radius: 50%; border: none;
-  background: var(--brand-grad); color: #fff;
-  font-size: 24px; cursor: pointer; box-shadow: 0 6px 18px rgba(124,58,237,.4);
+  background: var(--brand-strong); color: #fff;
+  font-size: 24px; cursor: pointer; box-shadow: 0 6px 18px rgba(20,20,40,.22);
   transition: transform .15s ease, box-shadow .15s ease;
   touch-action: none;
 }
-.strat-fab:hover:not(:active) { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(124,58,237,.5); }
+.strat-fab:hover:not(:active) { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(20,20,40,.28); }
 /* 桌面: 面板本身 resize: both, 右下角可拖拉调尺寸; 位置由 JS 拖动标题栏改 left/top */
 .strat-panel {
   position: fixed; right: 24px; bottom: 88px; z-index: 999;
@@ -1190,7 +1190,7 @@ input[type="date"], input[type="month"] { cursor: pointer; }
   resize: both;
 }
 .strat-head {
-  padding: 10px 14px; background: var(--brand-grad);
+  padding: 10px 14px; background: var(--brand-strong);
   color: #fff; cursor: move; user-select: none; flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   touch-action: none;
@@ -1329,16 +1329,16 @@ input[type="date"], input[type="month"] { cursor: pointer; }
 .todo-chip.due { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due svg { width: 12px; height: 12px; }
 .todo-chip.due.overdue { background: var(--danger-bg); color: var(--danger); font-weight: 600; }
-.todo-chip.due.today { background: var(--brand-grad); color: #fff; font-weight: 700; }
+.todo-chip.due.today { background: var(--brand-strong); color: #fff; font-weight: 700; }
 /* "今天"统一浅紫语言(柔和但保留今日特殊感): 面包屑主任务日期 / 眼睛详情弹窗 /
-   完整树与详情子树(根行+子任务行) / 卡片列表根卡仍保留深紫渐变作为扫视重点 */
+   完整树与详情子树(根行+子任务行) */
 .todo-crumb .todo-chip.due.today,
 .td-sub .todo-chip.due.today,
 .todo-tree .todo-chip.due.today,
 .td-chip.td-chip--today { background: var(--brand-tint); color: var(--brand-strong); font-weight: 600; }
-/* 完整树(非详情视图)根行"今天"保持深紫渐变白字, 与卡片视图根卡一致; 子任务行仍为浅紫 */
+/* 完整树(非详情视图)根行"今天"保持深紫实色白字, 与卡片视图根卡一致; 子任务行仍为浅紫 */
 body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
-  background: var(--brand-grad); color: #fff; font-weight: 700;
+  background: var(--brand-strong); color: #fff; font-weight: 700;
 }
 /* 弹窗顶部日期 chip 本体是描边中性样式, 浅紫态换品牌浅紫边 */
 .td-chip.td-chip--today { border-color: var(--brand-border); }
@@ -2734,7 +2734,7 @@ html { scrollbar-gutter: stable; }
   .mp-done {
     display: block; grid-column: 1 / -1;
     margin-top: 8px; padding: 12px; font-size: 15px; font-weight: 600;
-    color: #fff; background: var(--brand-grad);
+    color: #fff; background: var(--brand-strong);
     border: none; border-radius: 10px; cursor: pointer;
   }
   /* 半透明遮罩: :has() 老浏览器降级为无遮罩不影响功能 */
