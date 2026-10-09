@@ -342,33 +342,63 @@ html[data-bg="matcha"] :is(.todo-fullscreen, .bg-sheet__preview) { background: v
 html[data-bg="sea"]    :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-sea); }
 html[data-bg="dusk"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-dusk); }
 
-/* ============ 待办全屏背景：内容白磨砂融合（与背景面板「预览图」完全一致） ============
-   只把内容表面改为半透明白磨砂、让背景隐约透出；强调色仍为品牌紫、文字仍为主题墨色、
-   顶栏与 acc 整块仍走 --bg-veil 白磨砂（既有规则）。仅 matcha / aurora，不影响全屏外。 */
-html:is([data-bg="matcha"],[data-bg="aurora"]) .todo-fullscreen {
+/* ============ 待办全屏背景：5 套非空背景统一「白磨砂融合 + 强制浅色」 ============
+   内置背景图都是浅色，故选了任一非空 bg 后，全屏内与全站主题解耦、一律按浅色渲染
+   （白磨砂表面 + 深色文字 + 统一品牌紫）——暗色/护眼主题进全屏不会出现深卡片+浅背景冲突；
+   表面白度/模糊严格对齐背景面板「预览图」(.56 白 + blur12)。仅作用于全屏，不影响全屏外。 */
+html[data-bg]:not([data-bg=""]) :is(.todo-drawer, .todo-fs-main) {
+  /* 白磨砂表面 */
   --surface: rgba(255,255,255,.56);
   --surface-2: rgba(255,255,255,.42);
   --surface-3: rgba(255,255,255,.46);
   --surface-done: rgba(255,255,255,.38);
   --input-bg: rgba(255,255,255,.62);
+  --bg-veil: rgba(255,255,255,.56);
+  /* 深色文字（覆盖暗色/护眼的浅色文字） */
+  --text: #333a44;
+  --text-strong: #1f2329;
+  --label: #5f6470;
+  --link-dim: #556070;
+  --muted: #5f6470;
+  --muted-2: #626a80;
+  --faint: #9aa0b0;
+  /* 边框 / 勾选环 / hover */
+  --border: rgba(30,40,60,.14);
+  --border-strong: rgba(30,40,60,.26);
+  --check-ring: #c2c8d2;
+  --hover-bg: rgba(91,100,120,.10);
+  /* 统一品牌紫（浅色口径，覆盖暗色亮紫） */
+  --brand: #8b5cf6;
+  --brand-text: #7C3AED;
+  --brand-strong: #7C3AED;
+  --brand-tint: #f0eafb;
+  --brand-border: #ddd6f6;
+  --hover-brand: #f0eafb;
+  /* 语义色按浅色口径 */
+  --danger: #cf1322;
+  --danger-bg: #fdecec;
+  --ok: #15803d;
+  --ok-bg: #e9f5ea;
+  --warn: #b45309;
+  --warn-bg: #fdf2e2;
 }
 /* 卡片/树/速览/时间轴：卡片各自半透明白 + 磨砂（acc 由主区整块磨砂，不在此列） */
-html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on
+html[data-bg]:not([data-bg=""]) body.todo-fs-on
   :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.todo-crumb) {
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
 }
-/* 对齐预览内卡：无边框、无白色高光（避免冲淡背景绿），仅极淡外影分隔卡片 */
-html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on
+/* 对齐预览内卡：无边框、无白色高光（避免冲淡背景），仅极淡外影分隔卡片 */
+html[data-bg]:not([data-bg=""]) body.todo-fs-on
   :is(.todo-card,.todo-bandcard,.tl-card) {
   border-color: transparent;
   box-shadow: 0 6px 20px rgba(20,50,40,.08);
 }
-/* 分类目录抽屉：跟随半透明白磨砂（背景 var(--surface) 已随全屏降透，补模糊） */
-html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on .todo-drawer {
+/* 分类目录抽屉：跟随半透明白磨砂（补模糊） */
+html[data-bg]:not([data-bg=""]) body.todo-fs-on .todo-drawer {
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
 }
-/* 顶栏：对齐预览图改为纯白不透明（覆盖 bg 默认的半透明磨砂） */
-html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on .todo-fs-top {
+/* 顶栏：纯白不透明（对齐预览图） */
+html[data-bg]:not([data-bg=""]) body.todo-fs-on .todo-fs-top {
   background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none;
 }
 
@@ -3165,6 +3195,11 @@ html[data-bg]:not([data-bg=""]) .bg-sp-inner { background: var(--bg-veil); }
 .bg-sp-row.root i { margin-left: auto; font-style: normal; font-size: 11px; color: var(--muted); }
 .bg-sp-row.child { padding-left: 20px; opacity: .9; font-size: 12px; }
 .bg-sp-row.child.done { opacity: .45; text-decoration: line-through; }
+/* 选了非空（浅色）背景时，预览样图恒显浅色——暗色主题下也模拟浅色全屏，不跟随主题 */
+html[data-bg]:not([data-bg=""]) .bg-sp-top { background: #fff; color: #5f6470; border-color: #e9ecf3; }
+html[data-bg]:not([data-bg=""]) .bg-sp-inner { background: rgba(255,255,255,.56); }
+html[data-bg]:not([data-bg=""]) .bg-sp-row { color: #333a44; }
+html[data-bg]:not([data-bg=""]) .bg-sp-row.root { border-left-color: #8b5cf6; }
 
 .bg-sheet__label { font-size: 13px; color: var(--label); margin: 14px 2px 9px; }
 /* 横向滚动色块 */
