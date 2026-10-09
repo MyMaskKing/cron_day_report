@@ -183,8 +183,14 @@ function dashboardPage(user) {
 
 /** 超管用户管理页 */
 function adminPage(user) {
-  const body = renderTopbar(user, 'admin') + `<div class="container">
-    <div class="card">
+  const body = renderTopbar(user, 'admin') + `<div class="container" data-admin-panes>
+    <div class="adm-tabs" role="tablist">
+      <button class="adm-tab is-on" data-pane="system" type="button" role="tab">系统</button>
+      <button class="adm-tab" data-pane="backup" type="button" role="tab">备份</button>
+      <button class="adm-tab" data-pane="users" type="button" role="tab">用户</button>
+      <button class="adm-tab" data-pane="logs" type="button" role="tab">日志</button>
+    </div>
+    <div class="card adm-pane is-on" data-pane="system">
       <h2>系统设置</h2>
       <div id="stMsg" class="msg"></div>
       <div class="row">
@@ -227,7 +233,7 @@ function adminPage(user) {
       </div>
       <p class="muted">点按钮在弹窗中用 Markdown 编辑器编写（支持图片/附件上传）并发布；发布后所有登录用户下次打开任意页面会弹窗阅读，点确认后同一条不再弹出，再次修改内容会重新弹出。清空内容保存即下线。登录页与免密公开页不显示。</p>
     </div>
-    <div class="card">
+    <div class="card adm-pane" data-pane="backup">
       <h2>数据备份与恢复</h2>
       <div id="bkMsg" class="msg"></div>
       <p class="muted">导出全部业务数据（账号、待办、基金、体重、资产、监控、推送配置、系统设置等）为 JSON 文件，可用于换机、迁移到其他部署实例或留存备份；监控日志与推送历史不包含在内。文件内含账号密码摘要，请妥善保管。</p>
@@ -248,7 +254,7 @@ function adminPage(user) {
         </div>
       </div>
     </div>
-    <div class="card">
+    <div class="card adm-pane" data-pane="backup">
       <h2>系统数据自动备份（WebDAV）</h2>
       <div id="wbMsg" class="msg"></div>
       <p class="muted">按设定周期自动把全量数据 JSON 上传到 WebDAV 目录，备份文件可用上方「导入」恢复；默认保留最近 30 份并自动清理旧文件。备份文件内含账号密码摘要等敏感信息，请使用有权限控制的 WebDAV 目录。</p>
@@ -302,7 +308,7 @@ function adminPage(user) {
       </div>
       <p class="muted" id="wbLast" style="font-size:12px;margin:4px 0 10px;"></p>
     </div>
-    <div class="card">
+    <div class="card adm-pane" data-pane="users">
       <h2>全部用户
         <button class="btn sm" id="newUserBtn" style="float:right;">+ 新建用户</button>
       </h2>
@@ -311,7 +317,7 @@ function adminPage(user) {
         <tbody id="userTbody"></tbody>
       </table>
     </div>
-    <div class="card">
+    <div class="card adm-pane" data-pane="logs">
       <h2>推送日志
         <button class="btn sm gray" id="plRefresh" style="float:right;">刷新</button>
       </h2>
@@ -357,7 +363,26 @@ function adminPage(user) {
       </div>
     </div>
     <div class="card" id="detail" style="display:none;"></div>
-  </div>`;
+  </div>
+  <script>
+  (function () {
+    var NAMES = ['system', 'backup', 'users', 'logs'];
+    function show(name, writeHash) {
+      document.querySelectorAll('.adm-tab').forEach(function (t) {
+        t.classList.toggle('is-on', t.dataset.pane === name);
+      });
+      document.querySelectorAll('.adm-pane').forEach(function (p) {
+        p.classList.toggle('is-on', p.dataset.pane === name);
+      });
+      if (writeHash) history.replaceState(null, '', '#' + name);
+    }
+    document.querySelectorAll('.adm-tab').forEach(function (t) {
+      t.addEventListener('click', function () { show(t.dataset.pane, true); });
+    });
+    var initial = (location.hash || '').replace('#', '');
+    if (NAMES.indexOf(initial) >= 0) show(initial, false);
+  })();
+  </script>`;
   return renderPage({ title: '用户管理', body, scripts: ['page-admin.js'], theme: user.theme });
 }
 
@@ -598,7 +623,7 @@ function fundPage(user) {
 function publicBuyPage() {
   const body = `<div class="login-wrap" style="max-width:420px;">
     <div class="card">
-      <h1 style="text-align:center;color:var(--brand);font-size:20px;margin-bottom:16px;">${ICO_PLUS}快速加仓</h1>
+      <h1 style="text-align:center;color:var(--brand-text);font-size:20px;margin-bottom:16px;">${ICO_PLUS}快速加仓</h1>
       <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
@@ -725,15 +750,15 @@ function publicWeightPage() {
     .wk-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
     .wk-cal-head{font-size:11px;color:var(--muted);text-align:center;padding:2px 0;}
     .wk-cal-cell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:12px;border-radius:6px;color:var(--muted);background:var(--surface-2);}
-    .wk-cal-done{background:var(--ok-bg);color:var(--ok);font-weight:700;}
-    .wk-cal-today{outline:2px solid var(--brand);color:var(--brand);}
+    .wk-cal-done{background:var(--ok-bg);color:var(--ok-text);font-weight:700;}
+    .wk-cal-today{outline:2px solid var(--brand);color:var(--brand-text);}
     .wk-cal-pop{animation:wkPop .5s ease;}
   </style>
   <div class="login-wrap" style="max-width:420px;">
     <div class="card">
-      <h1 style="text-align:center;color:var(--brand);font-size:20px;margin-bottom:6px;">⚖️ <span id="memberName"></span></h1>
+      <h1 style="text-align:center;color:var(--brand-text);font-size:20px;margin-bottom:6px;">⚖️ <span id="memberName"></span></h1>
       <div id="streakLine" style="text-align:center;font-size:22px;font-weight:700;margin-bottom:4px;display:none;"></div>
-      <p id="streakTitle" style="text-align:center;color:var(--ok);font-weight:600;margin-bottom:2px;"></p>
+      <p id="streakTitle" style="text-align:center;color:var(--ok-text);font-weight:600;margin-bottom:2px;"></p>
       <p id="monthDays" style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px;"></p>
       <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
       <div id="msg" class="msg"></div>
@@ -1026,7 +1051,7 @@ function assetPage(user) {
 function publicAssetPage() {
   const body = `<div class="login-wrap" style="max-width:420px;">
     <div class="card">
-      <h1 style="text-align:center;color:var(--brand);font-size:20px;margin-bottom:6px;">💰 <span id="walletName"></span></h1>
+      <h1 style="text-align:center;color:var(--brand-text);font-size:20px;margin-bottom:6px;">💰 <span id="walletName"></span></h1>
       <p style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px;">录入 <span id="monthLabel"></span>金额</p>
       <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
       <div id="msg" class="msg"></div>

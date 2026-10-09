@@ -771,7 +771,11 @@ async function api(path, opts) {
   if (!window._apiInflight) window._apiInflight = {};
   if (window._apiInflight[key]) return window._apiInflight[key];
   var p = (async function(){
-    showLoading(loadingTextOf(path, opts));
+    // 静默规则: 显式 silent, 或启动遮罩消化后的 GET(界面不阻断, 依赖行内反馈);
+    // 调用方显式 loading:true 可强制显示遮罩
+    var silent = opts.silent === true
+      || (method === 'GET' && !_bootCountAlive && opts.loading !== true);
+    if (!silent) showLoading(loadingTextOf(path, opts));
     try {
       setLoadingProgress(35);
       var reqHeaders = opts.body ? { 'Content-Type': 'application/json' } : {};
@@ -791,7 +795,7 @@ async function api(path, opts) {
       setLoadingProgress(100);
       return data;
     } finally {
-      hideLoading();
+      if (!silent) hideLoading();
       // 响应落地后留 100ms 静默窗吞掉紧贴的双击, 随后释放指纹允许再次提交
       setTimeout(function(){ if (window._apiInflight) delete window._apiInflight[key]; }, 100);
     }
@@ -2437,7 +2441,7 @@ bindModal();
       // 完成时复用待办页同款撒花+激励 toast(todoCelebrate 定义在 todo-core)
       onToggle: async function(n, done){
         try {
-          var r0 = await api('/api/todo/' + n.id + '/done', { method: 'PUT', body: { done: done } });
+          var r0 = await api('/api/todo/' + n.id + '/done', { method: 'PUT', body: { done: done }, silent: true });
           await loadDashTodos();
           if (done) {
             if (r0.duplicated) todoAlreadyDoneToast();
@@ -5458,7 +5462,7 @@ function deltaCell(deltaKg) {
   if (deltaKg == null) return '<span class="muted">—</span>';
   var d = toDisplay(Math.abs(deltaKg));
   if (deltaKg > 0) return '<span style="color:var(--danger);font-weight:700;">↑ +' + d + ' ' + unitLabel() + '</span>';
-  if (deltaKg < 0) return '<span style="color:var(--ok);">↓ -' + d + ' ' + unitLabel() + '</span>';
+  if (deltaKg < 0) return '<span style="color:var(--ok-text);">↓ -' + d + ' ' + unitLabel() + '</span>';
   return '<span class="muted">0</span>';
 }
 
@@ -5902,7 +5906,7 @@ function renderHist(records) {
       var delta = r.weight - recent[i-1].weight;
       var v = pDisplay(Math.abs(delta));
       if (delta > 0) cell = '<span style="color:var(--danger);font-weight:700;">↑ +' + v + ' ' + pLabel() + '</span>';
-      else if (delta < 0) cell = '<span style="color:var(--ok);">↓ -' + v + ' ' + pLabel() + '</span>';
+      else if (delta < 0) cell = '<span style="color:var(--ok-text);">↓ -' + v + ' ' + pLabel() + '</span>';
       else cell = '<span style="color:var(--muted);">0</span>';
     }
     return '<tr><td data-label="日期" style="padding:4px 0;text-align:left;">' + esc(r.record_date) + '</td>' +
@@ -5992,7 +5996,7 @@ function renderRptHist(members, records, disp, uLabel) {
     if (delta != null) {
       var v = disp(Math.abs(delta));
       if (delta > 0) cell = '<span style="color:var(--danger);font-weight:700;">↑ +' + v + ' ' + uLabel + '</span>';
-      else if (delta < 0) cell = '<span style="color:var(--ok);">↓ -' + v + ' ' + uLabel + '</span>';
+      else if (delta < 0) cell = '<span style="color:var(--ok-text);">↓ -' + v + ' ' + uLabel + '</span>';
       else cell = '<span style="color:var(--muted);">0</span>';
     }
     return '<tr><td data-label="日期">' + esc(r.record_date) + '</td>' +
@@ -9236,10 +9240,10 @@ function renderTodoCards(container, trees, opts) {
     head.appendChild(title);
     body.appendChild(head);
 
-    // meta 行：分类 + 日期 + 叶子进度 chip
+    // meta 行：分类/重复/完成时间为弱化灰字, 日期 + 叶子进度保留语义 chip
     var meta = document.createElement('div'); meta.className = 'todo-card__meta';
     if (root.category) {
-      var cc = document.createElement('span'); cc.className = 'todo-chip cat'; cc.textContent = root.category; meta.appendChild(cc);
+      var cc = document.createElement('span'); cc.className = 'todo-card__metatxt'; cc.textContent = root.category; meta.appendChild(cc);
     }
     // 卡片日期: 顶层显示日期 todoRootDue(旧模式=root.due_date; 新模式=最早到期的未完成子任务)
     var rootDue = todoRootDue(root);
@@ -9253,7 +9257,7 @@ function renderTodoCards(container, trees, opts) {
     }
     if (root.done && root.done_at) {
       var doneC = document.createElement('span');
-      doneC.className = 'todo-chip done-at';
+      doneC.className = 'todo-card__metatxt';
       doneC.innerHTML = ICONS.check_circle + '完成于 ' + esc(root.done_at);
       meta.appendChild(doneC);
     }
@@ -9262,7 +9266,7 @@ function renderTodoCards(container, trees, opts) {
       var lastDone = todoSubtreeDoneInfo(root).last;
       if (lastDone) {
         var ldChip = document.createElement('span');
-        ldChip.className = 'todo-chip done-at';
+        ldChip.className = 'todo-card__metatxt';
         ldChip.innerHTML = ICONS.check_circle + '最近完成 ' + esc(todoDateLabel(lastDone, today));
         meta.appendChild(ldChip);
       }
@@ -9281,7 +9285,7 @@ function renderTodoCards(container, trees, opts) {
     }
     if (recurNode) {
       var rc = document.createElement('span');
-      rc.className = 'todo-chip repeat';
+      rc.className = 'todo-card__metatxt';
       rc.innerHTML = ICONS.repeat + esc(todoRecurLabel(recurNode.recurrence, recurNode.recur_interval, recurNode.recur_nth, recurNode.recur_weekday));
       meta.appendChild(rc);
     }
@@ -11427,7 +11431,7 @@ function todoShowChartDetail(series, index) {
       var selfIndent = 10 + it.path.length * 14;
       var selfHtml = '<div style="padding:1px 0 1px ' + selfIndent + 'px;color:var(--text);font-weight:600;">' +
         '<span style="opacity:.55;margin-right:4px;">└</span>' + esc(it.title) +
-        '<span style="margin-left:6px;padding:0 7px;border-radius:9px;font-size:11px;font-weight:600;color:var(--brand);background:var(--hover-brand);">本条</span></div>';
+        '<span style="margin-left:6px;padding:0 7px;border-radius:9px;font-size:11px;font-weight:600;color:var(--brand-text);background:var(--hover-brand);">本条</span></div>';
       pathHtml = '<div class="todo-dtl-path" style="display:none;margin:0 2px 7px 24px;padding:8px 10px;border-radius:8px;background:var(--code-bg);font-size:12px;line-height:1.8;word-break:break-all;">' +
         chainHtml + selfHtml +
       '</div>';
@@ -12215,7 +12219,7 @@ async function todoToggleDone(node, done) {
   if (!(await todoConfirmDoneIfPending(node, done))) return false;
   try {
     var alarmRows = _rows.slice();
-    var r0 = await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+    var r0 = await api('/api/todo/' + node.id + '/done', { method:'PUT', body:{ done: done }, silent:true });
     await loadTodos(); await loadChart();
     if (done) {
       todoTransferSubtreeAlarms(node, alarmRows, _rows);
@@ -12295,7 +12299,7 @@ function drawTree() {
             return '<div style="padding:2px 0;color:var(--muted);"><span style="display:inline-block;width:16px;">○</span><span style="text-decoration:line-through;">' + t + '</span> <span style="font-size:12px;">不复制</span></div>';
           }
           if (mode === 'all' && r.done) {
-            return '<div style="padding:2px 0;"><span style="display:inline-block;width:16px;">○</span>' + t + ' <span style="font-size:12px;color:var(--ok);">↺ 重置为未完成</span></div>';
+            return '<div style="padding:2px 0;"><span style="display:inline-block;width:16px;">○</span>' + t + ' <span style="font-size:12px;color:var(--ok-text);">↺ 重置为未完成</span></div>';
           }
           return '<div style="padding:2px 0;"><span style="display:inline-block;width:16px;">○</span>' + t + '</div>';
         }).join('');
@@ -13137,7 +13141,7 @@ function drawTree(trees) {
     onToggle: async function(node, done){
       if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
-        var r0 = await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+        var r0 = await api('/api/public/todo/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done }, silent:true });
         await loadPublic();
         if (done) {
           if (r0.duplicated) { todoAlreadyDoneToast(); }
@@ -13295,7 +13299,7 @@ function drawTree() {
     onToggle: async function(node, done){
       if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
-        var r0 = await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+        var r0 = await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done }, silent:true });
         await reloadReport();
         if (done) {
           if (r0.duplicated) { todoAlreadyDoneToast(); }
@@ -13653,7 +13657,7 @@ function drawTree(trees) {
     onToggle: async function(node, done){
       if (!(await todoConfirmDoneIfPending(node, done))) return;
       try {
-        var r0 = await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done } });
+        var r0 = await api('/api/public/todo-all/' + _token + '/' + node.id + '/done', { method:'PUT', body:{ done: done }, silent:true });
         await loadCollab();
         if (done) {
           if (r0.duplicated) { todoAlreadyDoneToast(); }
