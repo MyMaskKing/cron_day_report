@@ -342,6 +342,22 @@ html[data-bg="matcha"] :is(.todo-fullscreen, .bg-sheet__preview) { background: v
 html[data-bg="sea"]    :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-sea); }
 html[data-bg="dusk"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-dusk); }
 
+/* ============ 待办全屏背景：内容白磨砂融合（与背景面板「预览图」完全一致） ============
+   只把内容表面改为半透明白磨砂、让背景隐约透出；强调色仍为品牌紫、文字仍为主题墨色、
+   顶栏与 acc 整块仍走 --bg-veil 白磨砂（既有规则）。仅 matcha / aurora，不影响全屏外。 */
+html:is([data-bg="matcha"],[data-bg="aurora"]) .todo-fullscreen {
+  --surface: rgba(255,255,255,.72);
+  --surface-2: rgba(255,255,255,.55);
+  --surface-3: rgba(255,255,255,.60);
+  --surface-done: rgba(255,255,255,.50);
+  --input-bg: rgba(255,255,255,.78);
+}
+/* 卡片/树/速览/时间轴：卡片各自半透明白 + 磨砂（acc 由主区整块磨砂，不在此列） */
+html:is([data-bg="matcha"],[data-bg="aurora"]) body.todo-fs-on
+  :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.todo-crumb) {
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+}
+
 /* body 纯色底（光斑仅保留在待办全屏背景内） */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', EmojiSymbols;
