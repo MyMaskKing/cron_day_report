@@ -386,6 +386,7 @@ a.app-side__item { text-decoration: none; }
 .app-side__item svg { width: 17px; height: 17px; flex-shrink: 0; }
 .app-side__item:hover:not(:active) { background: var(--hover-bg); color: var(--text-strong); }
 a.app-side__item.active { background: var(--hover-brand); color: var(--brand-text); font-weight: 700; }
+a.app-side__item.active:hover:not(:active) { background: var(--hover-brand); color: var(--brand-text); }
 .app-side__foot { flex-shrink: 0; border-top: 1px solid var(--border); padding: 8px 12px 12px; }
 .app-side__me {
   display: flex; align-items: center; gap: 9px; margin-top: 8px;
@@ -620,6 +621,7 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 }
 .adm-tab:hover:not(:active) { border-color: var(--brand-border); color: var(--text); }
 .adm-tab.is-on { background: var(--brand-strong); border-color: var(--brand-strong); color: #fff; }
+.adm-tab.is-on:hover:not(:active) { background: var(--brand-strong); border-color: var(--brand-strong); color: #fff; filter: brightness(1.08); }
 .adm-pane:not(.is-on) { display: none; }
 /* 推送配置折叠卡: 低频设置默认收起, 不占页面主流程; 内部 id/class 全部保留, JS 零感知 */
 .card.push-card { padding: 0; overflow: hidden; }
@@ -1138,6 +1140,7 @@ body.booting { overflow: hidden; position: fixed; width: 100%; touch-action: non
 .dp-chip:hover:not(:active) { border-color: var(--brand-border); background: var(--hover-brand); }
 .dp-chip.active { background: var(--brand-strong); border-color: var(--brand-strong); }
 .dp-chip.active span, .dp-chip.active small { color: #fff; }
+.dp-chip.active:hover:not(:active) { background: var(--brand-strong); border-color: var(--brand-strong); filter: brightness(1.08); }
 .dp-chip.dis, .dp-cell.dis { opacity: .35; cursor: default; }
 .dp-nav { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 6px; }
 .dp-ym { font-size: 14px; font-weight: 700; color: var(--text); }
@@ -1154,6 +1157,7 @@ body.booting { overflow: hidden; position: fixed; width: 100%; touch-action: non
 .dp-cell.today { box-shadow: inset 0 0 0 1.5px var(--brand); color: var(--brand-text); font-weight: 700; }
 .dp-cell.sel { background: var(--brand-strong); color: #fff; font-weight: 700; }
 .dp-cell.sel.today { box-shadow: none; }
+.dp-cell.sel:hover:not(:active) { background: var(--brand-strong); filter: brightness(1.08); }
 /* 月/年快选视图: 4 列网格; 标题可点(进下一级) */
 .dp-grid--mon { grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .dp-cell--mon { height: 40px; font-weight: 600; }
@@ -1823,6 +1827,7 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .todo-range button { border: 1px solid var(--border); background: var(--surface); color: var(--link-dim); font-size: 13px; padding: 5px 12px; border-radius: 999px; cursor: pointer; transition: .15s; }
 .todo-range button:hover:not(:active) { border-color: var(--brand-text); color: var(--brand-text); }
 .todo-range button.active { background: var(--brand-strong); border-color: var(--brand-strong); color: #fff; }
+.todo-range button.active:hover:not(:active) { background: var(--brand-strong); border-color: var(--brand-strong); color: #fff; filter: brightness(1.08); }
 /* 筛选 tab：复用 range pill 样式，与列表间留白 */
 .todo-filter { margin: 4px 0 12px; }
 /* 标题行「分析」小按钮：与 h2 文字垂直对齐 */
@@ -2449,6 +2454,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 .tdp-cell.is-today:hover:not(:active) { background: var(--hover-brand); }
 .tdp-cell.is-sel { background: var(--brand-strong); color: #fff; }
 .tdp-cell.is-sel.is-today { color: #fff; box-shadow: none; }
+.tdp-cell.is-sel:hover:not(:active) { background: var(--brand-strong); filter: brightness(1.08); }
 .tdp-foot { display: flex; gap: 8px; padding: 12px 0 2px; }
 .tdp-quick {
   flex: 1; min-width: 0; padding: 8px 4px;
@@ -2532,6 +2538,7 @@ html[data-bg]:not([data-bg=""]) .todo-fs-top {
 }
 .todo-drawer__item:hover:not(:active) { background: var(--surface-2); }
 .todo-drawer__item.active { background: var(--hover-brand); border-left-color: var(--brand-text); color: var(--brand-text); font-weight: 600; }
+.todo-drawer__item.active:hover:not(:active) { background: var(--hover-brand); color: var(--brand-text); }
 .todo-drawer__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .todo-drawer__count { color: var(--muted-2); font-size: 12px; }
 .todo-drawer__item.active .todo-drawer__count { color: var(--brand-text); }
