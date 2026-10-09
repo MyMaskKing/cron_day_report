@@ -125,6 +125,32 @@ const BASE_CSS = `
     radial-gradient(640px 470px at 10% 6%, rgba(251,113,133,.24), transparent 60%),
     radial-gradient(700px 560px at 50% 108%, rgba(217,150,255,.20), transparent 66%),
     linear-gradient(180deg,#f3f0fb 0%,#fbf1f6 100%);
+  /* 暗色版背景（仅暗色主题全屏使用；预览样图恒浅色） */
+  --bgimg-matcha-dark:
+    radial-gradient(700px 460px at 14% -10%, rgba(90,160,100,.16), transparent 60%),
+    radial-gradient(640px 440px at 100% 8%, rgba(120,170,90,.10), transparent 58%),
+    radial-gradient(720px 540px at 50% 108%, rgba(60,120,90,.10), transparent 64%),
+    linear-gradient(180deg,#121b15,#0f1611);
+  --bgimg-aurora-dark:
+    radial-gradient(700px 460px at 12% -10%, rgba(52,211,180,.16), transparent 60%),
+    radial-gradient(640px 440px at 102% 10%, rgba(96,165,250,.13), transparent 58%),
+    radial-gradient(720px 540px at 45% 108%, rgba(168,85,247,.12), transparent 64%),
+    linear-gradient(180deg,#0d1a18,#0c1316);
+  --bgimg-dawn-dark:
+    radial-gradient(700px 460px at 18% -10%, rgba(251,140,110,.15), transparent 60%),
+    radial-gradient(640px 440px at 96% 8%, rgba(251,170,90,.10), transparent 58%),
+    radial-gradient(720px 540px at 50% 108%, rgba(220,120,150,.10), transparent 64%),
+    linear-gradient(180deg,#1d1410,#160f0d);
+  --bgimg-sea-dark:
+    radial-gradient(700px 460px at 14% -10%, rgba(96,160,240,.15), transparent 60%),
+    radial-gradient(640px 440px at 100% 8%, rgba(80,180,200,.11), transparent 58%),
+    radial-gradient(720px 540px at 50% 108%, rgba(100,150,220,.10), transparent 64%),
+    linear-gradient(180deg,#0e1822,#0b1218);
+  --bgimg-dusk-dark:
+    radial-gradient(700px 460px at 88% -10%, rgba(170,130,240,.17), transparent 60%),
+    radial-gradient(640px 440px at 10% 6%, rgba(230,130,180,.11), transparent 58%),
+    radial-gradient(720px 540px at 50% 108%, rgba(190,150,255,.11), transparent 64%),
+    linear-gradient(180deg,#17101f,#110b18);
   /* 色块专用代表色：整背景含大尺寸光斑，直接缩到 58px 色块时光斑浓缩会偏色，
      故色块用各款主色的小渐变（选项预览性质，三主题取值一致），默认档为纯奶白 */
   --sw-default: linear-gradient(135deg, #fbfaf7 0%, #edeae2 100%);
@@ -345,20 +371,24 @@ html[data-bg="dawn"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: v
 html[data-bg="matcha"] :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-matcha); }
 html[data-bg="sea"]    :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-sea); }
 html[data-bg="dusk"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-dusk); }
+/* 暗色主题：全屏背景改用暗色版（预览样图不在此列、恒浅色） */
+html[data-theme="dark"][data-bg="aurora"] .todo-fullscreen { background: var(--bgimg-aurora-dark); }
+html[data-theme="dark"][data-bg="dawn"]   .todo-fullscreen { background: var(--bgimg-dawn-dark); }
+html[data-theme="dark"][data-bg="matcha"] .todo-fullscreen { background: var(--bgimg-matcha-dark); }
+html[data-theme="dark"][data-bg="sea"]    .todo-fullscreen { background: var(--bgimg-sea-dark); }
+html[data-theme="dark"][data-bg="dusk"]   .todo-fullscreen { background: var(--bgimg-dusk-dark); }
 
-/* ============ 待办全屏背景：5 套非空背景统一「白磨砂融合 + 强制浅色」 ============
-   内置背景图都是浅色，故选了任一非空 bg 后，全屏内与全站主题解耦、一律按浅色渲染
-   （白磨砂表面 + 深色文字 + 统一品牌紫）——暗色/护眼主题进全屏不会出现深卡片+浅背景冲突；
-   表面白度/模糊严格对齐背景面板「预览图」(.56 白 + blur12)。仅作用于全屏，不影响全屏外。 */
-html[data-bg]:not([data-bg=""]) .todo-fs-main {
-  /* 白磨砂表面 */
+/* ============ 待办全屏背景内容融合：浅色(light/eye)=白磨砂；暗色=深色磨砂（背景随主题） ============
+   浅色/护眼：白磨砂表面 + 深色文字；暗色：深色半透磨砂表面，文字/品牌继承暗色主题（不强制浅色）。
+   磨砂白度/模糊对齐预览图（.56 白 + blur12）。仅作用于内容区，不影响抽屉/背景弹窗。 */
+/* —— 浅色 / 护眼主题：白磨砂表面 + 深色文字 —— */
+html[data-bg]:not([data-bg=""]):not([data-theme="dark"]) .todo-fs-main {
   --surface: rgba(255,255,255,.56);
   --surface-2: rgba(255,255,255,.42);
   --surface-3: rgba(255,255,255,.46);
   --surface-done: rgba(255,255,255,.38);
   --input-bg: rgba(255,255,255,.62);
   --bg-veil: rgba(255,255,255,.56);
-  /* 深色文字（覆盖暗色/护眼的浅色文字） */
   --text: #333a44;
   --text-strong: #1f2329;
   --label: #5f6470;
@@ -366,19 +396,16 @@ html[data-bg]:not([data-bg=""]) .todo-fs-main {
   --muted: #5f6470;
   --muted-2: #626a80;
   --faint: #9aa0b0;
-  /* 边框 / 勾选环 / hover */
   --border: rgba(30,40,60,.14);
   --border-strong: rgba(30,40,60,.26);
   --check-ring: #c2c8d2;
   --hover-bg: rgba(91,100,120,.10);
-  /* 统一品牌紫（浅色口径，覆盖暗色亮紫） */
   --brand: #8b5cf6;
   --brand-text: #7C3AED;
   --brand-strong: #7C3AED;
   --brand-tint: #f0eafb;
   --brand-border: #ddd6f6;
   --hover-brand: #f0eafb;
-  /* 语义色按浅色口径 */
   --danger: #cf1322;
   --danger-bg: #fdecec;
   --ok: #15803d;
@@ -386,24 +413,40 @@ html[data-bg]:not([data-bg=""]) .todo-fs-main {
   --warn: #b45309;
   --warn-bg: #fdf2e2;
 }
-/* 卡片/树/速览/时间轴：卡片各自半透明白 + 磨砂（acc 由主区整块磨砂，不在此列） */
+/* —— 暗色主题：深色半透磨砂表面（文字/品牌色继承 dark 主题，不覆盖） —— */
+html[data-theme="dark"][data-bg]:not([data-bg=""]) .todo-fs-main {
+  --surface: rgba(255,255,255,.055);
+  --surface-2: rgba(255,255,255,.04);
+  --surface-3: rgba(255,255,255,.05);
+  --surface-done: rgba(255,255,255,.03);
+  --input-bg: rgba(255,255,255,.07);
+  --bg-veil: rgba(255,255,255,.055);
+  --border: rgba(160,180,220,.12);
+  --border-strong: rgba(160,180,220,.2);
+  --check-ring: #566080;
+  --hover-bg: rgba(255,255,255,.06);
+}
+/* 卡片/树/速览/时间轴：卡片各自磨砂（明暗都模糊；acc/flat 由主区整块磨砂不在此列） */
 html[data-bg]:not([data-bg=""]) body.todo-fs-on
   :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.todo-crumb) {
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
 }
-/* 对齐预览内卡：无边框、无白色高光（避免冲淡背景），仅极淡外影分隔卡片 */
+/* 无边框、无高光（避免冲淡背景），明暗均透明边框 + 轻影分隔 */
 html[data-bg]:not([data-bg=""]) body.todo-fs-on
   :is(.todo-card,.todo-bandcard,.tl-card) {
   border-color: transparent;
-  box-shadow: 0 6px 20px rgba(20,50,40,.08);
+  box-shadow: 0 6px 20px rgba(20,40,30,.1);
 }
-/* 分类目录抽屉：不透明，跟随全站主题表面（手机浮层不透出后方内容） */
+/* 分类目录抽屉：不透明，跟随全站主题（手机浮层不透后方） */
 html[data-bg]:not([data-bg=""]) body.todo-fs-on .todo-drawer {
   background: var(--surface-global); backdrop-filter: none; -webkit-backdrop-filter: none;
 }
-/* 顶栏：纯白不透明（对齐预览图） */
-html[data-bg]:not([data-bg=""]) body.todo-fs-on .todo-fs-top {
+/* 顶栏不透明：浅色=白；暗色=主题表面（对齐预览图顶栏） */
+html[data-bg]:not([data-bg=""]):not([data-theme="dark"]) body.todo-fs-on .todo-fs-top {
   background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+html[data-theme="dark"][data-bg]:not([data-bg=""]) body.todo-fs-on .todo-fs-top {
+  background: var(--surface-global); backdrop-filter: none; -webkit-backdrop-filter: none;
 }
 
 /* body 纯色底（光斑仅保留在待办全屏背景内） */
