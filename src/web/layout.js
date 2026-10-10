@@ -3211,10 +3211,12 @@ html[data-bg]:not([data-bg=""]) .bg-sp-row.root { border-left-color: #8b5cf6; }
 .bg-cattab { flex:1; border:0; border-radius:10px; padding:8px; font-size:13.5px; font-weight:700;
   font-family:inherit; cursor:pointer; background:transparent; color:var(--label); transition:background .15s,color .15s; }
 .bg-cattab.on { background:var(--surface); color:var(--text-strong); box-shadow:0 1px 4px rgba(20,20,40,.1); }
-/* 色块组：仅当前分类显示，横向滚动 */
-.bg-swgroup { display:none; gap:12px; overflow-x:auto; padding:2px 2px 10px; scrollbar-width:none; }
+/* 色块组：仅当前分类显示；单行横向排列，PC 鼠标按住拖拽、手机触摸滑动（JS 见 assets） */
+.bg-swgroup { display:none; flex-wrap:nowrap; gap:12px; overflow-x:auto;
+  padding:2px 2px 10px; scrollbar-width:none; cursor:grab; }
 .bg-swgroup.show { display:flex; }
 .bg-swgroup::-webkit-scrollbar { display:none; }
+.bg-swgroup.dragging { cursor:grabbing; }
 /* 色块 */
 .bg-sw { position:relative; flex-shrink:0; width:56px; height:56px; border-radius:16px;
   border:2px solid transparent; padding:0; cursor:pointer; }

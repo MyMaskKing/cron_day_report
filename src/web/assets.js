@@ -13004,7 +13004,28 @@ document.querySelectorAll('.bg-swgroup').forEach(function(g){
     var s = e.target.closest('.bg-sw');
     if (s) { bgTemp = s.dataset.bg || ''; bgSyncSheet(); }
   });
+  bindSwDrag(g);
 });
+/* PC 鼠标按住色块组左右拖拽滚动；触屏走原生 overflow 滚动 */
+function bindSwDrag(box){
+  var down=false, startX=0, startL=0, moved=false;
+  box.addEventListener('mousedown', function(e){
+    down=true; moved=false; startX=e.pageX; startL=box.scrollLeft;
+  });
+  box.addEventListener('mousemove', function(e){
+    if(!down) return;
+    var dx=e.pageX-startX;
+    if(!moved && Math.abs(dx)>4){ moved=true; box.classList.add('dragging'); }
+    if(moved){ box.scrollLeft=startL-dx; e.preventDefault(); }
+  });
+  window.addEventListener('mouseup', function(){
+    if(!down) return; down=false; box.classList.remove('dragging');
+  });
+  /* 拖拽结束那一下 click 拦截，避免松手时误选中色块 */
+  box.addEventListener('click', function(e){
+    if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; }
+  }, true);
+}
 document.getElementById('bgCancel').addEventListener('click', function(){ bgClose(true); });
 document.getElementById('bgSheetMask').addEventListener('click', function(e){
   // 仅点击遮罩本身关闭，点面板不关闭
