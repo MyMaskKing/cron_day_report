@@ -9809,6 +9809,7 @@ function todoRenderView(container, trees, opts) {
     if (!droot) {
       // 目标顶层已消失（删除/被筛掉）——退回列表
       document.body.classList.remove('todo-detail');
+      todoUnbindDetailTapToExit();
       todoPersistDetail(null);
       if (opts.onExitDetail) opts.onExitDetail();
       return;
@@ -9818,6 +9819,7 @@ function todoRenderView(container, trees, opts) {
   }
   // 主列表：未完成抽离后按各视图渲染；已完成拍平沉底（受「隐藏已完成」控制）
   document.body.classList.remove('todo-detail');
+  todoUnbindDetailTapToExit();
   if (crumb) crumb.style.display = 'none';
   todoPersistDetail(null); // 回到主列表即清除详情 id，避免刷新被 todoMaybeRestoreDetail 恢复
   var pending = todoSortRoots(todoPendingTrees(trees), _todoSortMode);
@@ -9846,10 +9848,43 @@ function todoRenderView(container, trees, opts) {
     todoMountDoneZone(container, todoCollectDoneItems(trees), opts, '已完成', '跨任务 · 沉在最底部');
   }
 }
-// 单主任务详情：面包屑 + 未完成拍平在上 + 已完成拍平沉底(受「隐藏已完成」控制)
+/* 手机端详情：点内容外空白区域返回（与"添加子任务弹窗点外部关闭"同语义）。
+   仅 ≤640px、tap(非滑动) 生效；PC 有 ← 返回钮不启用。进入详情幂等绑定，退回列表解绑。 */
+var _detailTapHandler = null;
+function todoBindDetailTapToExit(onExit) {
+  todoUnbindDetailTapToExit();
+  if (!onExit) return;
+  var moved = false, sx = 0, sy = 0;
+  function ts(e){ moved = false; var t = e.touches[0]; sx = t.clientX; sy = t.clientY; }
+  function tm(e){ var t = e.touches[0]; if (Math.abs(t.clientX-sx) > 10 || Math.abs(t.clientY-sy) > 10) moved = true; }
+  function clk(e){
+    if (moved) return;                                  // 滚动的松手不触发
+    if (!window.matchMedia('(max-width:640px)').matches) return;  // 仅手机
+    // 添加子任务输入面板展开时：先由其自身 onDocClick 收起，不退出详情
+    if (document.querySelector('.todo-detail-adder.editing')) return;
+    var t = e.target;
+    // 落在内容/控件上不退出：子任务行、添加框、完成区、面包屑、顶栏、主任务文字链、各类弹层
+    if (t && t.closest && t.closest(
+      '.todo-row,.todo-detail-adder,.todo-done-zone,.todo-crumb,.todo-fs-top,.modal-mask,.dp-pop,.todo-due-group,.todo-detail-done,.todo-detail-edit,.todo-detail-del')) return;
+    onExit();
+  }
+  document.addEventListener('touchstart', ts, true);
+  document.addEventListener('touchmove', tm, true);
+  document.addEventListener('click', clk, true);
+  _detailTapHandler = { ts: ts, tm: tm, clk: clk };
+}
+function todoUnbindDetailTapToExit() {
+  if (!_detailTapHandler) return;
+  var h = _detailTapHandler;
+  document.removeEventListener('touchstart', h.ts, true);
+  document.removeEventListener('touchmove', h.tm, true);
+  document.removeEventListener('click', h.clk, true);
+  _detailTapHandler = null;
+}
 // 单主任务详情：面包屑 + 未完成拍平在上 + 已完成拍平沉底(受「隐藏已完成」控制)
 function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
   document.body.classList.add('todo-detail'); // 详情态隐藏悬浮"新建主任务"钮
+  todoBindDetailTapToExit(opts.onExitDetail); // 手机点空白返回
   var data = todoCollectDetailItems(root);
   // render：面包屑 + 完成/编辑主任务链 + 未完成子任务【原嵌套树】(完成节点整枝剪掉)
   function render(){
