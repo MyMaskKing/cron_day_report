@@ -27,8 +27,9 @@ function validateCredentials(username, password) {
 const THEMES = ['light', 'dark', 'eye'];
 // 默认首页合法值（手机浏览器 / App 登录落地页）；非法值回退 todo
 const DEFAULT_HOMES = ['todo', 'dashboard'];
-// 界面背景合法值（与 html data-bg 取值一致，空串 = 默认）；非法值回退空串
-const BG_THEMES = ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk'];
+// 界面背景合法值（与 html data-bg 一致）：空串=默认；命名=渐变；solid-*=纯色；非法值回退空串
+const BG_THEMES = ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk',
+  'solid-indigo','solid-steel','solid-teal','solid-green','solid-brown','solid-rose','solid-purple','solid-mint','solid-sky'];
 // 每日勉励卡风格：a=极光能量(默认) c=手账打气 h1=战书令 h2=最后通牒；非法值回退 a
 const MOTTO_STYLES = ['a', 'c', 'h1', 'h2'];
 // 座右铭正文字数口径：去除行内样式标记后按码点计数（与 layout.js 卡片分档、设置页计数同一正则）

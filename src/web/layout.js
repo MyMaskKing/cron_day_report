@@ -34,8 +34,10 @@ const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 10
  *   script : 需内联的小段 bootstrap 脚本（可空）；大段 JS 一律走 /s/ 外链以便缓存
  * @returns {string}
  */
-// 界面背景合法值（与 auth.api.js BG_THEMES 同口径，空串 = 默认）；非法值回退空串
-const BG_ATTRS = ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk'];
+// 界面背景合法值（与 auth.api.js BG_THEMES 同口径）：空串=默认；命名=渐变；solid-*=纯色
+const SOLID_BG = ['indigo','steel','teal','green','brown','rose','purple','mint','sky'];
+const BG_ATTRS = ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk']
+  .concat(SOLID_BG.map(n => 'solid-' + n));
 
 function renderPage({ title = '控制台', body = '', script = '', scripts = [], theme = 'light', bg = '' }) {
   const jsLinks = [assetUrl('common.js')]
@@ -364,22 +366,55 @@ const BASE_CSS = `
   --code-bg: rgba(120,100,50,.14);
 }
 
-/* 背景只作用于待办全屏（.todo-fullscreen）与背景面板的实时预览卡片；
-   未选背景(data-bg="")时全屏为默认奶白，其余画面一律不跟随 */
+/* ============ 待办全屏背景：渐变(命名) / 纯色(solid-*) ============
+   背景只作用于 .todo-fullscreen 与背景面板实时预览；内容卡片不透明跟随主题、不随背景变色。
+   直接落在背景上的分组头文字与 FAB 通过内容区变量(--onbg/--fab-bg)按实色适配（见下方）。 */
+
+/* —— 渐变背景（浅色；全屏 + 预览） —— */
 html[data-bg="aurora"] :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-aurora); }
 html[data-bg="dawn"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-dawn); }
 html[data-bg="matcha"] :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-matcha); }
 html[data-bg="sea"]    :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-sea); }
 html[data-bg="dusk"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: var(--bgimg-dusk); }
-/* 暗色主题：全屏背景改用暗色版（预览样图不在此列、恒浅色） */
+
+/* —— 纯色背景（浅色；全屏 + 预览） —— */
+html[data-bg="solid-indigo"] :is(.todo-fullscreen, .bg-sheet__preview) { background: #4f69c3; }
+html[data-bg="solid-steel"]  :is(.todo-fullscreen, .bg-sheet__preview) { background: #407094; }
+html[data-bg="solid-teal"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: #2e8c88; }
+html[data-bg="solid-green"]  :is(.todo-fullscreen, .bg-sheet__preview) { background: #139364; }
+html[data-bg="solid-brown"]  :is(.todo-fullscreen, .bg-sheet__preview) { background: #b07a52; }
+html[data-bg="solid-rose"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: #c05678; }
+html[data-bg="solid-purple"] :is(.todo-fullscreen, .bg-sheet__preview) { background: #8d6ac2; }
+html[data-bg="solid-mint"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: #dcefe6; }
+html[data-bg="solid-sky"]    :is(.todo-fullscreen, .bg-sheet__preview) { background: #ddeaf6; }
+
+/* —— 暗色主题：全屏背景改用暗色版（预览样图不在此列、恒浅色） —— */
 html[data-theme="dark"][data-bg="aurora"] .todo-fullscreen { background: var(--bgimg-aurora-dark); }
 html[data-theme="dark"][data-bg="dawn"]   .todo-fullscreen { background: var(--bgimg-dawn-dark); }
 html[data-theme="dark"][data-bg="matcha"] .todo-fullscreen { background: var(--bgimg-matcha-dark); }
 html[data-theme="dark"][data-bg="sea"]    .todo-fullscreen { background: var(--bgimg-sea-dark); }
 html[data-theme="dark"][data-bg="dusk"]   .todo-fullscreen { background: var(--bgimg-dusk-dark); }
+html[data-theme="dark"][data-bg="solid-indigo"] .todo-fullscreen { background: #33509a; }
+html[data-theme="dark"][data-bg="solid-steel"]  .todo-fullscreen { background: #2f6280; }
+html[data-theme="dark"][data-bg="solid-teal"]   .todo-fullscreen { background: #267a76; }
+html[data-theme="dark"][data-bg="solid-green"]  .todo-fullscreen { background: #167e58; }
+html[data-theme="dark"][data-bg="solid-brown"]  .todo-fullscreen { background: #8a5f40; }
+html[data-theme="dark"][data-bg="solid-rose"]   .todo-fullscreen { background: #a04462; }
+html[data-theme="dark"][data-bg="solid-purple"] .todo-fullscreen { background: #6c52a0; }
+html[data-theme="dark"][data-bg="solid-mint"]   .todo-fullscreen { background: #2f4a3e; }
+html[data-theme="dark"][data-bg="solid-sky"]    .todo-fullscreen { background: #324a66; }
 
-/* 内容只跟随全站主题、不跟随背景：卡片不透明（主题 --surface 柔和白/深色），不做半透磨砂。
-   背景只换全屏底色；卡片像参考 App 一样为不透明柔和白，颜色不随背景变。 */
+/* —— 纯色：内容区变量（背景上分组文字 --onbg + FAB --fab-bg 跟随实色） ——
+   深色实色=白字+提亮 FAB；浅色(mint/sky)=深字+加深 FAB。渐变/默认不定义、回退主题原值。 */
+html[data-bg="solid-indigo"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#6e89de; }
+html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#5e8cb0; }
+html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#4ea8a3; }
+html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#33af80; }
+html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#c8966e; }
+html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#d87494; }
+html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#a688d8; }
+html[data-bg="solid-mint"] body.todo-fs-on .todo-fs-main { --onbg:#2f4a3e; --onbg-soft:#5f7e6e; --fab-bg:#8fc8ae; }
+html[data-bg="solid-sky"] body.todo-fs-on .todo-fs-main { --onbg:#324a66; --onbg-soft:#6282a0; --fab-bg:#8fb4dd; }
 
 /* body 纯色底（光斑仅保留在待办全屏背景内） */
 body {
@@ -489,7 +524,7 @@ a.app-side__item.active:hover:not(:active) { background: var(--hover-brand); col
   .m-fab {
     position: fixed; right: 16px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 1003;
     width: 54px; height: 54px; border-radius: 18px; border: none; cursor: pointer;
-    background: var(--brand-strong); color: #fff;
+    background: var(--fab-bg, var(--brand-strong)); color: #fff;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 6px 18px rgba(20, 20, 40, .22);
     transition: transform .22s ease, opacity .2s ease, background .15s ease;
@@ -597,15 +632,15 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .todo-due-group__cal--soon { background: var(--warn-bg); color: var(--warn); }
 .todo-due-group__cal--future,
 .todo-due-group__cal--none { background: var(--surface-2); color: var(--link-dim); }
-.todo-due-group__name { font-size: 14.5px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.todo-due-group__name { font-size: 14.5px; font-weight: 700; color: var(--onbg, var(--text)); white-space: nowrap; }
 .todo-due-group__name small {
-  display: block; font-size: 11.5px; font-weight: 400; color: var(--faint); margin-top: 1px;
+  display: block; font-size: 11.5px; font-weight: 400; color: var(--onbg-soft, var(--faint)); margin-top: 1px;
 }
 .todo-due-group__count {
-  flex: none; margin-left: auto; font-size: 12px; color: var(--muted-2); white-space: nowrap;
+  flex: none; margin-left: auto; font-size: 12px; color: var(--onbg-soft, var(--muted-2)); white-space: nowrap;
 }
 .todo-due-group__caret {
-  flex: none; color: var(--faint); font-size: 10px; transition: transform .18s;
+  flex: none; color: var(--onbg-soft, var(--faint)); font-size: 10px; transition: transform .18s;
 }
 .todo-due-group__head.is-collapsed .todo-due-group__caret { transform: rotate(-90deg); }
 /* 折叠态摘要：仅组头折叠时显示，单行截断 */
@@ -3171,35 +3206,41 @@ html[data-bg]:not([data-bg=""]) .bg-sp-row { color: #333a44; }
 html[data-bg]:not([data-bg=""]) .bg-sp-row.root { border-left-color: #8b5cf6; }
 
 .bg-sheet__label { font-size: 13px; color: var(--label); margin: 14px 2px 9px; }
-/* 横向滚动色块 */
-.bg-sheet__strip {
-  display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 8px;
-  scrollbar-width: none;
+/* 分类 tabs（无 / 颜色 / 渐变） */
+.bg-cattabs { display:flex; gap:6px; background:var(--surface-2); border-radius:13px; padding:4px; margin-bottom:14px; }
+.bg-cattab { flex:1; border:0; border-radius:10px; padding:8px; font-size:13.5px; font-weight:700;
+  font-family:inherit; cursor:pointer; background:transparent; color:var(--label); transition:background .15s,color .15s; }
+.bg-cattab.on { background:var(--surface); color:var(--text-strong); box-shadow:0 1px 4px rgba(20,20,40,.1); }
+/* 色块组：仅当前分类显示，横向滚动 */
+.bg-swgroup { display:none; gap:12px; overflow-x:auto; padding:2px 2px 10px; scrollbar-width:none; }
+.bg-swgroup.show { display:flex; }
+.bg-swgroup::-webkit-scrollbar { display:none; }
+/* 色块 */
+.bg-sw { position:relative; flex-shrink:0; width:56px; height:56px; border-radius:16px;
+  border:2px solid transparent; padding:0; cursor:pointer; }
+.bg-sw.on { border-color:var(--brand-text); }
+.bg-sw::after {
+  content:'\\2713'; position:absolute; right:-5px; bottom:-5px; width:22px; height:22px;
+  border-radius:50%; background:var(--brand); color:#fff; font-size:13px; display:none; place-items:center;
+  border:2px solid var(--surface);
 }
-.bg-sheet__strip::-webkit-scrollbar { display: none; }
-.bg-opt {
-  position: relative; flex-shrink: 0; width: 58px; height: 58px;
-  border-radius: 16px; border: 2px solid transparent; padding: 0; cursor: pointer;
-}
-.bg-opt[data-bg=""]       { background: var(--sw-default); }
-.bg-opt[data-bg="aurora"] { background: var(--sw-aurora); }
-.bg-opt[data-bg="dawn"]   { background: var(--sw-dawn); }
-.bg-opt[data-bg="matcha"] { background: var(--sw-matcha); }
-.bg-opt[data-bg="sea"]    { background: var(--sw-sea); }
-.bg-opt[data-bg="dusk"]   { background: var(--sw-dusk); }
-.bg-opt.on { border-color: var(--brand-text); }
-.bg-opt::after {
-  content: '\\2713'; position: absolute; right: -5px; bottom: -5px;
-  width: 22px; height: 22px; border-radius: 50%; background: var(--brand); color: #fff;
-  font-size: 13px; display: none; place-items: center;
-  border: 2px solid var(--surface);
-}
-.bg-opt.on::after { display: grid; }
-.bg-opt__name {
-  position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
-  font-size: 10.5px; color: var(--muted); white-space: nowrap; font-weight: 400;
-}
-
+.bg-sw.on::after { display:grid; }
+/* 色块底色：无=缩略，渐变=背景，纯色=实色（始终展示代表色） */
+.bg-sw[data-bg=""] { background:var(--sw-default); }
+.bg-sw[data-bg="aurora"] { background:var(--bgimg-aurora); }
+.bg-sw[data-bg="dawn"]   { background:var(--bgimg-dawn); }
+.bg-sw[data-bg="matcha"] { background:var(--bgimg-matcha); }
+.bg-sw[data-bg="sea"]    { background:var(--bgimg-sea); }
+.bg-sw[data-bg="dusk"]   { background:var(--bgimg-dusk); }
+.bg-sw[data-bg="solid-indigo"] { background:#4f69c3; }
+.bg-sw[data-bg="solid-steel"]  { background:#407094; }
+.bg-sw[data-bg="solid-teal"]   { background:#2e8c88; }
+.bg-sw[data-bg="solid-green"]  { background:#139364; }
+.bg-sw[data-bg="solid-brown"]  { background:#b07a52; }
+.bg-sw[data-bg="solid-rose"]   { background:#c05678; }
+.bg-sw[data-bg="solid-purple"] { background:#8d6ac2; }
+.bg-sw[data-bg="solid-mint"]   { background:#dcefe6; }
+.bg-sw[data-bg="solid-sky"]    { background:#ddeaf6; }
 .bg-sheet__actions { display: flex; gap: 10px; margin-top: 16px; }
 .bg-sheet__actions .btn { flex: 1; }
 
@@ -3214,6 +3255,15 @@ html[data-bg]:not([data-bg=""]) .bg-sp-row.root { border-left-color: #8b5cf6; }
 .bg-pick-thumb[data-bg="matcha"] { background: var(--bgimg-matcha); }
 .bg-pick-thumb[data-bg="sea"]    { background: var(--bgimg-sea); }
 .bg-pick-thumb[data-bg="dusk"]   { background: var(--bgimg-dusk); }
+.bg-pick-thumb[data-bg="solid-indigo"] { background:#4f69c3; }
+.bg-pick-thumb[data-bg="solid-steel"]  { background:#407094; }
+.bg-pick-thumb[data-bg="solid-teal"]   { background:#2e8c88; }
+.bg-pick-thumb[data-bg="solid-green"]  { background:#139364; }
+.bg-pick-thumb[data-bg="solid-brown"]  { background:#b07a52; }
+.bg-pick-thumb[data-bg="solid-rose"]   { background:#c05678; }
+.bg-pick-thumb[data-bg="solid-purple"] { background:#8d6ac2; }
+.bg-pick-thumb[data-bg="solid-mint"]   { background:#dcefe6; }
+.bg-pick-thumb[data-bg="solid-sky"]    { background:#ddeaf6; }
 `;
 
 /**

@@ -1235,13 +1235,31 @@ function todoPage(user) {
           </div>
         </div>
         <div class="bg-sheet__label">选择待办全屏背景（保存后生效）</div>
-        <div class="bg-sheet__strip" id="bgStrip">
-          <button type="button" class="bg-opt on" data-bg=""><span class="bg-opt__name">默认</span></button>
-          <button type="button" class="bg-opt" data-bg="aurora"><span class="bg-opt__name">极光</span></button>
-          <button type="button" class="bg-opt" data-bg="dawn"><span class="bg-opt__name">晨霞</span></button>
-          <button type="button" class="bg-opt" data-bg="matcha"><span class="bg-opt__name">抹茶</span></button>
-          <button type="button" class="bg-opt" data-bg="sea"><span class="bg-opt__name">海盐</span></button>
-          <button type="button" class="bg-opt" data-bg="dusk"><span class="bg-opt__name">暮色</span></button>
+        <div class="bg-cattabs" id="bgCatTabs">
+          <button type="button" class="bg-cattab" data-cat="none">无</button>
+          <button type="button" class="bg-cattab on" data-cat="solid">颜色</button>
+          <button type="button" class="bg-cattab" data-cat="grad">渐变</button>
+        </div>
+        <div class="bg-swgroup" id="bgSwNone" data-cat="none">
+          <button type="button" class="bg-sw" data-bg="" title="默认"></button>
+        </div>
+        <div class="bg-swgroup show" id="bgSwSolid" data-cat="solid">
+          <button type="button" class="bg-sw" data-bg="solid-indigo" title="靛蓝"></button>
+          <button type="button" class="bg-sw" data-bg="solid-steel" title="青蓝"></button>
+          <button type="button" class="bg-sw" data-bg="solid-teal" title="蓝绿"></button>
+          <button type="button" class="bg-sw" data-bg="solid-green" title="翠绿"></button>
+          <button type="button" class="bg-sw" data-bg="solid-brown" title="赭棕"></button>
+          <button type="button" class="bg-sw" data-bg="solid-rose" title="玫红"></button>
+          <button type="button" class="bg-sw" data-bg="solid-purple" title="紫"></button>
+          <button type="button" class="bg-sw" data-bg="solid-mint" title="浅绿"></button>
+          <button type="button" class="bg-sw" data-bg="solid-sky" title="浅蓝"></button>
+        </div>
+        <div class="bg-swgroup" id="bgSwGrad" data-cat="grad">
+          <button type="button" class="bg-sw" data-bg="aurora" title="极光"></button>
+          <button type="button" class="bg-sw" data-bg="dawn" title="晨霞"></button>
+          <button class="bg-sw" data-bg="matcha" title="抹茶"></button>
+          <button type="button" class="bg-sw" data-bg="sea" title="海盐"></button>
+          <button type="button" class="bg-sw" data-bg="dusk" title="暮色"></button>
         </div>
         <div class="bg-sheet__actions">
           <button type="button" class="btn gray" id="bgCancel">取消</button>

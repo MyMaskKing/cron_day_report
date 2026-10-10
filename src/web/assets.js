@@ -12964,18 +12964,20 @@ async function bgEnsureSaved() {
   }
   return bgSaved;
 }
+function bgCatOf(v){ return v === '' ? 'none' : (v.indexOf('solid-') === 0 ? 'solid' : 'grad'); }
 function bgSyncSheet() {
-  // 临时改 data-bg：全屏容器与预览卡片都靠 CSS 属性选择器实时跟随
+  // 临时改 data-bg：全屏背景与预览样图靠 CSS 属性选择器实时跟随
   document.documentElement.dataset.bg = bgTemp;
-  document.querySelectorAll('.bg-opt').forEach(function(b){
-    b.classList.toggle('on', (b.dataset.bg || '') === bgTemp);
+  var cat = bgCatOf(bgTemp);
+  document.querySelectorAll('.bg-cattab').forEach(function(t){
+    t.classList.toggle('on', t.dataset.cat === cat);
   });
-  var strip = document.getElementById('bgStrip');
-  var onEl = strip && strip.querySelector('.bg-opt.on');
-  if (onEl && strip) {
-    var r = onEl.getBoundingClientRect(), sr = strip.getBoundingClientRect();
-    if (r.left < sr.left || r.right > sr.right) onEl.scrollIntoView({ inline:'center', block:'nearest' });
-  }
+  document.querySelectorAll('.bg-swgroup').forEach(function(g){
+    g.classList.toggle('show', g.dataset.cat === cat);
+    g.querySelectorAll('.bg-sw').forEach(function(s){
+      s.classList.toggle('on', (s.dataset.bg || '') === bgTemp);
+    });
+  });
 }
 async function bgOpen() {
   bgTemp = await bgEnsureSaved();
@@ -12987,9 +12989,21 @@ function bgClose(revert) {
   // 取消时恢复已保存背景；保存成功后 data-bg 已是目标值，无需回退
   if (revert) document.documentElement.dataset.bg = bgSaved || '';
 }
-document.getElementById('bgStrip').addEventListener('click', function(e){
-  var opt = e.target.closest('.bg-opt');
-  if (opt) { bgTemp = opt.dataset.bg || ''; bgSyncSheet(); }
+/* 分类 tab：仅切换显示哪个色块组（不改 bgTemp） */
+document.getElementById('bgCatTabs').addEventListener('click', function(e){
+  var t = e.target.closest('.bg-cattab');
+  if (!t) return;
+  document.querySelectorAll('.bg-cattab').forEach(function(x){ x.classList.toggle('on', x === t); });
+  document.querySelectorAll('.bg-swgroup').forEach(function(g){
+    g.classList.toggle('show', g.dataset.cat === t.dataset.cat);
+  });
+});
+/* 色块：设定临时背景并实时预览 */
+document.querySelectorAll('.bg-swgroup').forEach(function(g){
+  g.addEventListener('click', function(e){
+    var s = e.target.closest('.bg-sw');
+    if (s) { bgTemp = s.dataset.bg || ''; bgSyncSheet(); }
+  });
 });
 document.getElementById('bgCancel').addEventListener('click', function(){ bgClose(true); });
 document.getElementById('bgSheetMask').addEventListener('click', function(e){
