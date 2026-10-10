@@ -1703,13 +1703,13 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-donezone .flat-crumb { color: var(--onbg-soft, var(--faint)); opacity: .9; }
 .todo-donezone .flat-donewhen { color: var(--onbg-soft, var(--muted)); }
 .todo-donezone__head { color: var(--onbg, var(--muted)); }
-/* 深实色背景：已完成标题与面包屑都提到亮白，避免发暗看不清 */
+/* 深实色/暗色背景：已完成项退一档（标题60%白、面包屑50%白）——清晰可读但不与未完成亮白争焦点 */
 html[data-theme="dark"] .todo-donezone .flat-crumb,
 :is(html[data-bg="solid-indigo"],html[data-bg="solid-steel"],html[data-bg="solid-teal"],html[data-bg="solid-green"],html[data-bg="solid-brown"],html[data-bg="solid-rose"],html[data-bg="solid-purple"]) .todo-donezone .flat-crumb {
-  color: rgba(255,255,255,.85);
+  color: rgba(255,255,255,.5);
 }
 :is(html[data-bg="solid-indigo"],html[data-bg="solid-steel"],html[data-bg="solid-teal"],html[data-bg="solid-green"],html[data-bg="solid-brown"],html[data-bg="solid-rose"],html[data-bg="solid-purple"]) .todo-donezone .flat-item.done .flat-title {
-  color: rgba(255,255,255,.92);
+  color: rgba(255,255,255,.6);
 }
 /* 随上级完成、叶子自身未勾选：勾选圆绿，但标题不划线；颜色随所在环境（donezone 走 --onbg，白卡内走 --text） */
 .flat-item.done.via-parent .flat-title { text-decoration: none; }
