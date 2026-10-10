@@ -2080,10 +2080,10 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 /* band 元素在卡片/手风琴均已隐藏, 色带改由 .pri-N 的 border-top 承担; 此基础规则仅占位, 正常不可见 */
 .todo-card__band { height: 3px; background: #C9CCD6; margin: 0; }
 /* 有优先级(低/中/高)才画 3px 顶带; 无(-1)无 .pri 类, 不画 */
-/* 色带 = 顶边同色（外缘 1px）+ ::before 平直 3px，被圆角裁切，与卡片顶端完全重合 */
-.todo-card.pri-2, .todo-card.pri-1, .todo-card.pri-0 { border-top-color: var(--pri-band); }
+/* 色带 = ::before 矩形带上移 1px 盖住 border：卡片圆角 14px（大于 bandcard 12px），
+   若把 border 染红，红边沿大圆角弯出长弧显粗；矩形直边被圆角裁切，与完整树色带同观感 */
 .todo-card.pri-2::before, .todo-card.pri-1::before, .todo-card.pri-0::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  content: ''; position: absolute; top: -1px; left: 0; right: 0; height: 4px;
   background: var(--pri-band);
 }
 .todo-card.pri-2 { --pri-band: #E0453E; }
