@@ -416,10 +416,11 @@ html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg
 html[data-bg="solid-mint"] body.todo-fs-on .todo-fs-main { --onbg:#2f4a3e; --onbg-soft:#5f7e6e; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fc8ae; }
 html[data-bg="solid-sky"] body.todo-fs-on .todo-fs-main { --onbg:#324a66; --onbg-soft:#6282a0; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fb4dd; }
 
-/* 卡片描边分离（不用投影）：浅色/渐变背景用中性细边，深色实色用白色半透（见下方覆盖）。
-   低对比渐变上白卡也能清晰分张；六视图统一。 */
+/* 卡片描边分离（不用投影）：只覆盖【右、下】两边，保留 border-top(卡片顶色带)/border-left(速览·时间轴左色带) 不被冲掉。
+   低对比渐变上白卡也能清晰分张；六视图统一。深色实色覆盖见 --card-border-c。 */
 body.todo-fs-on :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.tl-item) {
-  border-color: var(--card-border-c, rgba(30,40,60,.18));
+  border-right-color: var(--card-border-c, rgba(30,40,60,.18));
+  border-bottom-color: var(--card-border-c, rgba(30,40,60,.18));
 }
 
 /* body 纯色底（光斑仅保留在待办全屏背景内） */
