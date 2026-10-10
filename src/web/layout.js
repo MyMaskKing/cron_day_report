@@ -1755,9 +1755,9 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   --pri-band: #C9CCD6; /* 左带色: 仅 .pri-0/1/2 用 border-left 画 3px; 无(-1)不画, 不被面包屑栏遮挡 */
 }
 /* 左条位于边框内侧(overflow 裁在 padding box), 完整宽度不被裁细 */
-/* 左色带：内缩 1px 的独立色条（不贴卡片外缘），外缘隔一层卡片浅边，避免饱和色带与深色背景
-   硬抗锯齿（互补色相接）发"马赛克"。颜色跟随 --pri-band；无优先级的卡片隐藏此条。 */
-.tl-item__priband { position: absolute; left: 1px; top: 1px; bottom: 1px; width: 3px; background: var(--pri-band,#C9CCD6); border-radius: 9px 0 0 9px; }
+/* 左色带：贴卡片外缘、平直通高（无圆角不内缩），颜色跟随 --pri-band；无优先级的卡片隐藏。
+   马赛克不靠内缩（会变细弯条），改在深色实色下用 --priband-c 略降饱和（见各实色变量）。 */
+.tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--priband-c, var(--pri-band,#C9CCD6)); }
 .tl-item:not(.pri-0):not(.pri-1):not(.pri-2) .tl-item__priband { display: none; }
 .tl-item.pri-2 { --pri-band: #E0453E; }
 .tl-item.pri-1 { --pri-band: #E5A113; }
