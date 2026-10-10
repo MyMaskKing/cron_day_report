@@ -1591,7 +1591,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   background: var(--surface);
   border: 1px solid var(--border); border-radius: 12px;
   overflow: hidden; margin: 0 0 11px;
-  transition: box-shadow .18s, border-color .18s;
+  transition: box-shadow .18s, border-color .18s, transform .18s ease;
   --pri-band: #C9CCD6;
 }
 .todo-bandcard:hover:not(:active) {
