@@ -1609,7 +1609,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-bandcard.pri-1 { --pri-band: #E5A113; }
 .todo-bandcard.pri-0 { --pri-band: #C9CCD6; }
 /* band 子元素隐藏: 顶带已由 border-top 承担(边框与卡片同层, 滚动无缝) */
-.todo-bandcard > .todo-card__band { display: none; }
+/* 后代选择器：右滑包裹后 band 不再是直接子元素，仍需隐藏（灰 band 复活会盖住彩色 ::before） */
+.todo-bandcard .todo-card__band { display: none; }
 /* 卡内主任务行：去边框/灰底/左紫条，透明融入白卡 */
 .todo-bandcard > .todo-row.is-root {
   background: transparent; border: 0; border-radius: 0; margin: 0;
@@ -2091,7 +2092,7 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-card.pri-0 { --pri-band: #C9CCD6; }
 /* 卡片内独立 band 隐藏: 色带已由上方 inset 内阴影承担。
    手风琴 .todo-bandcard 的 band 父元素不同, 不被此规则命中, 仍照常显示 */
-.todo-card > .todo-card__band { display: none; }
+.todo-card .todo-card__band { display: none; }
 .todo-card.is-done { opacity: .78; background: var(--surface-done); }
 .todo-card__body { padding: 12px 14px 9px; }
 .todo-card__head { display: flex; align-items: flex-start; gap: 11px; }
@@ -2176,6 +2177,13 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
     /* pan-y：水平手势交给 JS，浏览器不接管（防误触发下拉刷新）；垂直滚动正常 */
     touch-action: pan-y;
     transition: transform .24s cubic-bezier(.25,.8,.3,1);
+  }
+  /* 行型容器：子节点被收进 main 后需还原原行的 flex 排版（对齐/间距继承原行），
+     否则勾选框与标题变成上下堆叠；todo-card 是纵向块，main 保持 block */
+  .todo-row.todo-swipe > .todo-swipe__main,
+  .todo-acc__row.todo-swipe > .todo-swipe__main,
+  .todo-acc__leafrow.todo-swipe > .todo-swipe__main {
+    display: flex; align-items: inherit; gap: inherit; flex: 1 1 auto;
   }
   .todo-swipe__main.no-anim { transition: none; }
   .todo-swipe.is-open { z-index: 60; }
