@@ -9869,8 +9869,9 @@ function todoBindDetailTapToExit(onExit) {
   function clk(e){
     if (moved) return;                                  // 滚动的松手不触发
     if (!window.matchMedia('(max-width:640px)').matches) return;  // 仅手机
-    // 添加子任务输入面板展开时：先由其自身 onDocClick 收起，不退出详情
+    // 有弹出层打开时，点外部只关该弹层、不退出详情：添加子任务面板 / 「⋯」操作菜单
     if (document.querySelector('.todo-detail-adder.editing')) return;
+    if (document.querySelector('.todo-op-menu')) return;
     var t = e.target;
     // 落在内容/控件上不退出：子任务行、添加框、完成区、面包屑、顶栏、主任务文字链、各类弹层
     if (t && t.closest && t.closest(
