@@ -550,13 +550,12 @@ a.app-side__item.active:hover:not(:active) { background: var(--hover-brand); col
      压缩式浏览器(kb-resize): 系统已把容器缩到键盘上方, 只留小呼吸, 不双倍留白 */
   body.kb-on .todo-fs-main { padding-bottom: calc(12px + var(--kb-inset, 0px)); }
   body.kb-resize .todo-fs-main { padding-bottom: 14px; }
-  /* 手机待办树 · 列表态: 操作全部收进行右滑, 行内操作组隐藏 */
-  body:not(.todo-detail) .todo-tree .todo-ops { display: none; }
-  /* 详情态保持原「⋯」弹层, 不做改动 */
-  body.todo-detail .todo-tree .todo-ops { opacity: 1; gap: 0; }
-  body.todo-detail .todo-tree .todo-ops .todo-op:not(.todo-more) { display: none; }
-  body.todo-detail .todo-tree .todo-op.todo-more { display: inline-flex; }
-  body.todo-detail .todo-tree .todo-ops .todo-op.todo-fold { display: inline-flex; }
+  /* 手机待办树(完整树/卡片进入的子任务详情): 操作收进「⋯」弹层, 行内只留更多钮;
+   标题保留完整显示；备注仍单行截断，完整内容点详情查看 */
+  body .todo-tree .todo-ops { opacity: 1; gap: 0; }
+  body .todo-tree .todo-ops .todo-op:not(.todo-more) { display: none; }
+  body .todo-tree .todo-op.todo-more { display: inline-flex; }
+  body .todo-tree .todo-ops .todo-op.todo-fold { display: inline-flex; }
   body:not(.todo-detail) .todo-tree .todo-title { white-space: pre-wrap; overflow: visible; text-overflow: clip; }
   /* 基金页策略浮层在底栏之上的避让规则写在 .strat-* 原媒体块旁(该处带 !important) */
 }
@@ -1574,12 +1573,10 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-acc__row.op-menu-open, .todo-acc__leafrow.op-menu-open { z-index: 210; }
 @media (max-width: 640px) {
   .todo-acc__kids { padding-left: 14px; }
-  /* 列表态: 操作收进行右滑, 行内操作组隐藏 */
-  body:not(.todo-detail) .todo-acc .todo-ops { display: none; }
-  /* 详情态保持原「⋯」弹层 */
-  body.todo-detail .todo-acc .todo-ops { opacity: 1; gap: 0; }
-  body.todo-detail .todo-acc .todo-ops .todo-op:not(.todo-more) { display: none; }
-  body.todo-detail .todo-acc .todo-op.todo-more { display: inline-flex; }
+  /* 手机：操作组只留「⋯」，与老树 .todo-tree 同口径 */
+  body .todo-acc .todo-ops { opacity: 1; gap: 0; }
+  body .todo-acc .todo-ops .todo-op:not(.todo-more) { display: none; }
+  body .todo-acc .todo-op.todo-more { display: inline-flex; }
   /* 主列表分组（非详情）：添加子任务走⋯菜单，隐藏组内常驻占位行 */
   body .todo-acc:has(.todo-op.todo-more) .todo-detail-adder .todo-detail-adder__placeholder,
   body:not(.todo-detail) .todo-tree:has(.todo-op.todo-more) .todo-detail-adder .todo-detail-adder__placeholder,
@@ -2081,10 +2078,10 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 /* band 元素在卡片/手风琴均已隐藏, 色带改由 .pri-N 的 border-top 承担; 此基础规则仅占位, 正常不可见 */
 .todo-card__band { height: 3px; background: #C9CCD6; margin: 0; }
 /* 有优先级(低/中/高)才画 3px 顶带; 无(-1)无 .pri 类, 不画 */
-/* 色带 = ::before 矩形带上移 1px 盖住 border：卡片圆角 14px（大于 bandcard 12px），
-   若把 border 染红，红边沿大圆角弯出长弧显粗；矩形直边被圆角裁切，与完整树色带同观感 */
+/* 色带与完整树 bandcard 同画法：顶边同色（外缘 1px，贴顶）+ ::before 平直 3px */
+.todo-card.pri-2, .todo-card.pri-1, .todo-card.pri-0 { border-top-color: var(--pri-band); }
 .todo-card.pri-2::before, .todo-card.pri-1::before, .todo-card.pri-0::before {
-  content: ''; position: absolute; top: -1px; left: 0; right: 0; height: 4px;
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
   background: var(--pri-band);
 }
 .todo-card.pri-2 { --pri-band: #E0453E; }
@@ -2177,13 +2174,6 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
     /* pan-y：水平手势交给 JS，浏览器不接管（防误触发下拉刷新）；垂直滚动正常 */
     touch-action: pan-y;
     transition: transform .24s cubic-bezier(.25,.8,.3,1);
-  }
-  /* 行型容器：子节点被收进 main 后需还原原行的 flex 排版（对齐/间距继承原行），
-     否则勾选框与标题变成上下堆叠；todo-card 是纵向块，main 保持 block */
-  .todo-row.todo-swipe > .todo-swipe__main,
-  .todo-acc__row.todo-swipe > .todo-swipe__main,
-  .todo-acc__leafrow.todo-swipe > .todo-swipe__main {
-    display: flex; align-items: inherit; gap: inherit; flex: 1 1 auto;
   }
   .todo-swipe__main.no-anim { transition: none; }
   .todo-swipe.is-open { z-index: 60; }

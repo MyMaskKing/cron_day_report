@@ -8557,26 +8557,6 @@ function renderTodoTree(container, trees, opts) {
         actFn(node);
       });
     }
-    // 手机列表态右滑：全部操作收口（详情态 isDetail 不绑定，详情零改动）
-    if (!isDetail) {
-      var treeSwipeSpecs = [];
-      if (node._ghost !== 1) {
-        if (opts.onAddChildSubmit) treeSwipeSpecs.push({ icon: ICONS.plus, title: '添加子任务', fn: function(){
-          todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
-        }});
-        if (opts.onDetail || opts.onEdit || (isRealRoot && opts.onEnter)) treeSwipeSpecs.push({ icon: ICONS.view, title: '查看详情', fn: function(){
-          var _go = isRealRoot ? (opts.onEnter || opts.onDetail || opts.onEdit) : (opts.onDetail || opts.onEdit);
-          _go(node);
-        }});
-        if (opts.onShare && depth === 0 && node.parent_id == null) treeSwipeSpecs.push({ icon: ICONS.share, title: '协作链接', fn: function(){ opts.onShare(node); } });
-        if (opts.onDel) treeSwipeSpecs.push({ icon: ICONS.trash, title: '删除', danger: true, fn: function(){ opts.onDel(node); } });
-        if (caretMoveRight && hasChildren) treeSwipeSpecs.push({ icon: ICONS.chevron, title: _todoCollapsed[node.id] ? '展开子任务' : '折叠子任务', fn: function(){
-          _todoCollapsed[node.id] = !_todoCollapsed[node.id];
-          childBox.classList.toggle('collapsed', !!_todoCollapsed[node.id]);
-        }});
-      }
-      todoSwipeEnable(row, treeSwipeSpecs);
-    }
     return wrap;
   }
   function mkOp(icon, title, fn, extraClass) {
@@ -8737,18 +8717,6 @@ function renderTodoAccordion(container, trees, opts) {
       if (handle) todoBindDrag(handle, wrap, node, opts);
       else todoBindDrag(rowEl, wrap, node, opts);
     }
-    // 手机列表态右滑：添加子任务/详情/删除（详情态不绑定）
-    if (!isDetail && !opts.readOnly && node._ghost !== 1) {
-      var leafSwipeSpecs = [];
-      if (opts.onAddChildSubmit) leafSwipeSpecs.push({ icon: ICONS.plus, title: '添加子任务', fn: function(){
-        todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
-      }});
-      if (opts.onDetail || opts.onEdit) leafSwipeSpecs.push({ icon: ICONS.view, title: '查看详情', fn: function(){
-        (opts.onDetail || opts.onEdit)(node);
-      }});
-      if (opts.onDel) leafSwipeSpecs.push({ icon: ICONS.trash, title: '删除', danger: true, fn: function(){ opts.onDel(node); } });
-      todoSwipeEnable(rowEl, leafSwipeSpecs);
-    }
     return wrap;
   }
 
@@ -8890,20 +8858,6 @@ function renderTodoAccordion(container, trees, opts) {
     if (!opts.readOnly && opts.onReorder && !isGhost) {
       var handle = opsEl ? opsEl.querySelector('.todo-drag') : null;
       if (handle) todoBindDrag(handle, wrap, node, opts);
-    }
-    // 手机列表态右滑：添加子任务/详情/协作(仅顶层)/删除（折叠由行内 caret 负责；详情态不绑定）
-    if (!isDetail && !opts.readOnly && !isGhost) {
-      var accSwipeSpecs = [];
-      if (opts.onAddChildSubmit) accSwipeSpecs.push({ icon: ICONS.plus, title: '添加子任务', fn: function(){
-        todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
-      }});
-      if (opts.onDetail || opts.onEdit || (cardRoot && opts.onEnter)) accSwipeSpecs.push({ icon: ICONS.view, title: '查看详情', fn: function(){
-        var _go = cardRoot ? (opts.onEnter || opts.onDetail || opts.onEdit) : (opts.onDetail || opts.onEdit);
-        _go(node);
-      }});
-      if (opts.onShare && depth === 0 && node.parent_id == null) accSwipeSpecs.push({ icon: ICONS.share, title: '协作链接', fn: function(){ opts.onShare(node); } });
-      if (opts.onDel) accSwipeSpecs.push({ icon: ICONS.trash, title: '删除', danger: true, fn: function(){ opts.onDel(node); } });
-      todoSwipeEnable(rowEl, accSwipeSpecs);
     }
     return wrap;
   }
