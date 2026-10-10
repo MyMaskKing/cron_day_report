@@ -168,10 +168,10 @@ const BASE_CSS = `
   --muted: #6f7079;         /* 弱化说明 .muted/关闭钮(原 #999, 提深达 AA) */
   --muted-2: #5b6289;       /* 蓝灰说明 todo-count/note(提深达 AA 4.5+) */
   --faint: #b0b6c8;         /* 完成删除线/最弱 */
-  --surface: #faf9f5;       /* 柔和暖白容器(非纯白, 避免在彩色背景上刺眼): 弹窗/菜单/卡片 */
-  --surface-2: #f3f2ec;     /* 次级容器: root 行/面包屑 */
-  --surface-3: #f5f4ef;     /* 统计条 */
-  --surface-done: #f2f1eb;  /* 已完成卡片底 */
+  --surface: #fbfbfd;       /* 中性偏冷柔和白(非纯白不刺眼、不带黄): 弹窗/菜单/卡片 */
+  --surface-2: #f4f4f8;     /* 次级容器: root 行/面包屑 */
+  --surface-3: #f6f6fa;     /* 统计条 */
+  --surface-done: #f3f3f7;  /* 已完成卡片底 */
   --card-glass: rgba(255,255,255,.72);   /* 玻璃卡片底 */
   --card-glass-solid: rgba(255,255,255,.92);
   --card-border: rgba(255,255,255,.6);
@@ -3166,7 +3166,7 @@ html[data-bg]:not([data-bg=""]) .bg-sp-inner { background: var(--bg-veil); }
 .bg-sp-row.child.done { opacity: .45; text-decoration: line-through; }
 /* 选了非空（浅色）背景时，预览样图恒显浅色——暗色主题下也模拟浅色全屏，不跟随主题 */
 html[data-bg]:not([data-bg=""]) .bg-sp-top { background: #fff; color: #5f6470; border-color: #e9ecf3; }
-html[data-bg]:not([data-bg=""]) .bg-sp-inner { background: #faf9f5; }
+html[data-bg]:not([data-bg=""]) .bg-sp-inner { background: #fbfbfd; }
 html[data-bg]:not([data-bg=""]) .bg-sp-row { color: #333a44; }
 html[data-bg]:not([data-bg=""]) .bg-sp-row.root { border-left-color: #8b5cf6; }
 
