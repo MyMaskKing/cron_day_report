@@ -6935,6 +6935,11 @@ function todoSwipeEnable(row, specs){
         // 与气泡菜单互斥：右滑打开时收起新建/显示菜单
         if (typeof closeAddMenu === 'function') closeAddMenu();
         if (typeof closeDisplayMenu === 'function') closeDisplayMenu();
+        // 与「添加子任务」内联框互斥：复用添加框单例注册的 closeFn 收口
+        if (_todoAddFormCloser) {
+          var addCloser = _todoAddFormCloser; _todoAddFormCloser = null;
+          try { addCloser(); } catch (addErr) {}
+        }
         _todoSwipeOpenMain = main;
         row.classList.add('is-open');
         return;
@@ -10066,6 +10071,8 @@ function todoBuildRecurControl() {
 function openInlineAddChild(btnEl, parentNode, submitFn, options) {
   options = options || {};
   if (!btnEl || !parentNode || typeof submitFn !== 'function') return;
+  // 与行右滑互斥：展开添加框前收起已打开的右滑层
+  todoSwipeCloseAll();
   // 就近宿主: 卡片视图 → .todo-card; 完整树视图 → .todo-node
   var host = btnEl.closest ? (btnEl.closest('.todo-card') || btnEl.closest('.todo-node')) : null;
   if (!host || !host.parentNode) return;
