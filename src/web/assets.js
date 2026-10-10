@@ -8439,7 +8439,7 @@ function renderTodoTree(container, trees, opts) {
       meta.appendChild(cdMark);
     }
     if (node.category) {
-      var cc = document.createElement('span'); cc.className = 'todo-metatxt'; cc.textContent = node.category; meta.appendChild(cc);
+      var cc = document.createElement('span'); cc.className = 'todo-metatxt todo-cat-chip'; cc.textContent = node.category; meta.appendChild(cc);
     }
     // 完整树顶层同卡片视图(todoRootDue)；其余节点只显示自身日期。
     // 跟随父级的任务不重复挂 chip；effDue 仍用于勾选/排序等业务判断。
@@ -8981,7 +8981,7 @@ function todoLeafCard(leaf, opts, scene) {
     var rootNode = n._root || n;
     if (rootNode.category && rootNode.shared_cat_id == null) {
       var catEl = document.createElement('span');
-      catEl.className = 'todo-metatxt';
+      catEl.className = 'todo-metatxt todo-cat-chip';
       catEl.textContent = rootNode.category;
       meta.appendChild(catEl);
     }
@@ -12081,7 +12081,7 @@ async function openTodoDetail(node, opts) {
       + (dueInherited ? '<span style="opacity:.65;">·跟随上级</span>' : '') + '</span>');
   }
   if (node.recurrence) meta.push('<span class="todo-metatxt">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
-  if (node.category) meta.push('<span class="todo-metatxt">' + esc(node.category) + '</span>');
+  if (node.category) meta.push('<span class="todo-metatxt todo-cat-chip">' + esc(node.category) + '</span>');
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
   // 优先级标签按节点自身: null/-1(无)或非法值不显示(跟随子任务/各自截止主任务同样不显示)
   if (node.priority === 0 || node.priority === 1 || node.priority === 2) {
