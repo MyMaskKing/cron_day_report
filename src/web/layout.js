@@ -1700,9 +1700,14 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
    深实色变白、浅实色变深；无背景回退原色。速览白卡内的行不在 .todo-donezone、不受影响。 */
 .todo-donezone .flat-title,
 .todo-donezone .flat-item.done.via-parent .flat-title { color: var(--onbg, var(--muted-2)); }
-.todo-donezone .flat-crumb { color: var(--onbg-soft, var(--faint)); }
+.todo-donezone .flat-crumb { color: var(--onbg-soft, var(--faint)); opacity: .9; }
 .todo-donezone .flat-donewhen { color: var(--onbg-soft, var(--muted)); }
 .todo-donezone__head { color: var(--onbg, var(--muted)); }
+/* 深实色背景：已完成副标题(面包屑)提到与标题接近的亮度，避免发暗看不清 */
+html[data-theme="dark"] .todo-donezone .flat-crumb,
+:is(html[data-bg="solid-indigo"],html[data-bg="solid-steel"],html[data-bg="solid-teal"],html[data-bg="solid-green"],html[data-bg="solid-brown"],html[data-bg="solid-rose"],html[data-bg="solid-purple"]) .todo-donezone .flat-crumb {
+  color: rgba(255,255,255,.85);
+}
 /* 随上级完成、叶子自身未勾选：勾选圆绿，但标题不划线；颜色随所在环境（donezone 走 --onbg，白卡内走 --text） */
 .flat-item.done.via-parent .flat-title { text-decoration: none; }
 /* 任务详情弹窗：层级面包屑 + 创建/完成时间 */
