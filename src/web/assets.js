@@ -6977,6 +6977,15 @@ function todoSwipeEnable(row, specs){
     e.stopPropagation();
   });
 }
+/* open 态点滑开卡片【之外】任意空白（卡片外全屏、其他行）也关闭——与「添加子任务」弹窗的
+   document 级关闭一致。点该卡片内部时 closest('.todo-swipe.is-open') 命中、交给 main/acts 自身处理，
+   不抢 acts 按钮。常驻监听、仅在有滑开层时动作。 */
+document.addEventListener('click', function(e){
+  if (!_todoSwipeOpenMain) return;
+  var t = e.target;
+  if (t && t.closest && t.closest('.todo-swipe.is-open')) return;
+  todoSwipeCloseAll();
+}, true);
 // ============ 任务表单草稿（防 App 切后台被系统回收进程后丢输入） ============
 // 只暂存标题/备注文字(丢失成本最高); 日期/优先级/重复等选择项不暂存, 避免与勾选联动错位。
 // 正常保存/取消都会走 closeModal → __todoDraftClose 清除; 仅异常退出(进程被杀)才会留下草稿。
