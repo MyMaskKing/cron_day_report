@@ -1595,7 +1595,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   --pri-band: #C9CCD6;
 }
 .todo-bandcard:hover:not(:active) {
-  box-shadow: 0 8px 24px rgba(124,58,237,.12); border-color: var(--brand-border);
+  box-shadow: 0 12px 26px rgba(124,58,237,.16); border-color: var(--brand-border);
+  transform: translateY(-2px);
 }
 /* 有优先级才画 3px 顶带; 无(-1)不画 */
 /* 色带同卡片视图：顶边同色 + ::before 平直 3px */
@@ -2069,14 +2070,15 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-card {
   position: relative; background: var(--surface);
   border: 1px solid var(--border); border-radius: 14px;
-  overflow: hidden; transition: box-shadow .18s, border-color .18s;
+  overflow: hidden; transition: box-shadow .18s, border-color .18s, transform .18s ease;
   cursor: default;
   --pri-band: #C9CCD6; /* 顶带色: 仅 .pri-0/1/2 用 border-top 画 3px; 无(-1)无 .pri 类, 不显色带只留 1px 边框 */
 }
 .todo-card.clickable { cursor: pointer; }
 .todo-card.clickable:hover:not(:active) {
-  box-shadow: 0 6px 20px rgba(124,58,237,.12);
+  box-shadow: 0 10px 24px rgba(124,58,237,.16);
   border-color: var(--brand-border);
+  transform: translateY(-2px);
 }
 /* band 元素在卡片/手风琴均已隐藏, 色带改由 .pri-N 的 border-top 承担; 此基础规则仅占位, 正常不可见 */
 .todo-card__band { height: 3px; background: #C9CCD6; margin: 0; }
