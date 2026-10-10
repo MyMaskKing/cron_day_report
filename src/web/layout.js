@@ -416,9 +416,10 @@ html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg
 html[data-bg="solid-mint"] body.todo-fs-on .todo-fs-main { --onbg:#2f4a3e; --onbg-soft:#5f7e6e; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fc8ae; }
 html[data-bg="solid-sky"] body.todo-fs-on .todo-fs-main { --onbg:#324a66; --onbg-soft:#6282a0; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fb4dd; }
 
-/* —— 背景「无」：卡片近白与米白底色差小，用暖调柔和投影让卡片浮起（不加深硬边框） —— */
-html[data-bg=""] body.todo-fs-on :is(.todo-card,.todo-bandcard,.tl-card,.todo-row) {
-  box-shadow: 0 1px 2px rgba(90,70,40,.05), 0 4px 14px rgba(90,70,40,.07);
+/* 卡片浮起分离：低对比的渐变/米白背景上白卡容易"连成一片"，统一给柔和投影让每张卡独立；
+   深色实色背景上阴影自然隐藏、白卡靠对比分离。中性色调明暗背景都适用。 */
+body.todo-fs-on :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.tl-item) {
+  box-shadow: 0 1px 2px rgba(30,40,60,.06), 0 6px 18px rgba(30,40,60,.09);
 }
 
 /* body 纯色底（光斑仅保留在待办全屏背景内） */
