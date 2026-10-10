@@ -1750,8 +1750,9 @@ html[data-theme="dark"] .todo-donezone .flat-crumb,
 .timeline-view { margin-top: 6px; }
 /* 速览卡片流（无轴，同款卡片纯拍平） */
 .tl-card-list { display: flex; flex-direction: column; gap: 11px; margin-top: 4px; }
-/* 日期行：日期标签 74px / 轴 24px / 卡片 1fr */
-.tl-day { display: grid; grid-template-columns: 74px 24px 1fr; break-inside: avoid; }
+/* 日期行：日期标签 74px / 轴 24px / 卡片 1fr；第三列 minmax(0,1fr) 允许收缩，
+   否则长内容会把 grid 列撑出屏幕、卡片横向溢出 */
+.tl-day { display: grid; grid-template-columns: 74px 24px minmax(0,1fr); break-inside: avoid; }
 .tl-day__label { padding-top: 2px; padding-right: 10px; text-align: right; font-size: 12px; color: var(--onbg-soft, var(--muted-2)); line-height: 1.35; white-space: nowrap; }
 .tl-day__label b { display: block; font-size: 13.5px; color: var(--onbg, var(--text-strong)); }
 .tl-day.is-over .tl-day__label b { color: var(--over-fg, var(--danger)); }
@@ -1804,14 +1805,14 @@ html[data-theme="dark"] .todo-donezone .flat-crumb,
 .tl-item__body.is-clickable .tl-item__title:hover:not(:active) { color: var(--brand-text); }
 .tl-item__body .todo-check { margin-top: 1px; }
 .tl-item__main { flex: 1; min-width: 0; }
-.tl-item__title { font-size: 14px; font-weight: 600; line-height: 1.42; color: var(--text); word-break: break-word; }
+.tl-item__title { font-size: 14px; font-weight: 600; line-height: 1.42; color: var(--text); word-break: break-word; overflow-wrap: anywhere; }
 .tl-item__meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
 /* 未安排：虚线轴 + 虚框圆点 */
 .tl-day--none .tl-day__rail::before { background: repeating-linear-gradient(to bottom, var(--faint) 0 4px, transparent 4px 9px); }
 .tl-day--none .tl-dot { border-style: dashed; border-color: var(--faint); }
 @media (max-width: 640px) {
   .tl-card-list { gap: 8px; }
-  .tl-day { grid-template-columns: 62px 20px 1fr; }
+  .tl-day { grid-template-columns: 62px 20px minmax(0,1fr); }
   .tl-day__label { font-size: 11px; padding-right: 7px; }
   .tl-day__label b { font-size: 12.5px; }
   .tl-day__cards { gap: 8px; padding-left: 10px; padding-bottom: 8px; }
