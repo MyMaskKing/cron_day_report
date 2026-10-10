@@ -2121,12 +2121,13 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 
 /* ===== 手机：卡片第二行右侧低调小图标 + 行右滑操作 ===== */
 .todo-card__quick-spacer, .todo-card__quick { display: none; }
+/* acts 默认不可见：滑动中/打开时才显示（不依赖 main 是否有底色） */
 .todo-swipe__acts { display: none; }
 @media (max-width: 640px) {
   /* 第三行操作条移除（PC 不变） */
   .todo-card__foot { display: none; }
   /* ＋ / 👁 固定卡片右缘：无底色灰图标，按下才显色 */
-  .todo-card__quick-spacer { flex: 1 1 auto; min-width: 4px; }
+  .todo-card__quick-spacer { display: block; flex: 1 1 auto; min-width: 4px; }
   .todo-card__quick {
     flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%;
     background: none; color: var(--faint); cursor: pointer;
@@ -2134,13 +2135,16 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   }
   .todo-card__quick svg { width: 17px; height: 17px; pointer-events: none; }
   .todo-card__quick:active { background: var(--hover-bg); color: var(--brand-text); }
-  /* 行右滑容器：acts 贴右侧底层灰底，圆形彩钮；main 原内容平移、底色继承行 */
+  /* 行右滑容器：acts 固定在右侧底层灰底，圆形彩钮；main 原内容平移 */
   .todo-swipe { position: relative; }
   .todo-swipe__acts {
     position: absolute; right: 0; top: 0; bottom: 0; z-index: 0;
+    visibility: hidden;
     display: flex; align-items: center; gap: 10px; padding: 0 12px;
     background: var(--surface-2);
   }
+  .todo-swipe.swiping .todo-swipe__acts,
+  .todo-swipe.is-open .todo-swipe__acts { visibility: visible; }
   .todo-swipe__btn {
     flex: none; width: 52px; height: 52px; padding: 0; border: 0; border-radius: 50%;
     background: var(--brand-strong); color: #fff; cursor: pointer;
@@ -2149,7 +2153,9 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   .todo-swipe__btn svg { width: 20px; height: 20px; pointer-events: none; }
   .todo-swipe__btn.danger { background: #e5484d; }
   .todo-swipe__main {
-    position: relative; z-index: 1; min-width: 0; background: inherit;
+    position: relative; z-index: 1; min-width: 0;
+    /* pan-y：水平手势交给 JS，浏览器不接管（防误触发下拉刷新）；垂直滚动正常 */
+    touch-action: pan-y;
     transition: transform .24s cubic-bezier(.25,.8,.3,1);
   }
   .todo-swipe__main.no-anim { transition: none; }

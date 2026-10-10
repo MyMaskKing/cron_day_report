@@ -6880,12 +6880,17 @@ function todoSwipeEnable(row, specs){
   row.appendChild(main);
 
   var actsW = 0, tracking = false, decided = false, horizontal = false;
-  var sx = 0, sy = 0, startX = 0, dx = 0, t0 = 0;
+  var sx = 0, sy = 0, startX = 0, dx = 0, dy = 0, t0 = 0;
   function baseX(){ return _todoSwipeOpenMain === main ? -actsW : 0; }
   function onStart(e){
+    // App 壳：触摸期间禁用原生 SwipeRefresh（JS preventDefault 挡不住原生父容器）
+    try {
+      if (typeof window._appShellPullDisable === 'function') window._appShellPullDisable();
+      else if (window.AppShell && typeof window.AppShell.setPullRefresh === 'function') window.AppShell.setPullRefresh(false);
+    } catch(err){}
     var t = e.touches[0];
     tracking = true; decided = false; horizontal = false;
-    sx = t.clientX; sy = t.clientY; dx = 0;
+    sx = t.clientX; sy = t.clientY; dx = 0; dy = 0;
     actsW = acts.offsetWidth;
     startX = baseX();
     t0 = Date.now();
@@ -6894,12 +6899,16 @@ function todoSwipeEnable(row, specs){
     if (!tracking) return;
     var t = e.touches[0];
     dx = t.clientX - sx;
-    var dy = t.clientY - sy;
+    dy = t.clientY - sy;
     if (!decided) {
-      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      // 3px 即判方向：尽早确认水平手势，避免原生下拉刷新先成立
+      if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
       decided = true;
       horizontal = Math.abs(dx) > Math.abs(dy);
-      if (horizontal) main.classList.add('no-anim');
+      if (horizontal) {
+        main.classList.add('no-anim');
+        row.classList.add('swiping'); // acts 开始可见
+      }
     }
     if (!horizontal) return;
     if (e.cancelable) e.preventDefault(); // 水平手势锁纵向滚动
@@ -6908,23 +6917,36 @@ function todoSwipeEnable(row, specs){
     if (nx < -actsW) nx = -actsW + (nx + actsW) * 0.3;        // 左缘阻尼
     main.style.transform = nx ? 'translateX(' + nx + 'px)' : '';
   }
-  function onEnd(){
+  function onEnd(e){
     if (!tracking) return;
     tracking = false;
     main.classList.remove('no-anim');
-    if (!decided || !horizontal) return;
-    var vx = dx / Math.max(1, Date.now() - t0);               // px/ms
-    if (dx < -actsW * 0.32 || vx < -0.35) {
-      main.style.transform = 'translateX(-' + actsW + 'px)';
-      if (_todoSwipeOpenMain && _todoSwipeOpenMain !== main) todoSwipeCloseAll();
-      _todoSwipeOpenMain = main;
-      row.classList.add('is-open');
-    } else {
+    row.classList.remove('swiping');
+    // 恢复原生下拉刷新状态（按当前滚动位置重算）
+    try {
+      if (typeof window._appShellReport === 'function') window._appShellReport();
+      else if (window.AppShell && typeof window.AppShell.setPullRefresh === 'function') window.AppShell.setPullRefresh(true);
+    } catch(err){}
+    if (decided && horizontal) {
+      var vx = dx / Math.max(1, Date.now() - t0);             // px/ms
+      if (dx < -actsW * 0.32 || vx < -0.35) {
+        main.style.transform = 'translateX(-' + actsW + 'px)';
+        if (_todoSwipeOpenMain && _todoSwipeOpenMain !== main) todoSwipeCloseAll();
+        _todoSwipeOpenMain = main;
+        row.classList.add('is-open');
+        return;
+      }
       main.style.transform = '';
       if (_todoSwipeOpenMain === main) {
         _todoSwipeOpenMain = null;
         row.classList.remove('is-open');
       }
+    } else if (_todoSwipeOpenMain === main) {
+      // open 态原地抬手（非水平滑动）：点空白即关闭，touchend 在触摸场景比 click 可靠
+      var ct = e.changedTouches && e.changedTouches[0];
+      var far = ct ? (Math.abs(ct.clientX - sx) > 10 || Math.abs(ct.clientY - sy) > 10) : false;
+      var onInteractive = e.target.closest && e.target.closest('button,a,input,textarea,select');
+      if (!far && !onInteractive) todoSwipeCloseAll();
     }
   }
   main.addEventListener('touchstart', onStart, { passive: true });
@@ -6938,6 +6960,12 @@ function todoSwipeEnable(row, specs){
     todoSwipeCloseAll();
     e.stopPropagation();
   }, true);
+  // acts 按钮之间的灰色空白：点空白同样关闭（点按钮由按钮自身处理）
+  acts.addEventListener('click', function(e){
+    if (e.target.closest && e.target.closest('.todo-swipe__btn')) return;
+    todoSwipeCloseAll();
+    e.stopPropagation();
+  });
 }
 // ============ 任务表单草稿（防 App 切后台被系统回收进程后丢输入） ============
 // 只暂存标题/备注文字(丢失成本最高); 日期/优先级/重复等选择项不暂存, 避免与勾选联动错位。
