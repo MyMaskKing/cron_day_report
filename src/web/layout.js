@@ -828,7 +828,10 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .btn.danger { background: #dc2626; font-weight: 600; }
 .btn.danger:hover:not(:active) { background: #b91c1c; }
 .btn.gray { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); font-weight: 600; }
-.btn.gray:hover:not(:active) { background: var(--hover-bg); border-color: var(--border-strong); }
+/* hover 底色仅真实鼠标设备，避免触摸点击后灰背景粘住 */
+@media (hover: hover) {
+  .btn.gray:hover:not(:active) { background: var(--hover-bg); border-color: var(--border-strong); }
+}
 .btn.sm { padding: 4px 10px; font-size: 12px; }
 /* select 复用 .btn 样式时(如 profitRange/unitSel), select 本身是灰底白字,
    但原生 <option> 展开层由浏览器接管、白底继承 color:#fff 会出现"白底白字看不清";
@@ -2375,7 +2378,10 @@ body { padding-bottom: var(--kb-inset, 0px); }
   font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; gap: 5px;
 }
-.fs-segbtn:hover:not(:active) { background: var(--hover-bg); border-color: var(--border-strong); }
+/* hover 反馈仅真实鼠标设备：触摸点击后 :hover 会粘住、灰背景残留 */
+@media (hover: hover) {
+  .fs-segbtn:hover:not(:active) { background: var(--hover-bg); border-color: var(--border-strong); }
+}
 .fs-segbtn svg { width: 18px; height: 18px; flex: none; }
 .fs-segbtn-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .fs-exitbtn {
