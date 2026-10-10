@@ -406,20 +406,20 @@ html[data-theme="dark"][data-bg="solid-sky"]    .todo-fullscreen { background: #
 
 /* —— 纯色：内容区变量（背景上分组文字 --onbg + FAB --fab-bg 跟随实色） ——
    深色实色=白字+提亮 FAB；浅色(mint/sky)=深字+加深 FAB。渐变/默认不定义、回退主题原值。 */
-html[data-bg="solid-indigo"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#6e89de; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
-html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#5e8cb0; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
-html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#4ea8a3; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
-html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#33af80; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
-html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#c8966e; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
-html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#d87494; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
-html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#a688d8; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
+html[data-bg="solid-indigo"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#6e89de; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
+html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#5e8cb0; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
+html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#4ea8a3; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
+html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#33af80; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
+html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#c8966e; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
+html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#d87494; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
+html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#a688d8; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
 html[data-bg="solid-mint"] body.todo-fs-on .todo-fs-main { --onbg:#2f4a3e; --onbg-soft:#5f7e6e; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fc8ae; }
 html[data-bg="solid-sky"] body.todo-fs-on .todo-fs-main { --onbg:#324a66; --onbg-soft:#6282a0; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fb4dd; }
 
-/* 卡片浮起分离：低对比的渐变/米白背景上白卡容易"连成一片"，统一给柔和投影让每张卡独立；
-   深色实色背景上阴影自然隐藏、白卡靠对比分离。中性色调明暗背景都适用。 */
+/* 卡片描边分离（不用投影）：浅色/渐变背景用中性细边，深色实色用白色半透（见下方覆盖）。
+   低对比渐变上白卡也能清晰分张；六视图统一。 */
 body.todo-fs-on :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.tl-item) {
-  box-shadow: 0 1px 2px rgba(30,40,60,.06), 0 6px 18px rgba(30,40,60,.09);
+  border-color: var(--card-border-c, rgba(30,40,60,.18));
 }
 
 /* body 纯色底（光斑仅保留在待办全屏背景内） */
