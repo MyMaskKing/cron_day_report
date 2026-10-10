@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetManager
 import android.app.DownloadManager
 import android.app.TimePickerDialog
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.os.Environment
 import android.graphics.Color
@@ -16,6 +17,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -549,7 +551,7 @@ private fun AppShell(
             AndroidView(
                 factory = { ctx ->
                     // 先创建下拉刷新容器，WebView 的 WebViewClient 需要在页面加载完成时收起它的指示器
-                    val swipe = SwipeRefreshLayout(ctx)
+                    val swipe = LockableSwipeRefreshLayout(ctx)
                     val wv = WebView(ctx).apply {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
@@ -714,7 +716,14 @@ private fun AppShell(
                         addJavascriptInterface(object {
                             @JavascriptInterface
                             fun setPullRefresh(enable: Boolean) {
-                                Handler(Looper.getMainLooper()).post { swipe.isEnabled = enable }
+                                // volatile 即时闸门：JS 在 touchstart 调用，若只靠 post 切主线程，
+                                // 首批 MOVE 会先执行（进度圈闪现但不会真刷新）
+                                swipe.touchLocked = !enable
+                                Handler(Looper.getMainLooper()).post {
+                                    swipe.isEnabled = enable
+                                    // 清掉锁定生效前已冒出的进度圈；真刷新中(isRefreshing)保留
+                                    if (!enable && !swipe.isRefreshing) swipe.isRefreshing = false
+                                }
                             }
 
                             // 网页内待办增删改/勾选/排序后，网页 loadTodos 收尾经桥回调：
@@ -1011,4 +1020,25 @@ private fun parseDownloadName(disposition: String?): String? {
         plain?.groupValues?.get(1)?.trim()
     }
     return raw?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }
+}
+
+/**
+ * 下拉刷新容器：支持触摸手势期间「即时锁定」。
+ * touchLocked 为 @Volatile，@JavascriptInterface 线程写入后主线程立即可见，
+ * 无需 post——右滑起手即移动，post 到主线程会晚于首批 MOVE，刷新圈仍会闪现。
+ */
+private class LockableSwipeRefreshLayout(context: Context) : SwipeRefreshLayout(context) {
+    @Volatile
+    var touchLocked = false
+
+    // 传统触摸路径
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean =
+        !touchLocked && super.onInterceptTouchEvent(ev)
+
+    override fun onTouchEvent(ev: MotionEvent): Boolean =
+        !touchLocked && super.onTouchEvent(ev)
+
+    // 嵌套滑动路径（WebView 为 NestedScrollingChild；Parent2 版本最终也回落到本方法）
+    override fun onStartNestedScroll(child: View, target: View, axes: Int): Boolean =
+        !touchLocked && super.onStartNestedScroll(child, target, axes)
 }

@@ -1599,7 +1599,12 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   box-shadow: 0 8px 24px rgba(124,58,237,.12); border-color: var(--brand-border);
 }
 /* 有优先级才画 3px 顶带; 无(-1)不画 */
-.todo-bandcard.pri-2, .todo-bandcard.pri-1, .todo-bandcard.pri-0 { border-top: 3px solid var(--pri-band); }
+/* 色带同卡片视图：顶边同色 + ::before 平直 3px */
+.todo-bandcard.pri-2, .todo-bandcard.pri-1, .todo-bandcard.pri-0 { border-top-color: var(--pri-band); }
+.todo-bandcard.pri-2::before, .todo-bandcard.pri-1::before, .todo-bandcard.pri-0::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--pri-band);
+}
 .todo-bandcard.pri-2 { --pri-band: #E0453E; }
 .todo-bandcard.pri-1 { --pri-band: #E5A113; }
 .todo-bandcard.pri-0 { --pri-band: #C9CCD6; }
@@ -2075,7 +2080,12 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 /* band 元素在卡片/手风琴均已隐藏, 色带改由 .pri-N 的 border-top 承担; 此基础规则仅占位, 正常不可见 */
 .todo-card__band { height: 3px; background: #C9CCD6; margin: 0; }
 /* 有优先级(低/中/高)才画 3px 顶带; 无(-1)无 .pri 类, 不画 */
-.todo-card.pri-2, .todo-card.pri-1, .todo-card.pri-0 { border-top: 3px solid var(--pri-band); }
+/* 色带 = 顶边同色（外缘 1px）+ ::before 平直 3px，被圆角裁切，与卡片顶端完全重合 */
+.todo-card.pri-2, .todo-card.pri-1, .todo-card.pri-0 { border-top-color: var(--pri-band); }
+.todo-card.pri-2::before, .todo-card.pri-1::before, .todo-card.pri-0::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--pri-band);
+}
 .todo-card.pri-2 { --pri-band: #E0453E; }
 .todo-card.pri-1 { --pri-band: #E5A113; }
 .todo-card.pri-0 { --pri-band: #C9CCD6; }

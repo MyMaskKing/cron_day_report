@@ -6932,6 +6932,9 @@ function todoSwipeEnable(row, specs){
       if (dx < -actsW * 0.32 || vx < -0.35) {
         main.style.transform = 'translateX(-' + actsW + 'px)';
         if (_todoSwipeOpenMain && _todoSwipeOpenMain !== main) todoSwipeCloseAll();
+        // 与气泡菜单互斥：右滑打开时收起新建/显示菜单
+        if (typeof closeAddMenu === 'function') closeAddMenu();
+        if (typeof closeDisplayMenu === 'function') closeDisplayMenu();
         _todoSwipeOpenMain = main;
         row.classList.add('is-open');
         return;
@@ -12900,6 +12903,8 @@ function closeAddMenu() {
   window.removeEventListener('resize', closeAddMenu);
 }
 function openAddChooser(ev) {
+  // 与行右滑互斥：开菜单前收起右滑层
+  todoSwipeCloseAll();
   if (_addMenu) { closeAddMenu(); return; }
   // FAB 是 layout 全局视觉代理(点击后程序触发本按钮), 手机上气泡应对准 FAB 本体;
   // PC/无 FAB 场景回退到真实按钮(顶栏加号), 菜单向下展开
@@ -12962,6 +12967,7 @@ function closeDisplayMenu() {
   window.removeEventListener('resize', closeDisplayMenu);
 }
 function openDisplayChooser(ev) {
+  todoSwipeCloseAll();
   if (_displayMenu) { closeDisplayMenu(); return; }
   var anchor = ev && ev.currentTarget;
   if (!anchor) return;
