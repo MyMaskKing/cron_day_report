@@ -2156,12 +2156,18 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   .todo-swipe.swiping .todo-swipe__acts,
   .todo-swipe.is-open .todo-swipe__acts { visibility: visible; }
   .todo-swipe__btn {
-    flex: none; width: 52px; height: 52px; padding: 0; border: 0; border-radius: 50%;
-    background: var(--brand-strong); color: #fff; cursor: pointer;
+    flex: none; width: 54px; padding: 0; border: 0; background: none; color: var(--brand-text);
+    cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .todo-swipe__btn__c {
+    flex: none; width: 52px; height: 52px; border-radius: 50%;
+    background: var(--brand-strong); color: #fff;
     display: inline-flex; align-items: center; justify-content: center;
   }
-  .todo-swipe__btn svg { width: 20px; height: 20px; pointer-events: none; }
-  .todo-swipe__btn.danger { background: #e5484d; }
+  .todo-swipe__btn__c svg { width: 20px; height: 20px; pointer-events: none; }
+  .todo-swipe__btn__t { font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap; }
+  .todo-swipe__btn.danger { color: #e5484d; }
+  .todo-swipe__btn.danger .todo-swipe__btn__c { background: #e5484d; }
   .todo-swipe__main {
     position: relative; z-index: 1; min-width: 0;
     /* pan-y：水平手势交给 JS，浏览器不接管（防误触发下拉刷新）；垂直滚动正常 */

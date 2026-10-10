@@ -6862,7 +6862,9 @@ function todoSwipeEnable(row, specs){
   specs.forEach(function(sp){
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'todo-swipe__btn' + (sp.danger ? ' danger' : '');
-    b.title = sp.title; b.setAttribute('aria-label', sp.title); b.innerHTML = sp.icon;
+    b.title = sp.title; b.setAttribute('aria-label', sp.title);
+    b.innerHTML = '<span class="todo-swipe__btn__c">' + sp.icon + '</span>' +
+      '<span class="todo-swipe__btn__t">' + esc(sp.title) + '</span>';
     b.addEventListener('click', function(e){
       e.stopPropagation();
       var fn = sp.fn;
