@@ -1595,16 +1595,14 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   --pri-band: #C9CCD6;
 }
 .todo-bandcard:hover:not(:active) {
-  box-shadow: 0 12px 26px rgba(124,58,237,.16); border-color: var(--brand-border);
+  box-shadow: 0 12px 26px rgba(124,58,237,.16);
+  border-right-color: var(--brand-border);
+  border-bottom-color: var(--brand-border);
+  border-left-color: var(--brand-border);
   transform: translateY(-2px);
 }
-/* 有优先级才画 3px 顶带; 无(-1)不画 */
-/* 色带同卡片视图：顶边同色 + ::before 平直 3px */
-.todo-bandcard.pri-2, .todo-bandcard.pri-1, .todo-bandcard.pri-0 { border-top-color: var(--pri-band); }
-.todo-bandcard.pri-2::before, .todo-bandcard.pri-1::before, .todo-bandcard.pri-0::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: var(--pri-band);
-}
+/* 顶色带直接用 3px border-top（贴外缘、随 hover transform 一体，同卡片视图） */
+.todo-bandcard.pri-2, .todo-bandcard.pri-1, .todo-bandcard.pri-0 { border-top: 3px solid var(--pri-band); }
 .todo-bandcard.pri-2 { --pri-band: #E0453E; }
 .todo-bandcard.pri-1 { --pri-band: #E5A113; }
 .todo-bandcard.pri-0 { --pri-band: #C9CCD6; }
@@ -1756,12 +1754,10 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   --pri-band: #C9CCD6; /* 左带色: 仅 .pri-0/1/2 用 border-left 画 3px; 无(-1)不画, 不被面包屑栏遮挡 */
 }
 /* 左条位于边框内侧(overflow 裁在 padding box), 完整宽度不被裁细 */
-/* 左色带：贴卡片外缘、平直通高（无圆角、不内缩成细弯条）；颜色跟随 --pri-band。
-   用 mask 在右侧做 1px 羽化，中和贴边硬抗锯齿（深色实色下饱和色带不再发"马赛克"）。 */
-.tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--pri-band,#C9CCD6);
-  -webkit-mask: linear-gradient(to right,#000 calc(100% - 1px), rgba(0,0,0,.4));
-  mask: linear-gradient(to right,#000 calc(100% - 1px), rgba(0,0,0,.4)); }
-.tl-item:not(.pri-0):not(.pri-1):not(.pri-2) .tl-item__priband { display: none; }
+/* 左色带直接用 3px border-left：贴卡片最外缘、随 hover transform 一体（不用绝对定位色条——
+   绝对定位从 border 内侧起、与外缘差 1px，会显得"没紧贴左侧"）。.tl-item__priband 元素隐藏。 */
+.tl-item.pri-2, .tl-item.pri-1, .tl-item.pri-0 { border-left: 3px solid var(--pri-band); }
+.tl-item__priband { display: none; }
 .tl-item.pri-2 { --pri-band: #E0453E; }
 .tl-item.pri-1 { --pri-band: #E5A113; }
 .tl-item.pri-0 { --pri-band: #C9CCD6; }
@@ -2077,18 +2073,16 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-card.clickable { cursor: pointer; }
 .todo-card.clickable:hover:not(:active) {
   box-shadow: 0 10px 24px rgba(124,58,237,.16);
-  border-color: var(--brand-border);
+  border-right-color: var(--brand-border);
+  border-bottom-color: var(--brand-border);
+  border-left-color: var(--brand-border);
   transform: translateY(-2px);
 }
 /* band 元素在卡片/手风琴均已隐藏, 色带改由 .pri-N 的 border-top 承担; 此基础规则仅占位, 正常不可见 */
 .todo-card__band { height: 3px; background: #C9CCD6; margin: 0; }
 /* 有优先级(低/中/高)才画 3px 顶带; 无(-1)无 .pri 类, 不画 */
-/* 色带与完整树 bandcard 同画法：顶边同色（外缘 1px，贴顶）+ ::before 平直 3px */
-.todo-card.pri-2, .todo-card.pri-1, .todo-card.pri-0 { border-top-color: var(--pri-band); }
-.todo-card.pri-2::before, .todo-card.pri-1::before, .todo-card.pri-0::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: var(--pri-band);
-}
+/* 顶色带直接用 3px border-top：贴卡片最外缘、随 hover transform 一体（不用 ::before 错位） */
+.todo-card.pri-2, .todo-card.pri-1, .todo-card.pri-0 { border-top: 3px solid var(--pri-band); }
 .todo-card.pri-2 { --pri-band: #E0453E; }
 .todo-card.pri-1 { --pri-band: #E5A113; }
 .todo-card.pri-0 { --pri-band: #C9CCD6; }
