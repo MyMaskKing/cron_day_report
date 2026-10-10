@@ -1755,14 +1755,13 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   --pri-band: #C9CCD6; /* 左带色: 仅 .pri-0/1/2 用 border-left 画 3px; 无(-1)不画, 不被面包屑栏遮挡 */
 }
 /* 左条位于边框内侧(overflow 裁在 padding box), 完整宽度不被裁细 */
-.tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #C9CCD6; }
-/* 有优先级才画 3px 左带; 无(-1)不画 */
-.tl-item.pri-2, .tl-item.pri-1, .tl-item.pri-0 { border-left: 3px solid var(--pri-band); }
+/* 左色带：内缩 1px 的独立色条（不贴卡片外缘），外缘隔一层卡片浅边，避免饱和色带与深色背景
+   硬抗锯齿（互补色相接）发"马赛克"。颜色跟随 --pri-band；无优先级的卡片隐藏此条。 */
+.tl-item__priband { position: absolute; left: 1px; top: 1px; bottom: 1px; width: 3px; background: var(--pri-band,#C9CCD6); border-radius: 9px 0 0 9px; }
+.tl-item:not(.pri-0):not(.pri-1):not(.pri-2) .tl-item__priband { display: none; }
 .tl-item.pri-2 { --pri-band: #E0453E; }
 .tl-item.pri-1 { --pri-band: #E5A113; }
 .tl-item.pri-0 { --pri-band: #C9CCD6; }
-/* priband 子元素隐藏: 左带已由 border-left 承担 */
-.tl-item .tl-item__priband { display: none; }
 .tl-item.is-done { background: var(--surface-done); }
 .tl-item.is-done .tl-item__title { color: var(--faint); text-decoration: line-through; }
 /* 层级面包屑按钮（点击进主任务详情） */
@@ -2208,14 +2207,15 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-detail-adder__placeholder {
   display: flex; align-items: center; gap: 8px;
   width: 100%; padding: 12px 14px; background: transparent;
-  color: var(--onbg, var(--brand-text));
-  border: 1px dashed var(--onbg-soft, var(--brand-border)); border-radius: 8px; cursor: pointer;
+  color: var(--brand-text);
+  border: 1px dashed var(--brand-border); border-radius: 8px; cursor: pointer;
   font-size: 14px; text-align: left; transition: background .18s, border-color .18s;
   min-height: 44px;
 }
+/* 该占位始终在不透明白卡内部，用品牌紫色，不跟随直接落背景的 --onbg（否则深色实色下变白隐形） */
 .todo-detail-adder__placeholder:hover:not(:active) {
-  background: var(--onbg-hover, rgba(168,85,247,.08));
-  border-color: var(--onbg, var(--brand-text));
+  background: rgba(168,85,247,.08);
+  border-color: var(--brand-text);
 }
 .todo-detail-adder__plus { font-weight: 700; font-size: 18px; line-height: 1; }
 .todo-detail-adder.editing .todo-detail-adder__placeholder { display: none; }
