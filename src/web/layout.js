@@ -1696,8 +1696,15 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-donezone__head { display: flex; align-items: center; gap: 8px; padding: 8px 6px; font-weight: 700; color: var(--muted); font-size: 13px; }
 .todo-donezone__tag { font-size: 10.5px; font-weight: 700; color: var(--brand-text); background: var(--brand-tint); border: 1px solid var(--brand-border); border-radius: 6px; padding: 1px 7px; }
 .flat-donewhen { flex: none; align-self: center; font-size: 12px; color: var(--muted); }
-/* 随上级完成、叶子自身未勾选：勾选圆绿，但标题不划线、保持正常色 */
-.flat-item.done.via-parent .flat-title { text-decoration: none; color: var(--text); }
+/* 已完成区直接落在全屏背景上（白卡之外）：标题/面包屑/日期/区头跟随背景 --onbg，
+   深实色变白、浅实色变深；无背景回退原色。速览白卡内的行不在 .todo-donezone、不受影响。 */
+.todo-donezone .flat-title,
+.todo-donezone .flat-item.done.via-parent .flat-title { color: var(--onbg, var(--muted-2)); }
+.todo-donezone .flat-crumb { color: var(--onbg-soft, var(--faint)); }
+.todo-donezone .flat-donewhen { color: var(--onbg-soft, var(--muted)); }
+.todo-donezone__head { color: var(--onbg, var(--muted)); }
+/* 随上级完成、叶子自身未勾选：勾选圆绿，但标题不划线；颜色随所在环境（donezone 走 --onbg，白卡内走 --text） */
+.flat-item.done.via-parent .flat-title { text-decoration: none; }
 /* 任务详情弹窗：层级面包屑 + 创建/完成时间 */
 .td-crumb { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 .td-times { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 0 2px; font-size: 12.5px; color: var(--muted); }
