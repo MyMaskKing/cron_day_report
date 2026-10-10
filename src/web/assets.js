@@ -6843,6 +6843,102 @@ function todoOpMenuToggle(row, opsEl){
   window.addEventListener('scroll', todoCloseOpMenu, true);
   window.addEventListener('resize', todoCloseOpMenu);
 }
+// ============ 行右滑操作（手机：手指在内容上向左滑，露出右侧圆形操作钮） ============
+// specs: [{icon, title, fn, danger?}]；PC(>640px) no-op，行 DOM 结构不变
+var _todoSwipeOpenMain = null;
+function _todoSwipeIsMobile(){ return !!(window.matchMedia && window.matchMedia('(max-width:640px)').matches); }
+function todoSwipeCloseAll(){
+  if (!_todoSwipeOpenMain) return;
+  var m = _todoSwipeOpenMain;
+  _todoSwipeOpenMain = null;
+  m.style.transform = '';
+  if (m.parentNode) m.parentNode.classList.remove('is-open');
+}
+function todoSwipeEnable(row, specs){
+  if (!_todoSwipeIsMobile() || !row || !specs || !specs.length) return;
+  // acts 右侧操作层（底层）
+  var acts = document.createElement('div');
+  acts.className = 'todo-swipe__acts';
+  specs.forEach(function(sp){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'todo-swipe__btn' + (sp.danger ? ' danger' : '');
+    b.title = sp.title; b.setAttribute('aria-label', sp.title); b.innerHTML = sp.icon;
+    b.addEventListener('click', function(e){
+      e.stopPropagation();
+      var fn = sp.fn;
+      todoSwipeCloseAll();
+      fn();
+    });
+    acts.appendChild(b);
+  });
+  // main 平移层：原有子节点全部收进，行父子结构不被破坏
+  var main = document.createElement('div');
+  main.className = 'todo-swipe__main';
+  while (row.firstChild) main.appendChild(row.firstChild);
+  row.classList.add('todo-swipe');
+  row.appendChild(acts);
+  row.appendChild(main);
+
+  var actsW = 0, tracking = false, decided = false, horizontal = false;
+  var sx = 0, sy = 0, startX = 0, dx = 0, t0 = 0;
+  function baseX(){ return _todoSwipeOpenMain === main ? -actsW : 0; }
+  function onStart(e){
+    var t = e.touches[0];
+    tracking = true; decided = false; horizontal = false;
+    sx = t.clientX; sy = t.clientY; dx = 0;
+    actsW = acts.offsetWidth;
+    startX = baseX();
+    t0 = Date.now();
+  }
+  function onMove(e){
+    if (!tracking) return;
+    var t = e.touches[0];
+    dx = t.clientX - sx;
+    var dy = t.clientY - sy;
+    if (!decided) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      decided = true;
+      horizontal = Math.abs(dx) > Math.abs(dy);
+      if (horizontal) main.classList.add('no-anim');
+    }
+    if (!horizontal) return;
+    if (e.cancelable) e.preventDefault(); // 水平手势锁纵向滚动
+    var nx = startX + dx;
+    if (nx > 0) nx = nx * 0.3;                                // 右缘阻尼
+    if (nx < -actsW) nx = -actsW + (nx + actsW) * 0.3;        // 左缘阻尼
+    main.style.transform = nx ? 'translateX(' + nx + 'px)' : '';
+  }
+  function onEnd(){
+    if (!tracking) return;
+    tracking = false;
+    main.classList.remove('no-anim');
+    if (!decided || !horizontal) return;
+    var vx = dx / Math.max(1, Date.now() - t0);               // px/ms
+    if (dx < -actsW * 0.32 || vx < -0.35) {
+      main.style.transform = 'translateX(-' + actsW + 'px)';
+      if (_todoSwipeOpenMain && _todoSwipeOpenMain !== main) todoSwipeCloseAll();
+      _todoSwipeOpenMain = main;
+      row.classList.add('is-open');
+    } else {
+      main.style.transform = '';
+      if (_todoSwipeOpenMain === main) {
+        _todoSwipeOpenMain = null;
+        row.classList.remove('is-open');
+      }
+    }
+  }
+  main.addEventListener('touchstart', onStart, { passive: true });
+  main.addEventListener('touchmove', onMove, { passive: false });
+  main.addEventListener('touchend', onEnd);
+  main.addEventListener('touchcancel', onEnd);
+  // open 态首击只关闭：捕获阶段拦截（main 内子层详情点击在冒泡才触发）；交互元素自身处理
+  main.addEventListener('click', function(e){
+    if (_todoSwipeOpenMain !== main) return;
+    if (e.target.closest && e.target.closest('button,a,input,textarea,select')) return;
+    todoSwipeCloseAll();
+    e.stopPropagation();
+  }, true);
+}
 // ============ 任务表单草稿（防 App 切后台被系统回收进程后丢输入） ============
 // 只暂存标题/备注文字(丢失成本最高); 日期/优先级/重复等选择项不暂存, 避免与勾选联动错位。
 // 正常保存/取消都会走 closeModal → __todoDraftClose 清除; 仅异常退出(进程被杀)才会留下草稿。
@@ -8423,6 +8519,26 @@ function renderTodoTree(container, trees, opts) {
         actFn(node);
       });
     }
+    // 手机列表态右滑：全部操作收口（详情态 isDetail 不绑定，详情零改动）
+    if (!isDetail) {
+      var treeSwipeSpecs = [];
+      if (node._ghost !== 1) {
+        if (opts.onAddChildSubmit) treeSwipeSpecs.push({ icon: ICONS.plus, title: '添加子任务', fn: function(){
+          todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
+        }});
+        if (opts.onDetail || opts.onEdit || (isRealRoot && opts.onEnter)) treeSwipeSpecs.push({ icon: ICONS.view, title: '查看详情', fn: function(){
+          var _go = isRealRoot ? (opts.onEnter || opts.onDetail || opts.onEdit) : (opts.onDetail || opts.onEdit);
+          _go(node);
+        }});
+        if (opts.onShare && depth === 0 && node.parent_id == null) treeSwipeSpecs.push({ icon: ICONS.share, title: '协作链接', fn: function(){ opts.onShare(node); } });
+        if (opts.onDel) treeSwipeSpecs.push({ icon: ICONS.trash, title: '删除', danger: true, fn: function(){ opts.onDel(node); } });
+        if (caretMoveRight && hasChildren) treeSwipeSpecs.push({ icon: ICONS.chevron, title: _todoCollapsed[node.id] ? '展开子任务' : '折叠子任务', fn: function(){
+          _todoCollapsed[node.id] = !_todoCollapsed[node.id];
+          childBox.classList.toggle('collapsed', !!_todoCollapsed[node.id]);
+        }});
+      }
+      todoSwipeEnable(row, treeSwipeSpecs);
+    }
     return wrap;
   }
   function mkOp(icon, title, fn, extraClass) {
@@ -8583,6 +8699,18 @@ function renderTodoAccordion(container, trees, opts) {
       if (handle) todoBindDrag(handle, wrap, node, opts);
       else todoBindDrag(rowEl, wrap, node, opts);
     }
+    // 手机列表态右滑：添加子任务/详情/删除（详情态不绑定）
+    if (!isDetail && !opts.readOnly && node._ghost !== 1) {
+      var leafSwipeSpecs = [];
+      if (opts.onAddChildSubmit) leafSwipeSpecs.push({ icon: ICONS.plus, title: '添加子任务', fn: function(){
+        todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
+      }});
+      if (opts.onDetail || opts.onEdit) leafSwipeSpecs.push({ icon: ICONS.view, title: '查看详情', fn: function(){
+        (opts.onDetail || opts.onEdit)(node);
+      }});
+      if (opts.onDel) leafSwipeSpecs.push({ icon: ICONS.trash, title: '删除', danger: true, fn: function(){ opts.onDel(node); } });
+      todoSwipeEnable(rowEl, leafSwipeSpecs);
+    }
     return wrap;
   }
 
@@ -8724,6 +8852,20 @@ function renderTodoAccordion(container, trees, opts) {
     if (!opts.readOnly && opts.onReorder && !isGhost) {
       var handle = opsEl ? opsEl.querySelector('.todo-drag') : null;
       if (handle) todoBindDrag(handle, wrap, node, opts);
+    }
+    // 手机列表态右滑：添加子任务/详情/协作(仅顶层)/删除（折叠由行内 caret 负责；详情态不绑定）
+    if (!isDetail && !opts.readOnly && !isGhost) {
+      var accSwipeSpecs = [];
+      if (opts.onAddChildSubmit) accSwipeSpecs.push({ icon: ICONS.plus, title: '添加子任务', fn: function(){
+        todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
+      }});
+      if (opts.onDetail || opts.onEdit || (cardRoot && opts.onEnter)) accSwipeSpecs.push({ icon: ICONS.view, title: '查看详情', fn: function(){
+        var _go = cardRoot ? (opts.onEnter || opts.onDetail || opts.onEdit) : (opts.onDetail || opts.onEdit);
+        _go(node);
+      }});
+      if (opts.onShare && depth === 0 && node.parent_id == null) accSwipeSpecs.push({ icon: ICONS.share, title: '协作链接', fn: function(){ opts.onShare(node); } });
+      if (opts.onDel) accSwipeSpecs.push({ icon: ICONS.trash, title: '删除', danger: true, fn: function(){ opts.onDel(node); } });
+      todoSwipeEnable(rowEl, accSwipeSpecs);
     }
     return wrap;
   }
@@ -9300,6 +9442,36 @@ function renderTodoCards(container, trees, opts) {
         meta.appendChild(pc);
       }
     }
+    // 手机：添加子任务/查看详情收为低调小图标固定卡片右缘（PC 隐藏）；
+    // meta 无任何 chip 时收进标题行，第二行消失
+    if (!opts.readOnly && root._ghost !== 1) {
+      var quickHost = meta.childNodes.length ? meta : head;
+      if (quickHost === meta) {
+        var quickSpacer = document.createElement('span');
+        quickSpacer.className = 'todo-card__quick-spacer';
+        quickHost.appendChild(quickSpacer);
+      }
+      if (opts.onAddChildSubmit) {
+        var qAdd = document.createElement('button');
+        qAdd.type = 'button'; qAdd.className = 'todo-card__quick'; qAdd.title = '添加子任务';
+        qAdd.innerHTML = ICONS.plus;
+        qAdd.addEventListener('click', function(e){
+          e.stopPropagation();
+          openInlineAddChild(qAdd, root, function(payload){ return opts.onAddChildSubmit(root, payload); });
+        });
+        quickHost.appendChild(qAdd);
+      }
+      if (opts.onDetail || opts.onEdit) {
+        var qEye = document.createElement('button');
+        qEye.type = 'button'; qEye.className = 'todo-card__quick'; qEye.title = '查看详情';
+        qEye.innerHTML = ICONS.view;
+        qEye.addEventListener('click', function(e){
+          e.stopPropagation();
+          (opts.onDetail || opts.onEdit)(root);
+        });
+        quickHost.appendChild(qEye);
+      }
+    }
     if (meta.childNodes.length) body.appendChild(meta);
 
     // 备注单行截断（有则显示）
@@ -9350,10 +9522,17 @@ function renderTodoCards(container, trees, opts) {
     // 整卡点击进入详情：忽略勾选/操作按钮区
     if (canEnter) {
       card.addEventListener('click', function(e){
-        if (e.target.closest('.todo-card__check, .todo-card__ops, .todo-cd-ribbon')) return;
+        if (e.target.closest('.todo-card__check, .todo-card__ops, .todo-card__quick, .todo-cd-ribbon')) return;
         opts.onEnter(root);
       });
     }
+    // 手机右滑操作：协作、删除（添加子任务/查看详情已在第二行）
+    var cardSwipeSpecs = [];
+    if (!opts.readOnly && root._ghost !== 1) {
+      if (opts.onShare) cardSwipeSpecs.push({ icon: ICONS.share, title: '协作链接', fn: function(){ opts.onShare(root); } });
+      if (opts.onDel) cardSwipeSpecs.push({ icon: ICONS.trash, title: '删除', danger: true, fn: function(){ opts.onDel(root); } });
+    }
+    todoSwipeEnable(card, cardSwipeSpecs);
     container.appendChild(card);
   });
 }
@@ -11999,6 +12178,73 @@ mountDataSwitcher('todo');
 var _rows = [];
 var _stats = { pending:0, overdue:0, done:0, total:0 };
 function todayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
+
+// 悬浮新建钮可拖动: 位移 < 阈值保持原点击新建, 否则仅挪位置并记忆, 避免挡住列表内容
+function todoBindMainFab(){
+  var fab = document.querySelector('.m-fab');
+  if (!fab) return;
+  var POS_KEY = 'todoFabPos';
+  var TH = 6;
+  var dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  function restore(){
+    try {
+      var pos = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
+      if (pos && typeof pos.left === 'number' && typeof pos.top === 'number') {
+        var w = fab.offsetWidth || 56, h = fab.offsetHeight || 56;
+        fab.style.left = Math.max(4, Math.min(window.innerWidth - w - 4, pos.left)) + 'px';
+        fab.style.top = Math.max(4, Math.min(window.innerHeight - h - 4, pos.top)) + 'px';
+        fab.style.right = 'auto'; fab.style.bottom = 'auto';
+      }
+    } catch(e){}
+  }
+  restore();
+  window.addEventListener('resize', restore);
+  function down(x, y){
+    dragging = true; moved = false;
+    var r = fab.getBoundingClientRect();
+    fab.style.left = r.left + 'px'; fab.style.top = r.top + 'px';
+    fab.style.right = 'auto'; fab.style.bottom = 'auto';
+    sx = x; sy = y; ox = r.left; oy = r.top;
+  }
+  function move(x, y){
+    if (!dragging) return;
+    var dx = x - sx, dy = y - sy;
+    if (!moved && (Math.abs(dx) > TH || Math.abs(dy) > TH)) moved = true;
+    if (!moved) return;
+    var w = fab.offsetWidth, h = fab.offsetHeight;
+    fab.style.left = Math.max(4, Math.min(window.innerWidth - w - 4, ox + dx)) + 'px';
+    fab.style.top = Math.max(4, Math.min(window.innerHeight - h - 4, oy + dy)) + 'px';
+  }
+  function up(){
+    if (!dragging) return;
+    dragging = false;
+    if (moved) {
+      // 本次合成 click 需吞掉（FAB 新建代理在 document 冒泡，本钮监听先到）
+      fab.dataset.swipeMoved = '1';
+      try { localStorage.setItem(POS_KEY, JSON.stringify({ left: parseInt(fab.style.left, 10), top: parseInt(fab.style.top, 10) })); } catch(e){}
+    }
+  }
+  fab.addEventListener('mousedown', function(e){ down(e.clientX, e.clientY); });
+  document.addEventListener('mousemove', function(e){ move(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', up);
+  fab.addEventListener('touchstart', function(e){
+    var t = e.touches[0]; down(t.clientX, t.clientY);
+  }, { passive: true });
+  document.addEventListener('touchmove', function(e){
+    if (!dragging) return;
+    var t = e.touches[0]; move(t.clientX, t.clientY);
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('touchend', up);
+  fab.addEventListener('touchcancel', up);
+  fab.addEventListener('click', function(e){
+    if (fab.dataset.swipeMoved === '1') {
+      e.stopPropagation(); e.preventDefault();
+      fab.dataset.swipeMoved = '';
+    }
+  });
+}
+todoBindMainFab();
 
 async function loadTodos() {
   var data = await api('/api/todo/list');
