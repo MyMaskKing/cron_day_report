@@ -1755,9 +1755,11 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   --pri-band: #C9CCD6; /* 左带色: 仅 .pri-0/1/2 用 border-left 画 3px; 无(-1)不画, 不被面包屑栏遮挡 */
 }
 /* 左条位于边框内侧(overflow 裁在 padding box), 完整宽度不被裁细 */
-/* 左色带：贴卡片外缘、平直通高（无圆角不内缩），颜色跟随 --pri-band；无优先级的卡片隐藏。
-   马赛克不靠内缩（会变细弯条），改在深色实色下用 --priband-c 略降饱和（见各实色变量）。 */
-.tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--priband-c, var(--pri-band,#C9CCD6)); }
+/* 左色带：贴卡片外缘、平直通高（无圆角、不内缩成细弯条）；颜色跟随 --pri-band。
+   用 mask 在右侧做 1px 羽化，中和贴边硬抗锯齿（深色实色下饱和色带不再发"马赛克"）。 */
+.tl-item__priband { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--pri-band,#C9CCD6);
+  -webkit-mask: linear-gradient(to right,#000 calc(100% - 1px), rgba(0,0,0,.4));
+  mask: linear-gradient(to right,#000 calc(100% - 1px), rgba(0,0,0,.4)); }
 .tl-item:not(.pri-0):not(.pri-1):not(.pri-2) .tl-item__priband { display: none; }
 .tl-item.pri-2 { --pri-band: #E0453E; }
 .tl-item.pri-1 { --pri-band: #E5A113; }
