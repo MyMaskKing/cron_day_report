@@ -1591,7 +1591,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-bandcard {
   background: var(--surface);
   border: 1px solid var(--border); border-radius: 12px;
-  overflow: hidden; margin: 0 0 12px;
+  overflow: hidden; margin: 0 0 11px;
   transition: box-shadow .18s, border-color .18s;
   --pri-band: #C9CCD6;
 }
@@ -1743,8 +1743,8 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .tl-day.is-today .tl-dot { width: 15px; height: 15px; top: 3px; background: var(--brand); border-color: transparent; box-shadow: 0 0 0 4px var(--brand-tint); }
 .tl-day.is-soon .tl-dot { width: 14px; height: 14px; top: 3.5px; background: var(--warn); border-color: transparent; box-shadow: 0 0 0 4px var(--warn-bg); }
 .tl-day.is-empty .tl-dot { width: 8px; height: 8px; top: 7px; border-width: 2px; border-color: var(--faint); }
-.tl-day__cards { display: flex; flex-direction: column; gap: 10px; padding: 0 0 18px 14px; }
-.tl-day.is-empty .tl-day__cards { padding-bottom: 14px; }
+.tl-day__cards { display: flex; flex-direction: column; gap: 11px; padding: 0 0 11px 14px; }
+.tl-day.is-empty .tl-day__cards { padding-bottom: 11px; }
 .timeline-view .tl-day:last-child .tl-day__cards { padding-bottom: 4px; }
 /* 子任务卡：优先级左条 + 面包屑 + 内容 */
 .tl-item {
@@ -1789,7 +1789,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
   .tl-day { grid-template-columns: 62px 20px 1fr; }
   .tl-day__label { font-size: 11px; padding-right: 7px; }
   .tl-day__label b { font-size: 12.5px; }
-  .tl-day__cards { gap: 8px; padding-left: 10px; padding-bottom: 14px; }
+  .tl-day__cards { gap: 8px; padding-left: 10px; padding-bottom: 8px; }
   .tl-crumb { padding: 5px 10px; font-size: 11px; }
   .tl-item__body { padding: 9px 10px 8px 13px; gap: 8px; }
   .tl-item__title { font-size: 13.5px; }
@@ -2063,7 +2063,7 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 
 /* ============ 待办卡片视图 ============ */
 /* 卡片网格容器：一列排列，宽屏保持单列（避免顶层任务被切碎） */
-.todo-cards { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.todo-cards { display: flex; flex-direction: column; gap: 11px; margin-top: 4px; }
 /* 单张顶层卡片：顶部色带 + 内容区 + 底部操作 */
 .todo-card {
   position: relative; background: var(--surface);
@@ -2134,6 +2134,9 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 /* acts 默认不可见：滑动中/打开时才显示（不依赖 main 是否有底色） */
 .todo-swipe__acts { display: none; }
 @media (max-width: 640px) {
+  /* 间距对齐速览视图（8px） */
+  .todo-cards { gap: 8px; }
+  .todo-bandcard { margin-bottom: 8px; }
   /* 第三行操作条移除（PC 不变） */
   .todo-card__foot { display: none; }
   /* ＋ / 👁 固定卡片右缘：无底色灰图标，按下才显色 */
