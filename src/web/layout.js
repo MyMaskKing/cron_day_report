@@ -168,10 +168,10 @@ const BASE_CSS = `
   --muted: #6f7079;         /* 弱化说明 .muted/关闭钮(原 #999, 提深达 AA) */
   --muted-2: #5b6289;       /* 蓝灰说明 todo-count/note(提深达 AA 4.5+) */
   --faint: #b0b6c8;         /* 完成删除线/最弱 */
-  --surface: #fff;          /* 纯白容器: 弹窗/菜单/行/卡片/勾选框 */
-  --surface-2: #f7f8fa;     /* 次级容器: root 行/面包屑 */
-  --surface-3: #f8f9ff;     /* 统计条 */
-  --surface-done: #fafbff;  /* 已完成卡片底 */
+  --surface: #faf9f5;       /* 柔和暖白容器(非纯白, 避免在彩色背景上刺眼): 弹窗/菜单/卡片 */
+  --surface-2: #f3f2ec;     /* 次级容器: root 行/面包屑 */
+  --surface-3: #f5f4ef;     /* 统计条 */
+  --surface-done: #f2f1eb;  /* 已完成卡片底 */
   --card-glass: rgba(255,255,255,.72);   /* 玻璃卡片底 */
   --card-glass-solid: rgba(255,255,255,.92);
   --card-border: rgba(255,255,255,.6);
@@ -378,76 +378,8 @@ html[data-theme="dark"][data-bg="matcha"] .todo-fullscreen { background: var(--b
 html[data-theme="dark"][data-bg="sea"]    .todo-fullscreen { background: var(--bgimg-sea-dark); }
 html[data-theme="dark"][data-bg="dusk"]   .todo-fullscreen { background: var(--bgimg-dusk-dark); }
 
-/* ============ 待办全屏背景内容融合：浅色(light/eye)=白磨砂；暗色=深色磨砂（背景随主题） ============
-   浅色/护眼：白磨砂表面 + 深色文字；暗色：深色半透磨砂表面，文字/品牌继承暗色主题（不强制浅色）。
-   磨砂白度/模糊对齐预览图（.56 白 + blur12）。仅作用于内容区，不影响抽屉/背景弹窗。 */
-/* —— 浅色 / 护眼主题：白磨砂表面 + 深色文字 —— */
-html[data-bg]:not([data-bg=""]):not([data-theme="dark"]) .todo-fs-main {
-  --surface: rgba(255,255,255,.56);
-  --surface-2: rgba(255,255,255,.42);
-  --surface-3: rgba(255,255,255,.46);
-  --surface-done: rgba(255,255,255,.38);
-  --input-bg: rgba(255,255,255,.62);
-  --bg-veil: rgba(255,255,255,.56);
-  --text: #333a44;
-  --text-strong: #1f2329;
-  --label: #5f6470;
-  --link-dim: #556070;
-  --muted: #5f6470;
-  --muted-2: #626a80;
-  --faint: #9aa0b0;
-  --border: rgba(30,40,60,.14);
-  --border-strong: rgba(30,40,60,.26);
-  --check-ring: #c2c8d2;
-  --hover-bg: rgba(91,100,120,.10);
-  --brand: #8b5cf6;
-  --brand-text: #7C3AED;
-  --brand-strong: #7C3AED;
-  --brand-tint: #f0eafb;
-  --brand-border: #ddd6f6;
-  --hover-brand: #f0eafb;
-  --danger: #cf1322;
-  --danger-bg: #fdecec;
-  --ok: #15803d;
-  --ok-bg: #e9f5ea;
-  --warn: #b45309;
-  --warn-bg: #fdf2e2;
-}
-/* —— 暗色主题：深色半透磨砂表面（文字/品牌色继承 dark 主题，不覆盖） —— */
-html[data-theme="dark"][data-bg]:not([data-bg=""]) .todo-fs-main {
-  --surface: rgba(255,255,255,.055);
-  --surface-2: rgba(255,255,255,.04);
-  --surface-3: rgba(255,255,255,.05);
-  --surface-done: rgba(255,255,255,.03);
-  --input-bg: rgba(255,255,255,.07);
-  --bg-veil: rgba(255,255,255,.055);
-  --border: rgba(160,180,220,.12);
-  --border-strong: rgba(160,180,220,.2);
-  --check-ring: #566080;
-  --hover-bg: rgba(255,255,255,.06);
-}
-/* 卡片/树/速览/时间轴：卡片各自磨砂（明暗都模糊；acc/flat 由主区整块磨砂不在此列） */
-html[data-bg]:not([data-bg=""]) body.todo-fs-on
-  :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.todo-crumb) {
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-}
-/* 无边框、无高光（避免冲淡背景），明暗均透明边框 + 轻影分隔 */
-html[data-bg]:not([data-bg=""]) body.todo-fs-on
-  :is(.todo-card,.todo-bandcard,.tl-card) {
-  border-color: transparent;
-  box-shadow: 0 6px 20px rgba(20,40,30,.1);
-}
-/* 分类目录抽屉：不透明，跟随全站主题（手机浮层不透后方） */
-html[data-bg]:not([data-bg=""]) body.todo-fs-on .todo-drawer {
-  background: var(--surface-global); backdrop-filter: none; -webkit-backdrop-filter: none;
-}
-/* 顶栏不透明：浅色=白；暗色=主题表面（对齐预览图顶栏） */
-html[data-bg]:not([data-bg=""]):not([data-theme="dark"]) body.todo-fs-on .todo-fs-top {
-  background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none;
-}
-html[data-theme="dark"][data-bg]:not([data-bg=""]) body.todo-fs-on .todo-fs-top {
-  background: var(--surface-global); backdrop-filter: none; -webkit-backdrop-filter: none;
-}
+/* 内容只跟随全站主题、不跟随背景：卡片不透明（主题 --surface 柔和白/深色），不做半透磨砂。
+   背景只换全屏底色；卡片像参考 App 一样为不透明柔和白，颜色不随背景变。 */
 
 /* body 纯色底（光斑仅保留在待办全屏背景内） */
 body {
@@ -2298,12 +2230,7 @@ body { padding-bottom: var(--kb-inset, 0px); }
 /* transition + 背景色: 为手机端 sticky 时的过渡隐藏做铺垫; PC 无影响 */
 /* 手风琴视图：行无白底，主区铺白避免整页露出 body 暖白 --bg 显黄（手机大面积尤其明显） */
 .todo-fs-main.fs-main--acc { background: var(--surface); }
-/* 选了内置背景时：主区改半透明磨砂让背景透出（--bg-veil 三主题各自取值），默认背景仍铺白 */
-html[data-bg]:not([data-bg=""]) .todo-fs-main.fs-main--acc {
-  background: var(--bg-veil);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
+/* 选背景时主区仍为不透明柔和白（不做半透磨砂，内容颜色不随背景变化） */
 .todo-fs-top {
   display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px;
@@ -3244,7 +3171,7 @@ html[data-bg]:not([data-bg=""]) .bg-sp-inner { background: var(--bg-veil); }
 .bg-sp-row.child.done { opacity: .45; text-decoration: line-through; }
 /* 选了非空（浅色）背景时，预览样图恒显浅色——暗色主题下也模拟浅色全屏，不跟随主题 */
 html[data-bg]:not([data-bg=""]) .bg-sp-top { background: #fff; color: #5f6470; border-color: #e9ecf3; }
-html[data-bg]:not([data-bg=""]) .bg-sp-inner { background: rgba(255,255,255,.56); }
+html[data-bg]:not([data-bg=""]) .bg-sp-inner { background: #faf9f5; }
 html[data-bg]:not([data-bg=""]) .bg-sp-row { color: #333a44; }
 html[data-bg]:not([data-bg=""]) .bg-sp-row.root { border-left-color: #8b5cf6; }
 
