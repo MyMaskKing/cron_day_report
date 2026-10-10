@@ -2237,12 +2237,7 @@ body { padding-bottom: var(--kb-inset, 0px); }
   background: var(--surface);
   transition: transform .22s ease, opacity .22s ease;
 }
-/* 选了背景时：顶栏与主区同款磨砂，四视图表现一致；无背景维持纯白 */
-html[data-bg]:not([data-bg=""]) .todo-fs-top {
-  background: var(--bg-veil);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
+/* 选背景时顶栏仍为不透明柔和白（不做半透磨砂），无背景同样 */
 .todo-fs-title { flex: 1; min-width: 0; font-size: 16px; font-weight: 800; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
 /* 全屏顶栏一行: 目录 / 视图切换 / 隐藏已完成 / 退出（公开页在目录后多一个 ＋ 图标钮） */
 .todo-fs-hide { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--label); font-weight: normal; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
