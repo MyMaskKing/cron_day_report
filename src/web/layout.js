@@ -1413,6 +1413,15 @@ input[type="date"], input[type="month"] { cursor: pointer; }
 .todo-title { font-size: 14px; color: var(--text); word-break: break-word; transition: color .2s; }
 .todo-row.is-done .todo-title { color: var(--faint); text-decoration: line-through; }
 .todo-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+/* 按截止日分组（容器 .todo-due-groups）：完整树/速览的标签内联到标题后，不另占一行。
+   标题与 meta 横向排列、不换行；chip 过多横向裁掉，行高紧凑。仅分组模式生效。 */
+/* 标题不省略、可自动换行；chip 作为内联项跟在标题后（允许随标题一起换行），不另占独立 meta 行 */
+.todo-due-groups .todo-main { display:flex; align-items:flex-start; gap:8px; min-width:0; flex-wrap:wrap; }
+.todo-due-groups .todo-title { flex:1 1 auto; min-width:0; }
+.todo-due-groups .todo-meta { flex:0 0 auto; flex-wrap:nowrap; margin-top:2px; }
+.todo-due-groups .tl-item__main { display:flex; align-items:flex-start; gap:8px; min-width:0; flex-wrap:wrap; }
+.todo-due-groups .tl-item__title { flex:1 1 auto; min-width:0; }
+.todo-due-groups .tl-item__meta { flex:0 0 auto; flex-wrap:nowrap; margin-top:2px; }
 .todo-chip { font-size: 12px; padding: 1px 8px; border-radius: 999px; line-height: 1.6; }
 .todo-chip.cat { background: var(--hover-brand); color: var(--brand-text); }
 .todo-chip.due { background: var(--surface-2); color: var(--link-dim); }
