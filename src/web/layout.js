@@ -406,13 +406,13 @@ html[data-theme="dark"][data-bg="solid-sky"]    .todo-fullscreen { background: #
 
 /* —— 纯色：内容区变量（背景上分组文字 --onbg + FAB --fab-bg 跟随实色） ——
    深色实色=白字+提亮 FAB；浅色(mint/sky)=深字+加深 FAB。渐变/默认不定义、回退主题原值。 */
-html[data-bg="solid-indigo"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#6e89de; }
-html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#5e8cb0; }
-html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#4ea8a3; }
-html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#33af80; }
-html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#c8966e; }
-html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#d87494; }
-html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#a688d8; }
+html[data-bg="solid-indigo"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#6e89de; --rail-line:rgba(255,255,255,.42); }
+html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#5e8cb0; --rail-line:rgba(255,255,255,.42); }
+html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#4ea8a3; --rail-line:rgba(255,255,255,.42); }
+html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#33af80; --rail-line:rgba(255,255,255,.42); }
+html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#c8966e; --rail-line:rgba(255,255,255,.42); }
+html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#d87494; --rail-line:rgba(255,255,255,.42); }
+html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#a688d8; --rail-line:rgba(255,255,255,.42); }
 html[data-bg="solid-mint"] body.todo-fs-on .todo-fs-main { --onbg:#2f4a3e; --onbg-soft:#5f7e6e; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fc8ae; }
 html[data-bg="solid-sky"] body.todo-fs-on .todo-fs-main { --onbg:#324a66; --onbg-soft:#6282a0; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fb4dd; }
 
@@ -1727,7 +1727,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .tl-day.is-empty .tl-day__label b { font-size: 12.5px; font-weight: 500; color: var(--muted-2); }
 /* 轴竖线 + 节点圆点（中线对齐） */
 .tl-day__rail { position: relative; }
-.tl-day__rail::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); background: var(--border); }
+.tl-day__rail::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); background: var(--rail-line, var(--border)); }
 .timeline-view .tl-day:first-child .tl-day__rail::before { top: 50%; }
 .timeline-view .tl-day:last-child .tl-day__rail::before { bottom: 50%; }
 .tl-dot { position: absolute; top: 5px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; border-radius: 50%; background: var(--surface); border: 2.5px solid var(--brand); z-index: 2; }
@@ -2275,7 +2275,11 @@ body { padding-bottom: var(--kb-inset, 0px); }
 /* transition + 背景色: 为手机端 sticky 时的过渡隐藏做铺垫; PC 无影响 */
 /* 手风琴视图：行无白底，主区铺白避免整页露出 body 暖白 --bg 显黄（手机大面积尤其明显） */
 .todo-fs-main.fs-main--acc { background: var(--surface); }
-/* 选背景时主区仍为不透明柔和白（不做半透磨砂，内容颜色不随背景变化） */
+/* 选了背景时：整块改半透白磨砂透出背景（手风琴/速览也能看到背景色）；无背景维持柔和白 */
+html[data-bg]:not([data-bg=""]) body.todo-fs-on .todo-fs-main.fs-main--acc {
+  background: rgba(255,255,255,.62);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
 .todo-fs-top {
   display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px;
