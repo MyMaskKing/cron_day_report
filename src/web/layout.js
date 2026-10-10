@@ -2273,13 +2273,8 @@ body { padding-bottom: var(--kb-inset, 0px); }
 }
 /* 主区域顶部一行：抽屉按钮 + 标题 + 视图切换按钮 */
 /* transition + 背景色: 为手机端 sticky 时的过渡隐藏做铺垫; PC 无影响 */
-/* 手风琴视图：行无白底，主区铺白避免整页露出 body 暖白 --bg 显黄（手机大面积尤其明显） */
-.todo-fs-main.fs-main--acc { background: var(--surface); }
-/* 选了背景时：整块改半透白磨砂透出背景（手风琴/速览也能看到背景色）；无背景维持柔和白 */
-html[data-bg]:not([data-bg=""]) body.todo-fs-on .todo-fs-main.fs-main--acc {
-  background: rgba(255,255,255,.62);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-}
+/* 手风琴/速览主区不铺底、不磨砂（透明）：与卡片/完整树/时间轴一致，卡片间隙露出统一全屏背景。
+   内容都在不透明卡片内（手风琴 .todo-bandcard、速览 .tl-card-list 独立卡），无需主区白面/磨砂。 */
 .todo-fs-top {
   display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px;
