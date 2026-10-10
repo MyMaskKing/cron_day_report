@@ -406,13 +406,13 @@ html[data-theme="dark"][data-bg="solid-sky"]    .todo-fullscreen { background: #
 
 /* —— 纯色：内容区变量（背景上分组文字 --onbg + FAB --fab-bg 跟随实色） ——
    深色实色=白字+提亮 FAB；浅色(mint/sky)=深字+加深 FAB。渐变/默认不定义、回退主题原值。 */
-html[data-bg="solid-indigo"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#6e89de; --rail-line:rgba(255,255,255,.42); }
-html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#5e8cb0; --rail-line:rgba(255,255,255,.42); }
-html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#4ea8a3; --rail-line:rgba(255,255,255,.42); }
-html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#33af80; --rail-line:rgba(255,255,255,.42); }
-html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#c8966e; --rail-line:rgba(255,255,255,.42); }
-html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#d87494; --rail-line:rgba(255,255,255,.42); }
-html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#a688d8; --rail-line:rgba(255,255,255,.42); }
+html[data-bg="solid-indigo"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#6e89de; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
+html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#5e8cb0; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
+html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#4ea8a3; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
+html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#33af80; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
+html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#c8966e; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
+html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#d87494; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
+html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#a688d8; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; }
 html[data-bg="solid-mint"] body.todo-fs-on .todo-fs-main { --onbg:#2f4a3e; --onbg-soft:#5f7e6e; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fc8ae; }
 html[data-bg="solid-sky"] body.todo-fs-on .todo-fs-main { --onbg:#324a66; --onbg-soft:#6282a0; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fb4dd; }
 
@@ -1718,13 +1718,13 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .tl-card-list { display: flex; flex-direction: column; gap: 11px; margin-top: 4px; }
 /* 日期行：日期标签 74px / 轴 24px / 卡片 1fr */
 .tl-day { display: grid; grid-template-columns: 74px 24px 1fr; break-inside: avoid; }
-.tl-day__label { padding-top: 2px; padding-right: 10px; text-align: right; font-size: 12px; color: var(--muted-2); line-height: 1.35; white-space: nowrap; }
-.tl-day__label b { display: block; font-size: 13.5px; color: var(--text-strong); }
-.tl-day.is-over .tl-day__label b { color: var(--danger); }
-.tl-day.is-today .tl-day__label b { color: var(--brand-text); }
-.tl-day.is-soon .tl-day__label b { color: var(--warn); }
-.tl-day.is-empty .tl-day__label { opacity: .55; }
-.tl-day.is-empty .tl-day__label b { font-size: 12.5px; font-weight: 500; color: var(--muted-2); }
+.tl-day__label { padding-top: 2px; padding-right: 10px; text-align: right; font-size: 12px; color: var(--onbg-soft, var(--muted-2)); line-height: 1.35; white-space: nowrap; }
+.tl-day__label b { display: block; font-size: 13.5px; color: var(--onbg, var(--text-strong)); }
+.tl-day.is-over .tl-day__label b { color: var(--over-fg, var(--danger)); }
+.tl-day.is-today .tl-day__label b { color: var(--today-fg, var(--brand-text)); }
+.tl-day.is-soon .tl-day__label b { color: var(--soon-fg, var(--warn)); }
+.tl-day.is-empty .tl-day__label { opacity: 1; }
+.tl-day.is-empty .tl-day__label b { font-size: 12.5px; font-weight: 500; color: var(--onbg-soft, var(--muted-2)); }
 /* 轴竖线 + 节点圆点（中线对齐） */
 .tl-day__rail { position: relative; }
 .tl-day__rail::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); background: var(--rail-line, var(--border)); }
