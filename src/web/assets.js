@@ -9387,7 +9387,7 @@ function renderTodoCards(container, trees, opts) {
     // meta 行：分类/重复/完成时间为弱化灰字, 日期 + 叶子进度保留语义 chip
     var meta = document.createElement('div'); meta.className = 'todo-card__meta';
     if (root.category) {
-      var cc = document.createElement('span'); cc.className = 'todo-metatxt'; cc.textContent = root.category; meta.appendChild(cc);
+      var cc = document.createElement('span'); cc.className = 'todo-metatxt todo-cat-chip'; cc.textContent = root.category; meta.appendChild(cc);
     }
     // 卡片日期: 顶层显示日期 todoRootDue(旧模式=root.due_date; 新模式=最早到期的未完成子任务)
     var rootDue = todoRootDue(root);

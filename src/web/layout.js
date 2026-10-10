@@ -2131,6 +2131,15 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-card__check.done::after { opacity: 1; transform: scale(1); }
 .todo-card__meta { display: flex; flex-wrap: wrap; gap: 5px 10px; margin-top: 6px; align-items: center; }
 .todo-metatxt { font-size: 11.5px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+/* 分类胶囊（方案A）：透明底 + 细描边 + 柔和灰字，弱于日期 chip、不抢任务焦点；深浅背景适配 */
+.todo-cat-chip {
+  padding: 1px 10px; border-radius: 99px; border: 1px solid var(--cat-chip-line, rgba(30,40,60,.18));
+  color: var(--cat-chip-fg, #7a808c);
+}
+[data-theme="dark"] .todo-cat-chip {
+  --cat-chip-line: rgba(255,255,255,.22);
+  --cat-chip-fg: rgba(255,255,255,.62);
+}
 .todo-card__note { margin-top: 6px; font-size: 13px; color: var(--muted-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 底部操作条：入口位置保持不变, 视觉收紧到 42px 高, 图标钮 36px 触控 */
 .todo-card__foot {
