@@ -406,15 +406,15 @@ html[data-theme="dark"][data-bg="solid-sky"]    .todo-fullscreen { background: #
 
 /* —— 纯色：内容区变量（背景上分组文字 --onbg + FAB --fab-bg 跟随实色） ——
    深色实色=白字+提亮 FAB；浅色(mint/sky)=深字+加深 FAB。渐变/默认不定义、回退主题原值。 */
-html[data-bg="solid-indigo"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#6e89de; }
-html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#5e8cb0; }
-html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#4ea8a3; }
-html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#33af80; }
-html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#c8966e; }
-html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#d87494; }
-html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --fab-bg:#a688d8; }
-html[data-bg="solid-mint"] body.todo-fs-on .todo-fs-main { --onbg:#2f4a3e; --onbg-soft:#5f7e6e; --fab-bg:#8fc8ae; }
-html[data-bg="solid-sky"] body.todo-fs-on .todo-fs-main { --onbg:#324a66; --onbg-soft:#6282a0; --fab-bg:#8fb4dd; }
+html[data-bg="solid-indigo"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#6e89de; }
+html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#5e8cb0; }
+html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#4ea8a3; }
+html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#33af80; }
+html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#c8966e; }
+html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#d87494; }
+html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --fab-bg:#a688d8; }
+html[data-bg="solid-mint"] body.todo-fs-on .todo-fs-main { --onbg:#2f4a3e; --onbg-soft:#5f7e6e; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fc8ae; }
+html[data-bg="solid-sky"] body.todo-fs-on .todo-fs-main { --onbg:#324a66; --onbg-soft:#6282a0; --onbg-hover:rgba(20,40,60,.08); --fab-bg:#8fb4dd; }
 
 /* body 纯色底（光斑仅保留在待办全屏背景内） */
 body {
@@ -523,10 +523,11 @@ a.app-side__item.active:hover:not(:active) { background: var(--hover-brand); col
      (renderTopbar 的内联脚本按 body.todo-fs-on 自动选择)。App 壳无 .m-tabbar 时贴底 20px。 */
   .m-fab {
     position: fixed; right: 16px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 1003;
-    width: 54px; height: 54px; border-radius: 18px; border: none; cursor: pointer;
+    width: 54px; height: 54px; border-radius: 18px;
+    border: 1px solid rgba(255,255,255,.18); cursor: pointer;
     background: var(--fab-bg, var(--brand-strong)); color: #fff;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 6px 18px rgba(20, 20, 40, .22);
+    box-shadow: 0 8px 22px rgba(124,58,237,.32);
     transition: transform .22s ease, opacity .2s ease, background .15s ease;
   }
   body:has(.m-tabbar) .m-fab { bottom: calc(82px + env(safe-area-inset-bottom, 0px)); }
@@ -2136,12 +2137,16 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
 .todo-detail-adder { margin-top: 8px; }
 .todo-detail-adder__placeholder {
   display: flex; align-items: center; gap: 8px;
-  width: 100%; padding: 12px 14px; background: transparent; color: var(--brand-text);
-  border: 1px dashed var(--brand-border); border-radius: 8px; cursor: pointer;
+  width: 100%; padding: 12px 14px; background: transparent;
+  color: var(--onbg, var(--brand-text));
+  border: 1px dashed var(--onbg-soft, var(--brand-border)); border-radius: 8px; cursor: pointer;
   font-size: 14px; text-align: left; transition: background .18s, border-color .18s;
   min-height: 44px;
 }
-.todo-detail-adder__placeholder:hover:not(:active) { background: rgba(168,85,247,.06); border-color: var(--brand-text); }
+.todo-detail-adder__placeholder:hover:not(:active) {
+  background: var(--onbg-hover, rgba(168,85,247,.08));
+  border-color: var(--onbg, var(--brand-text));
+}
 .todo-detail-adder__plus { font-weight: 700; font-size: 18px; line-height: 1; }
 .todo-detail-adder.editing .todo-detail-adder__placeholder { display: none; }
 .todo-detail-adder__editor { display: none; }

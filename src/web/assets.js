@@ -9429,8 +9429,8 @@ function todoAttachDoneLinkToTip(container, root, opts) {
       tipEl.appendChild(delLink);
     }
   } else {
-    // 无提示文兜底: 独立一行, 靠右轻量文字链(免密页/报告页/全屏视图)
-    link.style.cssText = 'background:none;border:0;padding:6px 8px;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;';
+    // 无提示文兜底: 独立一行, 靠右轻量文字链；颜色走 --onbg 适配彩色背景（深色实色变白）
+    link.style.cssText = 'background:none;border:0;padding:6px 8px;color:var(--onbg,var(--muted));font-size:12px;text-decoration:underline;cursor:pointer;';
     var wrap = document.createElement('div');
     wrap.className = 'todo-detail-done-wrap';
     wrap.style.cssText = 'text-align:right;margin:12px 0 4px;';
