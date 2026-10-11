@@ -6919,8 +6919,10 @@ function todoSwipeEnable(row, specs){
       if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
       decided = true;
       horizontal = Math.abs(dx) > Math.abs(dy);
-      // 起手在第二行 chips 内层：手势让给 chips 原生横滑，卡片不拖动（任何方向都不触发右滑）
+      // 第二行整条（含 padding 间隙）：不拖卡片，手势让给 chips 横滑
       if (horizontal && inChipScroll) horizontal = false;
+      // 操作层只在右侧：仅「第一行向左滑」可拖卡片；向右滑不响应（无右缘阻尼位移）
+      if (horizontal && dx > 0) horizontal = false;
       if (horizontal) {
         main.classList.add('no-anim');
         row.classList.add('swiping'); // acts 开始可见
@@ -6929,7 +6931,7 @@ function todoSwipeEnable(row, specs){
     if (!horizontal) return;
     if (e.cancelable) e.preventDefault(); // 水平手势锁纵向滚动
     var nx = startX + dx;
-    if (nx > 0) nx = nx * 0.3;                                // 右缘阻尼
+    if (nx > 0) nx = 0;                                        // 向右不位移
     if (nx < -actsW) nx = -actsW + (nx + actsW) * 0.3;        // 左缘阻尼
     main.style.transform = nx ? 'translateX(' + nx + 'px)' : '';
   }
