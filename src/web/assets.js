@@ -6894,9 +6894,17 @@ function todoSwipeEnable(row, specs){
     var t = e.touches[0];
     tracking = true; decided = false; horizontal = false;
     sx = t.clientX; sy = t.clientY; dx = 0; dy = 0;
-    // 起手在整个第二行 meta（chips 内层 + 固定 + /眼睛 + 行间 padding）：手势不拖动卡片
+    // 起手是否在第二行：target 命中 meta，或触点 Y 落在第二行矩形带（含 chips 上下 padding 间隙，
+    // 单靠 closest 会漏——点在 body padding 间隙时 target 不是 meta 的后代，卡片仍被拖动）
     var src = e.target;
     inChipScroll = !!(src && src.closest && src.closest('.todo-card__meta'));
+    if (!inChipScroll) {
+      var metaEl = row.querySelector('.todo-card__meta');
+      if (metaEl) {
+        var mr = metaEl.getBoundingClientRect();
+        if (t.clientY >= mr.top - 10 && t.clientY <= mr.bottom + 10) inChipScroll = true;
+      }
+    }
     actsW = acts.offsetWidth;
     startX = baseX();
     t0 = Date.now();
