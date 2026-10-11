@@ -2174,12 +2174,19 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   /* 第三行操作条移除（PC 不变） */
   .todo-card__foot { display: none; }
   /* ＋ / 👁 固定卡片右缘：无底色灰图标，按下才显色 */
-  .todo-card__quick-spacer { display: block; flex: 1 1 auto; min-width: 4px; }
+  /* 第二行 meta：chips 横向滑动、不换行；+ / 眼睛用 sticky 固定在右缘（卡片限两行高度） */
+  .todo-card__meta { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .todo-card__meta::-webkit-scrollbar { display: none; }
+  .todo-card__quick-spacer { display: block; flex: 1 0 12px; min-width: 4px; }
   .todo-card__quick {
     flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%;
-    background: none; color: var(--faint); cursor: pointer;
+    background: var(--surface); color: var(--faint); cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
+    position: sticky; right: 0; z-index: 2;
   }
+  /* 两个固定钮：加号(第一个)让位于右侧眼睛，眼睛贴最右，避免 sticky 重叠 */
+  .todo-card__quick:first-of-type { right: 30px; }
+  .todo-card__quick:last-of-type { right: 0; }
   .todo-card__quick svg { width: 17px; height: 17px; pointer-events: none; }
   .todo-card__quick:active { background: var(--hover-bg); color: var(--brand-text); }
   /* 行右滑容器：acts 固定在右侧底层灰底，圆形彩钮；main 原内容平移 */
