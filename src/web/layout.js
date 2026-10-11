@@ -2174,21 +2174,24 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   /* 第三行操作条移除（PC 不变） */
   .todo-card__foot { display: none; }
   /* ＋ / 👁 固定卡片右缘：无底色灰图标，按下才显色 */
-  /* 第二行 meta：chips 横向滑动、不换行；+ / 眼睛用 sticky 固定在右缘（卡片限两行高度） */
-  .todo-card__meta { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  /* 无 chip 时 +/眼睛挂在标题行(.head)，给 head 定位上下文让按钮垂直居中 */
+  .todo-card__head { position: relative; }
+  /* 第二行 meta：chips 在左侧区域横向滑动；+ / 眼睛绝对定位钉在卡片右缘，所有卡片位置对齐 */
+  .todo-card__meta { position: relative; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    padding-bottom: 2px; padding-right: 68px; }
   .todo-card__meta::-webkit-scrollbar { display: none; }
   /* chips/标签保持原始宽度、不收缩不内部换行，超出由 meta 横向滑动呈现（固定钮/spacer 除外） */
   .todo-card__meta > *:not(.todo-card__quick):not(.todo-card__quick-spacer) { flex: 0 0 auto; white-space: nowrap; }
-  .todo-card__quick-spacer { display: block; flex: 0 0 8px; min-width: 8px; margin-left: auto; }
+  .todo-card__quick-spacer { display: none; }
   .todo-card__quick {
     flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%;
     background: var(--surface); color: var(--faint); cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
-    position: sticky; right: 0; z-index: 2;
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; margin: 0;
   }
-  /* 两个固定钮：加号(第一个)让位于右侧眼睛，眼睛贴最右，避免 sticky 重叠 */
-  .todo-card__quick:first-of-type { right: 30px; }
-  .todo-card__quick:last-of-type { right: 0; }
+  /* 加号距右 34px、眼睛贴最右 4px：两张卡片按钮 x 坐标完全一致 */
+  .todo-card__quick:first-of-type { right: 34px; }
+  .todo-card__quick:last-of-type { right: 4px; }
   .todo-card__quick svg { width: 17px; height: 17px; pointer-events: none; }
   .todo-card__quick:active { background: var(--hover-bg); color: var(--brand-text); }
   /* 行右滑容器：acts 固定在右侧底层灰底，圆形彩钮；main 原内容平移 */
