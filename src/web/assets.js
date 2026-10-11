@@ -6894,9 +6894,9 @@ function todoSwipeEnable(row, specs){
     var t = e.touches[0];
     tracking = true; decided = false; horizontal = false;
     sx = t.clientX; sy = t.clientY; dx = 0; dy = 0;
-    // 起手在第二行 chips 内层：整个手势只用于 chips 自身横滑，绝不拖动卡片（向左/向右都不触发右滑）
+    // 起手在整个第二行 meta（chips 内层 + 固定 + /眼睛 + 行间 padding）：手势不拖动卡片
     var src = e.target;
-    inChipScroll = !!(src && src.closest && src.closest('.todo-card__meta-scroll'));
+    inChipScroll = !!(src && src.closest && src.closest('.todo-card__meta'));
     actsW = acts.offsetWidth;
     startX = baseX();
     t0 = Date.now();
