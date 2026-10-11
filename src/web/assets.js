@@ -9492,6 +9492,13 @@ function renderTodoCards(container, trees, opts) {
         meta.insertBefore(scroll, meta.firstChild);
       }
       body.appendChild(meta);
+      // 第二行不参与卡片右滑：触摸在 meta 内时阻断冒泡到 swipe-main，
+      // chips 内层仍可原生横滑、固定钮 click 不受影响（click 不阻断）
+      (function(metaEl){
+        function block(e){ e.stopPropagation(); }
+        metaEl.addEventListener('touchstart', block, true);
+        metaEl.addEventListener('touchmove', block, true);
+      })(meta);
     }
 
     // 备注单行截断（有则显示）
