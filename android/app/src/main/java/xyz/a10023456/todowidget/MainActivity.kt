@@ -12,6 +12,7 @@ import android.os.Environment
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.net.http.SslError
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -23,7 +24,6 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
-import android.webkit.SslError
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError

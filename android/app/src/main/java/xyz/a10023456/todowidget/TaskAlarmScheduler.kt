@@ -435,6 +435,37 @@ object TaskAlarmScheduler {
         schedule(context, stored, triggerAt)
     }
 
+    /**
+     * 闹钟页「完成」要勾选的任务 id 列表：
+     * 各自截止(child_due)只勾本次聚焦的最早到期未完成子任务（与响铃页展示规则一致，所见即所勾）；
+     * 传统父任务有未完成子任务时勾全部未完成子任务（父由服务端按自动结算偏好处理，不直接勾父），
+     * 无未完成子任务（叶子/子已全完成）时勾任务本身。
+     * 贪睡瞬态 id 去 __snooze__ 前缀还原原任务；测试闹钟 id 非数字返回空列表。
+     */
+    fun completeTargetIds(alarm: StoredTaskAlarm): List<Long> {
+        if (alarm.childDue) {
+            return listOfNotNull(
+                alarm.children
+                    .filter { !it.done }
+                    .sortedWith(
+                        compareBy(
+                            { it.dueDate == null },
+                            { it.dueDate ?: "" },
+                            { it.id }
+                        )
+                    )
+                    .firstOrNull()
+                    ?.id
+                    ?.toLongOrNull()
+            )
+        }
+        val pendingChildren = alarm.children
+            .filter { !it.done }
+            .mapNotNull { it.id.toLongOrNull() }
+        if (pendingChildren.isNotEmpty()) return pendingChildren
+        return listOfNotNull(alarm.todoId.removePrefix(SNOOZE_TODO_PREFIX).toLongOrNull())
+    }
+
     /** 最近一次任务闹钟到点触发的时间戳（毫秒）；从未触发过返回 0。 */
     fun lastFireAtMillis(context: Context): Long =
         context.getSharedPreferences(META_PREFS, Context.MODE_PRIVATE)

@@ -80,6 +80,10 @@ class AlarmRingingService : Service() {
                 snoozeCurrent()
                 advance()
             }
+            ACTION_COMPLETE -> {
+                completeCurrent()
+                advance()
+            }
             else -> {
                 val alarm = parseAlarm(intent)
                 if (alarm == null) {
@@ -140,6 +144,15 @@ class AlarmRingingService : Service() {
             runCatching {
                 TaskAlarmScheduler.snooze(this, item.alarm, item.startedAtMs, SNOOZE_DELAY_MS)
             }
+        }
+        stopCurrent()
+    }
+
+    private fun completeCurrent() {
+        val item = current ?: return
+        // 测试闹钟无真实任务 id：仅停铃（enqueue 内部也会再判一次）
+        if (TaskAlarmScheduler.completeTargetIds(item.alarm).isNotEmpty()) {
+            AlarmCompleteWorker.enqueue(this, item.alarm)
         }
         stopCurrent()
     }
@@ -442,6 +455,7 @@ class AlarmRingingService : Service() {
         const val CHANNEL_ID = "todo_task_alarm_svc"
         const val ACTION_STOP = "xyz.a10023456.todowidget.ALARM_STOP"
         const val ACTION_SNOOZE = "xyz.a10023456.todowidget.ALARM_SNOOZE"
+        const val ACTION_COMPLETE = "xyz.a10023456.todowidget.ALARM_COMPLETE"
         const val EXTRA_ALARM_JSON = "alarm_json"
         const val EXTRA_LAUNCH_ACTIVITY = "launch_activity"
         const val SVC_NOTIFICATION_ID = 40000

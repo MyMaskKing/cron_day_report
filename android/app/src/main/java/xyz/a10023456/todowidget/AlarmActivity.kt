@@ -8,9 +8,9 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -33,9 +33,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -93,6 +93,10 @@ class AlarmActivity : ComponentActivity() {
                 },
                 onSnooze = {
                     sendCommand(AlarmRingingService.ACTION_SNOOZE)
+                    finish()
+                },
+                onComplete = {
+                    sendCommand(AlarmRingingService.ACTION_COMPLETE)
                     finish()
                 },
                 onDetail = { data ->
@@ -183,12 +187,15 @@ private val AccentText = Color(0xFFD3B4FF)
 private val AccentBorder = Color(0xFFB97BFF).copy(alpha = .62f)
 private val ChipColor = Color(0xFFA855F7).copy(alpha = .22f)
 private val StopRed = Color(0xFFFF3B30)
+private val DoneGreen = Color(0xFF34C759)
+private val DoneText = Color(0xFF46D36B)
 
 @Composable
 private fun AlarmScreen(
     alarm: StoredTaskAlarm?,
     onStop: () -> Unit,
     onSnooze: () -> Unit,
+    onComplete: () -> Unit,
     onDetail: (StoredTaskAlarm) -> Unit
 ) {
     BoxWithConstraints(
@@ -275,6 +282,7 @@ private fun AlarmScreen(
                         .clip(RoundedCornerShape(22.dp))
                         .background(FocusCardBg)
                         .border(1.dp, FocusCardBorder, RoundedCornerShape(22.dp))
+                        .clickable(enabled = alarm != null) { alarm?.let(onDetail) }
                 ) {
                     // 顶部微高光（两端淡出，贴合圆角）
                     Box(
@@ -301,6 +309,14 @@ private fun AlarmScreen(
                             MetaChips(alarm)
                             Spacer(Modifier.height(16.dp))
                             ChildrenSection(alarm)
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "查看详情 ›",
+                                color = AlarmMuted,
+                                fontSize = 12.sp,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
+                            )
                         }
                     }
                 }
@@ -312,13 +328,13 @@ private fun AlarmScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 18.dp, vertical = 14.dp)
             ) {
-                // 停止：亮红色实色（不透明、最醒目）
+                // 停止：亮红色实色药丸（不透明、最醒目，全宽大热区）
                 Button(
                     onClick = onStop,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(58.dp),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = StopRed,
                         contentColor = Color.White
@@ -334,35 +350,73 @@ private fun AlarmScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 再等一会（贪睡 5 分钟）
-                    OutlinedButton(
-                        onClick = onSnooze,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, AccentBorder),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = Color.Transparent,
-                            contentColor = AccentText
+                    // 再等一会（贪睡 5 分钟）：玻璃紫边圆钮
+                    CircleAction(
+                        iconRes = R.drawable.ic_alarm_snooze,
+                        iconTint = AccentText,
+                        label = "再等一会",
+                        labelColor = AccentText,
+                        filled = false,
+                        modifier = Modifier.weight(1f),
+                        onClick = onSnooze
+                    )
+                    // 完成：绿色实色圆钮；测试闹钟等无真实任务 id 时隐藏
+                    if (alarm != null && TaskAlarmScheduler.completeTargetIds(alarm).isNotEmpty()) {
+                        CircleAction(
+                            iconRes = R.drawable.ic_alarm_done,
+                            iconTint = Color.White,
+                            label = "完成",
+                            labelColor = DoneText,
+                            filled = true,
+                            modifier = Modifier.weight(1f),
+                            onClick = onComplete
                         )
-                    ) {
-                        Text("再等一会", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    // 查看详情（弱化为纯文字）
-                    if (alarm != null) {
-                        TextButton(
-                            onClick = { onDetail(alarm) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(50.dp)
-                        ) {
-                            Text("查看详情", color = AlarmMuted, fontSize = 13.sp)
-                        }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * 底部圆形次操作按钮：60dp 圆钮内放图标，文字在圆钮下方。
+ * filled=false 为紫边玻璃款，true 为绿色实色款；modifier 用于在 Row 中 weight 均分，
+ * 仅一个按钮时其内部居中即视觉居中。
+ */
+@Composable
+private fun CircleAction(
+    iconRes: Int,
+    iconTint: Color,
+    label: String,
+    labelColor: Color,
+    filled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .clip(CircleShape)
+                .then(
+                    if (filled) Modifier.background(DoneGreen)
+                    else Modifier.border(1.5.dp, AccentBorder, CircleShape)
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = label,
+                tint = iconTint,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(label, color = labelColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
