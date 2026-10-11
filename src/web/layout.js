@@ -2177,7 +2177,9 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   /* 第二行 meta：chips 横向滑动、不换行；+ / 眼睛用 sticky 固定在右缘（卡片限两行高度） */
   .todo-card__meta { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
   .todo-card__meta::-webkit-scrollbar { display: none; }
-  .todo-card__quick-spacer { display: block; flex: 1 0 12px; min-width: 4px; }
+  /* chips/标签保持原始宽度、不收缩不内部换行，超出由 meta 横向滑动呈现（固定钮/spacer 除外） */
+  .todo-card__meta > *:not(.todo-card__quick):not(.todo-card__quick-spacer) { flex: 0 0 auto; white-space: nowrap; }
+  .todo-card__quick-spacer { display: block; flex: 0 0 8px; min-width: 8px; margin-left: auto; }
   .todo-card__quick {
     flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%;
     background: var(--surface); color: var(--faint); cursor: pointer;
