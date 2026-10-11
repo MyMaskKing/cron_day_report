@@ -6899,9 +6899,9 @@ function todoSwipeEnable(row, specs){
     var t = e.touches[0];
     tracking = true; decided = false; horizontal = false;
     sx = t.clientX; sy = t.clientY; dx = 0; dy = 0;
-    // 起手在第二行 chips 横滑区：该手势优先给 chips 滚动（onMove 按滚动余量决定是否让位）
+    // 起手在第二行 chips 横滑内层：该手势优先给 chips 滚动（onMove 按滚动余量决定是否让位）
     var src = e.target;
-    metaScroller = (src && src.closest) ? src.closest('.todo-card__meta') : null;
+    metaScroller = (src && src.closest) ? src.closest('.todo-card__meta-scroll') : null;
     actsW = acts.offsetWidth;
     startX = baseX();
     t0 = Date.now();
@@ -9486,7 +9486,20 @@ function renderTodoCards(container, trees, opts) {
         quickHost.appendChild(qEye);
       }
     }
-    if (meta.childNodes.length) body.appendChild(meta);
+    if (meta.childNodes.length) {
+      // 手机：把 chips 包进可横滑内层，固定的 + /眼睛留在 meta 外层不随 chips 滚动
+      var chips = [];
+      Array.prototype.slice.call(meta.childNodes).forEach(function(n){
+        if (n.nodeType === 1 && !n.classList.contains('todo-card__quick') && !n.classList.contains('todo-card__quick-spacer')) chips.push(n);
+      });
+      if (chips.length) {
+        var scroll = document.createElement('div');
+        scroll.className = 'todo-card__meta-scroll';
+        chips.forEach(function(c){ scroll.appendChild(c); });
+        meta.insertBefore(scroll, meta.firstChild);
+      }
+      body.appendChild(meta);
+    }
 
     // 备注单行截断（有则显示）
     if (root.note) {
