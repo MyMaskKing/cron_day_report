@@ -6921,8 +6921,9 @@ function todoSwipeEnable(row, specs){
       horizontal = Math.abs(dx) > Math.abs(dy);
       // 第二行整条（含 padding 间隙）：不拖卡片，手势让给 chips 横滑
       if (horizontal && inChipScroll) horizontal = false;
-      // 操作层只在右侧：仅「第一行向左滑」可拖卡片；向右滑不响应（无右缘阻尼位移）
-      if (horizontal && dx > 0) horizontal = false;
+      // 操作层在右侧：未打开时只接受向左滑（向右无意义）；已打开时向右滑用于收回
+      var closing = _todoSwipeOpenMain === main; // 本卡片操作层当前露出
+      if (horizontal && dx > 0 && !closing) horizontal = false;
       if (horizontal) {
         main.classList.add('no-anim');
         row.classList.add('swiping'); // acts 开始可见
@@ -6931,7 +6932,8 @@ function todoSwipeEnable(row, specs){
     if (!horizontal) return;
     if (e.cancelable) e.preventDefault(); // 水平手势锁纵向滚动
     var nx = startX + dx;
-    if (nx > 0) nx = 0;                                        // 向右不位移
+    // 未打开态右移不越过 0；已打开态右移用于收回（从 -actsW 回到 0），仍不越过 0
+    if (nx > 0) nx = 0;
     if (nx < -actsW) nx = -actsW + (nx + actsW) * 0.3;        // 左缘阻尼
     main.style.transform = nx ? 'translateX(' + nx + 'px)' : '';
   }
