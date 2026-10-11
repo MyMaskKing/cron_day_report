@@ -6883,13 +6883,8 @@ function todoSwipeEnable(row, specs){
 
   var actsW = 0, tracking = false, decided = false, horizontal = false;
   var sx = 0, sy = 0, startX = 0, dx = 0, dy = 0, t0 = 0;
-  var metaScroller = null;  // 起手落在第二行 chips 横滑区时记录该容器
+  var inChipScroll = false;  // 起手是否落在第二行 chips 横滑内层
   function baseX(){ return _todoSwipeOpenMain === main ? -actsW : 0; }
-  // chips 横滑区能否按该方向继续滚动：向左(dx<0)看右侧是否还有内容，向右(dx>0)看是否已左移
-  function metaCanScroll(el, dirLeft){
-    if (!el) return false;
-    return dirLeft ? (el.scrollLeft + el.clientWidth < el.scrollWidth - 1) : (el.scrollLeft > 1);
-  }
   function onStart(e){
     // App 壳：触摸期间禁用原生 SwipeRefresh（JS preventDefault 挡不住原生父容器）
     try {
@@ -6899,9 +6894,9 @@ function todoSwipeEnable(row, specs){
     var t = e.touches[0];
     tracking = true; decided = false; horizontal = false;
     sx = t.clientX; sy = t.clientY; dx = 0; dy = 0;
-    // 起手在第二行 chips 横滑内层：该手势优先给 chips 滚动（onMove 按滚动余量决定是否让位）
+    // 起手在第二行 chips 内层：整个手势只用于 chips 自身横滑，绝不拖动卡片（向左/向右都不触发右滑）
     var src = e.target;
-    metaScroller = (src && src.closest) ? src.closest('.todo-card__meta-scroll') : null;
+    inChipScroll = !!(src && src.closest && src.closest('.todo-card__meta-scroll'));
     actsW = acts.offsetWidth;
     startX = baseX();
     t0 = Date.now();
@@ -6916,13 +6911,11 @@ function todoSwipeEnable(row, specs){
       if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
       decided = true;
       horizontal = Math.abs(dx) > Math.abs(dy);
+      // 起手在第二行 chips 内层：手势让给 chips 原生横滑，卡片不拖动（任何方向都不触发右滑）
+      if (horizontal && inChipScroll) horizontal = false;
       if (horizontal) {
-        // 起手在第二行 chips 区、且该方向 chips 还能滚：手势让给 chips 原生横滑，不拖卡片
-        if (metaScroller && metaCanScroll(metaScroller, dx < 0)) horizontal = false;
-        else {
-          main.classList.add('no-anim');
-          row.classList.add('swiping'); // acts 开始可见
-        }
+        main.classList.add('no-anim');
+        row.classList.add('swiping'); // acts 开始可见
       }
     }
     if (!horizontal) return;
