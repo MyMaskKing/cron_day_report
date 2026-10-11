@@ -3367,6 +3367,17 @@ html[data-bg]:not([data-bg=""]) .bg-sp-row.root { border-left-color: #8b5cf6; }
 .bg-sw[data-bg="solid-sky"]    { background:#ddeaf6; }
 .bg-sheet__actions { display: flex; gap: 10px; margin-top: 16px; }
 .bg-sheet__actions .btn { flex: 1; }
+/* 手机浏览器: .m-tabbar(z-index 1002) 层叠高于全屏层(1000), 贴底弹出的背景 sheet 底部按钮会被
+   Tab 栏盖住; 有 tabbar 时遮罩底边抬到 Tab 栏之上, sheet 限高内部可滚保证保存按钮可达。
+   App 壳不输出 .m-tabbar, 本规则不生效(对齐 .todo-drawer 的处理) */
+@media (max-width: 640px) {
+  body:has(.m-tabbar) .bg-sheet-mask { bottom: calc(60px + env(safe-area-inset-bottom, 0px)); }
+  body:has(.m-tabbar) .bg-sheet {
+    max-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 
 /* 设置页「界面背景」入口行 */
 .bg-pick-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
