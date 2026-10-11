@@ -90,6 +90,12 @@ fun friendlyErrorMsg(raw: String?): String {
         // OkHttp HTTP/2 ConnectionShutdownException "Connection shutdown"），属瞬态事件
         s.contains("Connection closed", ignoreCase = true) ||
             s.contains("Connection shutdown", ignoreCase = true) -> "网络连接中断，正在自动重试"
+        // 证书链校验失败（Conscrypt CertPathValidatorException "Trust anchor…"、
+        // SSLHandshakeException 等）：多为网络路径上的 TLS 拦截/代理证书不受信，不直出 Java 异常全名
+        s.contains("CertPath", ignoreCase = true) ||
+            s.contains("Trust anchor", ignoreCase = true) ||
+            s.contains("SSLHandshake", ignoreCase = true) ||
+            s.contains("PKIX path", ignoreCase = true) -> "网络安全证书校验失败，恢复后自动重试"
         s.contains("Unable to resolve host", ignoreCase = true) ||
             s.contains("failed to connect", ignoreCase = true) ||
             s.contains("Network is unreachable", ignoreCase = true) ||

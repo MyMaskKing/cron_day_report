@@ -9,6 +9,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Environment
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.content.pm.PackageManager
@@ -22,7 +23,10 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.SslError
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -31,9 +35,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -42,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.WindowInsets
@@ -50,6 +58,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -306,6 +315,8 @@ private fun AppShell(
     // 冷启动（无深链）加载根路径，服务端按默认首页偏好 302；深链原样打开
     var targetUrl by rememberSaveable { mutableStateOf(initialUrl ?: (baseUrl + "/")) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    // 主文档加载失败覆盖层：null=正常；断网/DNS 等普通失败与 SSL 证书失败分别提示
+    var loadError by remember { mutableStateOf<WebLoadError?>(null) }
     // 最近一次实际 loadUrl 的地址（自己维护，不用 wv.url——网页 replaceState 清深链参数后
     // wv.url 不可靠）。深链即使与目标相同也要强制重载，保证 ?edit/?addChild 弹窗每次都重跑。
     var lastLoadedUrl by remember { mutableStateOf<String?>(null) }
@@ -585,6 +596,37 @@ private fun AppShell(
                                     context.startActivity(Intent(Intent.ACTION_VIEW, uri))
                                     true
                                 }
+                            }
+
+                            // 主文档开始加载：收起下拉刷新圈并清除上次失败覆盖层（首次/重试都从这里开始）
+                            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                super.onPageStarted(view, url, favicon)
+                                loadError = null
+                                swipe.isRefreshing = false
+                            }
+
+                            override fun onReceivedError(
+                                view: WebView?,
+                                request: WebResourceRequest,
+                                error: WebResourceError
+                            ) {
+                                super.onReceivedError(view, request, error)
+                                // 仅主文档失败才盖整页错误层；图片/接口等子资源失败由网页自身处理，避免误遮
+                                if (request.isForMainFrame) {
+                                    swipe.isRefreshing = false
+                                    loadError = WebLoadError(ssl = false, code = error.errorCode)
+                                }
+                            }
+
+                            override fun onReceivedSslError(
+                                view: WebView?,
+                                handler: SslErrorHandler,
+                                error: SslError?
+                            ) {
+                                // 安全红线：证书错误绝不 handler.proceed() 放行；取消加载并提示，重试可重新握手
+                                handler.cancel()
+                                swipe.isRefreshing = false
+                                loadError = WebLoadError(ssl = true)
                             }
 
                             // 网页内部跳转（如仪表盘「查看全部」→ /todo）同步底部 Tab 选中态；
@@ -936,6 +978,59 @@ private fun AppShell(
                     onWebView?.invoke(null)
                 }
             )
+            // 主文档加载/证书失败覆盖层：替代白屏，给出原因与重试入口；SSL 错误仅提示不放行
+            loadError?.let { err ->
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.surface
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text("⚠️", fontSize = 42.sp)
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            if (err.ssl) "安全连接失败" else "网络连接失败",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            if (err.ssl)
+                                "服务器证书校验未通过，可能遇到网络劫持或代理/VPN 干扰。"
+                            else
+                                "页面暂时无法加载，请检查网络连接。",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        if (err.ssl) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "请切换网络或关闭代理后重试。",
+                                fontSize = 13.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        } else if (err.code != null) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "错误代码 ${err.code}",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        Spacer(Modifier.height(20.dp))
+                        Button(onClick = { webViewRef?.reload() }) {
+                            Text("重新加载")
+                        }
+                    }
+                }
+            }
             if (showMe) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MeScreen(
@@ -1021,6 +1116,12 @@ private fun parseDownloadName(disposition: String?): String? {
     }
     return raw?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }
 }
+
+/**
+ * WebView 主文档加载失败状态：ssl=true 为证书校验失败（不放行、提示切换网络）；
+ * code 为普通网络错误码（WebResourceError.errorCode），仅展示辅助排查。
+ */
+private data class WebLoadError(val ssl: Boolean, val code: Int? = null)
 
 /**
  * 下拉刷新容器：支持触摸手势期间「即时锁定」。
