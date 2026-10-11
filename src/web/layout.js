@@ -2252,13 +2252,14 @@ body.todo-dragging { user-select: none; -webkit-user-select: none; touch-action:
   background: rgba(168,85,247,.08);
   border-color: var(--brand-text);
 }
-/* 全屏【详情根级】占位直接落在全屏背景上（#todoTree 透明、白卡之外），跟随背景 --onbg；
-   白卡内（完整树等 .todo-node 内）的占位不受影响、保持品牌紫。无背景时 --onbg 未定义→回退紫色 */
-body.todo-detail #todoTree > .todo-detail-adder .todo-detail-adder__placeholder {
+/* 全屏内 #todoTree 是透明容器：其中所有「添加子任务」占位（详情根级 + 各节点级，PC 节点级也显示）
+   都直接落在全屏背景上，统一跟随 --onbg（深实色变白/浅实色变深/无背景回退品牌紫）。
+   modal 任务详情的占位在 .modal-mask 白卡内、不在 #todoTree，保持品牌紫不受影响。 */
+body.todo-fs-on #todoTree .todo-detail-adder__placeholder {
   color: var(--onbg, var(--brand-text));
   border-color: var(--onbg-soft, var(--brand-border));
 }
-body.todo-detail #todoTree > .todo-detail-adder .todo-detail-adder__placeholder:hover:not(:active) {
+body.todo-fs-on #todoTree .todo-detail-adder__placeholder:hover:not(:active) {
   background: var(--onbg-hover, rgba(168,85,247,.08));
   border-color: var(--onbg, var(--brand-text));
 }
