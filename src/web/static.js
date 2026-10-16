@@ -22,6 +22,7 @@ import {
   DOWNLOAD_JS
 } from './assets.js';
 import { KUAILE_WOFF2_B64 } from './fonts.js';
+import { CHART_VENDOR_JS } from './chart-vendor.js';
 
 const JS = 'application/javascript';
 const CSS = 'text/css';
@@ -43,6 +44,8 @@ function buildAssets() {
     'core.css': { body: BASE_CSS, type: CSS },
     'favicon.svg': { body: FAVICON_SVG, type: 'image/svg+xml' },
     'common.js': { body: COMMON_JS, type: JS },
+    // Chart.js 自托管：免密页在微信/移动网络下不再依赖 jsdelivr CDN
+    'chart.js': { body: CHART_VENDOR_JS, type: JS },
     'todo-core.js': { body: TODO_TREE_CORE, type: JS },
     'page-login.js': { body: LOGIN_JS, type: JS },
     'page-change-password.js': { body: CHANGE_PASSWORD_JS, type: JS },

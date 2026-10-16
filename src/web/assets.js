@@ -5885,7 +5885,8 @@ async function loadInfo() {
     renderStreak(calcStreak(d.records, d.today));
     renderCalendar(d.records, d.today);
     renderMood(d.records, d.today);
-    drawMini(d.records);
+    // 曲线图失败（如 Chart.js 未加载）不应炸掉整个打卡页：隐藏画布，表单/日历/历史照常
+    try { drawMini(d.records); } catch(_) { var _miniEl = document.getElementById('miniChart'); if (_miniEl) _miniEl.style.display = 'none'; }
     renderHist(d.records);
     return d;
   } catch(e) {
