@@ -2375,6 +2375,101 @@ body.todo-fs-on .impersonate-banner { display: none !important; }
 body.todo-fs-on .container > .card { display: none !important; }
 body.todo-fs-on .todo-fullscreen { display: flex; }
 
+/* ============ 全屏首屏 loading（结构见 pages.js TODO_FS_LOADING_HTML） ============
+   boot 纸飞机环: HTML 直出即自启动(200ms CSS 延迟淡入, 快请求在淡入前被 is-done 摘除→无感);
+   冷启动期间 body.todo-fs-boot 隐藏全局遮罩, 由全屏内动画承接。
+   状态切换: is-skel=卡片骨架 / is-fail=失败态 / is-done=终态隐藏（assets.js todoFsBoot*）。 */
+body.todo-fs-boot #globalLoading { display: none !important; }
+.todo-fs-main { position: relative; }
+.todo-fs-main {
+  --fs-ring-from: #7C5CFF; --fs-ring-to: #FF7A59;
+  --fs-ring-dot: #FF7A59; --fs-dot-glow: rgba(255,122,89,.55);
+  --fs-plane-fill: #fff; --fs-plane-stroke: #7C5CFF;
+  --fs-bar-track: rgba(124,92,255,.16);
+}
+[data-theme="dark"] .todo-fs-main {
+  --fs-ring-from: #b18cff; --fs-ring-to: #ff9f85;
+  --fs-ring-dot: #ff8a6b; --fs-dot-glow: rgba(255,138,107,.45);
+  --fs-plane-fill: #22242e; --fs-plane-stroke: #e9e4ff;
+  --fs-bar-track: rgba(255,255,255,.14);
+}
+/* 深实色背景: 环转白、晨光点转暖白; 白机配深色半透描边(压在白环上时仍可分)。
+   mint/sky 是浅实色, 沿用默认品牌紫环。 */
+html[data-bg="solid-indigo"] body.todo-fs-on .todo-fs-main,
+html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main,
+html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main,
+html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main,
+html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main,
+html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main,
+html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main {
+  --fs-ring-from: #fff; --fs-ring-to: rgba(255,255,255,.45);
+  --fs-ring-dot: #ffd2c2; --fs-dot-glow: rgba(255,190,160,.7);
+  --fs-plane-fill: #fff; --fs-plane-stroke: rgba(30,20,60,.28);
+  --fs-bar-track: rgba(255,255,255,.28);
+}
+/* loading 层: 盖在 fs-top 以下的主区; #todoTree 由 applyTodoView append 在后, z-index 保证 loading 在上 */
+.todo-fs-loading { position: absolute; z-index: 6; left: 0; right: 0; top: 62px; bottom: 0; padding: 0 16px; }
+.todo-fs-loading.is-done { display: none; }
+.fs-load-boot, .fs-load-skel, .fs-load-fail { display: none; }
+/* boot 纸飞机环: 居中, 200ms 后才淡入（快请求无感）, SMIL 飞行由 SVG 自驱动 */
+.todo-fs-loading .fs-load-boot {
+  display: flex; position: absolute; inset: 0; flex-direction: column;
+  align-items: center; justify-content: center; padding-bottom: 12vh;
+  opacity: 0; animation: fsBootIn .18s ease-out .2s forwards;
+}
+@keyframes fsBootIn { to { opacity: 1; } }
+.fs-orbit-dot { filter: drop-shadow(0 0 6px var(--fs-dot-glow)); }
+.fs-boot-text { margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--onbg, var(--muted)); }
+/* 慢网(≥3s)兜底进度条: 纯 CSS 延时, is-done 时随层一起消失 */
+.fs-boot-bar {
+  width: 132px; height: 3px; margin-top: 16px; border-radius: 2px; overflow: hidden;
+  background: var(--fs-bar-track); opacity: 0; animation: fsBarShow .2s ease 3s forwards;
+}
+.fs-boot-bar i {
+  display: block; height: 100%; width: 0;
+  background: linear-gradient(90deg, #FF7A59, #A855F7, #3B82F6); border-radius: 2px;
+  animation: fsBarCrawl 2.6s cubic-bezier(.25,.7,.35,1) 3s forwards;
+}
+@keyframes fsBarShow { to { opacity: 1; } }
+@keyframes fsBarCrawl { 0% { width: 0; } 70% { width: 72%; } 100% { width: 90%; } }
+/* skel 卡片骨架: 同卡宽同圆角的低承诺预告, 品牌紫微光斜扫 */
+.todo-fs-loading.is-skel .fs-load-skel { display: block; opacity: 1; }
+.fs-load-skel { opacity: 0; transition: opacity .18s ease-out; }
+.todo-fs-loading.is-skel .fs-load-boot,
+.todo-fs-loading.is-fail .fs-load-boot,
+.todo-fs-loading.is-fail .fs-load-skel { display: none; }
+.fs-skel-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 14px; margin-bottom: 10px; position: relative; overflow: hidden;
+  box-shadow: 0 1px 3px rgba(20,16,50,.06);
+}
+.fs-skel-card::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 38%, rgba(124,92,255,.09) 50%, transparent 62%);
+  transform: translateX(-100%); animation: fsSkelSweep 1.7s cubic-bezier(.4,0,.2,1) infinite;
+}
+@keyframes fsSkelSweep { 0% { transform: translateX(-100%); } 55%,100% { transform: translateX(100%); } }
+.fs-skel-line { height: 11px; border-radius: 6px; background: var(--surface-2); }
+.fs-skel-line + .fs-skel-line { margin-top: 11px; }
+.fs-skel-line.w40 { width: 40%; } .fs-skel-line.w60 { width: 60%; } .fs-skel-line.w90 { width: 90%; }
+.fs-skel-chips { display: flex; gap: 6px; margin-top: 13px; }
+.fs-skel-chips span { height: 22px; width: 72px; border-radius: 8px; background: var(--surface-2); }
+.fs-skel-chips span:last-child { width: 88px; }
+/* fail 失败态 */
+.todo-fs-loading.is-fail .fs-load-fail {
+  display: flex; position: absolute; inset: 0; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+}
+.fs-fail-msg { color: var(--muted); font-size: 14px; text-align: center; padding: 0 24px; }
+/* 列表首帧错峰落位: 仅前 6 个直接子节点, 由 todoFsBootFinish 挂类一次 */
+#todoTree.fs-boot-in > *:nth-child(-n+6) { animation: fsCardIn .34s cubic-bezier(.16,1,.3,1) both; }
+#todoTree.fs-boot-in > *:nth-child(2) { animation-delay: 55ms; }
+#todoTree.fs-boot-in > *:nth-child(3) { animation-delay: 110ms; }
+#todoTree.fs-boot-in > *:nth-child(4) { animation-delay: 165ms; }
+#todoTree.fs-boot-in > *:nth-child(5) { animation-delay: 220ms; }
+#todoTree.fs-boot-in > *:nth-child(6) { animation-delay: 275ms; }
+@keyframes fsCardIn { from { opacity: 0; transform: translateY(10px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+
 /* 普通文档流页面(登录/系统设置/体重/资产公开填写等非弹窗表单): 键盘弹起时底部预留键盘高度,
    短表单也能把输入框滚到键盘上方。弹窗(.modal-mask 由 JS 几何对齐)与待办全屏(.todo-fs-main
    自身 padding)另有避让; 弹窗打开时 body.no-scroll 为 position:fixed, 此项不影响弹窗布局。
@@ -2846,7 +2941,14 @@ html { scrollbar-gutter: stable; }
   .btn::after { display: none; }
   #globalLoading .spinner::before,
   #globalLoading .spinner::after { animation: none; }
+  /* 全屏 loading: 扫光/飞行(SMIL 由 JS pause)/进度条停止, 只保留淡入与淡入式落位 */
+  .fs-skel-card::after { animation: none; }
+  .fs-load-boot { animation: fsBootIn .01ms linear .1s forwards; }
+  .fs-boot-bar { animation: none; opacity: 0; }
+  .fs-boot-bar i { animation: none; }
+  #todoTree.fs-boot-in > *:nth-child(-n+6) { animation: fsCardInRM .2s ease both; animation-delay: 0ms !important; }
 }
+@keyframes fsCardInRM { from { opacity: 0; } to { opacity: 1; } }
 
 
 /* ============ 移动端适配 (<=640px) ============ */
@@ -3014,6 +3116,8 @@ html { scrollbar-gutter: stable; }
   .fs-segbtn { padding-left: 8px; padding-right: 8px; gap: 4px; font-size: 12.5px; }
   .fs-exitbtn { padding-left: 10px; padding-right: 10px; }
   .todo-fs-top--hidden { transform: translateY(-110%); opacity: 0; pointer-events: none; }
+  /* 手机 fs-top 贴边全高约 60px、fs-main 左右 12px, loading 层对齐 */
+  .todo-fs-loading { top: 60px; padding: 0 12px; }
 }
 
 /* ============ 每日勉励卡（用户私有；全屏弹层，自有配色不跟随面板主题） ============

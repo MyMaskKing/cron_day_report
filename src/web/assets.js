@@ -7071,8 +7071,61 @@ try {
 // 守卫 #todoFullscreen: 仅待办四页挂全屏态; 仪表盘也加载本 core(复用 openTodoDetail 原地弹详情),
 // 它没有该元素, 绝不能挂 todo-fs-on, 否则整页布局会被切成待办全屏(侧栏/卡片消失).
 if (document.getElementById('todoFullscreen')) {
-  if (document.body) document.body.classList.add('todo-fs-on');
-  else document.addEventListener('DOMContentLoaded', function(){ document.body.classList.add('todo-fs-on'); }, { once: true });
+  // 冷启动期: todo-fs-boot 让 CSS 隐藏全局遮罩, 由全屏内纸飞机环承接; 首屏收尾时移除
+  var _fsBootMark = function () {
+    document.body.classList.add('todo-fs-on', 'todo-fs-boot');
+    // SMIL 不受 CSS 媒体查询控制, reduced-motion 下直接暂停纸飞机飞行(静帧停在缺口起点)
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      var svgs = document.querySelectorAll('#todoFsLoading svg');
+      for (var i = 0; i < svgs.length; i++) { try { svgs[i].pauseAnimations(); } catch (e) {} }
+    }
+  };
+  if (document.body) _fsBootMark();
+  else document.addEventListener('DOMContentLoaded', _fsBootMark, { once: true });
+}
+
+// ============ 全屏首屏 loading 收尾（结构/样式见 pages.js TODO_FS_LOADING_HTML / layout.js .fs-load-*） ============
+// 冷启动 B 纸飞机环由 HTML/CSS 自启动; 首屏列表渲染成功调 todoFsBootFinish(一次性)隐藏并让卡片错峰落位;
+// 失败调 todoFsBootFail 切失败态, 点「重新加载」期间显示 A 卡片骨架(200ms 延迟挂载, 快请求无感)。
+var _fsBootFinished = false;
+var _fsSkelTimer = null;
+function _fsLoadingEl() { return document.getElementById('todoFsLoading'); }
+function todoFsBootFinish() {
+  if (_fsBootFinished) return;
+  _fsBootFinished = true;
+  clearTimeout(_fsSkelTimer);
+  document.body.classList.remove('todo-fs-boot');
+  var el = _fsLoadingEl();
+  if (el) { el.classList.remove('is-skel', 'is-fail'); el.classList.add('is-done'); }
+  // 列表首帧错峰落位: 仅全屏态(#todoTree 已迁入 .todo-fs-main); 650ms 后摘类, 后续重绘不再动画
+  var tree = document.getElementById('todoTree');
+  var fsMain = document.querySelector('#todoFullscreen .todo-fs-main');
+  if (tree && fsMain && tree.parentNode === fsMain) {
+    tree.classList.add('fs-boot-in');
+    setTimeout(function () { tree.classList.remove('fs-boot-in'); }, 650);
+  }
+}
+function todoFsBootFail(retryFn, message) {
+  clearTimeout(_fsSkelTimer);
+  document.body.classList.remove('todo-fs-boot');
+  var el = _fsLoadingEl();
+  if (!el) return;
+  var msg = document.getElementById('todoFsFailMsg');
+  if (msg) msg.textContent = message || '清单没加载出来';
+  el.classList.remove('is-skel');
+  el.classList.add('is-fail');
+  var btn = document.getElementById('todoFsRetry');
+  if (btn && !btn.__fsRetryBound) {
+    btn.__fsRetryBound = 1;
+    btn.addEventListener('click', function () {
+      el.classList.remove('is-fail');
+      document.body.classList.add('todo-fs-boot');
+      clearTimeout(_fsSkelTimer);
+      _fsSkelTimer = setTimeout(function () { el.classList.add('is-skel'); }, 200);
+      // 成功由加载函数内部 todoFsBootFinish 收尾(连带摘掉骨架); 失败会再次进入本函数显示失败态
+      try { retryFn(); } catch (e) { /* 各加载函数自带 catch, 这里兜底 */ }
+    });
+  }
 }
 // ESC 键退全屏用: 保存 applyTodoView 每次传入的最新 getRowsFn / onDrawTree
 // 全局 keydown 只绑一次(_todoEscBound), 从这里读最新引用, 避免闭包旧值
@@ -13214,6 +13267,8 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
     // 应用视图状态: localStorage 里可能已有 'card'/'tree', 首次进入直接全屏
     // （?root 已在加载前解析为 _todoDetailRootId, 首帧直接渲染详情, 不闪列表）
     applyTodoView(_todoGetRows, drawTree);
+    // 全屏冷启动 loading(B 纸飞机环)收尾: 隐藏动画 + 列表错峰落位
+    todoFsBootFinish();
     // 账号自定义视图循环（设置页配置）：profile 到达后校正，当前视图不在循环内则落首项（账号默认）
     try {
       var _viewPf = await api('/api/auth/profile');
@@ -13276,7 +13331,11 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
       });
     }
   }
-  catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
+  catch(e){
+    // 登录失效跳登录; 其余(网络错误等)交给全屏失败态, 可「重新加载」整页重试
+    if (String(e.message).indexOf('登录')>=0) navTo('/login');
+    else todoFsBootFail(function(){ location.reload(); }, e.message || '清单没加载出来');
+  }
 })();
 
 // ===== 待办全屏背景：底部弹层 + 实时预览卡片，保存后仅待办全屏生效 =====
@@ -13432,7 +13491,12 @@ async function loadPublic() {
     // 应用视图状态(抽屉/全屏/按钮文案); onDrawTree 仅重绘可见树, 不重新 loadPublic(避免死循环)
     // 这个 fn 也会被 viewSwitchBtn/exitFullscreen 等按钮的幂等绑定捕获, 必须能触发实际重绘
     applyTodoView(_todoGetRows, function(){ drawTree(visibleTrees()); });
-  } catch(e) { showMsg(msg, e.message || '链接无效', false); }
+    todoFsBootFinish();
+  } catch(e) {
+    // 首屏失败→全屏失败态(可重试); 已有数据后的刷新失败沿用顶部 msg, 不打断列表
+    if (_fsBootFinished) showMsg(msg, e.message || '链接无效', false);
+    else todoFsBootFail(loadPublic, e.message || '清单没加载出来');
+  }
 }
 // 可见树：免密协作页只覆盖一棵指定子树(被分享的顶层任务本身), 无论其 due_date
 // 直接返回 todoBuildTree(_rows) 即可, 不做日期过滤(否则备忘录/未来任务会被误藏)
@@ -13806,6 +13870,8 @@ async function reloadReport() {
     window.addEventListener('resize', function(){ todoApplyViewOnResize(_todoGetRows, drawTree); });
     // 首次应用视图状态(会触发 drawTree)
     applyTodoView(_todoGetRows, drawTree);
+    // 全屏冷启动 loading(B 纸飞机环)收尾
+    todoFsBootFinish();
     // hideDone / 时间筛选 tab: 与登录态同结构
     var _hb = document.getElementById('hideDone');
     if (_hb) _hb.addEventListener('change', drawTree);
@@ -13872,7 +13938,11 @@ async function reloadReport() {
         }
       });
     }
-  } catch(e) { document.body.innerHTML = '<div class="todo-empty" style="margin-top:60px;">' + esc(e.message || '链接无效') + '</div>'; }
+  } catch(e) {
+    // innerHTML 只替换子节点, body class 不会跟着没; 手动摘掉避免全局遮罩被永久压制
+    document.body.classList.remove('todo-fs-on', 'todo-fs-boot');
+    document.body.innerHTML = '<div class="todo-empty" style="margin-top:60px;">' + esc(e.message || '链接无效') + '</div>';
+  }
 })();
 `;
 
@@ -13939,7 +14009,12 @@ async function loadCollab() {
     // 应用视图状态; onDrawTree 仅重绘可见树, 不重新 loadCollab(避免死循环)
     // 这个 fn 也会被 viewSwitchBtn/exitFullscreen 等按钮的幂等绑定捕获, 必须能触发实际重绘
     applyTodoView(_todoGetRows, function(){ drawTree(visibleTrees()); });
-  } catch(e) { showMsg(msg, e.message || '链接无效', false); }
+    todoFsBootFinish();
+  } catch(e) {
+    // 首屏失败→全屏失败态(可重试); 已有数据后的刷新失败沿用顶部 msg, 不打断列表
+    if (_fsBootFinished) showMsg(msg, e.message || '链接无效', false);
+    else todoFsBootFail(loadCollab, e.message || '清单没加载出来');
+  }
 }
 // 可见树: 按 _filter 过滤顶层任务(子任务随顶层)
 //   cur     = 今日到期 + 已逾期(默认, 与日报口径一致)

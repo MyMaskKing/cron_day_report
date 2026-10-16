@@ -27,6 +27,43 @@ const ICO_VIEW_CARD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 // 滑条调节：显示选项按钮（分组/隐藏已完成），与 Feather 图标族同风格
 const ICO_SLIDERS = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>';
 
+/**
+ * 待办全屏视图首屏 loading（四个全屏页复用）：
+ *   .fs-load-boot  纸飞机环（B，冷启动）：与 favicon 同源的开口环 + 晨光点，纸飞机沿环飞行，纯 CSS/SMIL 自启动
+ *   .fs-load-skel  卡片骨架（A，失败重试等整列表重载）：JS 200ms 延迟挂载，快请求无感
+ *   .fs-load-fail  失败态：错误文案 + 重新加载
+ * 状态切换/收尾由 assets.js 的 todoFsBootFinish / todoFsBootFail 控制，样式在 layout.js。
+ */
+const TODO_FS_LOADING_HTML = `<div id="todoFsLoading" class="todo-fs-loading">
+  <div class="fs-load-boot" role="status" aria-label="正在加载">
+    <div class="fs-orbit">
+      <svg width="96" height="96" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+        <defs><linearGradient id="fsOrbitG" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" style="stop-color:var(--fs-ring-from)"/><stop offset="1" style="stop-color:var(--fs-ring-to)"/>
+        </linearGradient></defs>
+        <path class="fs-orbit-ring" d="M 75.6 34.8 A 34 34 0 1 0 81.9 58.1" stroke="url(#fsOrbitG)" stroke-width="3.5" stroke-linecap="round"/>
+        <circle class="fs-orbit-dot" cx="78.5" cy="29" r="4" fill="var(--fs-ring-dot)"/>
+        <g>
+          <animateMotion dur="2.1s" repeatCount="indefinite" path="M 75.6 34.8 A 34 34 0 1 1 75.45 34.95" rotate="auto"/>
+          <path d="M-6.5 -5 L 8 0 L -6.5 5 L -3 0 Z" fill="var(--fs-plane-fill)" stroke="var(--fs-plane-stroke)" stroke-width="1.3" stroke-linejoin="round"/>
+          <path d="M-6.5 -5 L -3 0 L -6.5 5 M-3 0 L 8 0" fill="none" stroke="var(--fs-plane-stroke)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+        </g>
+      </svg>
+    </div>
+    <div class="fs-boot-text">正在翻开今天的清单…</div>
+    <div class="fs-boot-bar" aria-hidden="true"><i></i></div>
+  </div>
+  <div class="fs-load-skel" aria-hidden="true">
+    <div class="fs-skel-card"><div class="fs-skel-line w60"></div><div class="fs-skel-chips"><span></span><span></span><span></span></div></div>
+    <div class="fs-skel-card"><div class="fs-skel-line w40"></div><div class="fs-skel-line w90"></div><div class="fs-skel-chips"><span></span></div></div>
+    <div class="fs-skel-card"><div class="fs-skel-line w60"></div><div class="fs-skel-chips"><span></span><span></span></div></div>
+  </div>
+  <div class="fs-load-fail" role="alert">
+    <div class="fs-fail-msg" id="todoFsFailMsg">清单没加载出来</div>
+    <button type="button" class="btn" id="todoFsRetry">重新加载</button>
+  </div>
+</div>`;
+
 /** 初始化超管页 */
 function setupPage() {
   const body = `<div class="login-wrap">
@@ -1220,6 +1257,7 @@ function todoPage(user) {
         <button class="fs-iconbtn" id="displayOptsFs" title="显示选项">${ICO_SLIDERS}</button>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
+      ${TODO_FS_LOADING_HTML}
     </div>
 
     <div id="bgSheetMask" class="bg-sheet-mask">
@@ -1316,6 +1354,7 @@ function publicTodoPage() {
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
+      ${TODO_FS_LOADING_HTML}
     </div>
   </div>`;
   return renderPage({ title: '待办协作', body, scripts: ['todo-core.js','page-todo-public.js'] });
@@ -1387,6 +1426,7 @@ function todoReportPage() {
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
+      ${TODO_FS_LOADING_HTML}
     </div>
   </div>`;
   return renderPage({ title: '全部待办', body, scripts: ['todo-core.js','page-todo-report.js'] });
@@ -1447,6 +1487,7 @@ function todoCollabPage() {
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
+      ${TODO_FS_LOADING_HTML}
     </div>
   </div>`;
   return renderPage({ title: '待办协作', body, scripts: ['todo-core.js','page-todo-collab.js'] });
