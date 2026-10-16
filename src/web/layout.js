@@ -57,9 +57,6 @@ function renderPage({ title = '控制台', body = '', script = '', scripts = [],
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${title}</title>
 <link rel="icon" type="image/svg+xml" href="${assetUrl('favicon.svg')}">
-<script src="${assetUrl('chart.js')}"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 <link rel="stylesheet" href="${assetUrl('core.css')}">
 </head>
 <body class="booting">
@@ -77,6 +74,9 @@ function renderPage({ title = '控制台', body = '', script = '', scripts = [],
   </div>
 </div>
 ${body}
+<script src="${assetUrl('chart.js')}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 ${jsLinks}
 ${script ? `<script>${script}</script>` : ''}
 </body>
