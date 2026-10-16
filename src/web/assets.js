@@ -9505,15 +9505,16 @@ function renderTodoCards(container, trees, opts) {
       rc.innerHTML = ICONS.repeat + esc(todoRecurLabel(recurNode.recurrence, recurNode.recur_interval, recurNode.recur_nth, recurNode.recur_weekday));
       meta.appendChild(rc);
     }
-    if (hasChildren) {
-      var lc = todoLeafCount(root);
-      // total=0 = 整支已完成结算, 不再显示进度 chip
-      if (lc.total > 0) {
-        var pc = document.createElement('span');
-        pc.className = 'todo-chip todo-card__count' + (lc.done === lc.total ? ' done' : '');
-        pc.textContent = '📋 ' + lc.done + '/' + lc.total;
-        meta.appendChild(pc);
-      }
+    // 叶子进度: 有子任务数叶子(todoLeafCount); 按到期日分组时单主任务自身按 0/1 展示
+    var lc = null;
+    if (hasChildren) lc = todoLeafCount(root);
+    else if (opts.groupedByDue) lc = { total: 1, done: root.done ? 1 : 0 };
+    // total=0 = 整支已完成结算, 不再显示进度 chip
+    if (lc && lc.total > 0) {
+      var pc = document.createElement('span');
+      pc.className = 'todo-chip todo-card__count' + (lc.done === lc.total ? ' done' : '');
+      pc.textContent = '📋 ' + lc.done + '/' + lc.total;
+      meta.appendChild(pc);
     }
     // 手机：添加子任务/查看详情收为低调小图标固定卡片右缘（PC 隐藏）；
     // meta 无任何 chip 时收进标题行，第二行消失
@@ -9802,6 +9803,8 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
   }
   container.innerHTML = '';
   container.className = 'todo-due-groups';
+  // 通知组体渲染器: 分组场合卡片视图片单主任务也显示 0/1 进度(renderTodoCards 读取)
+  opts.groupedByDue = true;
   groups.forEach(function (g) {
     var head = todoBuildDueGroupHead(g.key, g.roots.length, today);
     var body = document.createElement('div');

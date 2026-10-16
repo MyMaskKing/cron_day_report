@@ -667,6 +667,9 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .todo-due-groups .todo-tree .cd-on .todo-chip.due,
 .todo-due-groups .todo-acc .cd-on .todo-chip.due,
 .todo-due-groups .flat-view .cd-on .todo-chip.due { display: inline; }
+/* 卡片视图逾期标签: 文案含「逾期 N 天」天数(组头只有「逾」字+日期), 分组内保留;
+   今天/未来 chip 仍隐藏, 与组头日期重复 */
+.todo-due-groups .todo-cards .todo-chip.due.overdue { display: inline; }
 .impersonate-banner { background: #fff3cd; color: #856404; padding: 10px 24px; font-size: 14px; text-align: center; border-bottom: 1px solid #ffe58f; }
 .impersonate-banner a { color: var(--danger); font-weight: 600; margin-left: 8px; }
 /* 全站公告强制阅读弹窗：独立遮罩，层级高于 #globalLoading(10500)，无关闭叉、点空白不关闭 */
