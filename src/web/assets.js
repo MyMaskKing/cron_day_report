@@ -9894,17 +9894,14 @@ function todoRenderView(container, trees, opts) {
   var _accFm = container.closest && container.closest('.todo-fs-main');
   if (_accFm) _accFm.classList.toggle('fs-main--acc', view === 'accordion' || view === 'flat');
 
-  // 每次渲染先清理详情页"完成主任务/编辑主任务"文字链, 由详情分支按需重新挂载
-  // 命中提示文时按钮挂在 .card 内的 <p> 里(homeBox.parentNode 范围), 兜底时挂在 homeBox 末尾
+  // 每次渲染先清理详情页"完成/编辑/删除主任务"文字链, 由详情分支按需重新挂载
+  // 命中提示文时按钮挂在 .card 内的 <p> 里(homeBox.parentNode 范围), 兜底时挂在 homeBox 末尾;
+  // 必须 querySelectorAll 全清(多次进出详情会累积), 且 del 链不能漏(旧实现只清 done/edit 各一个)
   var homeBox = container.parentNode;
   if (homeBox) {
     var scope = homeBox.parentNode || homeBox;
-    var oldLink = scope.querySelector('.todo-detail-done');
-    if (oldLink) oldLink.parentNode.removeChild(oldLink);
-    var oldEdit = scope.querySelector('.todo-detail-edit');
-    if (oldEdit) oldEdit.parentNode.removeChild(oldEdit);
-    var oldWrap = scope.querySelector('.todo-detail-done-wrap');
-    if (oldWrap) oldWrap.parentNode.removeChild(oldWrap);
+    var oldLinks = scope.querySelectorAll('.todo-detail-done,.todo-detail-edit,.todo-detail-del,.todo-detail-done-wrap');
+    Array.prototype.forEach.call(oldLinks, function(el){ if (el.parentNode) el.parentNode.removeChild(el); });
   }
 
   // 已完成 tab：整页 = 全局已完成拍平大列表（无视视图）
@@ -9981,9 +9978,14 @@ function todoBindDetailTapToExit(onExit) {
     if (document.querySelector('.todo-detail-adder.editing')) return;
     if (document.querySelector('.todo-op-menu')) return;
     var t = e.target;
-    // 落在内容/控件上不退出：子任务行、添加框、完成区、面包屑、顶栏、主任务文字链、各类弹层
+    // 本处理器在捕获阶段, 先于控件自身 click(其 stopPropagation 拦不住): 任何交互元素一律不退出,
+    // 否则点页面顶栏/底部 Tab/已完成区勾选等详情外按钮会先触发重绘, 按钮自身动作丢失
     if (t && t.closest && t.closest(
-      '.todo-row,.todo-detail-adder,.todo-done-zone,.todo-crumb,.todo-fs-top,.modal-mask,.dp-pop,.todo-due-group,.todo-detail-done,.todo-detail-edit,.todo-detail-del')) return;
+      'button,a,input,select,textarea,label,[role="button"],[contenteditable="true"]')) return;
+    // 落在内容区不退出：子任务行、已完成沉底区(.todo-donezone/.flat-item)、添加框、面包屑、
+    // 顶栏、分组、主任务文字链、各类弹层
+    if (t && t.closest && t.closest(
+      '.todo-row,.flat-item,.todo-donezone,.todo-detail-adder,.todo-crumb,.todo-fs-top,.modal-mask,.dp-pop,.todo-due-group,.todo-detail-done,.todo-detail-edit,.todo-detail-del')) return;
     onExit();
   }
   document.addEventListener('touchstart', ts, true);
