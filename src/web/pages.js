@@ -1222,7 +1222,7 @@ function todoPage(user) {
 
     <div class="card">
       <div class="todo-chart-head">
-        <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1;min-width:0;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
+        <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:max-content;white-space:nowrap;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
         <div class="todo-range" id="chartRange">
           <button data-range="month" class="active">当月</button>
           <button data-range="7d">近7天</button>
@@ -1358,11 +1358,9 @@ function publicTodoPage(prefs = {}) {
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
-        <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
       ${TODO_FS_LOADING_HTML}
     </div>
@@ -1375,7 +1373,7 @@ function todoReportPage(prefs = {}) {
   const body = `${todoOwnerPrefsScript(prefs)}<div class="container" style="max-width:640px;margin:24px auto;">
     <div id="content" style="display:none;">
       <div class="card">
-        <h2 style="overflow:hidden;">📝 全部待办
+        <h2 style="overflow:hidden;">📝 今日 + 逾期待办
           <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>
           <button class="btn sm gray" id="viewToggle" style="float:right;margin-right:8px;">${ICO_CARDS}卡片视图</button>
         </h2>
@@ -1385,17 +1383,7 @@ function todoReportPage(prefs = {}) {
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div class="todo-filter-row" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 12px;">
-          <div class="todo-range" id="todoFilter" style="margin:0;flex:1;min-width:0;">
-            <button data-filter="all">全部</button>
-            <button data-filter="planned">计划中</button>
-            <button data-filter="cur" class="active">今日+逾期</button>
-            <button data-filter="today">今日</button>
-            <button data-filter="overdue">逾期</button>
-            <button data-filter="future">未来</button>
-            <button data-filter="memo">备忘录</button>
-            <button data-filter="done">已完成</button>
-          </div>
+        <div style="margin:4px 0 12px;">
           <label style="font-weight:normal;color:var(--muted);font-size:13px;white-space:nowrap;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </div>
         <div style="margin:0 0 12px;"><button class="btn sm" id="tAddRoot">+ 添加任务</button></div>
@@ -1406,15 +1394,11 @@ function todoReportPage(prefs = {}) {
       </div>
       <div class="card">
         <div class="todo-chart-head">
-          <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1;min-width:0;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
+          <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:max-content;white-space:nowrap;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
           <div class="todo-range" id="chartRange">
             <button data-range="month" class="active">当月</button>
             <button data-range="7d">近7天</button>
             <button data-range="30d">近30天</button>
-            <button data-range="60d">近60天</button>
-            <button data-range="6m">近半年</button>
-            <button data-range="1y">近1年</button>
-            <button data-range="3y">近3年</button>
           </div>
         </div>
         <canvas id="todoChart" style="max-height:280px;"></canvas>
@@ -1430,7 +1414,6 @@ function todoReportPage(prefs = {}) {
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
@@ -1439,7 +1422,7 @@ function todoReportPage(prefs = {}) {
       ${TODO_FS_LOADING_HTML}
     </div>
   </div>`;
-  return renderPage({ title: '全部待办', body, scripts: ['todo-core.js','page-todo-report.js'], bg: prefs.bg || '' });
+  return renderPage({ title: '今日待办', body, scripts: ['todo-core.js','page-todo-report.js'], bg: prefs.bg || '' });
 }
 
 /** 待办免密汇总协作页（跨全部清单，今天+逾期，可勾选/编辑/添加；prefs 为链接主人的全屏背景/视图循环偏好） */
@@ -1461,16 +1444,6 @@ function todoCollabPage(prefs = {}) {
           <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">${ICO_CARDS}卡片视图</button>
           <label style="float:right;font-weight:normal;color:var(--muted);font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </div>
-        <div class="todo-range todo-filter" id="todoFilter">
-          <button data-filter="cur" class="active">今日+逾期</button>
-          <button data-filter="all">全部</button>
-          <button data-filter="planned">计划中</button>
-          <button data-filter="today">今日</button>
-          <button data-filter="overdue">逾期</button>
-          <button data-filter="future">未来</button>
-          <button data-filter="memo">备忘录</button>
-          <button data-filter="done">已完成</button>
-        </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
           <div id="todoTree" class="todo-tree"></div>
@@ -1491,11 +1464,9 @@ function todoCollabPage(prefs = {}) {
     </div>
     <div class="todo-fs-main">
       <div class="todo-fs-top">
-        <button class="fs-iconbtn" id="drawerToggle" style="display:none;" aria-label="分类">${ICO_MENU}</button>
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
         <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
-        <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
       ${TODO_FS_LOADING_HTML}
     </div>

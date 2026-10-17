@@ -8102,6 +8102,8 @@ function applyTodoView(getRowsFn, onDrawTree) {
         closeModal();
         return;
       }
+      // 免密协作页(/t/ /tc/)锁定全屏: 无退出入口, ESC 不退出(modal 已在上一步优先关闭)
+      if (window.__todoFsLocked) return;
       if (_todoView === 'default') return; // 非全屏态且无 modal, 交还系统默认
       if (todoDrawerIsOpen() && window.innerWidth <= 640) {
         // 窄屏下抽屉浮层态优先关抽屉
@@ -13460,6 +13462,12 @@ try {
   var _ownerPrefsEl = document.getElementById('todoOwnerPrefs');
   if (_ownerPrefsEl) todoApplyViewCycle(JSON.parse(_ownerPrefsEl.textContent).todo_view_list, null, null, true);
 } catch(_e) {}
+// 免密协作页锁定全屏: 页面无退出入口, ESC 处理器按此标记放行; 访问者本机残留 default 态时强制进循环首项
+window.__todoFsLocked = true;
+if (_todoView === 'default') {
+  _todoView = _todoViewCycle[0] || 'card';
+  try { localStorage.setItem('todoView', _todoView); } catch(e){}
+}
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _rows = [], _rootId = null, _today = '';
 var _curRange = 'month';
@@ -13991,10 +13999,16 @@ try {
   var _ownerPrefsEl = document.getElementById('todoOwnerPrefs');
   if (_ownerPrefsEl) todoApplyViewCycle(JSON.parse(_ownerPrefsEl.textContent).todo_view_list, null, null, true);
 } catch(_e) {}
+// 免密协作页锁定全屏: 页面无退出入口, ESC 处理器按此标记放行; 访问者本机残留 default 态时强制进循环首项
+window.__todoFsLocked = true;
+if (_todoView === 'default') {
+  _todoView = _todoViewCycle[0] || 'card';
+  try { localStorage.setItem('todoView', _todoView); } catch(e){}
+}
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _rows = [], _today = '';
 var _curRange = 'month';
-// 汇总协作页时间筛选: 默认 'cur' (今日+逾期, 与日报口径一致); 其它取值与登录态一致
+// 汇总协作页固定 'cur' (今日+逾期, 与日报口径一致); 筛选 tab 已下线
 var _filter = 'cur';
 
 // 汇总协作页编辑任务（仅编辑已有任务挂 md 编辑器；附件走 report_token 用户级口径）

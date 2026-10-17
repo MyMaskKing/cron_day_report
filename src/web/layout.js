@@ -2277,6 +2277,16 @@ body.todo-fs-on #todoTree .todo-detail-adder__placeholder:hover:not(:active) {
   background: var(--onbg-hover, rgba(168,85,247,.08));
   border-color: var(--onbg, var(--brand-text));
 }
+/* 例外: 完整树/手风琴/速览的顶层节点是不透明白卡(.todo-bandcard), 挂在卡内的节点级 adder
+   不跟随 --onbg(深实色背景下白字落白底会隐形), 一律用品牌紫; 根级(直接落全屏背景)仍走上一条规则 */
+body.todo-fs-on #todoTree .todo-bandcard .todo-detail-adder__placeholder {
+  color: var(--brand-text);
+  border-color: var(--brand-border);
+}
+body.todo-fs-on #todoTree .todo-bandcard .todo-detail-adder__placeholder:hover:not(:active) {
+  background: rgba(168,85,247,.08);
+  border-color: var(--brand-text);
+}
 .todo-detail-adder__plus { font-weight: 700; font-size: 18px; line-height: 1; }
 .todo-detail-adder.editing .todo-detail-adder__placeholder { display: none; }
 .todo-detail-adder__editor { display: none; }
