@@ -8524,7 +8524,7 @@ function renderTodoTree(container, trees, opts) {
       var scNode = todoSharedCat(node.shared_cat_id);
       var scChip = document.createElement('span');
       scChip.className = 'todo-metatxt todo-cat-chip';
-      scChip.textContent = '👥 ' + (scNode ? scNode.name : '共享分类');
+      scChip.textContent = (scNode ? scNode.name : '共享分类');
       if (scNode && scNode.owner_name) scChip.title = '共享分类 · ' + scNode.owner_name;
       meta.appendChild(scChip);
     }
