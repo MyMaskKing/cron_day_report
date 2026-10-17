@@ -13468,6 +13468,9 @@ if (_todoView === 'default') {
   _todoView = _todoViewCycle[0] || 'card';
   try { localStorage.setItem('todoView', _todoView); } catch(e){}
 }
+// 免密页无目录入口: 强制抽屉关闭(PC 宽屏默认开, 且登录态可能把 todoDrawer 记忆为 1)
+_todoDrawerOpen = false;
+try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _rows = [], _rootId = null, _today = '';
 var _curRange = 'month';
@@ -13582,8 +13585,8 @@ function drawTree(trees) {
     effectiveTrees = todoPruneByCategory(todoBuildTree(todoRowsByCategory(_rows)));
   }
   // 免密单链接页只覆盖一个顶层子树, 时间筛选无意义; 仅支持"隐藏已完成"
-  var hideBox = document.getElementById('hideDone');
-  var hideDone = hideBox ? hideBox.checked : false;
+  // 免密页无"隐藏已完成"开关: 恒隐藏, 防止分享后他人看到已完成任务
+  var hideDone = true;
   todoRenderView(container, effectiveTrees, {
     view: _todoView === 'default' ? 'card' : _todoView,
     detailRootId: _todoDetailRootId,
@@ -13689,6 +13692,9 @@ try {
   var _ownerPrefsEl = document.getElementById('todoOwnerPrefs');
   if (_ownerPrefsEl) todoApplyViewCycle(JSON.parse(_ownerPrefsEl.textContent).todo_view_list, null, null, true);
 } catch(_e) {}
+// 免密页无目录入口: 强制抽屉关闭(PC 宽屏默认开, 且登录态可能把 todoDrawer 记忆为 1)
+_todoDrawerOpen = false;
+try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _curRange = 'month';
 var _rows = [], _trees = [], _today = '';
@@ -13723,8 +13729,8 @@ function drawTree() {
     trees = todoFilterTrees(byCat, _today);
   }
   // 已完成 tab 下强制显示完成项, 否则遵从复选框
-  var hideBox = document.getElementById('hideDone');
-  var hideDone = (_filter === 'done') ? false : (hideBox ? hideBox.checked : false);
+  // 免密页无"隐藏已完成"开关: 恒隐藏, 防止分享后他人看到已完成任务(恒 cur 无 done tab)
+  var hideDone = true;
   todoRenderView(document.getElementById('todoTree'), trees, {
     view: _todoView === 'default' ? 'card' : _todoView,
     detailRootId: _todoDetailRootId,
@@ -14006,6 +14012,9 @@ if (_todoView === 'default') {
   _todoView = _todoViewCycle[0] || 'card';
   try { localStorage.setItem('todoView', _todoView); } catch(e){}
 }
+// 免密页无目录入口: 强制抽屉关闭(PC 宽屏默认开, 且登录态可能把 todoDrawer 记忆为 1)
+_todoDrawerOpen = false;
+try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _rows = [], _today = '';
 var _curRange = 'month';
@@ -14101,8 +14110,8 @@ function drawTree(trees) {
     effectiveTrees = todoFilterTrees(byCat, _today);
   }
   // 已完成 tab 强制显示, 其它遵从复选框
-  var hideBox = document.getElementById('hideDone');
-  var hideDone = (_filter === 'done') ? false : (hideBox ? hideBox.checked : false);
+  // 免密页无"隐藏已完成"开关: 恒隐藏, 防止分享后他人看到已完成任务(恒 cur 无 done tab)
+  var hideDone = true;
   todoRenderView(document.getElementById('todoTree'), effectiveTrees, {
     view: _todoView === 'default' ? 'card' : _todoView,
     detailRootId: _todoDetailRootId,

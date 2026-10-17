@@ -1336,7 +1336,6 @@ function publicTodoPage(prefs = {}) {
         <div style="margin-bottom:12px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
           <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">${ICO_CARDS}卡片视图</button>
-          <label style="float:right;font-weight:normal;color:var(--muted);font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
@@ -1360,7 +1359,6 @@ function publicTodoPage(prefs = {}) {
       <div class="todo-fs-top">
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
-        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
       </div>
       ${TODO_FS_LOADING_HTML}
     </div>
@@ -1382,9 +1380,6 @@ function todoReportPage(prefs = {}) {
           <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
-        </div>
-        <div style="margin:4px 0 12px;">
-          <label style="font-weight:normal;color:var(--muted);font-size:13px;white-space:nowrap;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </div>
         <div style="margin:0 0 12px;"><button class="btn sm" id="tAddRoot">+ 添加任务</button></div>
         <div id="todoTreeHome">
@@ -1416,7 +1411,6 @@ function todoReportPage(prefs = {}) {
       <div class="todo-fs-top">
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
-        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
         <button class="fs-exitbtn" id="exitFullscreen">退出</button>
       </div>
       ${TODO_FS_LOADING_HTML}
@@ -1442,7 +1436,6 @@ function todoCollabPage(prefs = {}) {
         <div style="margin-bottom:12px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
           <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">${ICO_CARDS}卡片视图</button>
-          <label style="float:right;font-weight:normal;color:var(--muted);font-size:13px;"><input type="checkbox" id="hideDone" style="width:auto;" checked> 隐藏已完成</label>
         </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
@@ -1466,7 +1459,6 @@ function todoCollabPage(prefs = {}) {
       <div class="todo-fs-top">
         <button class="fs-iconbtn" id="tAddFs" aria-label="添加任务">＋</button>
         <button class="fs-segbtn" id="viewSwitchBtn" title="切换视图">${ICO_VIEW_CARD}<span class="fs-segbtn-name">卡片视图</span></button>
-        <label class="todo-fs-hide"><input type="checkbox" id="hideDoneFs" checked> 隐藏</label>
       </div>
       ${TODO_FS_LOADING_HTML}
     </div>
