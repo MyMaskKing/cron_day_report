@@ -1373,7 +1373,6 @@ function todoReportPage(prefs = {}) {
       <div class="card">
         <h2 style="overflow:hidden;">📝 今日 + 逾期待办
           <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>
-          <button class="btn sm gray" id="viewToggle" style="float:right;margin-right:8px;">${ICO_CARDS}卡片视图</button>
         </h2>
         <div id="statsHint" class="muted" style="font-size:12px;margin:8px 0;clear:both;"></div>
         <div class="todo-stats" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">
@@ -1381,7 +1380,10 @@ function todoReportPage(prefs = {}) {
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div style="margin:0 0 12px;"><button class="btn sm" id="tAddRoot">+ 添加任务</button></div>
+        <div style="margin:0 0 12px;">
+          <button class="btn sm" id="tAddRoot">+ 添加任务</button>
+          <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">${ICO_CARDS}卡片视图</button>
+        </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;margin-top:14px;"></div>
           <div id="todoTree" class="todo-tree" style="margin-top:14px;"></div>
