@@ -1455,6 +1455,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 [data-theme="dark"] .todo-tree .todo-chip.due.today,
 [data-theme="dark"] .td-chip.td-chip--today { color: var(--brand-text); }
 .todo-crumb .todo-chip { flex: none; }
+.todo-crumb .todo-cat-chip { flex: none; }
 .todo-chip.due.soon { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .todo-chip.due.future { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due .due-days { opacity: .72; font-weight: 500; }

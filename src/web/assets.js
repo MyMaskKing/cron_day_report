@@ -10008,6 +10008,16 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
         cdCrumb.className = 'todo-cd-tag'; cdCrumb.innerHTML = ICONS.branch + '各自截止';
         crumb.appendChild(cdCrumb);
       }
+      // 共享分类: 共享任务无个人文本分类, 标题 👥 之外在头部补分类名胶囊(名称取我加入的分类列表)
+      if (root.shared_cat_id != null) {
+        var scs0 = (typeof _sharedCats !== 'undefined' && _sharedCats) ? _sharedCats : [];
+        var sc0 = scs0.filter(function(c){ return c.cat_id === root.shared_cat_id; })[0] || null;
+        var scCrumb = document.createElement('span');
+        scCrumb.className = 'todo-metatxt todo-cat-chip';
+        scCrumb.textContent = '👥 ' + (sc0 ? sc0.name : '共享分类');
+        if (sc0 && sc0.owner_name) scCrumb.title = '共享分类 · ' + sc0.owner_name;
+        crumb.appendChild(scCrumb);
+      }
       var rootDueChip = todoDueChip(todoRootDue(root), opts.today, root.done);
       if (rootDueChip) {
         var crumbDue = document.createElement('span');
