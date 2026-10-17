@@ -1333,9 +1333,9 @@ function publicTodoPage(prefs = {}) {
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div style="margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
-          <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">${ICO_CARDS}卡片视图</button>
+          <button class="btn sm gray" id="viewToggle">${ICO_CARDS}卡片视图</button>
         </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
@@ -1380,9 +1380,9 @@ function todoReportPage(prefs = {}) {
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div style="margin:0 0 12px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
-          <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">${ICO_CARDS}卡片视图</button>
+          <button class="btn sm gray" id="viewToggle">${ICO_CARDS}卡片视图</button>
         </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;margin-top:14px;"></div>
@@ -1435,9 +1435,9 @@ function todoCollabPage(prefs = {}) {
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div style="margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
-          <button class="btn sm gray" id="viewToggle" style="margin-left:8px;">${ICO_CARDS}卡片视图</button>
+          <button class="btn sm gray" id="viewToggle">${ICO_CARDS}卡片视图</button>
         </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;"></div>
