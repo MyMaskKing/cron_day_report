@@ -8397,6 +8397,11 @@ function todoEffDone(node){
   for (var n = node; n; n = n._parent) { if (n.done) return true; }
   return false;
 }
+// 按 shared_cat_id 查我加入的共享分类(名称/角色/主人名); 免密页无 _sharedCats → null
+function todoSharedCat(catId) {
+  var scs = (typeof _sharedCats !== 'undefined' && _sharedCats) ? _sharedCats : [];
+  return scs.filter(function(c){ return c.cat_id === catId; })[0] || null;
+}
 var _todoCollapsed = {}; // id -> true 折叠状态（前端会话内保留）
 function renderTodoTree(container, trees, opts) {
   opts = opts || {};
@@ -8512,6 +8517,16 @@ function renderTodoTree(container, trees, opts) {
     }
     if (node.category) {
       var cc = document.createElement('span'); cc.className = 'todo-metatxt todo-cat-chip'; cc.textContent = node.category; meta.appendChild(cc);
+    }
+    // 行级挂载共享分类(个人树深层挂载, 如各自截止容器下个别子任务挂共享): 共享任务无文本分类,
+    // 补 👥 分类名胶囊; 整树共享(顶层 root 也带 shared_cat_id)时归属由面包屑/顶层表达, 行内不重复
+    if (node.shared_cat_id != null && !(node._root && node._root.shared_cat_id != null)) {
+      var scNode = todoSharedCat(node.shared_cat_id);
+      var scChip = document.createElement('span');
+      scChip.className = 'todo-metatxt todo-cat-chip';
+      scChip.textContent = '👥 ' + (scNode ? scNode.name : '共享分类');
+      if (scNode && scNode.owner_name) scChip.title = '共享分类 · ' + scNode.owner_name;
+      meta.appendChild(scChip);
     }
     // 完整树顶层同卡片视图(todoRootDue)；其余节点只显示自身日期。
     // 跟随父级的任务不重复挂 chip；effDue 仍用于勾选/排序等业务判断。
@@ -10010,8 +10025,7 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
       }
       // 共享分类: 共享任务无个人文本分类, 标题 👥 之外在头部补分类名胶囊(名称取我加入的分类列表)
       if (root.shared_cat_id != null) {
-        var scs0 = (typeof _sharedCats !== 'undefined' && _sharedCats) ? _sharedCats : [];
-        var sc0 = scs0.filter(function(c){ return c.cat_id === root.shared_cat_id; })[0] || null;
+        var sc0 = todoSharedCat(root.shared_cat_id);
         var scCrumb = document.createElement('span');
         scCrumb.className = 'todo-metatxt todo-cat-chip';
         scCrumb.textContent = '👥 ' + (sc0 ? sc0.name : '共享分类');
