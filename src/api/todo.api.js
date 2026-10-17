@@ -855,8 +855,9 @@ async function publicTodoReport({ env, params }) {
   if (userId == null) return error('链接无效或已失效', 404);
 
   await storage.users.updateLastPublic(userId);
-  // 免密报告为个人口径: 不含共享分类任务(匿名链接不泄露家庭共享数据)
-  const rows = await storage.todo.listPersonalByUser(userId);
+  // 免密报告口径: 本人拥有的全部任务(含本人作为 owner 的共享分类),
+  // 不含他人拥有仅共享给我的任务(匿名链接不泄露家人数据)
+  const rows = await storage.todo.listOwnedByUser(userId);
   const owner = await storage.users.findById(userId);
   return json({
     success: true,
@@ -877,7 +878,8 @@ async function publicTodoChart({ env, params, url }) {
   let raw = null;
   const pushRow = await storage.push.findByReportToken(params.token);
   if (pushRow && pushRow.module === 'todo') {
-    raw = await storage.todo.chartRaw(pushRow.user_id);
+    // 免密图表同报告口径: 仅本人拥有(含本人共享分类), 排除他人共享给我的任务
+    raw = await storage.todo.chartRaw(pushRow.user_id, 8, null, 'owned');
   } else {
     const root = await storage.todo.findByShareToken(params.token);
     if (!root) return error('链接无效或已失效', 404);
@@ -896,7 +898,8 @@ async function publicTodoAnalyze({ env, params, url }) {
   const days = url.searchParams.get('days') === '60' ? 60 : 30;
   const pushRow = await storage.push.findByReportToken(params.token);
   if (!pushRow || pushRow.module !== 'todo') return error('链接无效或已失效', 404);
-  const raw = await storage.todo.chartRaw(pushRow.user_id);
+  // 免密分析同报告口径: 仅本人拥有(含本人共享分类)
+  const raw = await storage.todo.chartRaw(pushRow.user_id, 8, null, 'owned');
   return json({ success: true, analysis: buildAnalysis(raw, days, todayCN()) });
 }
 
@@ -1037,8 +1040,8 @@ async function publicAllAdd({ request, env, params }) {
   if (body.parent_id != null && body.parent_id !== '') {
     parentId = parseInt(body.parent_id, 10);
     parentRow = await storage.todo.findById(parentId);
+    // user_id 校验即安全边界: 本人拥有的共享分类任务可在免密页挂子任务, 他人拥有的任务在此被挡
     if (!parentRow || parentRow.user_id !== userId) return error('父任务不属于此清单', 400);
-    if (parentRow.shared_cat_id != null) return error('该任务属共享分类，请登录后在待办页操作', 400);
   }
   // child_due 开关仅新建顶层主任务时由勾选框传入; 子任务建后通过编辑勾选(逐级门控)
   const childDue = parentId == null ? !!body.child_due : false;
@@ -1057,8 +1060,9 @@ async function publicAllAdd({ request, env, params }) {
     recur_interval: recFields.recur_interval,
     recur_nth: recFields.recur_nth,
     recur_weekday: recFields.recur_weekday,
-    // 免密汇总页新建恒为个人任务(共享分类请登录后操作); 匿名 created_by 为 NULL
-    shared_cat_id: null,
+    // 挂到本人共享分类父任务下时继承其分类(与单清单 publicAdd 同口径); 顶层新建恒为个人任务;
+    // 匿名 created_by 为 NULL
+    shared_cat_id: parentRow && parentRow.shared_cat_id != null ? parentRow.shared_cat_id : null,
     created_by: null
   });
   return json({ success: true, message: '已添加', id });
@@ -1076,8 +1080,8 @@ async function publicAllToggle({ request, env, params }) {
 
   const id = parseInt(params.id, 10);
   const t = await storage.todo.findById(id);
+  // user_id 校验即安全边界: 本人拥有的共享分类任务可匿名勾选, 他人拥有的任务在此被挡
   if (!t || t.user_id !== userId) return error('任务不存在', 404);
-  if (t.shared_cat_id != null) return error('该任务属共享分类，请登录后在待办页操作', 400);
   // 免密汇总页永远用默认(旧+周期); done_by 为 NULL(匿名操作)
   const r = await storage.todo.markDoneWithRecur(id, userId, done, false, todayCN(), null);
   if (r.duplicated) {
@@ -1107,8 +1111,8 @@ async function publicAllUpdate({ request, env, params }) {
 
   const id = parseInt(params.id, 10);
   const t = await storage.todo.findById(id);
+  // user_id 校验即安全边界: 本人拥有的共享分类任务可匿名编辑, 他人拥有的任务在此被挡
   if (!t || t.user_id !== userId) return error('任务不存在', 404);
-  if (t.shared_cat_id != null) return error('该任务属共享分类，请登录后在待办页操作', 400);
   const isRoot = t.parent_id == null;
   const parentRow = isRoot ? null : await storage.todo.findById(t.parent_id);
   // 逐级门控: 顶层恒允许; 子任务须其【直接父】勾选 child_due 才能自设日期/切换自身开关

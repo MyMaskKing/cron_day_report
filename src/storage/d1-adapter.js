@@ -673,6 +673,14 @@ function createD1Adapter(env) {
         ).bind(userId).all();
         return results || [];
       },
+      // 本人拥有的全部任务（含本人作为 owner 的共享分类任务；不含他人拥有仅共享给我的）。
+      // 免密报告/汇总页口径：匿名 report_token 等同本人，可见可写本人共享任务但不泄露家人数据。
+      async listOwnedByUser(userId) {
+        const { results } = await db.prepare(
+          'SELECT * FROM todos WHERE user_id=? ORDER BY sort_order, id'
+        ).bind(userId).all();
+        return results || [];
+      },
       // 深层挂载/摘除共享分类：批量只改 shared_cat_id（不动 user_id，区别于 reassignSubtree）。
       // catId 为 null 即摘除；调用方负责全部权限与子树范围校验。
       async setSharedCatForRows(ids, catId) {
@@ -1058,21 +1066,26 @@ function createD1Adapter(env) {
       // 并上「我加入的共享分类」全部任务（我是 owner 或 editor）；共享任务 user_id 恒为分类 owner，
       // 不能只按 user_id 过滤，否则成员看不到、owner 把任务移入共享后也会从曲线消失。
       // idList 传入则仅统计这些 id（单清单 /t/:token 子树图）。
+      // scope='owned' 时只取本人拥有的任务（含本人共享分类，排除他人共享给我的），免密报告/分析用；
+      // 默认 'visible' 为登录态口径（个人 + 我加入的共享分类）。
       // offsetHours 保留兼容调用签名，此口径下不再使用
       // 返回 { tree: [{id,parent_id,due,child_due,done,done10,title}] }
-      async chartRaw(userId, offsetHours = 8, idList = null) {
-        let scope, args;
+      async chartRaw(userId, offsetHours = 8, idList = null, scope = 'visible') {
+        let scopeSql, args;
         if (idList && idList.length) {
-          scope = `id IN (${idList.map(() => '?').join(',')})`;
+          scopeSql = `id IN (${idList.map(() => '?').join(',')})`;
           args = idList;
+        } else if (scope === 'owned') {
+          scopeSql = `user_id=?`;
+          args = [userId];
         } else {
-          scope = `((user_id=? AND shared_cat_id IS NULL)
+          scopeSql = `((user_id=? AND shared_cat_id IS NULL)
                     OR shared_cat_id IN (SELECT cat_id FROM todo_shared_cat_members WHERE user_id=?))`;
           args = [userId, userId];
         }
         const treeQ = await db.prepare(
           `SELECT id, parent_id, due_date AS due, child_due, done AS done, substr(done_at, 1, 10) AS done10, title
-           FROM todos WHERE ${scope}`
+           FROM todos WHERE ${scopeSql}`
         ).bind(...args).all();
         // 仅返回全量 tree: 末端叶子 + 有效截止日(自身优先否则继承祖先)由 service 层派生,
         // 逐级门控下父与子不再各算一条

@@ -13707,7 +13707,8 @@ async function loadChart() {
 })();
 // 按当前 _filter 过滤后的可见顶层树重算 未完成/已逾期 两项统计(此页无 memo 卡片)
 function renderPendingStats() {
-  var trees = _trees.filter(function(n){ return todoRootPassFilter(n, _filter, _today); });
+  // 与 drawTree/登录态同函数: 顶层 cur 过滤 + 树内叶子剪枝, 否则未来叶子会被多算
+  var trees = todoFilterTrees(_trees, _today);
   var s = todoStatsByVisible(trees, _today);
   document.getElementById('stPending').textContent = s.pending;
   document.getElementById('stOverdue').textContent = s.overdue;
@@ -14071,13 +14072,10 @@ async function loadCollab() {
     else todoFsBootFail(loadCollab, e.message || '清单没加载出来');
   }
 }
-// 可见树: 按 _filter 过滤顶层任务(子任务随顶层)
-//   cur     = 今日到期 + 已逾期(默认, 与日报口径一致)
-//   all     = 全部顶层
-//   today/overdue/future/memo/done = 与登录态 TODO_JS 一致
+// 可见树: 固定 cur(今日+逾期), 与登录态 todoFilterTrees 同口径——
+// 顶层按显示日期过滤, 再剪掉树内未来/无日期叶子(否则它们会随今日到期的父清单显示并被统计)
 function visibleTrees() {
-  // 顶层显示日期 todoRootDue 口径(旧模式=自身 due_date; 新模式=最早到期子任务)
-  return todoBuildTree(_rows).filter(function(n){ return todoRootPassFilter(n, _filter, _today); });
+  return todoFilterTrees(todoBuildTree(_rows), _today);
 }
 // 统计（口径同后端 countStats）：基于可见树, 叶子任务; 备忘录(顶层无 due_date)不计入 pending/overdue
 // 已完成一栏按 _filter 联动: cur→今日+逾期完成, today→今日, overdue/future/memo→各自类别, all/done→当月
