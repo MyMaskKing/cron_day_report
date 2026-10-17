@@ -3062,6 +3062,14 @@ html { scrollbar-gutter: stable; }
   .todo-children > .todo-detail-adder { margin-left: calc((var(--depth, 0) + 1) * 16px); }
   .todo-node:not(.todo-acc):not(.flat-group):not(.todo-bandcard) > .todo-detail-adder { margin-left: calc(var(--depth, 0) * 16px); }
   .todo-ops { opacity: 1; }
+  /* 详情子任务行第二行(chips): 不换行, 超宽左右滑动(同卡片视图第二行);
+     ⋯ 操作钮是 .todo-row 直接子级不随滚; 完成沉底行是 .flat-item 不含 .todo-meta 不受影响 */
+  body.todo-detail .todo-meta {
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+  }
+  body.todo-detail .todo-meta::-webkit-scrollbar { display: none; }
+  body.todo-detail .todo-meta > * { flex: 0 0 auto; white-space: nowrap; }
   /* 行内操作钮热区从约 28px 补到约 38px */
   .todo-op { padding: 9px 10px; }
   /* 手机端拖拽手柄隐藏: 改为长按整行拖拽(见 todoBindDrag), 操作区少一个小按钮防误触 */
