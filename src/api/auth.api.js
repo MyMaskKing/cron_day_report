@@ -517,3 +517,5 @@ export {
   updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen,
   updateDefaultHome
 };
+// 免密页服务端直出主人偏好复用：背景合法值与视图循环归一化（勿在页面层另造字面量）
+export { BG_THEMES, normalizeTodoViewList };

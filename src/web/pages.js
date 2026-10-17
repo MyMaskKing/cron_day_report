@@ -64,6 +64,16 @@ const TODO_FS_LOADING_HTML = `<div id="todoFsLoading" class="todo-fs-loading">
   </div>
 </div>`;
 
+/**
+ * 免密待办页注入链接主人的视图循环偏好（JSON script，不显示），供页面脚本启动时读取；
+ * 背景偏好不经此处，由 renderPage 直出 data-bg。'<' 转义防 </script> 截断（与下载页 dlData 同口径）。
+ */
+function todoOwnerPrefsScript(prefs) {
+  const list = prefs && Array.isArray(prefs.viewList) ? prefs.viewList : [];
+  const json = JSON.stringify({ todo_view_list: list }).replace(/</g, '\\u003c');
+  return `<script type="application/json" id="todoOwnerPrefs">${json}<\/script>`;
+}
+
 /** 初始化超管页 */
 function setupPage() {
   const body = `<div class="login-wrap">
@@ -1309,9 +1319,9 @@ function todoPage(user) {
   return renderPage({ title: '待办清单', body, scripts: ['todo-core.js','page-todo.js'], theme: user.theme, bg: user.bgTheme });
 }
 
-/** 待办免密协作公开页 */
-function publicTodoPage() {
-  const body = `<div class="container" style="max-width:560px;margin:24px auto;">
+/** 待办免密协作公开页（prefs 为链接主人的全屏背景/视图循环偏好） */
+function publicTodoPage(prefs = {}) {
+  const body = `${todoOwnerPrefsScript(prefs)}<div class="container" style="max-width:560px;margin:24px auto;">
     <div class="card">
       <h2>📝 <span id="rootTitle">待办</span> <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button></h2>
       <p id="ownerLine" class="muted" style="margin-bottom:12px;"></p>
@@ -1357,12 +1367,12 @@ function publicTodoPage() {
       ${TODO_FS_LOADING_HTML}
     </div>
   </div>`;
-  return renderPage({ title: '待办协作', body, scripts: ['todo-core.js','page-todo-public.js'] });
+  return renderPage({ title: '待办协作', body, scripts: ['todo-core.js','page-todo-public.js'], bg: prefs.bg || '' });
 }
 
-/** 待办免密报告查看页 */
-function todoReportPage() {
-  const body = `<div class="container" style="max-width:640px;margin:24px auto;">
+/** 待办免密报告查看页（prefs 为链接主人的全屏背景/视图循环偏好） */
+function todoReportPage(prefs = {}) {
+  const body = `${todoOwnerPrefsScript(prefs)}<div class="container" style="max-width:640px;margin:24px auto;">
     <div id="content" style="display:none;">
       <div class="card">
         <h2 style="overflow:hidden;">📝 全部待办
@@ -1429,12 +1439,12 @@ function todoReportPage() {
       ${TODO_FS_LOADING_HTML}
     </div>
   </div>`;
-  return renderPage({ title: '全部待办', body, scripts: ['todo-core.js','page-todo-report.js'] });
+  return renderPage({ title: '全部待办', body, scripts: ['todo-core.js','page-todo-report.js'], bg: prefs.bg || '' });
 }
 
-/** 待办免密汇总协作页（跨全部清单，今天+逾期，可勾选/编辑/添加） */
-function todoCollabPage() {
-  const body = `<div class="container" style="max-width:640px;margin:24px auto;">
+/** 待办免密汇总协作页（跨全部清单，今天+逾期，可勾选/编辑/添加；prefs 为链接主人的全屏背景/视图循环偏好） */
+function todoCollabPage(prefs = {}) {
+  const body = `${todoOwnerPrefsScript(prefs)}<div class="container" style="max-width:640px;margin:24px auto;">
     <div class="card">
       <h2>📝 <span id="ownerTitle">待办协作</span> <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button></h2>
       <p class="muted" style="margin-bottom:12px;">今日到期与逾期任务，可直接勾选、编辑或添加。</p>
@@ -1490,7 +1500,7 @@ function todoCollabPage() {
       ${TODO_FS_LOADING_HTML}
     </div>
   </div>`;
-  return renderPage({ title: '待办协作', body, scripts: ['todo-core.js','page-todo-collab.js'] });
+  return renderPage({ title: '待办协作', body, scripts: ['todo-core.js','page-todo-collab.js'], bg: prefs.bg || '' });
 }
 
 /**

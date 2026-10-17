@@ -16,7 +16,7 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen, updateDefaultHome } from './api/auth.api.js';
+import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen, updateDefaultHome, BG_THEMES, normalizeTodoViewList } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
@@ -325,6 +325,38 @@ router.get('/api/share/mine', listMyShares);
 router.delete('/api/share/members/:id', removeShareMember);
 
 /**
+ * 按免密 token 解析链接主人的待办全屏偏好（背景 + 视图循环），供待办三个免密页服务端直出。
+ * scope: 'share'=仅清单 share_token(/t/)；'report'=仅 report_token(/tc/)；
+ *        'report-share'=report_token 优先回退清单 share_token(/tr/)，口径同 publicTodoReport。
+ * 查不到用户（无效 token）返回空偏好、不抛错；last_public 由各数据 API 负责更新。
+ * @returns {Promise<{bg:string, viewList:string[]}>}
+ */
+async function resolveTodoPublicPrefs(env, token, scope) {
+  const empty = { bg: '', viewList: [] };
+  try {
+    const storage = getStorage(env);
+    let userId = null;
+    if (scope === 'report' || scope === 'report-share') {
+      const pushRow = await storage.push.findByReportToken(token);
+      if (pushRow && pushRow.module === 'todo') userId = pushRow.user_id;
+    }
+    if (userId == null && (scope === 'share' || scope === 'report-share')) {
+      const root = await storage.todo.findByShareToken(token);
+      if (root) userId = root.user_id;
+    }
+    if (userId == null) return empty;
+    const user = await storage.users.findById(userId);
+    if (!user) return empty;
+    return {
+      bg: BG_THEMES.includes(user.todo_bg_theme) ? user.todo_bg_theme : '',
+      viewList: normalizeTodoViewList(user.todo_view_list)
+    };
+  } catch {
+    return empty;
+  }
+}
+
+/**
  * 页面路由处理（需登录的页面统一校验会话）
  * @param {Request} request
  * @param {Object} env
@@ -377,17 +409,23 @@ async function handlePages(request, env) {
   if (path.startsWith('/fr/') && path.split('/').filter(Boolean).length === 2) {
     return html(fundReportPage());
   }
-  // 待办免密协作页 /t/:token
+  // 待办免密协作页 /t/:token（全屏背景/视图循环跟随链接主人设置）
   if (path.startsWith('/t/') && path.split('/').filter(Boolean).length === 2) {
-    return html(publicTodoPage());
+    const _seg = path.split('/').filter(Boolean);
+    const _prefs = await resolveTodoPublicPrefs(env, _seg[1], 'share');
+    return html(publicTodoPage(_prefs));
   }
   // 待办免密报告查看页 /tr/:token
   if (path.startsWith('/tr/') && path.split('/').filter(Boolean).length === 2) {
-    return html(todoReportPage());
+    const _seg = path.split('/').filter(Boolean);
+    const _prefs = await resolveTodoPublicPrefs(env, _seg[1], 'report-share');
+    return html(todoReportPage(_prefs));
   }
   // 待办免密汇总协作页 /tc/:token（跨全部清单，今天+逾期，可写）
   if (path.startsWith('/tc/') && path.split('/').filter(Boolean).length === 2) {
-    return html(todoCollabPage());
+    const _seg = path.split('/').filter(Boolean);
+    const _prefs = await resolveTodoPublicPrefs(env, _seg[1], 'report');
+    return html(todoCollabPage(_prefs));
   }
 
   // APP 下载页：未登录也可访问；已登录则落入下方登录态流程（保留完整外壳）
@@ -446,9 +484,7 @@ async function handlePages(request, env) {
     const _me = await _storage.users.findById(session.user_id);
     user.theme = (_me && ['light', 'dark', 'eye'].includes(_me.theme)) ? _me.theme : 'light';
     // 界面背景（账号级偏好）：服务端直出 data-bg，与主题同口径；非法/缺失回退默认空串
-    var _bgOk = ['', 'aurora', 'dawn', 'matcha', 'sea', 'dusk',
-      'solid-indigo','solid-steel','solid-teal','solid-green','solid-brown','solid-rose','solid-purple','solid-mint','solid-sky'];
-    user.bgTheme = (_me && _bgOk.includes(_me.todo_bg_theme)) ? _me.todo_bg_theme : '';
+    user.bgTheme = (_me && BG_THEMES.includes(_me.todo_bg_theme)) ? _me.todo_bg_theme : '';
     // 昵称以 DB 实时值为准：session 里是登录时的快照，改昵称后不重登也应立即生效（侧栏名片/头像首字等）
     user.nickname = (_me && _me.nickname) ? _me.nickname : (session.nickname || session.username);
     // 每日勉励卡（用户私有）：受限免密会话不弹。弹不弹由前端按设备+频率决定

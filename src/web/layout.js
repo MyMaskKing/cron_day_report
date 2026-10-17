@@ -45,10 +45,10 @@ function renderPage({ title = '控制台', body = '', script = '', scripts = [],
     .map(src => `<script src="${src}"></script>`)
     .join('\n');
   // data-theme 服务端直出: 登录态页按用户偏好(light/dark/eye)首屏即正确配色, 无 JS 闪白;
-  // 免密/登录页固定 light
+  // 免密/登录页固定 light（含待办三免密页：背景跟随主人但主题不跟随，背景呈浅色版）
   const themeAttr = ['light', 'dark', 'eye'].includes(theme) ? theme : 'light';
   // data-bg 服务端直出: 登录态页按用户保存的背景首屏即正确, 无 JS 闪烁;
-  // 免密/登录页固定空串(默认)
+  // 待办三免密页(/t/ /tr/ /tc/)透传链接主人保存的背景; 登录页与其余免密页固定空串(默认)
   const bgAttr = BG_ATTRS.includes(bg) ? bg : '';
   return `<!DOCTYPE html>
 <html lang="zh-CN" data-theme="${themeAttr}" data-bg="${bgAttr}">

@@ -13454,6 +13454,12 @@ document.getElementById('bgSave').addEventListener('click', async function(){
 const PUBLIC_TODO_JS = `
 bindModal();
 bindQuickLogin('todo');
+// 应用链接主人的视图循环偏好(服务端注入 #todoOwnerPrefs): 与登录态同口径校正当前视图,
+// 不传 getRowsFn 仅设状态不重绘, 首绘交给 loadPublic 首次 applyTodoView; 失败静默走系统默认循环
+try {
+  var _ownerPrefsEl = document.getElementById('todoOwnerPrefs');
+  if (_ownerPrefsEl) todoApplyViewCycle(JSON.parse(_ownerPrefsEl.textContent).todo_view_list, null, null, true);
+} catch(_e) {}
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _rows = [], _rootId = null, _today = '';
 var _curRange = 'month';
@@ -13669,6 +13675,12 @@ loadPublic();
 const TODO_REPORT_JS = `
 bindModal();
 bindQuickLogin('todo-report');
+// 应用链接主人的视图循环偏好(服务端注入 #todoOwnerPrefs): 与登录态同口径校正当前视图,
+// 不传 getRowsFn 仅设状态不重绘, 首绘交给报告数据加载后的首次 applyTodoView; 失败静默走系统默认循环
+try {
+  var _ownerPrefsEl = document.getElementById('todoOwnerPrefs');
+  if (_ownerPrefsEl) todoApplyViewCycle(JSON.parse(_ownerPrefsEl.textContent).todo_view_list, null, null, true);
+} catch(_e) {}
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _curRange = 'month';
 var _rows = [], _trees = [], _today = '';
@@ -13973,6 +13985,12 @@ async function reloadReport() {
 const TODO_COLLAB_JS = `
 bindModal();
 bindQuickLogin('todo-report');
+// 应用链接主人的视图循环偏好(服务端注入 #todoOwnerPrefs): 与登录态同口径校正当前视图,
+// 不传 getRowsFn 仅设状态不重绘, 首绘交给 loadCollab 首次 applyTodoView; 失败静默走系统默认循环
+try {
+  var _ownerPrefsEl = document.getElementById('todoOwnerPrefs');
+  if (_ownerPrefsEl) todoApplyViewCycle(JSON.parse(_ownerPrefsEl.textContent).todo_view_list, null, null, true);
+} catch(_e) {}
 var _token = location.pathname.split('/').filter(Boolean).pop();
 var _rows = [], _today = '';
 var _curRange = 'month';
