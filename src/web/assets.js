@@ -2545,6 +2545,8 @@ var showMsg = function(_el, text, ok){ showToast(text, ok); };
     document.getElementById('pfNick').value = d.profile.nickname;
     var ql = document.getElementById('qlRestrict');
     if (ql) ql.checked = d.profile.restrict_quicklogin != 0;
+    var qb = document.getElementById('qlBtnShow');
+    if (qb) qb.checked = d.profile.show_quicklogin_btn != 0;
     var tap = document.getElementById('todoAutoParent');
     if (tap) tap.checked = d.profile.todo_auto_parent !== 0;
     var dh = document.getElementById('defaultHome');
@@ -2575,6 +2577,14 @@ if (qlEl) qlEl.addEventListener('change', async function(){
     await api('/api/auth/quicklogin-restrict', { method:'PUT', body:{ enabled: qlEl.checked } });
     showMsg(msg, '免密登录设置已保存', true);
   } catch(err){ showMsg(msg, err.message, false); qlEl.checked = !qlEl.checked; }
+});
+// 免密页「用本人账号登录」按钮显隐：切换即保存
+var qbEl = document.getElementById('qlBtnShow');
+if (qbEl) qbEl.addEventListener('change', async function(){
+  try {
+    await api('/api/auth/quicklogin-button', { method:'PUT', body:{ enabled: qbEl.checked } });
+    showMsg(msg, '免密登录设置已保存', true);
+  } catch(err){ showMsg(msg, err.message, false); qbEl.checked = !qbEl.checked; }
 });
 // 默认首页：切换即保存；App 壳经桥即时更新底部 Tab，普通浏览器 reload 展示新 Tab 构成
 var dhEl = document.getElementById('defaultHome');

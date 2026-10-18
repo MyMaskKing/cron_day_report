@@ -11,6 +11,7 @@
 -- weight_unit: jin(斤, 默认) | kg(公斤), 库内统一存公斤, 显示按此偏好换算(1公斤=2斤)
 -- nickname: 显示用昵称, 可改; username 为登录名不可改
 -- restrict_quicklogin: 免密快速登录访问限制, 1=仅能访问对应模块页(默认)
+-- show_quicklogin_btn: 免密公开页「用本人账号登录」按钮显隐, 1=显示(默认) | 0=隐藏
 -- investment_strategy: 投资策略 Markdown, 每用户一条
 -- theme: 界面主题 light(默认) | dark | eye
 -- todo_auto_parent: 待办偏好, 1=子任务全部完成后父任务自动完成(默认) | 0=关闭
@@ -26,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
   weight_unit          TEXT NOT NULL DEFAULT 'jin',
   nickname             TEXT,
   restrict_quicklogin  INTEGER NOT NULL DEFAULT 1,
+  show_quicklogin_btn  INTEGER NOT NULL DEFAULT 1,
   investment_strategy  TEXT,
   theme                TEXT NOT NULL DEFAULT 'light',
   todo_bg_theme        TEXT NOT NULL DEFAULT '',

@@ -191,6 +191,7 @@ async function getProfile({ request, env }) {
     username: u.username,
     nickname: u.nickname || u.username,
     restrict_quicklogin: u.restrict_quicklogin != null ? u.restrict_quicklogin : 1,
+    show_quicklogin_btn: u.show_quicklogin_btn != null ? u.show_quicklogin_btn : 1,
     theme: THEMES.includes(u.theme) ? u.theme : 'light',
     todo_bg_theme: BG_THEMES.includes(u.todo_bg_theme) ? u.todo_bg_theme : '',
     todo_auto_parent: u.todo_auto_parent === 0 ? 0 : 1,
@@ -353,6 +354,38 @@ async function bootstrap({ request, env }) {
   return json({ success: true, message: '超管初始化成功', user: { id, username, role: 'admin' } });
 }
 
+// 免密快速登录/免密页偏好解析共用的 kind 白名单
+const QUICK_LOGIN_KINDS = ['fund', 'weight', 'asset', 'todo', 'weight-report', 'asset-report', 'fund-report', 'todo-report'];
+
+/**
+ * 按免密 token 反查链接主人用户 ID（谁的链接就归谁）
+ * kind ∈ fund | weight | asset | todo | weight-report | asset-report | fund-report | todo-report
+ * @returns {Promise<number|null>} 无效 token 返回 null；非法 kind 也返回 null（调用方自行判 400）
+ */
+async function resolvePublicOwnerId(storage, kind, token) {
+  if (kind === 'fund') {
+    const f = await storage.fund.findByShareToken(token);
+    return f ? f.user_id : null;
+  }
+  if (kind === 'weight') {
+    const m = await storage.weight.findMemberByShareToken(token);
+    return m ? m.user_id : null;
+  }
+  if (kind === 'asset') {
+    const w = await storage.asset.findWalletByShareToken(token);
+    return w ? w.user_id : null;
+  }
+  if (kind === 'todo') {
+    const t = await storage.todo.findByShareToken(token);
+    return t ? t.user_id : null;
+  }
+  if (kind === 'weight-report' || kind === 'asset-report' || kind === 'fund-report' || kind === 'todo-report') {
+    const row = await storage.push.findByReportToken(token);
+    return row ? row.user_id : null;
+  }
+  return null;
+}
+
 /**
  * POST /api/public/quick-login/:kind/:token  免密页快速登录
  * 按免密 token 定位其所属用户并签发正式会话（谁的链接就登入谁的账号）
@@ -361,25 +394,8 @@ async function bootstrap({ request, env }) {
 async function quickLoginByToken({ request, env, params }) {
   const storage = getStorage(env);
   const { kind, token } = params;
-  let userId = null;
-  if (kind === 'fund') {
-    const f = await storage.fund.findByShareToken(token);
-    if (f) userId = f.user_id;
-  } else if (kind === 'weight') {
-    const m = await storage.weight.findMemberByShareToken(token);
-    if (m) userId = m.user_id;
-  } else if (kind === 'asset') {
-    const w = await storage.asset.findWalletByShareToken(token);
-    if (w) userId = w.user_id;
-  } else if (kind === 'todo') {
-    const t = await storage.todo.findByShareToken(token);
-    if (t) userId = t.user_id;
-  } else if (kind === 'weight-report' || kind === 'asset-report' || kind === 'fund-report' || kind === 'todo-report') {
-    const row = await storage.push.findByReportToken(token);
-    if (row) userId = row.user_id;
-  } else {
-    return error('登录类型非法', 400);
-  }
+  if (!QUICK_LOGIN_KINDS.includes(kind)) return error('登录类型非法', 400);
+  const userId = await resolvePublicOwnerId(storage, kind, token);
   if (userId == null) return error('链接无效或已失效', 404);
 
   const user = await storage.users.findById(userId);
@@ -511,9 +527,23 @@ async function updateQuickloginRestrict({ request, env }) {
   return json({ success: true, message: '设置已保存' });
 }
 
+/**
+ * PUT /api/auth/quicklogin-button  设置免密页「用本人账号登录」按钮显隐  body: { enabled }
+ */
+async function updateShowQuickloginButton({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  const storage = getStorage(env);
+  await storage.users.updateShowQuickloginBtn(session.user_id, body.enabled ? 1 : 0);
+  return json({ success: true, message: '设置已保存' });
+}
+
 export {
   register, login, logout, me, bootstrap, setupStatus, registerStatus,
-  getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, updateQuickloginRestrict,
+  getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, resolvePublicOwnerId,
+  updateQuickloginRestrict, updateShowQuickloginButton,
   updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen,
   updateDefaultHome
 };

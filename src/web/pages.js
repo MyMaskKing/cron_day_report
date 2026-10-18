@@ -667,11 +667,11 @@ function fundPage(user) {
 }
 
 /** 免密快速加仓公开页（无需登录） */
-function publicBuyPage() {
+function publicBuyPage(showQuickLogin = true) {
   const body = `<div class="login-wrap" style="max-width:420px;">
     <div class="card">
       <h1 style="text-align:center;color:var(--brand-text);font-size:20px;margin-bottom:16px;">${ICO_PLUS}快速加仓</h1>
-      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
+      ${showQuickLogin ? `<div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>` : ''}
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
         <h2 id="fundName" style="font-size:16px;"></h2>
@@ -789,7 +789,7 @@ function weightPage(user) {
 }
 
 /** 体重免密快速填写公开页 */
-function publicWeightPage() {
+function publicWeightPage(showQuickLogin = true) {
   const body = `<style>
     @keyframes wkFlame { 0%,100%{transform:scale(1) rotate(-3deg);} 50%{transform:scale(1.2) rotate(3deg);} }
     .wk-flame{display:inline-block;animation:wkFlame 1s ease-in-out infinite;}
@@ -807,7 +807,7 @@ function publicWeightPage() {
       <div id="streakLine" style="text-align:center;font-size:22px;font-weight:700;margin-bottom:4px;display:none;"></div>
       <p id="streakTitle" style="text-align:center;color:var(--ok-text);font-weight:600;margin-bottom:2px;"></p>
       <p id="monthDays" style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px;"></p>
-      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
+      ${showQuickLogin ? `<div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>` : ''}
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
         <form id="wForm">
@@ -931,6 +931,10 @@ function settingsPage(user) {
         <input type="checkbox" id="qlRestrict" style="width:auto;margin:0;"> 免密链接「用本人账号登录」后仅能访问对应模块页
       </label>
       <p class="muted" style="font-size:12px;">开启后，从免密页登录只能看到对应模块，其他页面不可访问；关闭则为完整登录。</p>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin-top:12px;">
+        <input type="checkbox" id="qlBtnShow" style="width:auto;margin:0;"> 免密页面显示「用本人账号登录」按钮
+      </label>
+      <p class="muted" style="font-size:12px;">取消后，所有免密填写/查看页不再出现该按钮；默认显示。</p>
       <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
       <h2 style="font-size:15px;">待办偏好</h2>
       <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
@@ -1095,12 +1099,12 @@ function assetPage(user) {
 }
 
 /** 资产免密录入公开页 */
-function publicAssetPage() {
+function publicAssetPage(showQuickLogin = true) {
   const body = `<div class="login-wrap" style="max-width:420px;">
     <div class="card">
       <h1 style="text-align:center;color:var(--brand-text);font-size:20px;margin-bottom:6px;">💰 <span id="walletName"></span></h1>
       <p style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px;">录入 <span id="monthLabel"></span>金额</p>
-      <div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
+      ${showQuickLogin ? `<div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>` : ''}
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
         <form id="aForm">
@@ -1118,10 +1122,10 @@ function publicAssetPage() {
 }
 
 /** 体重免密报告查看页 */
-function weightReportPage() {
+function weightReportPage(showQuickLogin = true) {
   const body = `<div class="container" style="max-width:760px;margin:24px auto;">
     <div class="card">
-      <h2>⚖️ 体重曲线 <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button></h2>
+      <h2>⚖️ 体重曲线 ${showQuickLogin ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}</h2>
       <div id="content" style="display:none;">
         <canvas id="rptChart" style="max-height:420px;"></canvas>
         <div id="rptHist" style="margin-top:20px;"></div>
@@ -1132,9 +1136,9 @@ function weightReportPage() {
 }
 
 /** 资产免密报告查看页 */
-function assetReportPage() {
+function assetReportPage(showQuickLogin = true) {
   const body = `<div class="container" style="max-width:760px;margin:24px auto;">
-    <div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>
+    ${showQuickLogin ? `<div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>` : ''}
     <div id="content" style="display:none;">
       <div class="card"><h2>💰 当月各类型合计</h2><div id="typeTotalBox"></div></div>
       <div class="card"><h2>📈 净资产趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="netChart" style="max-height:340px;"></canvas></div>
@@ -1153,12 +1157,12 @@ function assetReportPage() {
 }
 
 /** 基金持仓分布免密报告页 */
-function fundReportPage() {
+function fundReportPage(showQuickLogin = true) {
   const body = `<div class="container" style="max-width:640px;margin:24px auto;">
     <div class="card">
       <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <span>📊 持仓分布</span>
-        <button class="btn sm gray" id="quickLoginBtn" style="font-weight:normal;">${ICO_KEY}用本人账号登录</button>
+        ${showQuickLogin ? `<button class="btn sm gray" id="quickLoginBtn" style="font-weight:normal;">${ICO_KEY}用本人账号登录</button>` : ''}
       </h2>
       <div id="content" style="display:none;">
         <canvas id="pieChart" style="max-height:420px;"></canvas>
@@ -1321,9 +1325,11 @@ function todoPage(user) {
 
 /** 待办免密协作公开页（prefs 为链接主人的全屏背景/视图循环偏好） */
 function publicTodoPage(prefs = {}) {
+  // 免密页「用本人账号登录」按钮显隐跟随链接主人（缺省/未设置都显示）
+  const showQl = prefs.showQuickLogin !== false;
   const body = `${todoOwnerPrefsScript(prefs)}<div class="container" style="max-width:560px;margin:24px auto;">
     <div class="card">
-      <h2>📝 <span id="rootTitle">待办</span> <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button></h2>
+      <h2>📝 <span id="rootTitle">待办</span> ${showQl ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}</h2>
       <p id="ownerLine" class="muted" style="margin-bottom:12px;"></p>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
@@ -1368,11 +1374,13 @@ function publicTodoPage(prefs = {}) {
 
 /** 待办免密报告查看页（prefs 为链接主人的全屏背景/视图循环偏好） */
 function todoReportPage(prefs = {}) {
+  // 免密页「用本人账号登录」按钮显隐跟随链接主人（缺省/未设置都显示）
+  const showQl = prefs.showQuickLogin !== false;
   const body = `${todoOwnerPrefsScript(prefs)}<div class="container" style="max-width:640px;margin:24px auto;">
     <div id="content" style="display:none;">
       <div class="card">
         <h2 style="overflow:hidden;">📝 今日 + 逾期待办
-          <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>
+          ${showQl ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}
         </h2>
         <div id="statsHint" class="muted" style="font-size:12px;margin:8px 0;clear:both;"></div>
         <div class="todo-stats" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">
@@ -1423,9 +1431,11 @@ function todoReportPage(prefs = {}) {
 
 /** 待办免密汇总协作页（跨全部清单，今天+逾期，可勾选/编辑/添加；prefs 为链接主人的全屏背景/视图循环偏好） */
 function todoCollabPage(prefs = {}) {
+  // 免密页「用本人账号登录」按钮显隐跟随链接主人（缺省/未设置都显示）
+  const showQl = prefs.showQuickLogin !== false;
   const body = `${todoOwnerPrefsScript(prefs)}<div class="container" style="max-width:640px;margin:24px auto;">
     <div class="card">
-      <h2>📝 <span id="ownerTitle">待办协作</span> <button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button></h2>
+      <h2>📝 <span id="ownerTitle">待办协作</span> ${showQl ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}</h2>
       <p class="muted" style="margin-bottom:12px;">今日到期与逾期任务，可直接勾选、编辑或添加。</p>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">

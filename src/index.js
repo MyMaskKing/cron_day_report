@@ -16,7 +16,7 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, updateQuickloginRestrict, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen, updateDefaultHome, BG_THEMES, normalizeTodoViewList } from './api/auth.api.js';
+import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, resolvePublicOwnerId, updateQuickloginRestrict, updateShowQuickloginButton, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen, updateDefaultHome, BG_THEMES, normalizeTodoViewList } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
@@ -117,6 +117,7 @@ router.put('/api/auth/default-home', updateDefaultHome);
 router.put('/api/auth/password', changePassword);
 router.post('/api/auth/reset-password', selfChangePassword);
 router.put('/api/auth/quicklogin-restrict', updateQuickloginRestrict);
+router.put('/api/auth/quicklogin-button', updateShowQuickloginButton);
 router.put('/api/auth/todo-auto-parent', updateTodoAutoParent);
 router.put('/api/auth/todo-view-list', updateTodoViewList);
 router.put('/api/auth/motto', updateMotto);
@@ -329,10 +330,11 @@ router.delete('/api/share/members/:id', removeShareMember);
  * scope: 'share'=仅清单 share_token(/t/)；'report'=仅 report_token(/tc/)；
  *        'report-share'=report_token 优先回退清单 share_token(/tr/)，口径同 publicTodoReport。
  * 查不到用户（无效 token）返回空偏好、不抛错；last_public 由各数据 API 负责更新。
- * @returns {Promise<{bg:string, viewList:string[]}>}
+ * showQuickLogin：链接主人是否在免密页显示「用本人账号登录」按钮（默认显示）。
+ * @returns {Promise<{bg:string, viewList:string[], showQuickLogin:boolean}>}
  */
 async function resolveTodoPublicPrefs(env, token, scope) {
-  const empty = { bg: '', viewList: [] };
+  const empty = { bg: '', viewList: [], showQuickLogin: true };
   try {
     const storage = getStorage(env);
     let userId = null;
@@ -349,10 +351,28 @@ async function resolveTodoPublicPrefs(env, token, scope) {
     if (!user) return empty;
     return {
       bg: BG_THEMES.includes(user.todo_bg_theme) ? user.todo_bg_theme : '',
-      viewList: normalizeTodoViewList(user.todo_view_list)
+      viewList: normalizeTodoViewList(user.todo_view_list),
+      showQuickLogin: user.show_quicklogin_btn == null ? true : !!user.show_quicklogin_btn
     };
   } catch {
     return empty;
+  }
+}
+
+/**
+ * 免密公开页是否显示「用本人账号登录」按钮：按 token 反查链接主人，读其 show_quicklogin_btn 偏好。
+ * kind 口径同 /api/public/quick-login；查不到用户/异常时默认显示（无效 token 提示由各数据 API 负责）。
+ * @returns {Promise<boolean>}
+ */
+async function resolvePublicShowQuickLogin(env, kind, token) {
+  try {
+    const storage = getStorage(env);
+    const userId = await resolvePublicOwnerId(storage, kind, token);
+    if (userId == null) return true;
+    const user = await storage.users.findById(userId);
+    return !user || user.show_quicklogin_btn == null ? true : !!user.show_quicklogin_btn;
+  } catch {
+    return true;
   }
 }
 
@@ -385,29 +405,35 @@ async function handlePages(request, env) {
       headers: { Location: safeTo, 'Set-Cookie': buildSessionCookie(sid, request) }
     });
   }
-  // 免密加仓公开页 /f/:token
+  // 免密加仓公开页 /f/:token（按钮显隐跟随链接主人设置）
   if (path.startsWith('/f/') && path.split('/').filter(Boolean).length === 2) {
-    return html(publicBuyPage());
+    const _token = path.split('/').filter(Boolean)[1];
+    return html(publicBuyPage(await resolvePublicShowQuickLogin(env, 'fund', _token)));
   }
   // 体重免密填写公开页 /w/:token
   if (path.startsWith('/w/') && path.split('/').filter(Boolean).length === 2) {
-    return html(publicWeightPage());
+    const _token = path.split('/').filter(Boolean)[1];
+    return html(publicWeightPage(await resolvePublicShowQuickLogin(env, 'weight', _token)));
   }
   // 资产免密录入公开页 /a/:token
   if (path.startsWith('/a/') && path.split('/').filter(Boolean).length === 2) {
-    return html(publicAssetPage());
+    const _token = path.split('/').filter(Boolean)[1];
+    return html(publicAssetPage(await resolvePublicShowQuickLogin(env, 'asset', _token)));
   }
   // 体重免密报告查看页 /wr/:token
   if (path.startsWith('/wr/') && path.split('/').filter(Boolean).length === 2) {
-    return html(weightReportPage());
+    const _token = path.split('/').filter(Boolean)[1];
+    return html(weightReportPage(await resolvePublicShowQuickLogin(env, 'weight-report', _token)));
   }
   // 资产免密报告查看页 /ar/:token
   if (path.startsWith('/ar/') && path.split('/').filter(Boolean).length === 2) {
-    return html(assetReportPage());
+    const _token = path.split('/').filter(Boolean)[1];
+    return html(assetReportPage(await resolvePublicShowQuickLogin(env, 'asset-report', _token)));
   }
   // 基金持仓分布免密报告页 /fr/:token
   if (path.startsWith('/fr/') && path.split('/').filter(Boolean).length === 2) {
-    return html(fundReportPage());
+    const _token = path.split('/').filter(Boolean)[1];
+    return html(fundReportPage(await resolvePublicShowQuickLogin(env, 'fund-report', _token)));
   }
   // 待办免密协作页 /t/:token（全屏背景/视图循环跟随链接主人设置）
   if (path.startsWith('/t/') && path.split('/').filter(Boolean).length === 2) {

@@ -102,6 +102,9 @@ function createD1Adapter(env) {
       async updateQuickloginRestrict(id, v) {
         await db.prepare('UPDATE users SET restrict_quicklogin = ? WHERE id = ?').bind(v ? 1 : 0, id).run();
       },
+      async updateShowQuickloginBtn(id, v) {
+        await db.prepare('UPDATE users SET show_quicklogin_btn = ? WHERE id = ?').bind(v ? 1 : 0, id).run();
+      },
       async updateTodoAutoParent(id, v) {
         await db.prepare('UPDATE users SET todo_auto_parent = ? WHERE id = ?').bind(v ? 1 : 0, id).run();
       },
