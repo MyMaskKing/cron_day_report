@@ -1301,7 +1301,7 @@ function todoPage(user) {
           <button type="button" class="bg-sw" data-bg="solid-teal" title="蓝绿"></button>
           <button type="button" class="bg-sw" data-bg="solid-green" title="翠绿"></button>
           <button type="button" class="bg-sw" data-bg="solid-brown" title="赭棕"></button>
-          <button type="button" class="bg-sw" data-bg="solid-rose" title="玫红"></button>
+          <button type="button" class="bg-sw" data-bg="solid-rose" title="石墨"></button>
           <button type="button" class="bg-sw" data-bg="solid-purple" title="紫"></button>
           <button type="button" class="bg-sw" data-bg="solid-mint" title="浅绿"></button>
           <button type="button" class="bg-sw" data-bg="solid-sky" title="浅蓝"></button>

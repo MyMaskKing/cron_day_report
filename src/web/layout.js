@@ -383,7 +383,7 @@ html[data-bg="solid-steel"]  :is(.todo-fullscreen, .bg-sheet__preview) { backgro
 html[data-bg="solid-teal"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: #2e8c88; }
 html[data-bg="solid-green"]  :is(.todo-fullscreen, .bg-sheet__preview) { background: #139364; }
 html[data-bg="solid-brown"]  :is(.todo-fullscreen, .bg-sheet__preview) { background: #b07a52; }
-html[data-bg="solid-rose"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: #c05678; }
+html[data-bg="solid-rose"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: #4a5568; }
 html[data-bg="solid-purple"] :is(.todo-fullscreen, .bg-sheet__preview) { background: #8d6ac2; }
 html[data-bg="solid-mint"]   :is(.todo-fullscreen, .bg-sheet__preview) { background: #dcefe6; }
 html[data-bg="solid-sky"]    :is(.todo-fullscreen, .bg-sheet__preview) { background: #ddeaf6; }
@@ -399,7 +399,7 @@ html[data-theme="dark"][data-bg="solid-steel"]  .todo-fullscreen { background: #
 html[data-theme="dark"][data-bg="solid-teal"]   .todo-fullscreen { background: #267a76; }
 html[data-theme="dark"][data-bg="solid-green"]  .todo-fullscreen { background: #167e58; }
 html[data-theme="dark"][data-bg="solid-brown"]  .todo-fullscreen { background: #8a5f40; }
-html[data-theme="dark"][data-bg="solid-rose"]   .todo-fullscreen { background: #a04462; }
+html[data-theme="dark"][data-bg="solid-rose"]   .todo-fullscreen { background: #333d4d; }
 html[data-theme="dark"][data-bg="solid-purple"] .todo-fullscreen { background: #6c52a0; }
 html[data-theme="dark"][data-bg="solid-mint"]   .todo-fullscreen { background: #2f4a3e; }
 html[data-theme="dark"][data-bg="solid-sky"]    .todo-fullscreen { background: #324a66; }
@@ -411,7 +411,7 @@ html[data-bg="solid-steel"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-
 html[data-bg="solid-teal"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --hover-bg:rgba(255,255,255,.1); --fab-bg:#4ea8a3; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
 html[data-bg="solid-green"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --hover-bg:rgba(255,255,255,.1); --fab-bg:#33af80; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
 html[data-bg="solid-brown"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --hover-bg:rgba(255,255,255,.1); --fab-bg:#c8966e; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
-html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --hover-bg:rgba(255,255,255,.1); --fab-bg:#d87494; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
+html[data-bg="solid-rose"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --hover-bg:rgba(255,255,255,.1); --fab-bg:#718096; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
 html[data-bg="solid-purple"] body.todo-fs-on .todo-fs-main { --onbg:#fff; --onbg-soft:rgba(255,255,255,.72); --onbg-hover:rgba(255,255,255,.14); --hover-bg:rgba(255,255,255,.1); --fab-bg:#a688d8; --rail-line:rgba(255,255,255,.42); --over-fg:#ff6b5e; --today-fg:#c4b5fd; --soon-fg:#fbbf24; --card-border-c:rgba(255,255,255,.32); }
 html[data-bg="solid-mint"] body.todo-fs-on .todo-fs-main { --onbg:#2f4a3e; --onbg-soft:#5f7e6e; --onbg-hover:rgba(20,40,60,.08); --hover-bg:rgba(20,40,60,.06); --fab-bg:#8fc8ae; }
 html[data-bg="solid-sky"] body.todo-fs-on .todo-fs-main { --onbg:#324a66; --onbg-soft:#6282a0; --onbg-hover:rgba(20,40,60,.08); --hover-bg:rgba(20,40,60,.06); --fab-bg:#8fb4dd; }
@@ -3498,7 +3498,7 @@ html[data-bg]:not([data-bg=""]) .bg-sp-row.root { border-left-color: #8b5cf6; }
 .bg-sw[data-bg="solid-teal"]   { background:#2e8c88; }
 .bg-sw[data-bg="solid-green"]  { background:#139364; }
 .bg-sw[data-bg="solid-brown"]  { background:#b07a52; }
-.bg-sw[data-bg="solid-rose"]   { background:#c05678; }
+.bg-sw[data-bg="solid-rose"]   { background:#4a5568; }
 .bg-sw[data-bg="solid-purple"] { background:#8d6ac2; }
 .bg-sw[data-bg="solid-mint"]   { background:#dcefe6; }
 .bg-sw[data-bg="solid-sky"]    { background:#ddeaf6; }
@@ -3532,7 +3532,7 @@ html[data-bg]:not([data-bg=""]) .bg-sp-row.root { border-left-color: #8b5cf6; }
 .bg-pick-thumb[data-bg="solid-teal"]   { background:#2e8c88; }
 .bg-pick-thumb[data-bg="solid-green"]  { background:#139364; }
 .bg-pick-thumb[data-bg="solid-brown"]  { background:#b07a52; }
-.bg-pick-thumb[data-bg="solid-rose"]   { background:#c05678; }
+.bg-pick-thumb[data-bg="solid-rose"]   { background:#4a5568; }
 .bg-pick-thumb[data-bg="solid-purple"] { background:#8d6ac2; }
 .bg-pick-thumb[data-bg="solid-mint"]   { background:#dcefe6; }
 .bg-pick-thumb[data-bg="solid-sky"]    { background:#ddeaf6; }
