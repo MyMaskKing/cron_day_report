@@ -1380,7 +1380,7 @@ function todoReportPage(prefs = {}) {
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
           <button class="btn sm gray" id="viewToggle">${ICO_CARDS}卡片视图</button>
         </div>
@@ -1435,7 +1435,7 @@ function todoCollabPage(prefs = {}) {
           <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
           <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 12px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;">
           <button class="btn sm" id="tAddRoot">+ 添加任务</button>
           <button class="btn sm gray" id="viewToggle">${ICO_CARDS}卡片视图</button>
         </div>
