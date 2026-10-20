@@ -6241,7 +6241,7 @@ var wallets = [];
 var TYPE_LABEL = { bank:'银行卡', alipay:'支付宝', wechat:'微信', investment:'投资', credit:'信用支付', cash:'现金' };
 var TYPE_ORDER = ['bank','alipay','wechat','cash','investment','credit'];
 var TYPE_COLOR = { bank:'#7C3AED', alipay:'#34b34a', wechat:'#0ea5e9', cash:'#f97316', investment:'#A855F7', credit:'#cf1322' };
-var nwChart = null, csChart = null;
+var nwChart = null, csChart = null, compChart = null;
 function curMonth(){ var d=new Date(Date.now()+8*3600*1000); return d.toISOString().slice(0,7); }
 function assetMoney(v) {
   if (v === null || v === undefined) return '—';
@@ -6375,13 +6375,22 @@ function renderWallets(list) {
   tb.innerHTML = sorted.map(function(w){
     var amt = curMap[w.id];
     var prev = prevMap[w.id];
-    var diff = amt != null && prev != null ? Math.round((amt - prev) * 100) / 100 : null;
+    // 环比口径与合计行净存（本月净资产−上月净资产）对齐：单侧月份按 0 计——
+    // 新钱包首月=全额增加、本月未录=全额减少；信用支付是负债项，差额符号取负；
+    // 两月均无记录才显示「—」，保证各行差额可加总等于合计行
+    var diff = null, diffTag = '';
+    if (amt != null || prev != null) {
+      var sgn = w.type === 'credit' ? -1 : 1;
+      diff = Math.round(((amt || 0) - (prev || 0)) * sgn * 100) / 100;
+      if (amt != null && prev == null) diffTag = ' <span class="muted" style="font-size:11px;">上月无</span>';
+      else if (amt == null && prev != null) diffTag = ' <span class="muted" style="font-size:11px;">本月未录</span>';
+    }
     var amtCls = amt != null && amt < 0 ? ' is-down' : '';
     var diffCls = diff == null ? ' is-flat' : (diff > 0 ? ' is-up' : (diff < 0 ? ' is-down' : ' is-flat'));
     return '<tr' + (w.archived ? ' style="opacity:.5;"' : '') + '><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt">负债</span>':'') + '</td>' +
       '<td data-label="钱包名称">' + esc(w.name) + (w.archived ? ' <span class="tag">已封存</span>' : '') + '</td>' +
       '<td data-label="本月金额" class="asset-money' + amtCls + '">' + (amt != null ? assetMoney(amt) : '<span class="muted">—</span>') + '</td>' +
-      '<td data-label="较上月" class="asset-delta' + diffCls + '">' + (diff == null ? '—' : signedMoney(diff)) + '</td>' +
+      '<td data-label="较上月" class="asset-delta' + diffCls + '">' + (diff == null ? '—' : signedMoney(diff) + diffTag) + '</td>' +
       '<td data-label="操作">' +
         '<button class="btn sm" onclick="wRec(' + w.id + ",'" + w.type + "'" + ')">录入本月</button> ' +
         '<button class="btn sm asset-btn--secondary" onclick="wRecOther(' + w.id + ",'" + w.type + "'" + ')">其他月</button> ' +
@@ -6483,16 +6492,39 @@ function renderComposition(report, list) {
   list.forEach(function(t){ balanceMap[t.type] = t.balance; });
   var positive = TYPE_ORDER.filter(function(type){ return type !== 'credit'; });
   var assets = report.latest.assets || 0;
-  var acc = 0;
-  var gradient = positive.map(function(type){
+  // 真实 doughnut（替换原 conic-gradient 假饼图）：手机点击扇区可出 tooltip；只画正资产类型
+  var labels = [], data = [], colors = [];
+  positive.forEach(function(type){
     var value = balanceMap[type] || 0;
-    var startPct = assets ? acc / assets * 100 : 0;
-    acc += value;
-    var endPct = assets ? acc / assets * 100 : 0;
-    return TYPE_COLOR[type] + ' ' + startPct.toFixed(1) + '% ' + endPct.toFixed(1) + '%';
-  }).join(',');
-  donut.style.background = assets > 0 ? 'conic-gradient(' + gradient + ')' : 'var(--surface-2)';
-  donut.innerHTML = '<div class="asset-donut__center"><div>资产构成<br><strong>' + assetMoney(assets) + '</strong></div></div>';
+    if (value > 0) { labels.push(TYPE_LABEL[type]); data.push(value); colors.push(TYPE_COLOR[type]); }
+  });
+  if (compChart) { compChart.destroy(); compChart = null; }
+  donut.style.background = data.length ? 'transparent' : 'var(--surface-2)';
+  donut.innerHTML =
+    '<canvas id="typeDonutChart" role="img" aria-label="最新月资产构成饼图"></canvas>' +
+    '<div class="asset-donut__center"><div>资产构成<br><strong>' + assetMoney(assets) + '</strong></div></div>';
+  if (data.length) {
+    compChart = new Chart(document.getElementById('typeDonutChart'), {
+      type: 'doughnut',
+      data: { labels: labels, datasets: [{
+        data: data, backgroundColor: colors, hoverOffset: 4,
+        borderColor: assetCssVar('--surface', '#ffffff'), borderWidth: 1
+      }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '62%',
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: function(c) {
+              var t = c.parsed || 0;
+              var pct = assets ? (t / assets * 100).toFixed(1) : '0.0';
+              return c.label + '：' + assetMoney(t) + ' · ' + pct + '%';
+            }
+          } }
+        }
+      }
+    });
+  }
   legend.innerHTML = positive.map(function(type){
     var value = balanceMap[type] || 0;
     var pct = assets ? (value / assets * 100).toFixed(1) : '0.0';
@@ -6533,9 +6565,10 @@ function drawCharts(report) {
     type:'line',
     data:{ labels: report.months, datasets:[{
       label:'净资产', data: report.netWorthSeries, borderColor:brandColor,
-      backgroundColor:'rgba(124,58,237,.12)', fill:true, tension:.3, pointRadius:2
+      backgroundColor:'rgba(124,58,237,.12)', fill:true, tension:.3, pointRadius:2, pointHitRadius:12
     }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+    // index 模式 + intersect:false：手机触摸无需精确命中 2px 数据点，按 x 位置出 tooltip（同基金收益曲线图）
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ display:false } } }
   });
   var sourceSeries = (fullReport && fullReport.savingSeries) ? fullReport.savingSeries : report.savingSeries;
   var avg = avgNum(validChanges(sourceSeries, 6));
@@ -6549,9 +6582,9 @@ function drawCharts(report) {
       { label:'净资产变化', data: report.savingSeries, maxBarThickness:38, borderRadius:6,
         backgroundColor: function(c){ return c.raw < 0 ? dangerColor : okColor; } },
       { type:'line', label:'近 6 月均线', data:avgData, borderColor:avgColor, backgroundColor:avgColor,
-        borderDash:[6,6], pointRadius:0, pointHoverRadius:0, fill:false, tension:0, order:1 }
+        borderDash:[6,6], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, fill:false, tension:0, order:1 }
     ] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ display:false } } }
   });
 }
 function renderMonthTable(wlist, records) {

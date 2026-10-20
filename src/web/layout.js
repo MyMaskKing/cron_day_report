@@ -1120,7 +1120,8 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .asset-metric-list .asset-metric:last-child { border-bottom: 0; padding-bottom: 0; }
 .asset-composition { display: grid; grid-template-columns: 220px minmax(0,1fr); gap: 20px; align-items: center; }
 .asset-donut { width: 210px; height: 210px; border-radius: 50%; margin: auto; position: relative; background: var(--surface-2); }
-.asset-donut__center { position: absolute; inset: 38px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 13px; box-shadow: 0 0 0 1px var(--th-border); }
+.asset-donut canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+.asset-donut__center { position: absolute; inset: 38px; z-index: 1; border-radius: 50%; background: var(--surface); display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 13px; box-shadow: 0 0 0 1px var(--th-border); pointer-events: none; }
 .asset-donut__center strong { display: block; color: var(--text-strong); font-size: 15px; margin-top: 2px; }
 .asset-legend-list { display: grid; gap: 9px; }
 .asset-legend-row { display: grid; grid-template-columns: 12px minmax(0,1fr) auto; gap: 9px; align-items: center; font-size: 13px; }
