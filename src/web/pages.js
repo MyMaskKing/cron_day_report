@@ -1017,7 +1017,7 @@ function assetPage(user) {
         <canvas id="consumeChart" class="asset-chart"></canvas>
       </section>
       <section class="card">
-        <h2 class="asset-title">本月判断</h2>
+        <h2 class="asset-title">本月判断<button class="btn sm asset-title__btn" id="aaEntry" type="button">📝 异常分析</button></h2>
         <p class="asset-desc">和近 6 个月平均月增量对比。</p>
         <div id="aiVs6" class="asset-status-number" data-base-class="asset-status-number">—</div>
         <div class="asset-status-text" id="aiNote">—</div>
@@ -1027,7 +1027,6 @@ function assetPage(user) {
           <div class="asset-metric"><span>近 12 月累计增加</span><b id="aiTotal12" data-base-class="asset-metric__value">—</b></div>
           <div class="asset-metric"><span>最低增长月</span><b id="aiLowest" data-base-class="asset-metric__value">—</b></div>
         </div>
-        <div style="margin-top:14px;text-align:right;"><button class="btn sm" id="aaEntry" type="button">📝 异常分析</button></div>
       </section>
     </div>
 

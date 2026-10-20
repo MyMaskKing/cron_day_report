@@ -6376,14 +6376,13 @@ function renderWallets(list) {
     var amt = curMap[w.id];
     var prev = prevMap[w.id];
     // 环比口径与合计行净存（本月净资产−上月净资产）对齐：单侧月份按 0 计——
-    // 新钱包首月=全额增加、本月未录=全额减少；信用支付是负债项，差额符号取负；
-    // 两月均无记录才显示「—」，保证各行差额可加总等于合计行
+    // 新钱包首月=全额增加（不另加标签）、本月未录=全额减少并提示可能漏录；
+    // 信用支付是负债项，差额符号取负；两月均无记录才显示「—」，保证各行差额可加总等于合计行
     var diff = null, diffTag = '';
     if (amt != null || prev != null) {
       var sgn = w.type === 'credit' ? -1 : 1;
       diff = Math.round(((amt || 0) - (prev || 0)) * sgn * 100) / 100;
-      if (amt != null && prev == null) diffTag = ' <span class="muted" style="font-size:11px;">上月无</span>';
-      else if (amt == null && prev != null) diffTag = ' <span class="muted" style="font-size:11px;">本月未录</span>';
+      if (amt == null && prev != null) diffTag = ' <span class="muted" style="font-size:11px;">本月未录</span>';
     }
     var amtCls = amt != null && amt < 0 ? ' is-down' : '';
     var diffCls = diff == null ? ' is-flat' : (diff > 0 ? ' is-up' : (diff < 0 ? ' is-down' : ' is-flat'));
@@ -6504,6 +6503,7 @@ function renderComposition(report, list) {
     '<canvas id="typeDonutChart" role="img" aria-label="最新月资产构成饼图"></canvas>' +
     '<div class="asset-donut__center"><div>资产构成<br><strong>' + assetMoney(assets) + '</strong></div></div>';
   if (data.length) {
+    var centerCover = donut.querySelector('.asset-donut__center');
     compChart = new Chart(document.getElementById('typeDonutChart'), {
       type: 'doughnut',
       data: { labels: labels, datasets: [{
@@ -6514,15 +6514,27 @@ function renderComposition(report, list) {
         responsive: true, maintainAspectRatio: false, cutout: '62%',
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: {
-            label: function(c) {
-              var t = c.parsed || 0;
-              var pct = assets ? (t / assets * 100).toFixed(1) : '0.0';
-              return c.label + '：' + assetMoney(t) + ' · ' + pct + '%';
+          // tooltip 画在 canvas 内部，会落进环心被不透明中心圆盖住：
+          // tooltip 打开/关闭时联动隐藏中心圆（鼠标移出、触摸后外部点击均触发）
+          tooltip: {
+            callbacks: {
+              title: function() { return ''; },   // 标题与 label 类型名重复，去掉
+              label: function(c) {
+                var t = c.parsed || 0;
+                var pct = assets ? (t / assets * 100).toFixed(1) : '0.0';
+                return c.label + '：' + assetMoney(t) + ' · ' + pct + '%';
+              }
             }
-          } }
+          }
+        },
+        onHover: function(_evt, els) { if (centerCover) centerCover.style.visibility = els.length ? 'hidden' : ''; }
+      },
+      plugins: [{
+        id: 'aaDonutTip',
+        afterDraw: function(c) {
+          if (centerCover) centerCover.style.visibility = c.tooltip && c.tooltip._active && c.tooltip._active.length ? 'hidden' : '';
         }
-      }
+      }]
     });
   }
   legend.innerHTML = positive.map(function(type){
@@ -6941,7 +6953,8 @@ window.openAnalysisHistory = async function(){
       '</div>';
     }).join('') + '</div>';
   }
-  openModal('月度异常分析 · 历史记录', html);
+  // 大弹窗：PC 上卡片墙横排多列（aa-wall auto-fill 200px），手机仍单列
+  openModal('月度异常分析 · 历史记录', html, 'modal-mask--lg');
   Array.prototype.forEach.call(document.querySelectorAll('.aa-card-b'), function(b){ mdTaskToBoxes(b); });
   var writeBtn = document.getElementById('aaWrite');
   if (writeBtn) writeBtn.addEventListener('click', function(){ openAnalysisEditor(); });
