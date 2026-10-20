@@ -7020,14 +7020,16 @@ function renderAaHistory() {
   all.forEach(function(r){ years[r.month.slice(0, 4)] = 1; });
   years[curMonth().slice(0, 4)] = 1;
   var yearList = Object.keys(years).sort().reverse();
-  if (yearList.indexOf(_aaYear) < 0) _aaYear = yearList[0];
+  // 'all' 为合法值不能重置；仅具体年份已无数据时回退到最新年
+  if (_aaYear !== 'all' && yearList.indexOf(_aaYear) < 0) _aaYear = yearList[0];
   var yearOpts = '<option value="all">全部</option>' +
     yearList.map(function(y){ return '<option value="' + y + '"' + (y === _aaYear ? ' selected' : '') + '>' + y + ' 年</option>'; }).join('');
   var rows = _aaYear === 'all' ? all : all.filter(function(r){ return r.month.slice(0, 4) === _aaYear; });
   var html =
     '<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
       '<button class="btn sm" id="aaWrite" type="button">✏️ 写本月分析</button>' +
-      '<label style="font-size:13px;color:var(--muted);">年份 <select id="aaYear" class="btn sm gray" style="width:auto;padding:4px 8px;">' + yearOpts + '</select></label>' +
+      // 年份下拉必须用普通 select（class 带 btn 会被全站日期选择器接管，'all' 值被重置成当年）
+      '<label style="font-size:13px;color:var(--muted);">年份 <select id="aaYear" style="padding:5px 8px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface);color:var(--text);font-family:inherit;">' + yearOpts + '</select></label>' +
     '</div>';
   if (!rows.length) {
     html += '<p class="muted" style="text-align:center;padding:36px 0;">' + (_aaYear === 'all' ? '还没有月度异常分析记录' : _aaYear + ' 年还没有月度异常分析记录') + '</p>';
@@ -7054,6 +7056,34 @@ function renderAaHistory() {
     c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   });
 }
+// 删除分析的二次确认：独立遮罩弹层（不用 confirmModal——它复用 #modalMask 且确认时先关弹窗，
+// 会把背后的历史墙一起关掉）；视觉与 confirmModal 一致，确认后就地刷新当前年份的卡片墙
+function aaConfirmDelete(month){
+  var mask = document.createElement('div');
+  mask.className = 'modal-mask show';
+  mask.innerHTML = '<div class="modal-box">' +
+    '<div class="modal-head"><span>删除月度分析</span><span class="aa-del-x" style="cursor:pointer;color:var(--muted);font-size:22px;line-height:1;">&times;</span></div>' +
+    '<div class="modal-body">' +
+      '<p style="line-height:1.6;word-break:break-all;white-space:pre-line;">确定删除 ' + esc(month) + ' 的异常分析吗？删除后不可恢复。</p>' +
+      '<div style="text-align:right;margin-top:18px;"><button type="button" class="btn gray aa-del-cancel">取消</button> <button type="button" class="btn danger aa-del-ok">确认</button></div>' +
+    '</div></div>';
+  function close(){ mask.remove(); unlockBodyScroll(); }
+  document.body.appendChild(mask);
+  lockBodyScroll();
+  mask.querySelector('.aa-del-x').addEventListener('click', close);
+  mask.querySelector('.aa-del-cancel').addEventListener('click', close);
+  mask.addEventListener('click', function(e){ if (e.target === mask) close(); });
+  mask.querySelector('.aa-del-ok').addEventListener('click', async function(){
+    var btn = this; btn.disabled = true;
+    try {
+      await api('/api/asset/analyses/' + month, { method:'DELETE' });
+      // 更新缓存后关闭确认层，就地重渲染历史墙（保持当前年份）
+      _aaRowsCache = (_aaRowsCache || []).filter(function(r){ return r.month !== month; });
+      close();
+      renderAaHistory();
+    } catch(e) { btn.disabled = false; alertModal(e.message, { ok:false }); }
+  });
+}
 // 卡片详情：只读全屏查看器，可跳编辑或删除
 function openAnalysisDetail(month, rows){
   var row = rows.filter(function(r){ return r.month === month; })[0];
@@ -7067,14 +7097,9 @@ function openAnalysisDetail(month, rows){
     openAnalysisEditor(month);
   });
   mask.querySelector('#aaVDel').addEventListener('click', function(){
-    // 先关查看器再用项目统一确认框（查看器层级高于通用弹窗）；确认/取消都回到历史墙
+    // 先关只读查看器，再弹独立删除确认层（历史墙保留在背后，确认后就地刷新）
     mask.closeViewer();
-    confirmModal('删除月度分析', '确定删除 ' + month + ' 的异常分析吗？删除后不可恢复。', async function(){
-      try {
-        await api('/api/asset/analyses/' + month, { method:'DELETE' });
-        await openAnalysisHistory();
-      } catch(e){ alertModal(e.message, { ok:false }); }
-    });
+    aaConfirmDelete(month);
   });
 }
 var aaEntry = document.getElementById('aaEntry');
