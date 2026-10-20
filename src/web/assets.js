@@ -7005,13 +7005,32 @@ async function aaLoadMonth(month){
     aaDirty = false;
   } catch(e){ alertModal(e.message, { ok:false }); }
 }
-// 历史记录卡片墙：每月一张固定宽高卡片，渲染后 Markdown 截断渐隐
+// 历史记录卡片墙：年份筛选（默认本年），整表拉取后本地按年过滤；每月一张固定宽高卡片，Markdown 截断渐隐
+var _aaRowsCache = null, _aaYear = '';
 window.openAnalysisHistory = async function(){
   var d = await api('/api/asset/analyses');
-  var rows = d.analyses || [];
-  var html = '<div style="margin-bottom:12px;"><button class="btn sm" id="aaWrite" type="button">✏️ 写本月分析</button></div>';
+  _aaRowsCache = d.analyses || [];
+  if (!_aaYear) _aaYear = curMonth().slice(0, 4);
+  renderAaHistory();
+};
+function renderAaHistory() {
+  var all = _aaRowsCache || [];
+  // 年份选项：数据中出现过的年份 ∪ 本年，降序；另加「全部」
+  var years = {};
+  all.forEach(function(r){ years[r.month.slice(0, 4)] = 1; });
+  years[curMonth().slice(0, 4)] = 1;
+  var yearList = Object.keys(years).sort().reverse();
+  if (yearList.indexOf(_aaYear) < 0) _aaYear = yearList[0];
+  var yearOpts = '<option value="all">全部</option>' +
+    yearList.map(function(y){ return '<option value="' + y + '"' + (y === _aaYear ? ' selected' : '') + '>' + y + ' 年</option>'; }).join('');
+  var rows = _aaYear === 'all' ? all : all.filter(function(r){ return r.month.slice(0, 4) === _aaYear; });
+  var html =
+    '<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
+      '<button class="btn sm" id="aaWrite" type="button">✏️ 写本月分析</button>' +
+      '<label style="font-size:13px;color:var(--muted);">年份 <select id="aaYear" class="btn sm gray" style="width:auto;padding:4px 8px;">' + yearOpts + '</select></label>' +
+    '</div>';
   if (!rows.length) {
-    html += '<p class="muted" style="text-align:center;padding:36px 0;">还没有月度异常分析记录</p>';
+    html += '<p class="muted" style="text-align:center;padding:36px 0;">' + (_aaYear === 'all' ? '还没有月度异常分析记录' : _aaYear + ' 年还没有月度异常分析记录') + '</p>';
   } else {
     html += '<div class="aa-wall">' + rows.map(function(r){
       return '<div class="aa-card" data-month="' + r.month + '" role="button" tabindex="0">' +
@@ -7025,12 +7044,16 @@ window.openAnalysisHistory = async function(){
   Array.prototype.forEach.call(document.querySelectorAll('.aa-card-b'), function(b){ mdTaskToBoxes(b); });
   var writeBtn = document.getElementById('aaWrite');
   if (writeBtn) writeBtn.addEventListener('click', function(){ openAnalysisEditor(); });
+  document.getElementById('aaYear').addEventListener('change', function(){
+    _aaYear = this.value;
+    renderAaHistory();
+  });
   Array.prototype.forEach.call(document.querySelectorAll('.aa-card'), function(c){
     function open(){ openAnalysisDetail(c.getAttribute('data-month'), rows); }
     c.addEventListener('click', open);
     c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   });
-};
+}
 // 卡片详情：只读全屏查看器，可跳编辑或删除
 function openAnalysisDetail(month, rows){
   var row = rows.filter(function(r){ return r.month === month; })[0];
@@ -7043,13 +7066,15 @@ function openAnalysisDetail(month, rows){
     mask.closeViewer();
     openAnalysisEditor(month);
   });
-  mask.querySelector('#aaVDel').addEventListener('click', async function(){
-    // 查看器层级高于通用弹窗，删除确认用阻塞式 confirm（与备份删除确认同惯例）
-    if (!confirm('确定删除 ' + month + ' 的异常分析吗？删除后不可恢复。')) return;
+  mask.querySelector('#aaVDel').addEventListener('click', function(){
+    // 先关查看器再用项目统一确认框（查看器层级高于通用弹窗）；确认/取消都回到历史墙
     mask.closeViewer();
-    try { await api('/api/asset/analyses/' + month, { method:'DELETE' }); }
-    catch(e){ alertModal(e.message, { ok:false }); }
-    await openAnalysisHistory();
+    confirmModal('删除月度分析', '确定删除 ' + month + ' 的异常分析吗？删除后不可恢复。', async function(){
+      try {
+        await api('/api/asset/analyses/' + month, { method:'DELETE' });
+        await openAnalysisHistory();
+      } catch(e){ alertModal(e.message, { ok:false }); }
+    });
   });
 }
 var aaEntry = document.getElementById('aaEntry');
