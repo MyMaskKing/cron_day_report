@@ -1027,6 +1027,7 @@ function assetPage(user) {
           <div class="asset-metric"><span>近 12 月累计增加</span><b id="aiTotal12" data-base-class="asset-metric__value">—</b></div>
           <div class="asset-metric"><span>最低增长月</span><b id="aiLowest" data-base-class="asset-metric__value">—</b></div>
         </div>
+        <div style="margin-top:14px;text-align:right;"><button class="btn sm" id="aaEntry" type="button">📝 异常分析</button></div>
       </section>
     </div>
 

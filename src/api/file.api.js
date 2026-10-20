@@ -17,7 +17,7 @@ import { selectPrunableFiles } from '../services/markdown.service.js';
 const IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 const DEFAULT_ATTACH_MAX_MB = 5;
 // 附件所属编辑框白名单（files.ref_kind；未带/非法值=NULL，不参与自动清理）
-const REF_KINDS = new Set(['strategy', 'announcement', 'app_download', 'todo_note']);
+const REF_KINDS = new Set(['strategy', 'announcement', 'app_download', 'todo_note', 'asset_analysis']);
 
 async function attachMaxMb(storage) {
   const raw = parseInt(await storage.settings.get('todo_attach_max_mb'), 10);
@@ -150,15 +150,17 @@ async function deleteFileRows(storage, files, rows) {
  * @param {string} p.content 本次保存的正文
  */
 async function pruneRefFiles({ storage, files, rows, content }) {
-  const [strategyRows, noteRows, announcement, appDownload] = await Promise.all([
+  const [strategyRows, noteRows, announcement, appDownload, analysisRows] = await Promise.all([
     storage.users.allStrategyContents(),
     storage.todo.allTodoNotes(),
     storage.settings.get('announcement'),
-    storage.settings.get('app_download')
+    storage.settings.get('app_download'),
+    storage.asset.allAnalysisContents()
   ]);
   const otherContents = [
     ...strategyRows.map(r => r.content),
     ...noteRows.map(r => r.note),
+    ...analysisRows.map(r => r.content),
     announcement || '',
     appDownload || ''
   ];

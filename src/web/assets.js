@@ -1940,8 +1940,11 @@ function mountMarkdownEditor(textarea, opts) {
   var maxMb = opts.maxMb != null ? opts.maxMb : 5;
   var root = document.createElement('div');
   root.className = 'mde';
+  // fs_expand / 收缩两态共用 16px 描边风格
+  var ICO_FS_OFF = ICONS.fs_expand;
+  var ICO_FS_ON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M4 14v6h6"/><path d="M20 10V4h-6"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
   root.innerHTML =
-    '<div class="mde-seg"><button type="button" data-m="write" class="on">✏️ 写</button><button type="button" data-m="preview">👁 预览</button></div>' +
+    '<div class="mde-seg"><button type="button" data-m="write" class="on">✏️ 写</button><button type="button" data-m="preview">👁 预览</button><button type="button" class="mde-seg-fs" data-a="fullscreen" title="全屏编辑（Esc 退出）">' + ICO_FS_OFF + '</button></div>' +
     '<div class="mde-bar">' +
       '<button type="button" class="mde-btn" data-a="bold" title="加粗 Ctrl+B"><b>B</b></button>' +
       '<button type="button" class="mde-btn" data-a="italic" title="斜体 Ctrl+I"><i>i</i></button>' +
@@ -2175,9 +2178,25 @@ function mountMarkdownEditor(textarea, opts) {
       else if (a === 'file') pickAndUpload('');
     });
   });
-  Array.prototype.forEach.call(root.querySelectorAll('.mde-seg button'), function(b) {
+  Array.prototype.forEach.call(root.querySelectorAll('.mde-seg button[data-m]'), function(b) {
     b.addEventListener('click', function(){ setMode(b.dataset.m); });
   });
+  // 全屏编辑：.mde--fullscreen 固定铺满视口（z-index 高于其所在弹窗，低于全局 loading/图片灯箱）
+  var fsBtn = root.querySelector('.mde-seg-fs');
+  function setFullscreen(on) {
+    root.classList.toggle('mde--fullscreen', on);
+    fsBtn.innerHTML = on ? ICO_FS_ON : ICO_FS_OFF;
+    fsBtn.title = on ? '退出全屏（Esc）' : '全屏编辑（Esc 退出）';
+  }
+  if (fsBtn) fsBtn.addEventListener('click', function(){ setFullscreen(!root.classList.contains('mde--fullscreen')); });
+  // 全屏态 Esc 只退出编辑器：捕获阶段拦截，避免连带关闭底层弹窗
+  window.addEventListener('keydown', function(e){
+    if (e.key !== 'Escape' || !root.classList.contains('mde--fullscreen')) return;
+    // 图片灯箱打开时让灯箱先处理 Esc
+    if (document.querySelector('.img-lightbox.show')) return;
+    e.preventDefault(); e.stopPropagation();
+    setFullscreen(false);
+  }, true);
   textarea.addEventListener('input', renderPv);
   textarea.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSel('**', '**'); }
@@ -2193,6 +2212,49 @@ function mountMarkdownEditor(textarea, opts) {
   root.dataset.mode = 'write';
   renderPv();
   return { getValue: function(){ return textarea.value; } };
+}
+// ============ 通用 Markdown 只读全屏查看器（任意 md 正文复用；图片点击仍走灯箱） ============
+// opts.actionsHtml: 顶栏自定义操作按钮（如 编辑/删除），调用方拿到返回的 mask 后自行 querySelector 绑事件；
+// opts.onClose: 关闭回调。返回 mask（mask.closeViewer() 可由自定义按钮代码主动关闭）。
+function openMarkdownViewer(title, md, opts) {
+  opts = opts || {};
+  var mask = document.createElement('div');
+  mask.className = 'md-fs-mask';
+  mask.innerHTML =
+    '<div class="md-fs-box">' +
+      '<div class="md-fs-head"><span class="md-fs-title"></span>' +
+        '<span class="md-fs-actions"></span>' +
+        '<button type="button" class="md-fs-close" title="关闭">&times;</button>' +
+      '</div>' +
+      '<div class="md-fs-body md-body"></div>' +
+    '</div>';
+  mask.querySelector('.md-fs-title').textContent = title || '';
+  if (opts.actionsHtml) mask.querySelector('.md-fs-actions').innerHTML = opts.actionsHtml;
+  var bodyEl = mask.querySelector('.md-fs-body');
+  bodyEl.innerHTML = renderMarkdown(md || '');
+  mdTaskToBoxes(bodyEl);
+  var locked = false;
+  function shut() {
+    if (!mask.parentNode) return;
+    mask.remove();
+    document.removeEventListener('keydown', onKey, true);
+    if (locked) { locked = false; unlockBodyScroll(); }
+    if (typeof opts.onClose === 'function') opts.onClose();
+  }
+  function onKey(e) {
+    if (e.key !== 'Escape') return;
+    // 图片灯箱打开时 Esc 先关灯箱（灯箱 z-index 更高），不连带关闭查看器
+    if (document.querySelector('.img-lightbox.show')) return;
+    e.preventDefault(); shut();
+  }
+  mask.closeViewer = shut;
+  mask.querySelector('.md-fs-close').addEventListener('click', shut);
+  // 点遮罩空白（非内容/按钮）关闭；正文内滚动与图片点击不受影响
+  mask.addEventListener('click', function(e){ if (e.target === mask) shut(); });
+  document.addEventListener('keydown', onKey, true);
+  document.body.appendChild(mask);
+  lockBodyScroll(); locked = true;
+  return mask;
 }
 // ============ 全站公告（超管在系统设置发布；登录后页面弹窗强制阅读） ============
 // 每次整页加载静默拉取一次: 直接 fetch(不走 api(), 避免触发全局 loading 遮罩);
@@ -6765,6 +6827,120 @@ if (aPushSend) aPushSend.addEventListener('click', async function(){
   catch(e){ alertModal(e.message, { ok:false }); }
   finally { btn.disabled = false; btn.textContent = '立即推送'; }
 });
+
+// ============ 月度异常分析（Markdown 复盘，不参与统计） ============
+var aaMde = null, aaMonth = '', aaDirty = false, aaMaxMb = 5;
+api('/api/public/attach-max-mb').then(function(d){ if (d && d.max_mb) aaMaxMb = d.max_mb; }).catch(function(){});
+function aaDefaultMonth(){ return (fullReport && fullReport.latestMonth) || curMonth(); }
+// 填写弹窗：月份在上、Markdown 编辑器在下；同月再次保存覆盖
+window.openAnalysisEditor = function(month){
+  aaMonth = month || aaDefaultMonth();
+  aaDirty = false;
+  openModal('月度异常分析',
+    '<div class="row"><div><label>月份</label><input id="aaMonth" type="month"></div></div>' +
+    '<textarea id="aaContent"></textarea>' +
+    '<div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
+      '<button class="btn sm gray" id="aaHistory" type="button">📜 查看历史记录</button>' +
+      '<span><button class="btn gray" id="aaCancel" type="button">取消</button> <button class="btn" id="aaSave" type="button">保存</button></span>' +
+    '</div>', null, true);
+  var monEl = document.getElementById('aaMonth');
+  var ta = document.getElementById('aaContent');
+  monEl.value = aaMonth;
+  aaMde = mountMarkdownEditor(ta, {
+    maxMb: aaMaxMb,
+    upload: async function(file){
+      var fd = new FormData();
+      fd.append('file', file);
+      fd.append('ref', 'asset_analysis');
+      // 裸 fetch（不经 api() 的 JSON 编码）；个人数据不带 X-Data-As
+      var res = await fetch('/api/files/upload', { method:'POST', body:fd, credentials:'same-origin' });
+      var d = await res.json().catch(function(){ return {}; });
+      if (!res.ok || !d.success) throw new Error(d.message || '上传失败');
+      return d.attachment;
+    }
+  });
+  ta.addEventListener('input', function(){ aaDirty = true; });
+  aaLoadMonth(aaMonth);
+  monEl.addEventListener('change', function(){
+    if (monEl.value === aaMonth || !/^[0-9]{4}-[0-9]{2}$/.test(monEl.value)) { monEl.value = aaMonth; return; }
+    if (aaDirty && !confirm('当前月份的修改尚未保存，切换将丢失内容。确定切换？')) { monEl.value = aaMonth; return; }
+    aaMonth = monEl.value;
+    aaLoadMonth(aaMonth);
+  });
+  document.getElementById('aaHistory').addEventListener('click', function(){ openAnalysisHistory(); });
+  document.getElementById('aaCancel').addEventListener('click', closeModal);
+  document.getElementById('aaSave').addEventListener('click', async function(){
+    var btn = this, content = aaMde.getValue().trim();
+    if (!content) { alertModal('请填写分析内容', { ok:false }); return; }
+    btn.disabled = true;
+    try {
+      await api('/api/asset/analyses/' + aaMonth, { method:'PUT', body:{ content } });
+      aaDirty = false;
+      closeModal();
+      alertModal('分析已保存');
+    } catch(e){ alertModal(e.message, { ok:false }); }
+    finally { btn.disabled = false; }
+  });
+};
+// 载入某月已存内容到当前编辑器（空月清空）；写值后手动触发 input 刷新预览，再复位脏标记
+async function aaLoadMonth(month){
+  try {
+    var d = await api('/api/asset/analyses/' + month);
+    var ta = document.getElementById('aaContent');
+    if (!ta) return;
+    ta.value = d.analysis ? d.analysis.content : '';
+    ta.dispatchEvent(new Event('input'));
+    aaDirty = false;
+  } catch(e){ alertModal(e.message, { ok:false }); }
+}
+// 历史记录卡片墙：每月一张固定宽高卡片，渲染后 Markdown 截断渐隐
+window.openAnalysisHistory = async function(){
+  var d = await api('/api/asset/analyses');
+  var rows = d.analyses || [];
+  var html = '<div style="margin-bottom:12px;"><button class="btn sm" id="aaWrite" type="button">✏️ 写本月分析</button></div>';
+  if (!rows.length) {
+    html += '<p class="muted" style="text-align:center;padding:36px 0;">还没有月度异常分析记录</p>';
+  } else {
+    html += '<div class="aa-wall">' + rows.map(function(r){
+      return '<div class="aa-card" data-month="' + r.month + '" role="button" tabindex="0">' +
+        '<div class="aa-card-h"><b>' + r.month + '</b><span class="muted" style="font-size:11px;">' + fmtDbTime(r.updated_at) + '</span></div>' +
+        '<div class="aa-card-b md-body">' + renderMarkdown(r.content) + '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
+  openModal('月度异常分析 · 历史记录', html);
+  Array.prototype.forEach.call(document.querySelectorAll('.aa-card-b'), function(b){ mdTaskToBoxes(b); });
+  var writeBtn = document.getElementById('aaWrite');
+  if (writeBtn) writeBtn.addEventListener('click', function(){ openAnalysisEditor(); });
+  Array.prototype.forEach.call(document.querySelectorAll('.aa-card'), function(c){
+    function open(){ openAnalysisDetail(c.getAttribute('data-month'), rows); }
+    c.addEventListener('click', open);
+    c.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  });
+};
+// 卡片详情：只读全屏查看器，可跳编辑或删除
+function openAnalysisDetail(month, rows){
+  var row = rows.filter(function(r){ return r.month === month; })[0];
+  if (!row) return;
+  var mask = openMarkdownViewer(month + ' 月度异常分析', row.content, {
+    actionsHtml: '<button class="btn sm gray" id="aaVEdit" type="button">编辑此月</button>' +
+                 '<button class="btn sm danger" id="aaVDel" type="button">删除</button>'
+  });
+  mask.querySelector('#aaVEdit').addEventListener('click', function(){
+    mask.closeViewer();
+    openAnalysisEditor(month);
+  });
+  mask.querySelector('#aaVDel').addEventListener('click', async function(){
+    // 查看器层级高于通用弹窗，删除确认用阻塞式 confirm（与备份删除确认同惯例）
+    if (!confirm('确定删除 ' + month + ' 的异常分析吗？删除后不可恢复。')) return;
+    mask.closeViewer();
+    try { await api('/api/asset/analyses/' + month, { method:'DELETE' }); }
+    catch(e){ alertModal(e.message, { ok:false }); }
+    await openAnalysisHistory();
+  });
+}
+var aaEntry = document.getElementById('aaEntry');
+if (aaEntry) aaEntry.addEventListener('click', function(){ openAnalysisEditor(); });
 
 (async function(){
   try { await loadAll(); initAssetFilter(); await loadPush(); }

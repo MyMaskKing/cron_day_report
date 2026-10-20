@@ -576,6 +576,35 @@ function createD1Adapter(env) {
           `INSERT INTO asset_goals (user_id, year, target_amount) VALUES (?, ?, ?)
            ON CONFLICT(user_id, year) DO UPDATE SET target_amount=excluded.target_amount`
         ).bind(userId, year, amount).run();
+      },
+      async getAnalysis(userId, month) {
+        return await db.prepare(
+          'SELECT * FROM asset_analyses WHERE user_id=? AND month=?'
+        ).bind(userId, month).first();
+      },
+      async listAnalyses(userId) {
+        const { results } = await db.prepare(
+          'SELECT id, month, content, updated_at FROM asset_analyses WHERE user_id=? ORDER BY month DESC'
+        ).bind(userId).all();
+        return results || [];
+      },
+      // 同一用户每月一条：覆盖正文并刷新 updated_at
+      async upsertAnalysis(userId, month, content) {
+        await db.prepare(
+          `INSERT INTO asset_analyses (user_id, month, content) VALUES (?, ?, ?)
+           ON CONFLICT(user_id, month) DO UPDATE SET content=excluded.content,
+             updated_at=datetime('now')`
+        ).bind(userId, month, content).run();
+      },
+      async deleteAnalysis(userId, month) {
+        await db.prepare(
+          'DELETE FROM asset_analyses WHERE user_id=? AND month=?'
+        ).bind(userId, month).run();
+      },
+      // 附件孤儿对账用：全部用户的异常分析正文
+      async allAnalysisContents() {
+        const { results } = await db.prepare('SELECT content FROM asset_analyses').all();
+        return results || [];
       }
     },
 

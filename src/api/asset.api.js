@@ -10,6 +10,8 @@ import { generateToken } from '../auth/password.js';
 import { buildAssetReportData, calcGoalProgress, resolveInvestment, CREDIT_TYPE } from '../services/asset.service.js';
 import { resolveBaseUrl } from '../config.js';
 import { requireDataContext } from './share.api.js';
+import { getFileStore } from '../storage/file-store.js';
+import { pruneRefFiles } from './file.api.js';
 
 const WALLET_TYPES = ['bank', 'alipay', 'wechat', 'investment', 'credit', 'cash'];
 
@@ -217,6 +219,73 @@ async function setGoal({ request, env }) {
   return json({ success: true, message: '目标已保存' });
 }
 
+// ==================== 月度异常分析（Markdown 复盘，不参与统计） ====================
+
+const MONTH_RE = /^\d{4}-\d{2}$/;
+
+// 异常分析正文保存/删除后的附件清理（best-effort）：未绑定文件存储或清理失败均不影响保存结果
+async function pruneAnalysisFiles(storage, env, uid, content) {
+  const files = getFileStore(env);
+  if (!files) return;
+  try {
+    const rows = await storage.file.listByOwnerRef(uid, 'asset_analysis');
+    await pruneRefFiles({ storage, files, rows, content });
+  } catch { /* 附件清理失败忽略 */ }
+}
+
+/** GET /api/asset/analyses  全部月度异常分析（月份倒序） */
+async function listAnalyses({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'asset', request);
+  if (dc instanceof Response) return dc;
+  const analyses = await storage.asset.listAnalyses(dc.uid);
+  return json({ success: true, analyses });
+}
+
+/** GET /api/asset/analyses/:month  取某月分析（无则 analysis=null） */
+async function getAnalysis({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'asset', request);
+  if (dc instanceof Response) return dc;
+  if (!MONTH_RE.test(params.month)) return error('月份格式应为 YYYY-MM');
+  const analysis = await storage.asset.getAnalysis(dc.uid, params.month);
+  return json({ success: true, analysis: analysis || null });
+}
+
+/** PUT /api/asset/analyses/:month  保存/覆盖某月分析  body: { content } */
+async function saveAnalysis({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'asset', request);
+  if (dc instanceof Response) return dc;
+  if (!MONTH_RE.test(params.month)) return error('月份格式应为 YYYY-MM');
+  const body = await request.json().catch(() => ({}));
+  const content = typeof body.content === 'string' ? body.content.trim() : '';
+  if (!content) return error('请填写分析内容');
+  await storage.asset.upsertAnalysis(dc.uid, params.month, content);
+  await pruneAnalysisFiles(storage, env, dc.uid, content);
+  return json({ success: true, message: '分析已保存' });
+}
+
+/** DELETE /api/asset/analyses/:month  删除某月分析 */
+async function removeAnalysis({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'asset', request);
+  if (dc instanceof Response) return dc;
+  if (!MONTH_RE.test(params.month)) return error('月份格式应为 YYYY-MM');
+  await storage.asset.deleteAnalysis(dc.uid, params.month);
+  // 删除后用空正文再对账一次，释放该报告独占的附件
+  await pruneAnalysisFiles(storage, env, dc.uid, '');
+  return json({ success: true, message: '分析已删除' });
+}
+
 // ==================== 免密录入 ====================
 
 /** GET /api/public/asset/:token  免密查看钱包信息（供录入页）+ 当年该钱包月度余额曲线 */
@@ -276,5 +345,6 @@ async function publicAssetReport({ env, params }) {
 export {
   listWallets, createWallet, updateWallet, removeWallet, getWalletShareLink,
   saveRecord, updateRecord, removeRecord, assetReport, getGoal, setGoal,
+  listAnalyses, getAnalysis, saveAnalysis, removeAnalysis,
   publicWalletInfo, publicSaveRecord, publicAssetReport
 };

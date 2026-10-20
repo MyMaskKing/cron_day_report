@@ -17,3 +17,6 @@ node_modules/
 .impeccable/
 # AI 协作留痕（规划/记忆，不入库）
 .ai/
+
+# brainstorming mockups
+.superpowers/

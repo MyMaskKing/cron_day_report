@@ -240,6 +240,20 @@ CREATE TABLE IF NOT EXISTS asset_goals (
   PRIMARY KEY (user_id, year)
 );
 
+-- ==================== 资产月度异常分析 ====================
+-- 用户按月填写的 Markdown 复盘（同一用户每月一条，覆盖更新）；不参与统计
+CREATE TABLE IF NOT EXISTS asset_analyses (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  month      TEXT NOT NULL,
+  content    TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE(user_id, month)
+);
+CREATE INDEX IF NOT EXISTS idx_asset_analyses_user ON asset_analyses(user_id);
+
 -- ==================== 统一推送配置 ====================
 -- module: fund(基金日报) | weight(体重日报) | asset(资产月报) | monitor(监控) | todo(待办)
 -- 触发方式: Worker 每小时唤醒, 读此表用 shouldRun 判断是否到点

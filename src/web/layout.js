@@ -1925,6 +1925,42 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .mde-chip-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mde-chip-ok { color: var(--ok-text); }
 .mde-chip-st { color: var(--muted); }
+/* 编辑器全屏按钮（写/预览分段右侧；特异性压过 .mde-seg button 的 flex:1） */
+.mde-seg .mde-seg-fs { flex: none; width: 42px; border: 0; background: transparent; color: var(--label); border-radius: 7px; cursor: pointer; display: grid; place-items: center; font-family: inherit; }
+.mde-seg .mde-seg-fs:hover:not(:active) { background: var(--surface); color: var(--brand-text); }
+/* 编辑器全屏：铺满视口，写/预览面板撑满；z-index 高于所在弹窗(10000)，低于全局 loading(10500)与图片灯箱(20000) */
+.mde.mde--fullscreen { position: fixed; inset: 0; z-index: 10001; border-radius: 0; display: flex; flex-direction: column; }
+.mde.mde--fullscreen .mde-panes { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.mde.mde--fullscreen .mde-write,
+.mde.mde--fullscreen .mde-preview { flex: 1 1 auto; min-height: 0; max-height: none; }
+.mde.mde--fullscreen .mde-text { height: 100%; max-height: none; min-height: 0; resize: none; }
+/* 全屏态压过 PC 大弹窗的左右分栏规则（正常大弹窗下分段行被隐藏，此为兜底） */
+.mde.mde--fullscreen .mde-panes { grid-template-columns: none; height: auto; }
+.mde.mde--fullscreen .mde-write { border-right: 0; overflow: hidden; }
+/* Markdown 只读全屏查看器：层级高于弹窗(10000)/图表全屏(10010)，低于全局 loading(10500)与图片灯箱(20000) */
+.md-fs-mask { position: fixed; inset: 0; z-index: 10020; background: rgba(0,0,0,.5); display: flex; flex-direction: column; }
+.md-fs-box { background: var(--surface); width: 100%; height: 100%; max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; }
+.md-fs-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
+.md-fs-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-fs-actions { flex: none; display: flex; gap: 8px; }
+.md-fs-close { flex: none; width: 32px; height: 32px; border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; border-radius: 7px; }
+.md-fs-close:hover:not(:active) { background: var(--surface-2); color: var(--text); }
+.md-fs-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }
+@media (min-width: 821px) {
+  .md-fs-mask { padding: 28px 16px; }
+  .md-fs-box { height: auto; max-height: calc(100vh - 56px); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+}
+/* 资产月度异常分析：历史卡片墙（固定宽高、底部渐隐，点卡片进全屏详情） */
+.aa-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.aa-card { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; cursor: pointer; }
+.aa-card:hover:not(:active), .aa-card:focus-visible { border-color: var(--brand-border); box-shadow: 0 6px 18px rgba(80,90,130,.12); outline: none; }
+.aa-card-h { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 8px 11px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: 13px; }
+.aa-card-b { height: 132px; padding: 9px 11px; position: relative; overflow: hidden; font-size: 12px; line-height: 1.7; color: var(--text); pointer-events: none; }
+.aa-card-b::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 34px; background: linear-gradient(transparent, var(--surface)); pointer-events: none; }
+.aa-card-b p { margin: 3px 0; }
+.aa-card-b h1, .aa-card-b h2, .aa-card-b h3, .aa-card-b h4 { margin: 4px 0; font-size: 13px; }
+.aa-card-b ul, .aa-card-b ol { margin: 3px 0; padding-left: 18px; }
+.aa-card-b img { max-height: 60px; }
 /* PC 大弹窗：左右分栏，写/预览分段隐藏；选择器需压过 [data-mode] 的单栏显隐规则 */
 @media (min-width: 640px) {
   .modal-mask--lg .mde-panes { display: grid; grid-template-columns: 1fr 1fr; height: 62vh; }

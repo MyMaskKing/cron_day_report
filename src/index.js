@@ -45,6 +45,8 @@ import {
 import {
   listWallets, createWallet, updateWallet, removeWallet, getWalletShareLink,
   saveRecord, updateRecord as updateAssetRecord, removeRecord as removeAssetRecord, assetReport, getGoal, setGoal,
+  listAnalyses as listAssetAnalyses, getAnalysis as getAssetAnalysis,
+  saveAnalysis as saveAssetAnalysis, removeAnalysis as removeAssetAnalysis,
   publicWalletInfo, publicSaveRecord, publicAssetReport
 } from './api/asset.api.js';
 import { buildAssetReportData } from './services/asset.service.js';
@@ -252,6 +254,10 @@ router.delete('/api/asset/records/:id', removeAssetRecord);
 router.get('/api/asset/report', assetReport);
 router.get('/api/asset/goal', getGoal);
 router.put('/api/asset/goal', setGoal);
+router.get('/api/asset/analyses', listAssetAnalyses);
+router.get('/api/asset/analyses/:month', getAssetAnalysis);
+router.put('/api/asset/analyses/:month', saveAssetAnalysis);
+router.delete('/api/asset/analyses/:month', removeAssetAnalysis);
 router.get('/api/public/asset/:token', publicWalletInfo);
 router.post('/api/public/asset/:token', publicSaveRecord);
 router.get('/api/public/asset-report/:token', publicAssetReport);
