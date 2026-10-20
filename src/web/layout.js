@@ -1089,6 +1089,11 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .asset-summary-stats .num.is-up, .asset-status-number.is-up, .asset-metric__value.is-up, .asset-delta.is-up { color: var(--ok-text); }
 .asset-summary-stats .num.is-down, .asset-status-number.is-down, .asset-metric__value.is-down, .asset-delta.is-down, .asset-money.is-down, .asset-type-pill__num.is-down { color: var(--danger); }
 .asset-summary-stats .num.is-flat, .asset-status-number.is-flat, .asset-metric__value.is-flat, .asset-delta.is-flat { color: var(--muted); }
+/* 封存行弱化：只改文字色，不用 opacity（opacity<1 会创建堆叠上下文压住行内下拉菜单，且子菜单被迫半透明）；
+   单元格内联颜色（涨跌红绿）与 .btn 自身配色不受影响 */
+tr.row-archived td { color: var(--muted); }
+/* 表格行内下拉打开时提升整行（同 .card:has(.dropdown-menu.show) 先例） */
+tr:has(.dropdown-menu.show) { position: relative; z-index: 60; }
 .asset-progress { height: 10px; border-radius: 999px; background: var(--surface-2); overflow: hidden; margin: 10px 0 8px; }
 .asset-progress.is-achieved { background: var(--ok-bg); }
 .asset-progress__fill { width: 0; height: 100%; border-radius: 999px; background: var(--brand-strong); }

@@ -4409,7 +4409,8 @@ async function loadReport() {
   });
   tb.innerHTML = items.map(function(it){
     var arcTag = it.archived ? ' <span class="tag">已封存</span>' : '';
-    return '<tr' + (it.archived ? ' style="opacity:.5;"' : '') + '><td data-label="基金">' + esc(it.name) + arcTag + '<br><span class="muted">' + it.code + '</span></td>' +
+    // 封存行弱化用 class（不能用 opacity：会创建堆叠上下文压住操作下拉，且连菜单一起变淡）
+    return '<tr' + (it.archived ? ' class="row-archived"' : '') + '><td data-label="基金">' + esc(it.name) + arcTag + '<br><span class="muted">' + it.code + '</span></td>' +
       '<td data-label="份额">' + fmtMoney(it.shares) + '</td>' +
       '<td data-label="成本净值">' + it.cost_nav + '</td>' +
       '<td data-label="现价(估)">' + it.current_nav + ' <span style="color:' + colorOf(it.gszzl) + '">(' + sign(it.gszzl) + '%)</span></td>' +
@@ -6386,7 +6387,8 @@ function renderWallets(list) {
     }
     var amtCls = amt != null && amt < 0 ? ' is-down' : '';
     var diffCls = diff == null ? ' is-flat' : (diff > 0 ? ' is-up' : (diff < 0 ? ' is-down' : ' is-flat'));
-    return '<tr' + (w.archived ? ' style="opacity:.5;"' : '') + '><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt">负债</span>':'') + '</td>' +
+    // 封存行弱化用 class（不能用 opacity：会创建堆叠上下文压住操作菜单，且连菜单一起变淡）
+    return '<tr' + (w.archived ? ' class="row-archived"' : '') + '><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt">负债</span>':'') + '</td>' +
       '<td data-label="钱包名称">' + esc(w.name) + (w.archived ? ' <span class="tag">已封存</span>' : '') + '</td>' +
       '<td data-label="本月金额" class="asset-money' + amtCls + '">' + (amt != null ? assetMoney(amt) : '<span class="muted">—</span>') + '</td>' +
       '<td data-label="较上月" class="asset-delta' + diffCls + '">' + (diff == null ? '—' : signedMoney(diff) + diffTag) + '</td>' +
