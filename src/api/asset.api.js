@@ -59,7 +59,7 @@ async function createWallet({ request, env }) {
   return json({ success: true, message: '钱包已创建', id });
 }
 
-/** PUT /api/asset/wallets/:id  更新钱包  body: { type, name } */
+/** PUT /api/asset/wallets/:id  更新钱包  body: { type, name, archived? } */
 async function updateWallet({ request, env, params }) {
   const auth = await requireAuth(request, env);
   if (auth instanceof Response) return auth;
@@ -73,7 +73,9 @@ async function updateWallet({ request, env, params }) {
   const id = parseInt(params.id, 10);
   const w = await storage.asset.findWallet(id);
   if (!w || w.user_id !== dc.uid) return error('钱包不存在', 404);
-  await storage.asset.updateWallet(id, dc.uid, { type: body.type, name });
+  // archived 未传时保留现值（编辑弹窗之外的调用不会误解封）
+  const archived = body.archived != null ? !!body.archived : !!w.archived;
+  await storage.asset.updateWallet(id, dc.uid, { type: body.type, name, archived });
   return json({ success: true, message: '钱包已更新' });
 }
 
@@ -238,7 +240,7 @@ async function publicWalletInfo({ env, params }) {
     .map(([m, bal]) => ({ month: m, balance: Math.round((bal + Number.EPSILON) * 100) / 100 }));
   return json({
     success: true,
-    wallet: { id: w.id, type: w.type, name: w.name },
+    wallet: { id: w.id, type: w.type, name: w.name, archived: w.archived ? 1 : 0 },
     month, year, series
   });
 }

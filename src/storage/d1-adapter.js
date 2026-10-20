@@ -267,8 +267,8 @@ function createD1Adapter(env) {
       },
       async update(id, userId, f) {
         await db.prepare(
-          'UPDATE funds SET code=?, name=?, shares=?, cost_nav=? WHERE id=? AND user_id=?'
-        ).bind(f.code, f.name || '', f.shares || 0, f.cost_nav || 0, id, userId).run();
+          'UPDATE funds SET code=?, name=?, shares=?, cost_nav=?, archived=? WHERE id=? AND user_id=?'
+        ).bind(f.code, f.name || '', f.shares || 0, f.cost_nav || 0, f.archived ? 1 : 0, id, userId).run();
       },
       async remove(id, userId) {
         await db.prepare('DELETE FROM funds WHERE id=? AND user_id=?').bind(id, userId).run();
@@ -523,8 +523,8 @@ function createD1Adapter(env) {
         return res.meta.last_row_id;
       },
       async updateWallet(id, userId, w) {
-        await db.prepare('UPDATE wallets SET type=?, name=? WHERE id=? AND user_id=?')
-          .bind(w.type, w.name, id, userId).run();
+        await db.prepare('UPDATE wallets SET type=?, name=?, archived=? WHERE id=? AND user_id=?')
+          .bind(w.type, w.name, w.archived ? 1 : 0, id, userId).run();
       },
       async removeWallet(id, userId) {
         // 先删该钱包的月度记录, 再删钱包, 避免外键约束失败

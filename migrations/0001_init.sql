@@ -101,6 +101,7 @@ CREATE INDEX IF NOT EXISTS idx_monitor_logs_task ON monitor_logs(task_id);
 -- shares: 持有份额  cost_nav: 持仓成本净值
 -- 本金=shares*cost_nav  现值=shares*最新净值  收益=现值-本金
 -- share_token: 免密快速加仓分享 token, 长期有效
+-- archived: 0=正常, 1=封存(不进入统计与推送, 仍可加仓/查看)
 CREATE TABLE IF NOT EXISTS funds (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL,
@@ -109,6 +110,7 @@ CREATE TABLE IF NOT EXISTS funds (
   shares      REAL NOT NULL DEFAULT 0,
   cost_nav    REAL NOT NULL DEFAULT 0,
   share_token TEXT,
+  archived    INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -198,12 +200,14 @@ CREATE INDEX IF NOT EXISTS idx_wms_member ON weight_member_shares(member_id);
 -- ==================== 资产钱包 ====================
 -- type: bank(银行卡) | alipay(支付宝) | wechat(微信) | investment(投资) | credit(信用支付, 负债) | cash(现金)
 -- share_token: 免密录入链接 token
+-- archived: 0=正常, 1=封存(不进入统计与推送, 仍可录入/查看)
 CREATE TABLE IF NOT EXISTS wallets (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL,
   type        TEXT NOT NULL,
   name        TEXT NOT NULL,
   share_token TEXT,
+  archived    INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );

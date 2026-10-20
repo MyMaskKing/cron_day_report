@@ -869,7 +869,8 @@ function pushSeqOf(cfg, now) {
  */
 async function buildModuleMessage(env, storage, module, userId, format, tzOffset = 8, pushSeq = null) {
   if (module === 'fund') {
-    const funds = await storage.fund.listByUser(userId);
+    // 日报只含未封存持仓；全部封存或无持仓时不推送
+    const funds = (await storage.fund.listByUser(userId)).filter(f => !f.archived);
     if (funds.length === 0) return null;
     const navMap = await fetchNavBatch(funds.map(f => f.code));
     for (const [code, nav] of navMap) await storage.fund.upsertNav(code, nav);
@@ -917,7 +918,9 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
   if (module === 'asset') {
     const wallets = await storage.asset.listWallets(userId);
     const records = await storage.asset.listRecords(userId);
-    if (records.length === 0) return null;
+    // 月报只统计未封存钱包；没有任何未封存钱包的记录时不推送
+    const activeWalletIds = new Set(wallets.filter(w => !w.archived).map(w => w.id));
+    if (!records.some(r => activeWalletIds.has(r.wallet_id))) return null;
     const data = buildAssetReportData(wallets, records);
     // 年度目标（若已设置，用于报告显示"离目标还差多少"）
     const year = nowCN(Date.now(), tzOffset).dateStr.slice(0, 4);
@@ -928,7 +931,8 @@ async function buildModuleMessage(env, storage, module, userId, format, tzOffset
     // 每个钱包的免密录入链接（无 token 则生成持久化）；html 展示，text 默认不显示
     const walletLinkMap = {};
     if (base) {
-      for (const w of wallets) {
+      // 录入链接只为未封存钱包生成（月报中不出现封存钱包）
+      for (const w of wallets.filter(w => !w.archived)) {
         let tk = w.share_token;
         if (!tk) { tk = generateToken(); await storage.asset.setWalletShareToken(w.id, tk); }
         walletLinkMap[w.id] = `${base}/a/${tk}`;
@@ -989,7 +993,8 @@ async function buildShareLinkMap(env, storage, funds) {
 async function snapshotFundProfit(storage, dateStr) {
   const userIds = await storage.fund.listUserIdsWithFunds();
   for (const uid of userIds) {
-    const funds = await storage.fund.listByUser(uid);
+    // 当日快照只含未封存持仓；全部封存的用户跳过, 不写 0 值快照
+    const funds = (await storage.fund.listByUser(uid)).filter(f => !f.archived);
     if (funds.length === 0) continue;
     const navMap = new Map();
     for (const f of funds) {

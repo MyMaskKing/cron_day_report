@@ -151,6 +151,7 @@ function buildPortfolio(funds, navMap, fallbackNavMap) {
       shares: f.shares,
       cost_nav: f.cost_nav,
       share_token: f.share_token || null,
+      archived: f.archived ? 1 : 0,
       created_at: f.created_at || '',
       current_nav: currentNav,
       gszzl: nav ? nav.gszzl : 0,
@@ -159,7 +160,9 @@ function buildPortfolio(funds, navMap, fallbackNavMap) {
       ...profit
     };
   });
+  // 封存持仓不进入合计（行内仍展示其单只收益）
   const totals = items.reduce((acc, it) => {
+    if (it.archived) return acc;
     acc.cost += it.cost;
     acc.value += it.value;
     acc.profit += it.profit;

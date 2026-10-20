@@ -54,6 +54,11 @@ function calcNetWorth(records, walletType) {
  *   monthlyTypeTotals: 月度各类型合计 { types:[type], rows:[{ month, totals:{type:balance}, net }] }
  */
 function buildAssetReportData(wallets, records) {
+  // 封存钱包整体剔除（含其全部历史月份记录），不进入任何统计；
+  // 历史趋势因此连续不在封存当月产生断崖。明细列表的展示由调用方另用全量数据
+  const activeIds = new Set(wallets.filter(w => !w.archived).map(w => w.id));
+  wallets = wallets.filter(w => activeIds.has(w.id));
+  records = records.filter(r => activeIds.has(r.wallet_id));
   const walletType = new Map(wallets.map(w => [w.id, w.type]));
 
   // 按月分组

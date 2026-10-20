@@ -4346,7 +4346,8 @@ async function loadReport() {
     return (b.created_at||'').localeCompare(a.created_at||'');
   });
   tb.innerHTML = items.map(function(it){
-    return '<tr><td data-label="基金">' + esc(it.name) + '<br><span class="muted">' + it.code + '</span></td>' +
+    var arcTag = it.archived ? ' <span class="tag">已封存</span>' : '';
+    return '<tr' + (it.archived ? ' style="opacity:.5;"' : '') + '><td data-label="基金">' + esc(it.name) + arcTag + '<br><span class="muted">' + it.code + '</span></td>' +
       '<td data-label="份额">' + fmtMoney(it.shares) + '</td>' +
       '<td data-label="成本净值">' + it.cost_nav + '</td>' +
       '<td data-label="现价(估)">' + it.current_nav + ' <span style="color:' + colorOf(it.gszzl) + '">(' + sign(it.gszzl) + '%)</span></td>' +
@@ -4360,6 +4361,7 @@ async function loadReport() {
           '<button onclick="editFund(' + it.id + ')">编辑</button>' +
           '<button onclick="buyFundUI(' + it.id + ')">加仓</button>' +
           '<button onclick="shareLink(' + it.id + ')">加仓链接</button>' +
+          '<button onclick="toggleArchiveFund(' + it.id + ',' + (it.archived ? 1 : 0) + ')">' + (it.archived ? '解封' : '封存') + '</button>' +
           '<button class="danger" onclick="delFund(' + it.id + ')">删除</button>' +
         '</div>' +
       '</div></td></tr>';
@@ -4565,6 +4567,8 @@ async function loadProfitHistory() {
 function drawChart(items) {
   var el = document.getElementById('fundChart');
   if (!el) return;
+  // 封存持仓不进持仓分布饼图（行内仍展示单只现值）
+  items = items.filter(function(i){ return !i.archived; });
   var labels = items.map(function(i){ return i.name; });
   var values = items.map(function(i){ return i.value; });
   if (chart) chart.destroy();
@@ -4641,6 +4645,7 @@ function fundForm(f) {
       '<div><label>持有份额</label><input id="fShares" type="number" step="0.01" placeholder="如 1000" value="' + (f.shares != null ? f.shares : '') + '"></div>' +
       '<div><label>成本净值（买入时单位净值）</label><input id="fCostNav" type="number" step="0.0001" placeholder="如 1.2345" value="' + (f.cost_nav != null ? f.cost_nav : '') + '"></div>' +
     '</div>' +
+    (id ? '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;"><input type="checkbox" id="fArchived" style="width:auto;"' + (f.archived ? ' checked' : '') + '> 已封存（不进入统计与日报，仍可加仓）</label>' : '') +
     '<div style="margin-top:12px;"><button class="btn" id="fSave">保存</button> ' +
     '<button class="btn gray" onclick="closeModal()">取消</button></div>';
   openModal(id ? '修改持仓' : '添加持仓', html, null, true);
@@ -4650,6 +4655,8 @@ function fundForm(f) {
       shares: document.getElementById('fShares').value,
       cost_nav: document.getElementById('fCostNav').value
     };
+    var arcEl = document.getElementById('fArchived');
+    if (arcEl) payload.archived = arcEl.checked;
     try {
       if (id) await api('/api/fund/' + id, { method:'PUT', body: payload });
       else await api('/api/fund', { method:'POST', body: payload });
@@ -4659,6 +4666,21 @@ function fundForm(f) {
   });
 }
 window.editFund = function(id){ fundForm((window._items||[]).filter(function(x){return x.id===id;})[0]); };
+// 封存/解封：翻转 archived，现值字段原样回传（PUT 要求完整持仓字段）
+window.toggleArchiveFund = function(id, archived){
+  var it = (window._items||[]).filter(function(x){return x.id===id;})[0];
+  if (!it) return;
+  var next = archived ? 0 : 1;
+  confirmModal(next ? '封存持仓' : '解封持仓',
+    next ? '封存后该基金不进入收益统计与日报，仍可加仓、查看净值与记录。确认封存？'
+         : '解封后该基金恢复进入收益统计与日报。确认解封？',
+    async function(){
+      try {
+        await api('/api/fund/' + id, { method:'PUT', body:{ code: it.code, shares: it.shares, cost_nav: it.cost_nav, archived: !!next } });
+        await loadReport();
+      } catch(e){ alertModal(e.message, {ok:false}); }
+    });
+};
 window.delFund = async function(id){
   confirmModal('删除持仓', '确认删除该持仓?', async function(){
     try { await api('/api/fund/' + id, { method:'DELETE' }); await loadReport(); }
@@ -5174,6 +5196,17 @@ async function loadInfo() {
     _navMap = {};
     (d.navHistory||[]).forEach(function(h){ _navMap[h.date] = h.nav; });
     document.getElementById('fundName').textContent = f.name + ' (' + f.code + ')';
+    // 封存提示：加仓成功后 loadInfo 会重跑，用固定 id 防止重复插入
+    var arcBox = document.getElementById('content');
+    var oldTip = document.getElementById('arcTip');
+    if (f.archived && !oldTip) {
+      var tip = document.createElement('p');
+      tip.id = 'arcTip';
+      tip.className = 'muted';
+      tip.style.cssText = 'font-size:12px;text-align:center;margin:0 0 10px;';
+      tip.textContent = '该基金已封存，仍可加仓，但不再计入收益统计与日报。';
+      arcBox.insertBefore(tip, arcBox.firstChild);
+    } else if (!f.archived && oldTip) oldTip.remove();
     document.getElementById('curNav').textContent = f.current_nav + ' (' + (f.gszzl>=0?'+':'') + f.gszzl + '%)';
     document.getElementById('curShares').textContent = fmtMoney(f.shares);
     document.getElementById('curCost').textContent = f.cost_nav;
@@ -6069,6 +6102,11 @@ function renderTypeTotal(list, latestMonth) {
 function renderMonthDetail(wlist, records, recentSet) {
   var body = document.getElementById('mttBody');
   if (!body) return;
+  // 统计报告页口径与后端一致：封存钱包及其记录不展示
+  var activeIds = {};
+  wlist.forEach(function(w){ if (!w.archived) activeIds[w.id] = 1; });
+  wlist = wlist.filter(function(w){ return !w.archived; });
+  records = records.filter(function(r){ return activeIds[r.wallet_id]; });
   var nameOf = {}, typeOf = {};
   wlist.forEach(function(w){ nameOf[w.id] = w.name; typeOf[w.id] = w.type; });
   // 仅最近 12 个月；排序：月份倒序 → 类型 → 钱包名 → 录入时间倒序（对齐登录页 renderMonthTable）
@@ -6251,7 +6289,8 @@ function renderWallets(list) {
   var tag = document.getElementById('walletMonthTag');
   if (tag) tag.textContent = month ? '（本月金额统计：' + month + '）' : '';
   var walletCount = document.getElementById('walletCount');
-  if (walletCount) walletCount.textContent = list.length;
+  // 「自动汇总」只数未封存钱包
+  if (walletCount) walletCount.textContent = list.filter(function(w){ return !w.archived; }).length;
 
   var typeOrder = function(t) {
     var i = TYPE_ORDER.indexOf(t);
@@ -6264,8 +6303,8 @@ function renderWallets(list) {
   });
   var formula = document.getElementById('walletFormula');
   if (formula) {
-    var assetNames = sorted.filter(function(w){ return w.type !== 'credit'; }).map(function(w){ return esc(w.name); });
-    var creditNames = sorted.filter(function(w){ return w.type === 'credit'; }).map(function(w){ return esc(w.name); });
+    var assetNames = sorted.filter(function(w){ return w.type !== 'credit' && !w.archived; }).map(function(w){ return esc(w.name); });
+    var creditNames = sorted.filter(function(w){ return w.type === 'credit' && !w.archived; }).map(function(w){ return esc(w.name); });
     formula.innerHTML = '<strong>合计方式：</strong>' +
       (assetNames.length ? assetNames.join(' + ') : '普通钱包与投资钱包') + ' − ' +
       (creditNames.length ? creditNames.join(' + ') : '信用支付负债') + ' = 本月家庭净资产。';
@@ -6277,8 +6316,8 @@ function renderWallets(list) {
     var diff = amt != null && prev != null ? Math.round((amt - prev) * 100) / 100 : null;
     var amtCls = amt != null && amt < 0 ? ' is-down' : '';
     var diffCls = diff == null ? ' is-flat' : (diff > 0 ? ' is-up' : (diff < 0 ? ' is-down' : ' is-flat'));
-    return '<tr><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt">负债</span>':'') + '</td>' +
-      '<td data-label="钱包名称">' + esc(w.name) + '</td>' +
+    return '<tr' + (w.archived ? ' style="opacity:.5;"' : '') + '><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt">负债</span>':'') + '</td>' +
+      '<td data-label="钱包名称">' + esc(w.name) + (w.archived ? ' <span class="tag">已封存</span>' : '') + '</td>' +
       '<td data-label="本月金额" class="asset-money' + amtCls + '">' + (amt != null ? assetMoney(amt) : '<span class="muted">—</span>') + '</td>' +
       '<td data-label="较上月" class="asset-delta' + diffCls + '">' + (diff == null ? '—' : signedMoney(diff)) + '</td>' +
       '<td data-label="操作">' +
@@ -6454,7 +6493,7 @@ function drawCharts(report) {
   });
 }
 function renderMonthTable(wlist, records) {
-  var nameOf = {}, typeOf = {}; wlist.forEach(function(w){ nameOf[w.id] = w.name; typeOf[w.id] = w.type; });
+  var nameOf = {}, typeOf = {}, arcOf = {}; wlist.forEach(function(w){ nameOf[w.id] = w.name; typeOf[w.id] = w.type; arcOf[w.id] = w.archived; });
   var tb = document.getElementById('recTbody');
   // 排序：月度倒序，同月内按创建时间倒序（最新录入在最上）
   var sorted = records.slice().sort(function(a,b){
@@ -6464,7 +6503,7 @@ function renderMonthTable(wlist, records) {
   tb.innerHTML = sorted.map(function(r){
     return '<tr><td data-label="月份">' + r.month + '</td>' +
       '<td data-label="类型">' + (TYPE_LABEL[typeOf[r.wallet_id]] || '') + '</td>' +
-      '<td data-label="钱包">' + esc(nameOf[r.wallet_id]||'') + '</td>' +
+      '<td data-label="钱包">' + esc(nameOf[r.wallet_id]||'') + (arcOf[r.wallet_id] ? ' <span class="muted" style="font-size:12px;">(封存)</span>' : '') + '</td>' +
       '<td data-label="金额">' + fmtMoney(r.balance, {frac:2}) + (r.principal||r.profit ? ' <span class="muted">(本金'+ fmtMoney(r.principal, {frac:2}) +'/收益'+ fmtMoney(r.profit, {frac:2}) +')</span>' : '') + '</td>' +
       '<td data-label="更新时间" class="muted">' + fmtDbTime(r.created_at) + '</td>' +
       '<td data-label="操作"><button class="btn sm gray" onclick="recEditRow(' + r.id + ')">修改</button> ' +
@@ -6567,6 +6606,7 @@ window.wLogs = function(id){
     '<table><thead><tr><th>月份</th><th>金额</th><th>更新时间</th></tr></thead><tbody>' + rows + '</tbody></table>' +
     '<div class="asset-record-admin"><button class="btn sm gray" onclick="closeModal();wEdit(' + id + ')">编辑钱包</button>' +
     '<button class="btn sm gray" onclick="closeModal();wShare(' + id + ')">录入链接</button>' +
+    '<button class="btn sm gray" onclick="closeModal();toggleWalletArchived(' + id + ',' + (w.archived ? 1 : 0) + ')">' + (w.archived ? '解封' : '封存') + '</button>' +
     '<button class="btn sm danger" onclick="closeModal();wDel(' + id + ')">删除钱包</button>' +
     '<button class="btn sm gray" onclick="closeModal()">关闭</button></div>');
 };
@@ -6602,11 +6642,25 @@ window.wEdit = function(id){
   openModal('编辑钱包',
     '<label>类型</label><select id="eType">' + opts + '</select>' +
     '<label>名称</label><input id="eName" value="' + esc(w.name) + '">' +
+    '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;"><input type="checkbox" id="eArchived" style="width:auto;"' + (w.archived ? ' checked' : '') + '> 已封存（不进入统计与月报，仍可录入）</label>' +
     '<div style="margin-top:12px;"><button class="btn" id="eConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('eConfirm').addEventListener('click', async function(){
-    try { await api('/api/asset/wallets/' + id, { method:'PUT', body:{ type: document.getElementById('eType').value, name: document.getElementById('eName').value } }); closeModal(); await loadAll(); }
+    try { await api('/api/asset/wallets/' + id, { method:'PUT', body:{ type: document.getElementById('eType').value, name: document.getElementById('eName').value, archived: document.getElementById('eArchived').checked } }); closeModal(); await loadAll(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
+};
+// 封存/解封钱包：翻转 archived，类型/名称原样回传（PUT 要求完整字段）
+window.toggleWalletArchived = function(id, archived){
+  var w = wallets.filter(function(x){return x.id===id;})[0];
+  if (!w) return;
+  var next = archived ? 0 : 1;
+  confirmModal(next ? '封存钱包' : '解封钱包',
+    next ? '封存后该钱包不进入资产统计与月报，历史和新录入的明细仍保留可见。确认封存？'
+         : '解封后该钱包恢复进入资产统计与月报。确认解封？',
+    async function(){
+      try { await api('/api/asset/wallets/' + id, { method:'PUT', body:{ type: w.type, name: w.name, archived: !!next } }); await loadAll(); }
+      catch(e){ alertModal(e.message, {ok:false}); }
+    });
 };
 window.wDel = async function(id){
   confirmModal('删除钱包', '删除该钱包?', async function(){
@@ -6747,6 +6801,17 @@ async function loadInfo() {
     wType = d.wallet.type;
     document.getElementById('walletName').textContent = d.wallet.name + ' (' + TYPE_LABEL[d.wallet.type] + ')';
     document.getElementById('monthLabel').textContent = d.month + ' 月';
+    // 封存提示：录入成功后 loadInfo 会重跑，用固定 id 防止重复插入
+    var arcBox = document.getElementById('content');
+    var oldTip = document.getElementById('arcTip');
+    if (d.wallet.archived && !oldTip) {
+      var tip = document.createElement('p');
+      tip.id = 'arcTip';
+      tip.className = 'muted';
+      tip.style.cssText = 'font-size:12px;text-align:center;margin:0 0 10px;';
+      tip.textContent = '该钱包已封存，新记录仍可保存，但不再计入资产统计。';
+      arcBox.insertBefore(tip, arcBox.firstChild);
+    } else if (!d.wallet.archived && oldTip) oldTip.remove();
     var box = document.getElementById('fields');
     if (wType === 'investment') {
       box.innerHTML = '<label>当前总资产(元)</label><input id="fTotal" type="number" step="0.01">' +

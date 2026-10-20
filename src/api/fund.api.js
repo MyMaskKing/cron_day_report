@@ -77,8 +77,11 @@ async function updateFund({ request, env, params }) {
   const existing = await storage.fund.findById(id);
   if (!existing || existing.user_id !== dc.uid) return error('持仓不存在', 404);
 
+  // archived 未传时保留现值（编辑弹窗/封存动作之外的调用不会误解封）
+  const archived = body.archived != null ? !!body.archived : !!existing.archived;
   await storage.fund.update(id, dc.uid, {
     code: body.code,
+    archived,
     name: body.name || existing.name || '',
     shares: parseFloat(body.shares),
     cost_nav: parseFloat(body.cost_nav)
@@ -133,16 +136,18 @@ async function refreshFundNav({ request, env }) {
   const funds = await storage.fund.listByUser(dc.uid);
   if (funds.length === 0) return json({ success: true, refreshed: 0, fallback: 0, missing: 0, totals: { cost: 0, value: 0, profit: 0, rate: 0 } });
 
+  // 净值刷新对全部持仓（含封存，封存行内仍展示现价）；合计与当日快照只含未封存
+  const activeFunds = funds.filter(f => !f.archived);
   const navMap = await fetchNavBatch(funds.map(f => f.code));
   // 仅把本次成功获取的写入缓存, 保护历史 fund_nav_cache 不被 0 覆盖
   await Promise.all([...navMap].map(([code, nav]) => storage.fund.upsertNav(code, nav)));
   const fallback = await enrichNavWithCache(storage, funds, navMap);
-  const portfolio = buildPortfolio(funds, navMap, fallback);
+  const portfolio = buildPortfolio(activeFunds, navMap, fallback);
 
-  // 覆盖今日 fund_profit_daily 快照, 修正被错值污染的"较昨日 delta"
+  // 覆盖今日 fund_profit_daily 快照, 修正被错值污染的"较昨日 delta"；全部封存时跳过, 避免写入 0 值跳水
   const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
   const today = localParts(Date.now(), tzOffset).dateStr;
-  await storage.fund.upsertProfitDaily(dc.uid, today, portfolio.totals);
+  if (activeFunds.length) await storage.fund.upsertProfitDaily(dc.uid, today, portfolio.totals);
 
   const codes = new Set(funds.map(f => f.code));
   const missing = [...codes].filter(c => !navMap.has(c) && !fallback.has(c)).length;
@@ -219,8 +224,10 @@ async function sendReport({ request, env, url }) {
   }
   if (!channels.length) return error('绑定的通知渠道不存在或已停用', 400);
 
-  const funds = await storage.fund.listByUser(auth.user_id);
-  if (funds.length === 0) return error('暂无持仓，无法生成日报', 400);
+  const allFunds = await storage.fund.listByUser(auth.user_id);
+  // 日报只含未封存持仓；全部封存时不生成日报
+  const funds = allFunds.filter(f => !f.archived);
+  if (funds.length === 0) return error('暂无可推送的未封存持仓，无法生成日报', 400);
 
   const navMap = await fetchNavBatch(funds.map(f => f.code));
   // 仅把本次成功获取的写入缓存, 失败的走上次快照兜底
@@ -270,7 +277,8 @@ async function fundAnalysis({ request, env, url }) {
   const storage = getStorage(env);
   const dc = await requireDataContext(storage, auth, 'fund', request);
   if (dc instanceof Response) return dc;
-  const funds = await storage.fund.listByUser(dc.uid);
+  // 持仓分析只统计未封存持仓
+  const funds = (await storage.fund.listByUser(dc.uid)).filter(f => !f.archived);
   if (funds.length === 0) {
     return json({ success: true, items: [], summary: [], rules: {}, disclaimer: '暂无持仓' });
   }
@@ -375,7 +383,8 @@ async function publicFundInfo({ env, params }) {
       shares: fund.shares,
       cost_nav: fund.cost_nav,
       current_nav: currentNav,
-      gszzl: info ? info.gszzl : 0
+      gszzl: info ? info.gszzl : 0,
+      archived: fund.archived ? 1 : 0
     },
     profitSeries,
     navHistory,
@@ -497,7 +506,8 @@ async function publicFundReport({ env, params }) {
   const row = await storage.push.findByReportToken(params.token);
   if (!row || row.module !== 'fund') return error('链接无效或已失效', 404);
   await storage.users.updateLastPublic(row.user_id);
-  const funds = await storage.fund.listByUser(row.user_id);
+  // 免密报告的持仓分布饼图只含未封存持仓
+  const funds = (await storage.fund.listByUser(row.user_id)).filter(f => !f.archived);
   const navMap = await fetchNavBatch(funds.map(f => f.code));
   const fallback = await enrichNavWithCache(storage, funds, navMap);
   const portfolio = buildPortfolio(funds, navMap, fallback);
