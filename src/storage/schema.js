@@ -29,6 +29,7 @@ import sql0013 from '../../migrations/0013_file_access_count.sql';
 import sql0014 from '../../migrations/0014_quicklogin_button.sql';
 import sql0015 from '../../migrations/0015_archive_fund_wallet.sql';
 import sql0016 from '../../migrations/0016_asset_analysis.sql';
+import sql0017 from '../../migrations/0017_fund_archive_events.sql';
 
 // 显式迁移登记表：[文件名, SQL 文本]，数组顺序即执行顺序（新增 000N 时在此追加）
 const MIGRATIONS = [
@@ -47,7 +48,8 @@ const MIGRATIONS = [
   ['0013_file_access_count.sql', sql0013],
   ['0014_quicklogin_button.sql', sql0014],
   ['0015_archive_fund_wallet.sql', sql0015],
-  ['0016_asset_analysis.sql', sql0016]
+  ['0016_asset_analysis.sql', sql0016],
+  ['0017_fund_archive_events.sql', sql0017]
 ];
 
 const MIGRATIONS_TABLE_SQL = `

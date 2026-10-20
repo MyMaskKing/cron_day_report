@@ -78,15 +78,38 @@ async function updateFund({ request, env, params }) {
   if (!existing || existing.user_id !== dc.uid) return error('持仓不存在', 404);
 
   // archived 未传时保留现值（编辑弹窗/封存动作之外的调用不会误解封）
-  const archived = body.archived != null ? !!body.archived : !!existing.archived;
+  const wasArchived = !!existing.archived;
+  const archived = body.archived != null ? !!body.archived : wasArchived;
+  const fundName = body.name || existing.name || '';
   await storage.fund.update(id, dc.uid, {
     code: body.code,
     archived,
-    name: body.name || existing.name || '',
+    name: fundName,
     shares: parseFloat(body.shares),
     cost_nav: parseFloat(body.cost_nav)
   });
+  // 封存状态实际翻转时追加一条口径变化事件（供收益曲线打标记）；同状态重复保存不写
+  if (wasArchived !== archived) {
+    const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
+    const eventDate = localParts(Date.now(), tzOffset).dateStr;
+    await storage.fund.addArchiveEvent(dc.uid, {
+      fundId: id, fundName,
+      action: archived ? 'archive' : 'unarchive',
+      date: eventDate
+    });
+  }
   return json({ success: true, message: '持仓已更新' });
+}
+
+/** GET /api/fund/archive-events  封存/解封事件（收益曲线口径标记） */
+async function fundArchiveEvents({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const dc = await requireDataContext(storage, auth, 'fund', request);
+  if (dc instanceof Response) return dc;
+  const events = await storage.fund.listArchiveEvents(dc.uid);
+  return json({ success: true, events });
 }
 
 /** DELETE /api/fund/:id  删除持仓 */
@@ -564,6 +587,6 @@ export {
   fundReport, refreshFundNav, getReportConfig, setReportConfig, sendReport, fundAnalysis,
   getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund,
   fundNavHistory,
-  fundProfitHistory,
+  fundProfitHistory, fundArchiveEvents,
   getStrategy, setStrategy
 };

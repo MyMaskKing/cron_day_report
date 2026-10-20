@@ -117,6 +117,20 @@ CREATE TABLE IF NOT EXISTS funds (
 CREATE INDEX IF NOT EXISTS idx_funds_user ON funds(user_id);
 CREATE INDEX IF NOT EXISTS idx_funds_share_token ON funds(share_token);
 
+-- ==================== 基金封存事件流水 ====================
+-- 只追加：封存/解封各一条，收益曲线据此在口径切换日打标记；fund_name 为名称快照
+CREATE TABLE IF NOT EXISTS fund_archive_events (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  fund_id    INTEGER NOT NULL,
+  fund_name  TEXT NOT NULL DEFAULT '',
+  action     TEXT NOT NULL,
+  event_date TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_fae_user_date ON fund_archive_events(user_id, event_date);
+
 -- ==================== 基金净值缓存 ====================
 -- nav: 最新单位净值  gsz: 估算净值  nav_date: 净值日期
 CREATE TABLE IF NOT EXISTS fund_nav_cache (

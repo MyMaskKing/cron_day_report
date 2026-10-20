@@ -316,6 +316,18 @@ function createD1Adapter(env) {
         ).bind(userId).all();
         return results || [];
       },
+      // 封存/解封事件只追加（解封不删历史：那天口径确实变过）
+      async addArchiveEvent(userId, e) {
+        await db.prepare(
+          'INSERT INTO fund_archive_events (user_id, fund_id, fund_name, action, event_date) VALUES (?, ?, ?, ?, ?)'
+        ).bind(userId, e.fundId, e.fundName || '', e.action, e.date).run();
+      },
+      async listArchiveEvents(userId) {
+        const { results } = await db.prepare(
+          'SELECT event_date, fund_name, action FROM fund_archive_events WHERE user_id=? ORDER BY event_date, id'
+        ).bind(userId).all();
+        return results || [];
+      },
       async getReportConfig(userId) {
         return await db.prepare('SELECT * FROM fund_report_config WHERE user_id = ?').bind(userId).first();
       },

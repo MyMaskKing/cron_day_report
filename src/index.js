@@ -32,7 +32,7 @@ import {
   fundReport, refreshFundNav, getReportConfig, setReportConfig, sendReport, fundAnalysis,
   getShareLink, fundScenario, publicFundInfo, publicFundReport, publicFundBuy, buyFund,
   fundNavHistory,
-  fundProfitHistory,
+  fundProfitHistory, fundArchiveEvents,
   getStrategy, setStrategy
 } from './api/fund.api.js';
 import { fetchNavBatch, buildPortfolio, enrichNavWithCache } from './services/fund.service.js';
@@ -202,6 +202,7 @@ router.get('/api/fund/list', listFunds);
 router.get('/api/fund/report', fundReport);
 router.post('/api/fund/refresh', refreshFundNav);
 router.get('/api/fund/profit-history', fundProfitHistory);
+router.get('/api/fund/archive-events', fundArchiveEvents);
 router.get('/api/fund/report-config', getReportConfig);
 router.put('/api/fund/report-config', setReportConfig);
 router.get('/api/fund/strategy', getStrategy);

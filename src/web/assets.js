@@ -4379,6 +4379,7 @@ var chart = null;   // 饼图
 var profitChart = null;
 var navChart = null;   // 单只基金近30日净值折线图
 window._profitSeries = [];    // 每日总收益全量，供过滤用
+window._archiveEvents = [];   // 封存/解封事件流水（曲线口径切换标记），加载见 loadProfitHistory
 // 初始化加载进度：_initTotal>0 时按步数把进度目标推到累计百分比(平滑爬升)，复用调用(如加仓后)时 _initTotal=0 不动进度
 var _initTotal = 0, _initStep = 0;
 function stepText(t){
@@ -4457,14 +4458,26 @@ function applyProfitFilter() {
   else if (rng==='month') { cutoff = now.toISOString().slice(0,7); } // YYYY-MM
   else if (rng==='year') { cutoff = now.toISOString().slice(0,4); }  // YYYY
 
+  var fullDates = [];   // 与 labels 对齐的完整日期 YYYY-MM-DD（跨年防 MM-DD 撞车）
   for (var i=0;i<window._profitSeries.length;i++) {
     var s = window._profitSeries[i];
     if (isDateWin && s.date < cutoff) continue;
     if (rng!=='all' && !isDateWin && s.date.slice(0,cutoff.length)!==cutoff) continue;
     labels.push(s.date.slice(5)); // MM-DD
+    fullDates.push(s.date);
     vals.push(s.profit);
     winRows.push(s);
   }
+  // 封存/解封事件按同一区间过滤，并映射到当前刻度（同日多只基金聚合到一个竖线）
+  var evByIndex = labels.map(function(){ return null; });
+  (window._archiveEvents || []).forEach(function(ev){
+    var d = ev.event_date;
+    if (isDateWin && d < cutoff) return;
+    if (rng!=='all' && !isDateWin && d.slice(0, cutoff.length)!==cutoff) return;
+    var idx = fullDates.indexOf(d);
+    if (idx >= 0) (evByIndex[idx] = evByIndex[idx] || []).push(ev);
+  });
+  var evAnchor = vals.length ? Math.max.apply(null, vals) : 0;   // 隐形事件点的占位 y（透明，不扩轴）
   // 空数据：隐藏曲线/图例/报告卡，显示提示
   var wrap = document.getElementById('profitChartWrap');
   var empty = document.getElementById('profitEmpty');
@@ -4502,6 +4515,27 @@ function applyProfitFilter() {
       ctx.fillText(label, x, y);
       ctx.restore();
     }};
+    // 封存/解封竖虚线 + 顶部小三角：按分类刻度取 x，贯穿绘图区（颜色用中性灰，三主题均可读）
+    var arcMarkerPlugin = {
+      id: 'arcMarker',
+      afterDatasetsDraw: function(chart) {
+        if (!evByIndex.some(function(x){ return x; })) return;
+        var area = chart.chartArea, xScale = chart.scales.x, ctx = chart.ctx;
+        evByIndex.forEach(function(evs, i){
+          if (!evs) return;
+          var x = xScale.getPixelForValue(labels[i], i);
+          ctx.save();
+          ctx.strokeStyle = 'rgba(138,144,166,.65)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+          ctx.beginPath(); ctx.moveTo(x, area.top); ctx.lineTo(x, area.bottom); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#8a90a6';
+          ctx.beginPath();
+          ctx.moveTo(x - 4.5, area.top + 1); ctx.lineTo(x + 4.5, area.top + 1); ctx.lineTo(x, area.top + 7);
+          ctx.closePath(); ctx.fill();
+          ctx.restore();
+        });
+      }
+    };
     var crossZero = Math.min.apply(null, vals) < 0 && Math.max.apply(null, vals) > 0;
     profitChart = new Chart(el, {
       type:'line',
@@ -4509,22 +4543,35 @@ function applyProfitFilter() {
         { label:'总收益', data:vals, borderColor:'#667eea', backgroundColor:'rgba(102,126,234,.10)',
           tension:.3, borderWidth:2, pointRadius:0, pointHoverRadius:4, pointHitRadius:14, fill:false },
         { label:'区间均值', data:vals.map(function(){ return avg; }), borderColor:'#f97316',
-          borderDash:[5,4], borderWidth:1.8, pointRadius:0, fill:false }
+          borderDash:[5,4], borderWidth:1.8, pointRadius:0, fill:false },
+        // 封存/解封事件：隐形散点（视觉由 arcMarkerPlugin 画竖线），仅用于 mode:index 时在 tooltip 给出口径说明
+        { label:'口径变化', data:evByIndex.map(function(evs){ return evs ? evAnchor : null; }),
+          showLine:false, pointRadius:0, pointHoverRadius:9,
+          pointBackgroundColor:'rgba(0,0,0,0)', pointBorderColor:'rgba(0,0,0,0)', pointHoverBackgroundColor:'rgba(0,0,0,0)' }
       ]},
       options:{ responsive:true, maintainAspectRatio:true, aspectRatio:2.5,
         interaction:{ mode:'index', intersect:false },
         plugins:{ legend:{display:false},
-          tooltip:{ filter:function(it){ return it.datasetIndex === 0; },
+          tooltip:{ filter:function(it){ return it.datasetIndex === 0 || it.datasetIndex === 2; },
             callbacks:{
-              label:function(it){ return '当日收益 ' + sign(winRows[it.dataIndex].profit) + ' 元'; },
-              afterLabel:function(it){ var d = Math.round((winRows[it.dataIndex].profit - avg) * 100) / 100;
-                return '距区间日均 ' + (d > 0 ? '+' : '') + d + ' 元'; }
+              label:function(it){
+                if (it.datasetIndex === 2) {
+                  var evs = evByIndex[it.dataIndex] || [];
+                  return evs.map(function(e){ return (e.action === 'archive' ? '📦 封存：' : '🔓 解封：') + e.fund_name; });
+                }
+                return '当日收益 ' + sign(winRows[it.dataIndex].profit) + ' 元';
+              },
+              afterLabel:function(it){
+                if (it.datasetIndex !== 0) return;
+                var d = Math.round((winRows[it.dataIndex].profit - avg) * 100) / 100;
+                return '距区间日均 ' + (d > 0 ? '+' : '') + d + ' 元';
+              }
             } } },
         scales:{ x:{ ticks:{ maxTicksLimit:10, font:{ size:10 } } },
           y:{ grid: crossZero ? { color:function(g){ return g.tick.value === 0 ? '#c3c8d4' : 'rgba(127,127,127,.12)'; },
                                     lineWidth:function(g){ return g.tick.value === 0 ? 1.4 : 1; } }
                                  : { color:'rgba(127,127,127,.12)' } } } },
-      plugins:[avgPlugin]
+      plugins:[avgPlugin, arcMarkerPlugin]
     });
   }
   // 填表（日期倒序）
@@ -4624,6 +4671,11 @@ function renderProfitInsight(winRows) {
 async function loadProfitHistory() {
   var data = await api('/api/fund/profit-history', { loadingText: stepText('正在加载每日收益曲线…') });
   window._profitSeries = data.series || [];
+  // 封存事件后到时再重绘一次（独立请求，失败静默为无标记）
+  api('/api/fund/archive-events').then(function(d){
+    window._archiveEvents = d.events || [];
+    applyProfitFilter();
+  }).catch(function(){ window._archiveEvents = []; });
   applyProfitFilter();
 }
 
