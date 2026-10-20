@@ -1943,19 +1943,19 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 /* 全屏态压过 PC 大弹窗的左右分栏规则（正常大弹窗下分段行被隐藏，此为兜底） */
 .mde.mde--fullscreen .mde-panes { grid-template-columns: none; height: auto; }
 .mde.mde--fullscreen .mde-write { border-right: 0; overflow: hidden; }
-/* Markdown 只读全屏查看器：层级高于弹窗(10000)/图表全屏(10010)，低于全局 loading(10500)与图片灯箱(20000) */
-.md-fs-mask { position: fixed; inset: 0; z-index: 10020; background: rgba(0,0,0,.5); display: flex; flex-direction: column; }
-.md-fs-box { background: var(--surface); width: 100%; height: 100%; max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; }
+/* Markdown 只读查看器：默认居中窗口（手机也留边距），.md-fs--full 才铺满；
+   层级高于弹窗(10000)/图表全屏(10010)，低于全局 loading(10500)与图片灯箱(20000) */
+.md-fs-mask { position: fixed; inset: 0; z-index: 10020; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 24px 16px; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; }
+.md-fs-box { background: var(--surface); width: 100%; max-width: 720px; max-height: 86vh; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
 .md-fs-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
 .md-fs-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .md-fs-actions { flex: none; display: flex; gap: 8px; }
-.md-fs-close { flex: none; width: 32px; height: 32px; border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; border-radius: 7px; }
-.md-fs-close:hover:not(:active) { background: var(--surface-2); color: var(--text); }
+.md-fs-max, .md-fs-close { flex: none; width: 32px; height: 32px; border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; border-radius: 7px; display: grid; place-items: center; }
+.md-fs-max svg { display: block; }
+.md-fs-max:hover:not(:active), .md-fs-close:hover:not(:active) { background: var(--surface-2); color: var(--text); }
 .md-fs-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }
-@media (min-width: 821px) {
-  .md-fs-mask { padding: 28px 16px; }
-  .md-fs-box { height: auto; max-height: calc(100vh - 56px); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
-}
+.md-fs-mask.md-fs--full { padding: 0; background: var(--surface); }
+.md-fs-mask.md-fs--full .md-fs-box { max-width: none; max-height: none; height: 100%; border-radius: 0; }
 /* 资产月度异常分析：历史卡片墙（固定宽高、底部渐隐，点卡片进全屏详情） */
 .aa-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .aa-card { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; cursor: pointer; }

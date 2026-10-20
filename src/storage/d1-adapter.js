@@ -316,10 +316,13 @@ function createD1Adapter(env) {
         ).bind(userId).all();
         return results || [];
       },
-      // 封存/解封事件只追加（解封不删历史：那天口径确实变过）
+      // 同基金同一天只保留最后一次翻转（0018 唯一索引）：当天误封存又解封时后者覆盖前者
       async addArchiveEvent(userId, e) {
         await db.prepare(
-          'INSERT INTO fund_archive_events (user_id, fund_id, fund_name, action, event_date) VALUES (?, ?, ?, ?, ?)'
+          `INSERT INTO fund_archive_events (user_id, fund_id, fund_name, action, event_date)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(user_id, fund_id, event_date) DO UPDATE
+             SET action=excluded.action, fund_name=excluded.fund_name`
         ).bind(userId, e.fundId, e.fundName || '', e.action, e.date).run();
       },
       async listArchiveEvents(userId) {

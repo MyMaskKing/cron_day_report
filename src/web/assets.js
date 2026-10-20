@@ -2218,12 +2218,15 @@ function mountMarkdownEditor(textarea, opts) {
 // opts.onClose: 关闭回调。返回 mask（mask.closeViewer() 可由自定义按钮代码主动关闭）。
 function openMarkdownViewer(title, md, opts) {
   opts = opts || {};
+  var ICO_FS_OFF = ICONS.fs_expand;
+  var ICO_FS_ON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v6h6"/><path d="M20 10V4h-6"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
   var mask = document.createElement('div');
   mask.className = 'md-fs-mask';
   mask.innerHTML =
     '<div class="md-fs-box">' +
       '<div class="md-fs-head"><span class="md-fs-title"></span>' +
         '<span class="md-fs-actions"></span>' +
+        '<button type="button" class="md-fs-max" title="全屏（Esc 退出）">' + ICO_FS_OFF + '</button>' +
         '<button type="button" class="md-fs-close" title="关闭">&times;</button>' +
       '</div>' +
       '<div class="md-fs-body md-body"></div>' +
@@ -2241,11 +2244,21 @@ function openMarkdownViewer(title, md, opts) {
     if (locked) { locked = false; unlockBodyScroll(); }
     if (typeof opts.onClose === 'function') opts.onClose();
   }
+  var maxBtn = mask.querySelector('.md-fs-max');
+  function setMaximized(on) {
+    mask.classList.toggle('md-fs--full', on);
+    maxBtn.innerHTML = on ? ICO_FS_ON : ICO_FS_OFF;
+    maxBtn.title = on ? '退出全屏（Esc）' : '全屏（Esc 退出）';
+  }
+  maxBtn.addEventListener('click', function(){ setMaximized(!mask.classList.contains('md-fs--full')); });
   function onKey(e) {
     if (e.key !== 'Escape') return;
     // 图片灯箱打开时 Esc 先关灯箱（灯箱 z-index 更高），不连带关闭查看器
     if (document.querySelector('.img-lightbox.show')) return;
-    e.preventDefault(); shut();
+    e.preventDefault();
+    // 全屏态 Esc 先退全屏，窗口态 Esc 才关闭
+    if (mask.classList.contains('md-fs--full')) { setMaximized(false); return; }
+    shut();
   }
   mask.closeViewer = shut;
   mask.querySelector('.md-fs-close').addEventListener('click', shut);

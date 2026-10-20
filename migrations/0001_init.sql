@@ -130,6 +130,8 @@ CREATE TABLE IF NOT EXISTS fund_archive_events (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_fae_user_date ON fund_archive_events(user_id, event_date);
+-- 同基金同一天多次封存/解封只留最后一次（0018 对老库补建，同名语句全新库跳过）
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fae_user_fund_date ON fund_archive_events(user_id, fund_id, event_date);
 
 -- ==================== 基金净值缓存 ====================
 -- nav: 最新单位净值  gsz: 估算净值  nav_date: 净值日期
