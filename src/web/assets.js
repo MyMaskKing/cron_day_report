@@ -13568,14 +13568,19 @@ function openDisplayChooser(ev) {
     menu.style.bottom = (window.innerHeight - r.top + 10) + 'px';
   else menu.style.top = (r.bottom + 10) + 'px';
   if (menu.getBoundingClientRect().left < 12) { menu.style.right = 'auto'; menu.style.left = '12px'; }
+  // 先关菜单并让浏览器绘制一帧, 再跑全量 drawTree: 否则同步重建整棵树期间单线程锁住,
+  // 菜单虽然移除但要等重绘结束才上屏, 体感就是"点了先卡一下"; 双 rAF 与键盘避让同写法
+  function redrawNextFrame() {
+    closeDisplayMenu();
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ drawTree(); }); });
+  }
   function bindItems() {
     menu.querySelectorAll('.fab-menu__item').forEach(function(b){
       b.addEventListener('click', function(){
         if (b.dataset.sort != null) {
           _todoSortMode = b.dataset.sort;
           todoSaveSortMode(_todoSortMode);
-          closeDisplayMenu();
-          drawTree();
+          redrawNextFrame();
           return;
         }
         if (b.dataset.k === 'sort') { menu.innerHTML = sortHtml(); bindItems(); return; }
@@ -13593,8 +13598,7 @@ function openDisplayChooser(ev) {
           var hideFs = document.getElementById('hideDoneFs');
           if (hideFs) hideFs.checked = hideOrig.checked;
         }
-        closeDisplayMenu();
-        drawTree();
+        redrawNextFrame();
       });
     });
   }
