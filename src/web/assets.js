@@ -13694,7 +13694,12 @@ function openDisplayChooser(ev) {
   // 菜单虽然移除但要等重绘结束才上屏, 体感就是"点了先卡一下"; 双 rAF 与键盘避让同写法
   function redrawNextFrame() {
     closeDisplayMenu();
+    // 重绘合并: 连点排序/显隐时只保留一次待执行重绘(执行时读到的是最新 _todoSortMode),
+    // 否则每次点击都排一个双 rAF 全量重建, 快速连点会在接下来多帧里接连重建造成"偶尔一卡"。
+    if (window.__todoRedrawQueued) return;
+    window.__todoRedrawQueued = true;
     requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      window.__todoRedrawQueued = false;
       // =====临时性能探针(排序卡顿定位用, 定位后删除)=====
       var t0 = performance.now();
       window.__pf = { renders: 0 };
