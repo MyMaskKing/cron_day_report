@@ -9090,9 +9090,14 @@ function renderTodoTree(container, trees, opts) {
   // 顶层任务的继承日期: 优先 opts.forcedRootDue(详情页明确传入); 否则用顶层自身 due_date
   // 不能传 todoRootDue(子树最小日期): 否则新模式下无自身日期的子任务会错误继承兄弟的日期
   trees.forEach(function(t){ var el = walk(t, startDepth, opts.forcedRootDue != null ? opts.forcedRootDue : t.due_date); if (el) { container.appendChild(el); any = true; } });
-  if (!any) container.innerHTML = opts.onlyDone
-    ? '<div class="todo-empty">暂无已完成子任务</div>'
-    : '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
+  if (!any) {
+    // 详情页显式传 emptyHtml('' = 不挂空态): 底部 after() 已挂常驻「添加子任务」框,
+    // 主列表口径的"点击上方按钮新建"在详情里没有对应入口, 会与下方输入框自相矛盾
+    if (opts.emptyHtml != null) container.innerHTML = opts.emptyHtml;
+    else container.innerHTML = opts.onlyDone
+      ? '<div class="todo-empty">暂无已完成子任务</div>'
+      : '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
+  }
   // 进程重建首帧: 自动展开切后台前打开的快捷"添加子任务"内联框(openInlineAddChild 内部回填草稿)
   todoRestoreInlineAdd(container);
 }
@@ -10291,6 +10296,23 @@ function todoExitDetailAnimate(container, done) {
   }
   setTimeout(finish,260);
 }
+// 清单→详情（点击整卡）：先让旧列表挂退出动画并等两帧(浏览器先绘制一帧反馈)，再同步 drawTree
+// 重建整树(重建阻塞主线程期间界面停在退出态而非"点了没反应")，重建完给详情挂进入动画。
+// drawFn 由各页面传入（drawTree 无参 / drawTree(visibleTrees()) 的差异在调用处包一层）。
+// 手机左右滑屏、PC 淡入淡出，样式见 layout.js 的 todo-detail-push-out/in；与返回动画对称。
+function todoEnterDetail(node, drawFn) {
+  _todoDetailRootId = node.id;
+  var box = document.getElementById('todoTree');
+  if (box) box.classList.add('todo-detail-push-out');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    drawFn();
+    var box2 = document.getElementById('todoTree');
+    if (box2) {
+      box2.classList.add('todo-detail-push-in');
+      setTimeout(function(){ box2.classList.remove('todo-detail-push-in'); }, 300);
+    }
+  }); });
+}
 function todoRenderView(container, trees, opts) {
   opts = opts || {};
   // 退出详情统一走右滑动画（各调用方 opts.onExitDetail 内容不变）
@@ -10474,6 +10496,7 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
       childOpts.startDepth = 0;
       childOpts.hideDone = true;  // 完成节点整枝剪掉；未完成嵌套树原样显示
       childOpts.onlyDone = false;
+      childOpts.emptyHtml = '';   // 子任务全被剪枝(如均已完成)时不挂主列表空态, 添加框在详情底部
       childOpts.forcedRootDue = root.due_date;
       childOpts.onAddForRoot = function(){
         // 只点详情根级占位（.todo-tree 直接子节点那个）；container 内嵌套节点的占位排在前面，裸取第一个会点错
@@ -13076,7 +13099,7 @@ function drawTree() {
     today: todayStr(), hideDone: hideDone, filter: _filter,
     groupByDue: _todoGroupByDue,
     onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(); },
-    onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
+    onEnter: function(node){ todoEnterDetail(node, drawTree); },
     onDetail: function(node){
       openTodoDetail(node, {
         today: todayStr(),
@@ -14022,7 +14045,7 @@ function drawTree(trees) {
     crumbEl: crumb,
     today: _today, hideDone: hideDone,
     onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(visibleTrees()); },
-    onEnter: function(node){ _todoDetailRootId = node.id; drawTree(visibleTrees()); },
+    onEnter: function(node){ todoEnterDetail(node, function(){ drawTree(visibleTrees()); }); },
     onDetail: function(node){
       openTodoDetail(node, {
         today: _today,
@@ -14166,7 +14189,7 @@ function drawTree() {
     crumbEl: document.getElementById('todoCrumb'),
     today: _today, hideDone: hideDone, filter: _filter,
     onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(); },
-    onEnter: function(node){ _todoDetailRootId = node.id; drawTree(); },
+    onEnter: function(node){ todoEnterDetail(node, drawTree); },
     onDetail: function(node){
       openTodoDetail(node, {
         today: _today,
@@ -14547,7 +14570,7 @@ function drawTree(trees) {
     crumbEl: document.getElementById('todoCrumb'),
     today: _today, hideDone: hideDone, filter: _filter,
     onExitDetail: function(){ todoExitDetailCloseAddForm(); _todoDetailRootId = null; drawTree(visibleTrees()); },
-    onEnter: function(node){ _todoDetailRootId = node.id; drawTree(visibleTrees()); },
+    onEnter: function(node){ todoEnterDetail(node, function(){ drawTree(visibleTrees()); }); },
     onDetail: function(node){
       openTodoDetail(node, {
         today: _today,

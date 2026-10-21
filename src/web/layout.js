@@ -2606,6 +2606,31 @@ body { padding-bottom: var(--kb-inset, 0px); }
   .todo-view-enter { animation: todoEnterFromLeft .26s ease; }
 }
 
+/* 清单→详情转场：先播一帧旧列表退出再同步重建、重建完详情进入，消除点击整卡后"无反馈卡顿"。
+   PC 轻淡入淡出；手机带方向滑动，与详情→清单的返回动画(todoExitRight/todoEnterFromLeft)对称。 */
+@keyframes todoPushOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(-12%); opacity: .2; }
+}
+@keyframes todoPushIn {
+  from { transform: translateX(16%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes todoDetailFadeOut {
+  from { opacity: 1; }
+  to { opacity: .35; }
+}
+@keyframes todoDetailFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.todo-detail-push-out { animation: todoDetailFadeOut .14s ease forwards; }
+.todo-detail-push-in { animation: todoDetailFadeIn .18s ease; }
+@media (max-width: 640px) {
+  .todo-detail-push-out { animation: todoPushOut .2s ease forwards; }
+  .todo-detail-push-in { animation: todoPushIn .24s ease; }
+}
+
 /* ============ 滴答风格待办新建 sheet ============ */
 .tform { font-size: 14px; color: var(--text); }
 .tform-title {
