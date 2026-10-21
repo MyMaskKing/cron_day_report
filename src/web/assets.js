@@ -7546,46 +7546,6 @@ function todoFsBootFail(retryFn, message) {
 var _todoEscCtx = { getRows: null, onDraw: null };
 // 卡片模式下打开的顶层任务 id；null 表示卡片列表
 var _todoDetailRootId = null;
-// =====临时性能探针(卡顿定位用, 定位后整段删除): 统计存活 ResizeObserver 数=====
-if (!window.__pfROPatched && typeof ResizeObserver !== 'undefined') {
-  window.__pfROPatched = 1;
-  window.__pfRO = { alive: 0, created: 0 };
-  var __pfOrigRO = ResizeObserver;
-  function PfRO(cb){
-    window.__pfRO.created++; window.__pfRO.alive++;
-    var ro = new __pfOrigRO(cb);
-    var __disc = ro.disconnect.bind(ro);
-    ro.disconnect = function(){ if (!ro.__pfDisc) { ro.__pfDisc = 1; window.__pfRO.alive--; } return __disc(); };
-    return ro;
-  }
-  PfRO.prototype = __pfOrigRO.prototype;
-  window.ResizeObserver = PfRO;
-}
-function __pfShow(msg){
-  console.log('[性能探针]', msg);
-  var b = document.getElementById('__pfbox');
-  if (!b) {
-    b = document.createElement('div'); b.id = '__pfbox';
-    b.style.cssText = 'position:fixed;top:64px;left:12px;right:12px;z-index:99999;background:rgba(0,0,0,.88);color:#3f3;font:12px/1.7 monospace;padding:8px 10px;border-radius:6px;white-space:pre-wrap;';
-    document.body.appendChild(b);
-  }
-  b.textContent = msg;
-  clearTimeout(window.__pfTimer);
-  window.__pfTimer = setTimeout(function(){ if (b.parentNode) b.parentNode.removeChild(b); }, 10000);
-}
-// 连续记录 >=20ms 的长任务(抓"偶尔卡顿"的偶发 GC/长帧), 带归因脚本名
-window.__pfLongs = [];
-try {
-  new PerformanceObserver(function(list){
-    list.getEntries().forEach(function(e){
-      if (e.duration < 20) return;
-      var nm = '';
-      try { var a = e.attribution && e.attribution[0]; nm = a ? (a.name || a.containerName || '') : ''; } catch (err) {}
-      window.__pfLongs.push({ d: Math.round(e.duration), t: Math.round(e.startTime), n: String(nm).slice(0, 28) });
-      if (window.__pfLongs.length > 20) window.__pfLongs.shift();
-    });
-  }).observe({ entryTypes: ['longtask'], buffered: true });
-} catch (e) {}
 // 当前「任务详情」查看弹层(openTodoDetail)的任务 id；无弹层为 null。
 // 供原生壳深链去重：已在同详情时不再整页 loadUrl，避免历史栈多一层要返回两次
 var _todoViewingId = null;
@@ -10364,11 +10324,6 @@ function todoCleanupMountedAdders(container) {
 }
 function todoRenderView(container, trees, opts) {
   opts = opts || {};
-  // =====临时性能探针(卡顿定位用, 定位后删除)=====
-  if (window.__pf) {
-    window.__pf.renders++;
-    if (!window.__pf.renderStack) window.__pf.renderStack = new Error('probe').stack;
-  }
   todoCleanupMountedAdders(container); // 必须在本次 innerHTML 清掉旧 DOM 之前解绑旧 adder 的监听/Observer
   // 退出详情统一走右滑动画（各调用方 opts.onExitDetail 内容不变）
   var __origExit = opts.onExitDetail;
@@ -11094,31 +11049,7 @@ function mountDetailAdder(container, parentNode, submitFn, onAddForRoot) {
   }
   placeholder.addEventListener('click', expand);
   saveBtn.addEventListener('click', submit);
-  cancelBtn.addEventListener('click', function(){
-    // =====临时性能探针(取消卡顿定位用, 定位后整段删除)=====
-    var t0 = performance.now();
-    window.__pf = { cancel: true, renders: 0 };
-    collapse();
-    var t1 = performance.now();
-    var frames = [], prev = t1, n = 0;
-    (function tick(){
-      var now = performance.now(); frames.push(Math.round(now - prev)); prev = now;
-      if (++n < 6) requestAnimationFrame(tick);
-      else {
-        var msg = 'collapse=' + (t1 - t0).toFixed(1) + 'ms | 重绘=' + window.__pf.renders + '次 | 后续帧间隔=' + frames.join(',') + 'ms';
-        console.log('[取消探针]', msg);
-        var b = document.getElementById('__pfbox');
-        if (!b) {
-          b = document.createElement('div'); b.id = '__pfbox';
-          b.style.cssText = 'position:fixed;top:64px;left:12px;right:12px;z-index:99999;background:rgba(0,0,0,.85);color:#3f3;font:12px/1.7 monospace;padding:8px 10px;border-radius:6px;white-space:pre-wrap;';
-          document.body.appendChild(b);
-        }
-        b.textContent = msg;
-        setTimeout(function(){ if (b.parentNode) b.parentNode.removeChild(b); }, 9000);
-        window.__pf = null;
-      }
-    })();
-  });
+  cancelBtn.addEventListener('click', collapse);
   // Enter 保留 textarea 默认换行行为, 不再拦截提交; Esc 折回占位符(等价点取消)
   titleEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); collapse(); } });
   noteEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); collapse(); } });
@@ -13728,44 +13659,21 @@ function openDisplayChooser(ev) {
   if (menu.getBoundingClientRect().left < 12) { menu.style.right = 'auto'; menu.style.left = '12px'; }
   // 先关菜单并让浏览器绘制一帧, 再跑全量 drawTree: 否则同步重建整棵树期间单线程锁住,
   // 菜单虽然移除但要等重绘结束才上屏, 体感就是"点了先卡一下"; 双 rAF 与键盘避让同写法
+  // quickFn: 可选快路径(排序纯重排), 返回 true=已处理跳过全量 drawTree, false/抛错=回退全量。
   function redrawNextFrame(quickFn) {
     closeDisplayMenu();
     // 重绘合并: 连点排序/显隐时只保留一次待执行重绘(执行时读到的是最新 _todoSortMode),
     // 否则每次点击都排一个双 rAF 全量重建, 快速连点会在接下来多帧里接连重建造成"偶尔一卡"。
-    if (window.__todoRedrawQueued) { window.__todoQuick = window.__todoQuick || quickFn; return; }
+    // 已排队: 仍是快路径点击则保留既有(可能已被全量请求置 null); 本次需要全量(无 quickFn)必须降级为全量,
+    // 否则排序快路径会把隐藏已完成/分组这类结构变化也吞掉只做重排
+    if (window.__todoRedrawQueued) { if (!quickFn) window.__todoQuick = null; return; }
     window.__todoRedrawQueued = true;
     window.__todoQuick = quickFn || null;
     requestAnimationFrame(function(){ requestAnimationFrame(function(){
       window.__todoRedrawQueued = false;
       var qf = window.__todoQuick; window.__todoQuick = null;
-      // =====临时性能探针(排序卡顿定位用, 定位后删除)=====
-      var t0 = performance.now();
-      window.__pf = { renders: 0 };
-      var mode = 'full';
-      if (qf) { try { if (qf()) mode = 'quick'; } catch (e) { mode = 'full'; } }
-      if (mode === 'full') drawTree();
-      var t1 = performance.now();
-      var box = document.getElementById('todoTree');
-      var nodes = box ? box.querySelectorAll('.todo-node').length : -1;
-      var cards = box ? box.querySelectorAll('.todo-card').length : -1;
-      var adders = box ? box.querySelectorAll('.todo-detail-adder').length : -1;
-      var ro = window.__pfRO || { alive: -1, created: -1 };
-      var rowsN = (typeof _rows !== 'undefined' && _rows) ? _rows.length : -1;
-      var frames = [], prev = t1, n = 0;
-      (function tick(){
-        var now = performance.now(); frames.push(Math.round(now - prev)); prev = now;
-        if (++n < 7) requestAnimationFrame(tick);
-        else {
-          var longs = (window.__pfLongs || []).filter(function(l){ return l.t >= t0 - 40; })
-            .slice(-5).map(function(l){ return l.d + 'ms' + (l.n ? '(' + l.n + ')' : ''); }).join(' ');
-          __pfShow('[' + mode + '] ' + (t1 - t0).toFixed(1) + 'ms renderView=' + window.__pf.renders
-            + '  rows=' + rowsN + ' nodes=' + nodes + ' cards=' + cards + ' adder=' + adders
-            + '  RO存活=' + ro.alive + ' RO累计=' + ro.created
-            + '  帧ms=' + frames.join(',')
-            + (longs ? '  ★长任务: ' + longs : '  无长任务'));
-          window.__pf = null;
-        }
-      })();
+      if (qf) { var handled = false; try { handled = qf(); } catch (e) { handled = false; } if (handled) return; }
+      drawTree();
     }); });
   }
   function bindItems() {
