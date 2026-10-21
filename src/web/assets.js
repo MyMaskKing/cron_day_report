@@ -7546,6 +7546,33 @@ function todoFsBootFail(retryFn, message) {
 var _todoEscCtx = { getRows: null, onDraw: null };
 // 卡片模式下打开的顶层任务 id；null 表示卡片列表
 var _todoDetailRootId = null;
+// =====临时性能探针(卡顿定位用, 定位后整段删除): 统计存活 ResizeObserver 数=====
+if (!window.__pfROPatched && typeof ResizeObserver !== 'undefined') {
+  window.__pfROPatched = 1;
+  window.__pfRO = { alive: 0, created: 0 };
+  var __pfOrigRO = ResizeObserver;
+  function PfRO(cb){
+    window.__pfRO.created++; window.__pfRO.alive++;
+    var ro = new __pfOrigRO(cb);
+    var __disc = ro.disconnect.bind(ro);
+    ro.disconnect = function(){ if (!ro.__pfDisc) { ro.__pfDisc = 1; window.__pfRO.alive--; } return __disc(); };
+    return ro;
+  }
+  PfRO.prototype = __pfOrigRO.prototype;
+  window.ResizeObserver = PfRO;
+}
+function __pfShow(msg){
+  console.log('[性能探针]', msg);
+  var b = document.getElementById('__pfbox');
+  if (!b) {
+    b = document.createElement('div'); b.id = '__pfbox';
+    b.style.cssText = 'position:fixed;top:64px;left:12px;right:12px;z-index:99999;background:rgba(0,0,0,.88);color:#3f3;font:12px/1.7 monospace;padding:8px 10px;border-radius:6px;white-space:pre-wrap;';
+    document.body.appendChild(b);
+  }
+  b.textContent = msg;
+  clearTimeout(window.__pfTimer);
+  window.__pfTimer = setTimeout(function(){ if (b.parentNode) b.parentNode.removeChild(b); }, 10000);
+}
 // 当前「任务详情」查看弹层(openTodoDetail)的任务 id；无弹层为 null。
 // 供原生壳深链去重：已在同详情时不再整页 loadUrl，避免历史栈多一层要返回两次
 var _todoViewingId = null;
@@ -10324,6 +10351,11 @@ function todoCleanupMountedAdders(container) {
 }
 function todoRenderView(container, trees, opts) {
   opts = opts || {};
+  // =====临时性能探针(卡顿定位用, 定位后删除)=====
+  if (window.__pf) {
+    window.__pf.renders++;
+    if (!window.__pf.renderStack) window.__pf.renderStack = new Error('probe').stack;
+  }
   todoCleanupMountedAdders(container); // 必须在本次 innerHTML 清掉旧 DOM 之前解绑旧 adder 的监听/Observer
   // 退出详情统一走右滑动画（各调用方 opts.onExitDetail 内容不变）
   var __origExit = opts.onExitDetail;
@@ -11049,7 +11081,31 @@ function mountDetailAdder(container, parentNode, submitFn, onAddForRoot) {
   }
   placeholder.addEventListener('click', expand);
   saveBtn.addEventListener('click', submit);
-  cancelBtn.addEventListener('click', collapse);
+  cancelBtn.addEventListener('click', function(){
+    // =====临时性能探针(取消卡顿定位用, 定位后整段删除)=====
+    var t0 = performance.now();
+    window.__pf = { cancel: true, renders: 0 };
+    collapse();
+    var t1 = performance.now();
+    var frames = [], prev = t1, n = 0;
+    (function tick(){
+      var now = performance.now(); frames.push(Math.round(now - prev)); prev = now;
+      if (++n < 6) requestAnimationFrame(tick);
+      else {
+        var msg = 'collapse=' + (t1 - t0).toFixed(1) + 'ms | 重绘=' + window.__pf.renders + '次 | 后续帧间隔=' + frames.join(',') + 'ms';
+        console.log('[取消探针]', msg);
+        var b = document.getElementById('__pfbox');
+        if (!b) {
+          b = document.createElement('div'); b.id = '__pfbox';
+          b.style.cssText = 'position:fixed;top:64px;left:12px;right:12px;z-index:99999;background:rgba(0,0,0,.85);color:#3f3;font:12px/1.7 monospace;padding:8px 10px;border-radius:6px;white-space:pre-wrap;';
+          document.body.appendChild(b);
+        }
+        b.textContent = msg;
+        setTimeout(function(){ if (b.parentNode) b.parentNode.removeChild(b); }, 9000);
+        window.__pf = null;
+      }
+    })();
+  });
   // Enter 保留 textarea 默认换行行为, 不再拦截提交; Esc 折回占位符(等价点取消)
   titleEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); collapse(); } });
   noteEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); collapse(); } });
@@ -13625,7 +13681,30 @@ function openDisplayChooser(ev) {
   // 菜单虽然移除但要等重绘结束才上屏, 体感就是"点了先卡一下"; 双 rAF 与键盘避让同写法
   function redrawNextFrame() {
     closeDisplayMenu();
-    requestAnimationFrame(function(){ requestAnimationFrame(function(){ drawTree(); }); });
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      // =====临时性能探针(排序卡顿定位用, 定位后删除)=====
+      var t0 = performance.now();
+      window.__pf = { renders: 0 };
+      drawTree();
+      var t1 = performance.now();
+      var box = document.getElementById('todoTree');
+      var nodes = box ? box.querySelectorAll('.todo-node').length : -1;
+      var adders = box ? box.querySelectorAll('.todo-detail-adder').length : -1;
+      var ro = window.__pfRO || { alive: -1, created: -1 };
+      var rowsN = (typeof _rows !== 'undefined' && _rows) ? _rows.length : -1;
+      var frames = [], prev = t1, n = 0;
+      (function tick(){
+        var now = performance.now(); frames.push(Math.round(now - prev)); prev = now;
+        if (++n < 7) requestAnimationFrame(tick);
+        else {
+          __pfShow('drawTree=' + (t1 - t0).toFixed(1) + 'ms renderView=' + window.__pf.renders
+            + '  rows=' + rowsN + ' nodes=' + nodes + ' 预挂adder=' + adders
+            + '  RO存活=' + ro.alive + ' RO累计=' + ro.created
+            + '  后续帧ms=' + frames.join(','));
+          window.__pf = null;
+        }
+      })();
+    }); });
   }
   function bindItems() {
     menu.querySelectorAll('.fab-menu__item').forEach(function(b){
