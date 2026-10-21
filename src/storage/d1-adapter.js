@@ -857,18 +857,19 @@ function createD1Adapter(env) {
           `UPDATE todos SET due_date=NULL, child_due=0, recurrence=NULL, recur_interval=NULL, recur_nth=NULL, recur_weekday=NULL WHERE id IN (${placeholders})`
         ).bind(...ids).run();
       },
-      // 同级重排：按 orderedIds 顺序批量写 sort_order=0..n
-      // 双校验 user_id + parent_id，越权或跨级的 id 不会被更新；parentId 为 null 表顶层
-      async reorder(userId, parentId, orderedIds) {
-        if (!orderedIds || orderedIds.length === 0) return;
+      // 同级重排：按 entries 顺序批量写 sort_order=0..n，entries: [{id, userId}]
+      // 逐行带各行自己的 userId 双校验 + parent_id 校验，越权或跨级的 id 不会被更新；parentId 为 null 表顶层。
+      // 同父下允许个人行与共享分类深层挂载行混排（updateTodo 的合法状态），各行 userId 可能不同，故不再用单一属主。
+      async reorder(parentId, entries) {
+        if (!entries || entries.length === 0) return;
         const parentCond = parentId == null ? 'parent_id IS NULL' : 'parent_id=?';
-        const stmts = orderedIds.map((id, i) => {
+        const stmts = entries.map((entry, i) => {
           const stmt = db.prepare(
             `UPDATE todos SET sort_order=? WHERE id=? AND user_id=? AND ${parentCond}`
           );
           return parentId == null
-            ? stmt.bind(i, id, userId)
-            : stmt.bind(i, id, userId, parentId);
+            ? stmt.bind(i, entry.id, entry.userId)
+            : stmt.bind(i, entry.id, entry.userId, parentId);
         });
         await db.batch(stmts);
       },
@@ -877,6 +878,45 @@ function createD1Adapter(env) {
         await db.prepare(
           'UPDATE todos SET done=?, done_at=?, done_by=? WHERE id=?'
         ).bind(done ? 1 : 0, done ? (doneAt || null) : null, done ? (doneBy || null) : null, id).run();
+      },
+      // 查找由 todo 克隆出的"纯净直接下一期"叶子实例；不纯净或不存在返回 null。
+      // 纯净 = 未完成且未结算、无子女、未二次派生(下一期从未被完成过)、无附件，
+      //        且到期日正好是"按原规则推进一期"、重复规则/父级/标题/优先级/文本分类/备注/闹钟/
+      //        共享分类归属全部与原实例一致(克隆行未被编辑)。
+      // 到期日按 jumpToCurrent=false 口径重算: 当初以 jumpToCurrent=true 克隆的行对不上, 一律保守保留。
+      // 整树克隆的新根因有子女被自然排除；哨兵 -1/0/'' 仅用于 IFNULL 归一比较，不落库。
+      async findPristineRecurClone(todo) {
+        const expectedDue = shiftDate(todo.due_date, todo.recurrence, false, null, todo.recur_interval, todo.recur_nth, todo.recur_weekday);
+        return await db.prepare(
+          `SELECT c.id, c.due_date FROM todos c
+           WHERE c.recur_from_id=? AND c.user_id=? AND c.done=0 AND c.done_at IS NULL
+             AND c.due_date=? AND c.title=? AND c.recurrence=?
+             AND IFNULL(c.recur_interval,-1)=IFNULL(?,-1)
+             AND IFNULL(c.recur_nth,-1)=IFNULL(?,-1)
+             AND IFNULL(c.recur_weekday,-1)=IFNULL(?,-1)
+             AND IFNULL(c.parent_id,-1)=IFNULL(?,-1)
+             AND IFNULL(c.priority,-1)=IFNULL(?,-1)
+             AND IFNULL(c.category,'')=IFNULL(?,'')
+             AND IFNULL(c.note,'')=IFNULL(?,'')
+             AND IFNULL(c.alarm_minute,-1)=IFNULL(?,-1)
+             AND IFNULL(c.shared_cat_id,0)=IFNULL(?,0)
+             AND NOT EXISTS (SELECT 1 FROM todos x WHERE x.parent_id=c.id)
+             AND NOT EXISTS (SELECT 1 FROM todos x WHERE x.recur_from_id=c.id)
+             AND NOT EXISTS (SELECT 1 FROM files f WHERE f.source='todo' AND f.todo_id=c.id)
+           ORDER BY c.due_date ASC, c.id ASC LIMIT 1`
+        ).bind(
+          todo.id, todo.user_id, expectedDue, todo.title, todo.recurrence,
+          todo.recur_interval, todo.recur_nth, todo.recur_weekday, todo.parent_id,
+          todo.priority, todo.category, todo.note, todo.alarm_minute, todo.shared_cat_id
+        ).first() || null;
+      },
+      // 取消完成时回滚纯净克隆（"时间倒回一格"）：删除该直接下一期单行；判据已保证无子女无附件，不联动 files。
+      // 返回是否删除；不纯净时不写任何数据，宁可新旧两期并存也不误删。
+      async rollbackPristineClone(todo) {
+        const clone = await this.findPristineRecurClone(todo);
+        if (!clone) return false;
+        await db.prepare('DELETE FROM todos WHERE id=? AND user_id=?').bind(clone.id, todo.user_id).run();
+        return true;
       },
       // 完成/取消完成当前任务；若命中“重复任务且 done=1”，自动 clone 下一条实例
       // 返回 { cloned: boolean, next_id?, next_due? }
@@ -896,7 +936,12 @@ function createD1Adapter(env) {
         if (done && self.done === 1) return { duplicated: true };
         await this.setDone(id, !!done, todayStr, doneBy);
         // 判断是否需要 clone: 必须 done=1, 有 recurrence, 有 due_date（层级不限）
-        if (!done) return { cloned: false };
+        if (!done) {
+          // 取消完成 = 时间倒回一格: 回滚由本实例克隆出的纯净下一期, 避免新旧两期未完成并存;
+          // 下一期已被勾选/加子女/附件/编辑(非纯净)时保留, 不再猜
+          if (self.recurrence) await this.rollbackPristineClone(self);
+          return { cloned: false };
+        }
         if (!self.recurrence) return { cloned: false };
         if (!self.due_date) return { cloned: false };
         const nextDue = shiftDate(self.due_date, self.recurrence, !!jumpToCurrent, todayStr, self.recur_interval, self.recur_nth, self.recur_weekday);
@@ -958,16 +1003,20 @@ function createD1Adapter(env) {
       // 取消勾选后的反向联动：沿父链向上，把已完成的祖先恢复为未完成（清空完成日期/完成人）。
       // 不变量「父完成 ⇒ 其直接子任务全部完成」被本次取消破坏，故父若完成就恢复；
       // 未完成的祖先本身不破坏不变量，但其已完成祖先同样破坏（其子任务现未完成），故一路到顶不停止。
-      // 重复任务已克隆出的下一周期实例不受影响；userId 双校验防越权
+      // 被恢复的祖先是重复任务时，与手动取消同口径回滚其纯净下一期克隆；userId 双校验防越权。
+      // SELECT *：回滚判据需要完整行字段做一致性比较
       async reopenAncestors(startId, userId) {
         const self = await db.prepare('SELECT parent_id FROM todos WHERE id=? AND user_id=?').bind(startId, userId).first();
         if (!self) return;
         let parentId = self.parent_id;
         let guard = 0;
         while (parentId != null && guard++ < 50) {
-          const parent = await db.prepare('SELECT id, parent_id, done FROM todos WHERE id=? AND user_id=?').bind(parentId, userId).first();
+          const parent = await db.prepare('SELECT * FROM todos WHERE id=? AND user_id=?').bind(parentId, userId).first();
           if (!parent) return;
-          if (parent.done) await this.setDone(parent.id, false, null, null);
+          if (parent.done) {
+            await this.setDone(parent.id, false, null, null);
+            if (parent.recurrence) await this.rollbackPristineClone(parent);
+          }
           parentId = parent.parent_id;
         }
       },
@@ -977,9 +1026,15 @@ function createD1Adapter(env) {
         const ids = await this.collectDescendantIds(startId);
         if (ids.length === 0) return;
         const placeholders = ids.map(() => '?').join(',');
+        // 先快照本次将恢复的已完成重复任务（回滚判据需要完整行），再统一恢复未完成
+        const recurRows = (await db.prepare(
+          `SELECT * FROM todos WHERE id IN (${placeholders}) AND user_id=? AND done=1 AND recurrence IS NOT NULL`
+        ).bind(...ids, userId).all()).results || [];
         await db.prepare(
           'UPDATE todos SET done=0, done_at=NULL, done_by=NULL WHERE id IN (' + placeholders + ') AND user_id=?'
         ).bind(...ids, userId).run();
+        // 与手动取消同口径：被恢复的重复任务若留有纯净下一期克隆则回滚，避免两期未完成并存
+        for (const t of recurRows) await this.rollbackPristineClone(t);
       },
       // 内部: 递归克隆 rootOld 及其全部后代, 返回新 root id
       // 新任务全部 done=0, done_at=null, share_token=null, recur_from_id 指向原 id

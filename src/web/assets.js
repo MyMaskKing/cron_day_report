@@ -11083,7 +11083,10 @@ function todoBindDrag(handle, wrap, node, opts) {
       var mid = r.top + r.height / 2;
       if (y < mid) { if (el !== wrap.nextSibling) parentBox.insertBefore(wrap, el); return; }
     }
-    if (wrap !== parentBox.lastChild) parentBox.appendChild(wrap);
+    // 沉底: 插到最后一个 .todo-node 之后即可, 不能 appendChild——
+    // 容器尾部恒有添加子任务框, 详情页还有已完成拍平区, append 会把任务挂到这些非节点元素下面
+    var last = sibs[sibs.length - 1];
+    if (last && last !== wrap) parentBox.insertBefore(wrap, last.nextSibling);
   }
   // 长按后松手浏览器会补一次合成 click(会展开/折叠子任务), 捕获阶段吞掉这一拍
   function suppressClickOnce() {

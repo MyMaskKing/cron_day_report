@@ -488,7 +488,7 @@ async function runReminderPostpone(storage, dc, auth, personalOnly) {
 }
 
 /** PUT /api/todo/reorder  子任务同级重排  body: { parent_id, ids:[...] }
- * 校验 ids 全属该用户且 parent_id 与 body 一致，再批量写 sort_order
+ * 逐行校验可访问（todoAccess，含共享分类成员）且 parent_id 与 body 一致，再按各行属主批量写 sort_order
  */
 async function reorderTodo({ request, env }) {
   const auth = await requireAuth(request, env);
@@ -501,9 +501,10 @@ async function reorderTodo({ request, env }) {
   const storage = getStorage(env);
   const dc = await requireDataContext(storage, auth, 'todo', request);
   if (dc instanceof Response) return dc;
-  // 逐个校验访问权限与同父，防越权/跨级；同次排序必须同属个人或同一共享分类
-  let catId = null;
-  let ownerUid = dc.uid;
+  // 逐个校验访问权限与同父，防越权/跨级。
+  // 同父允许个人行与共享分类深层挂载行混排（updateTodo 产生的合法状态），各行属主可能不同，
+  // 逐行记 ownerUid 交存储层双校验，不再要求整批同属个人或同一共享分类。
+  const entries = [];
   for (const id of ids) {
     const t = await storage.todo.findById(id);
     if (!t) return error('任务不存在', 404);
@@ -511,10 +512,9 @@ async function reorderTodo({ request, env }) {
     if (!acc) return error('任务不存在', 404);
     const tp = t.parent_id != null ? t.parent_id : null;
     if (tp !== parentId) return error('存在跨层级的任务，无法排序', 400);
-    if (catId === null) { catId = acc.catId; ownerUid = acc.ownerUid; }
-    else if (acc.catId !== catId) return error('存在跨分类的任务，无法排序', 400);
+    entries.push({ id, userId: acc.ownerUid });
   }
-  await storage.todo.reorder(ownerUid, parentId, ids);
+  await storage.todo.reorder(parentId, entries);
   return json({ success: true, message: '顺序已更新' });
 }
 
@@ -1196,7 +1196,7 @@ async function publicReorder({ request, env, params }) {
     const tp = t.parent_id != null ? t.parent_id : null;
     if (tp !== parentId) return error('存在跨层级的任务，无法排序', 400);
   }
-  await storage.todo.reorder(root.user_id, parentId, ids);
+  await storage.todo.reorder(parentId, ids.map(id => ({ id, userId: root.user_id })));
   return json({ success: true, message: '顺序已更新' });
 }
 
@@ -1219,7 +1219,7 @@ async function publicAllReorder({ request, env, params }) {
     const tp = t.parent_id != null ? t.parent_id : null;
     if (tp !== parentId) return error('存在跨层级的任务，无法排序', 400);
   }
-  await storage.todo.reorder(userId, parentId, ids);
+  await storage.todo.reorder(parentId, ids.map(id => ({ id, userId })));
   return json({ success: true, message: '顺序已更新' });
 }
 
