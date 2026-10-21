@@ -13184,6 +13184,42 @@ async function todoToggleDone(node, done) {
   }
   catch(e){ alertModal(e.message, {ok:false}); return false; }
 }
+// 排序方式切换的轻量路径：仅"卡片主列表 + 仅顺序变化"时，复用现有 .todo-card DOM 按新序移动，
+// 不重建卡片、不碰底部已完成沉底区(其顺序只与完成时间有关、与排序方式无关)，
+// 避免取消隐藏已完成后大量 DOM 被全量 innerHTML 重建引发的偶发掉帧(实测重建后单帧可达 24~32ms)。
+// 返回 true=已处理；false=视图/结构/集合不符，调用方回退全量 drawTree。
+function quickReorderCards() {
+  if (_todoDetailRootId != null) return false;
+  var view = (_todoView === 'default' || _todoView === 'card') ? 'card' : _todoView;
+  if (view !== 'card' || _filter === 'done' || _todoGroupByDue) return false;
+  var container = document.getElementById('todoTree');
+  if (!container) return false;
+  var cardEls = Array.prototype.filter.call(container.children, function(el){
+    return el.classList && el.classList.contains('todo-card');
+  });
+  if (!cardEls.length) return false;
+  // 容器直接子节点只允许 .todo-card 与(可选,末尾)单个 .todo-donezone；出现别的元素说明结构不符
+  var anchor = null;
+  for (var i = 0; i < container.children.length; i++) {
+    var ch = container.children[i];
+    var isCard = ch.classList && ch.classList.contains('todo-card');
+    var isZone = ch.classList && ch.classList.contains('todo-donezone');
+    if (isCard) continue;
+    if (isZone && !anchor) { anchor = ch; continue; }
+    return false;
+  }
+  // 与 drawTree 完全相同的过滤链，得到未完成主任务的新顺序
+  var trees = todoFilterTrees(todoPruneByCategory(todoBuildTree(todoRowsByCategory(_rows))));
+  var pending = todoSortRoots(todoPendingTrees(trees), _todoSortMode);
+  if (pending.length !== cardEls.length) return false; // 集合不一致(显隐/筛选差异)，回退全量
+  var byId = {};
+  cardEls.forEach(function(c){ byId[c.getAttribute('data-id')] = c; });
+  for (var k = 0; k < pending.length; k++) if (!byId[pending[k].id]) return false;
+  var same = cardEls.every(function(c, idx){ return c.getAttribute('data-id') == pending[idx].id; });
+  if (same) return true; // 顺序未变，无需移动
+  pending.forEach(function(r){ container.insertBefore(byId[r.id], anchor); });
+  return true;
+}
 function drawTree() {
   // 已完成 tab 下强制显示完成项，否则遵从复选框
   var hideDone = _filter === 'done' ? false : document.getElementById('hideDone').checked;
@@ -13692,21 +13728,26 @@ function openDisplayChooser(ev) {
   if (menu.getBoundingClientRect().left < 12) { menu.style.right = 'auto'; menu.style.left = '12px'; }
   // 先关菜单并让浏览器绘制一帧, 再跑全量 drawTree: 否则同步重建整棵树期间单线程锁住,
   // 菜单虽然移除但要等重绘结束才上屏, 体感就是"点了先卡一下"; 双 rAF 与键盘避让同写法
-  function redrawNextFrame() {
+  function redrawNextFrame(quickFn) {
     closeDisplayMenu();
     // 重绘合并: 连点排序/显隐时只保留一次待执行重绘(执行时读到的是最新 _todoSortMode),
     // 否则每次点击都排一个双 rAF 全量重建, 快速连点会在接下来多帧里接连重建造成"偶尔一卡"。
-    if (window.__todoRedrawQueued) return;
+    if (window.__todoRedrawQueued) { window.__todoQuick = window.__todoQuick || quickFn; return; }
     window.__todoRedrawQueued = true;
+    window.__todoQuick = quickFn || null;
     requestAnimationFrame(function(){ requestAnimationFrame(function(){
       window.__todoRedrawQueued = false;
+      var qf = window.__todoQuick; window.__todoQuick = null;
       // =====临时性能探针(排序卡顿定位用, 定位后删除)=====
       var t0 = performance.now();
       window.__pf = { renders: 0 };
-      drawTree();
+      var mode = 'full';
+      if (qf) { try { if (qf()) mode = 'quick'; } catch (e) { mode = 'full'; } }
+      if (mode === 'full') drawTree();
       var t1 = performance.now();
       var box = document.getElementById('todoTree');
       var nodes = box ? box.querySelectorAll('.todo-node').length : -1;
+      var cards = box ? box.querySelectorAll('.todo-card').length : -1;
       var adders = box ? box.querySelectorAll('.todo-detail-adder').length : -1;
       var ro = window.__pfRO || { alive: -1, created: -1 };
       var rowsN = (typeof _rows !== 'undefined' && _rows) ? _rows.length : -1;
@@ -13717,10 +13758,10 @@ function openDisplayChooser(ev) {
         else {
           var longs = (window.__pfLongs || []).filter(function(l){ return l.t >= t0 - 40; })
             .slice(-5).map(function(l){ return l.d + 'ms' + (l.n ? '(' + l.n + ')' : ''); }).join(' ');
-          __pfShow('drawTree=' + (t1 - t0).toFixed(1) + 'ms renderView=' + window.__pf.renders
-            + '  rows=' + rowsN + ' nodes=' + nodes + ' 预挂adder=' + adders
+          __pfShow('[' + mode + '] ' + (t1 - t0).toFixed(1) + 'ms renderView=' + window.__pf.renders
+            + '  rows=' + rowsN + ' nodes=' + nodes + ' cards=' + cards + ' adder=' + adders
             + '  RO存活=' + ro.alive + ' RO累计=' + ro.created
-            + '  后续帧ms=' + frames.join(',')
+            + '  帧ms=' + frames.join(',')
             + (longs ? '  ★长任务: ' + longs : '  无长任务'));
           window.__pf = null;
         }
@@ -13733,7 +13774,7 @@ function openDisplayChooser(ev) {
         if (b.dataset.sort != null) {
           _todoSortMode = b.dataset.sort;
           todoSaveSortMode(_todoSortMode);
-          redrawNextFrame();
+          redrawNextFrame(quickReorderCards); // 卡片主列表走纯重排快路径, 失败内部回退全量 drawTree
           return;
         }
         if (b.dataset.k === 'sort') { menu.innerHTML = sortHtml(); bindItems(); return; }
