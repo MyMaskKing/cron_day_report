@@ -10313,8 +10313,18 @@ function todoEnterDetail(node, drawFn) {
     }
   }); });
 }
+// 重绘前清理容器内所有已挂载添加框(.todo-detail-adder)的全局资源:
+// 树/手风琴会给每个有子女的节点预挂一个 adder(各带 ResizeObserver), 展开态还挂了 visualViewport/document
+// 监听; 全量 innerHTML 重绘不调 collapse, 不清理则每次重绘都泄漏一批, 频繁切换排序/显隐后累积成卡顿。
+function todoCleanupMountedAdders(container) {
+  if (!container || !container.querySelectorAll) return;
+  Array.prototype.forEach.call(container.querySelectorAll('.todo-detail-adder'), function(el){
+    if (typeof el._todoCleanup === 'function') { try { el._todoCleanup(); } catch (e) {} }
+  });
+}
 function todoRenderView(container, trees, opts) {
   opts = opts || {};
+  todoCleanupMountedAdders(container); // 必须在本次 innerHTML 清掉旧 DOM 之前解绑旧 adder 的监听/Observer
   // 退出详情统一走右滑动画（各调用方 opts.onExitDetail 内容不变）
   var __origExit = opts.onExitDetail;
   if (__origExit) opts.onExitDetail = function(){ todoExitDetailAnimate(container, __origExit); };
@@ -10816,7 +10826,7 @@ function todoBindNoteToggle(noteEl) {
 // 检测标题 b 自身 scrollWidth>clientWidth(b 有 min-width:0 会无限吸收收缩, crumb 整体不溢出, 不能测 crumb);
 // 退出加迟滞: 须容器宽 >= 各部分全文宽之和, 防止 compact 让按钮变窄→b 松开→解除→又压缩 的反馈抖动
 function todoBindCrumbCompact(crumbEl) {
-  if (!crumbEl || typeof ResizeObserver === 'undefined') return;
+  if (!crumbEl || typeof ResizeObserver === 'undefined') return null;
   var btnFullW = 0; // 按钮完整态宽(含文字), compact 后文字隐藏 scrollWidth 会变小, 需缓存
   function fullW() {
     var parts = crumbEl.children, w = 0;
@@ -10840,9 +10850,14 @@ function todoBindCrumbCompact(crumbEl) {
       crumbEl.classList.remove('is-compact');
     }
   }
-  var ro = new ResizeObserver(sync);
+  var ro = new ResizeObserver(function(){
+    // 兜底: 元素被重绘移除而调用方未显式 disconnect 时, 移除会触发一次回调, 在此自断释放闭包
+    if (!crumbEl.isConnected) { ro.disconnect(); return; }
+    sync();
+  });
   ro.observe(crumbEl);
   sync();
+  return ro; // 调用方在 DOM 销毁时 disconnect，避免重绘泄漏 observer 及其闭包
 }
 // 详情页底部常驻"+ 添加子任务"占位行(MS To Do 风格): 点击在列表末尾就地展开为小卡片
 // 卡片顶部面包屑明示添加目标；深层节点(非详情根)且提供 onAddForRoot 时额外给「✕ 改为主任务」
@@ -10908,12 +10923,15 @@ function mountDetailAdder(container, parentNode, submitFn, onAddForRoot) {
   editor.appendChild(row);
 
   editor.insertBefore(crumbEl, editor.firstChild);
-  todoBindCrumbCompact(crumbEl);
+  var crumbRO = todoBindCrumbCompact(crumbEl);
   wrap.appendChild(placeholder); wrap.appendChild(editor);
   container.appendChild(wrap);
   autoGrowTextarea(titleEl); autoGrowTextarea(noteEl);
   // 键盘弹起时把输入框抬到可视区(修复手机上被键盘盖住)
-  function onVV() { if (wrap.classList.contains('editing')) todoLiftIntoView(wrap); }
+  function onVV() {
+    if (!wrap.isConnected) { if (window.visualViewport) window.visualViewport.removeEventListener('resize', onVV); return; }
+    if (wrap.classList.contains('editing')) todoLiftIntoView(wrap);
+  }
   // 草稿(按直接父 id 隔离): 防 App 切后台进程被回收后, 详情页未保存的子任务输入丢失。
   // 只暂存标题/备注/日期; 取消(Esc)、保存成功走 collapse 清除, 仅异常退出保留。
   var DRAFT_KEY = 'todo_adder_draft_' + parentNode.id;
@@ -11032,6 +11050,15 @@ function mountDetailAdder(container, parentNode, submitFn, onAddForRoot) {
   // Enter 保留 textarea 默认换行行为, 不再拦截提交; Esc 折回占位符(等价点取消)
   titleEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); collapse(); } });
   noteEl.addEventListener('keydown', function(e){ if (e.key === 'Escape') { e.preventDefault(); collapse(); } });
+  // 重绘(innerHTML 销毁 wrap)前由 todoCleanupMountedAdders 统一调用:
+  // 断开 ResizeObserver、移除 visualViewport/document 监听, 否则频繁重绘会线性累积僵尸监听导致越来越卡。
+  // 不清草稿——草稿在 localStorage, 由重绘后新挂载的 adder 恢复(与旧的直接销毁行为一致)。
+  wrap._todoCleanup = function(){
+    if (crumbRO) crumbRO.disconnect();
+    if (window.visualViewport) window.visualViewport.removeEventListener('resize', onVV);
+    document.removeEventListener('click', onDocClick, true);
+    todoUnregisterAddForm(collapse);
+  };
 }
 // 打开「添加子任务」（详情式 mountDetailAdder）：分组 adder 在子树容器内（已预挂），
 // 叶子首次添加则动态挂载到 wrap；随后程序化点占位行展开编辑器
