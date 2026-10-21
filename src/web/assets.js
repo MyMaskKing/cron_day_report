@@ -7573,6 +7573,19 @@ function __pfShow(msg){
   clearTimeout(window.__pfTimer);
   window.__pfTimer = setTimeout(function(){ if (b.parentNode) b.parentNode.removeChild(b); }, 10000);
 }
+// 连续记录 >=20ms 的长任务(抓"偶尔卡顿"的偶发 GC/长帧), 带归因脚本名
+window.__pfLongs = [];
+try {
+  new PerformanceObserver(function(list){
+    list.getEntries().forEach(function(e){
+      if (e.duration < 20) return;
+      var nm = '';
+      try { var a = e.attribution && e.attribution[0]; nm = a ? (a.name || a.containerName || '') : ''; } catch (err) {}
+      window.__pfLongs.push({ d: Math.round(e.duration), t: Math.round(e.startTime), n: String(nm).slice(0, 28) });
+      if (window.__pfLongs.length > 20) window.__pfLongs.shift();
+    });
+  }).observe({ entryTypes: ['longtask'], buffered: true });
+} catch (e) {}
 // 当前「任务详情」查看弹层(openTodoDetail)的任务 id；无弹层为 null。
 // 供原生壳深链去重：已在同详情时不再整页 loadUrl，避免历史栈多一层要返回两次
 var _todoViewingId = null;
@@ -13697,10 +13710,13 @@ function openDisplayChooser(ev) {
         var now = performance.now(); frames.push(Math.round(now - prev)); prev = now;
         if (++n < 7) requestAnimationFrame(tick);
         else {
+          var longs = (window.__pfLongs || []).filter(function(l){ return l.t >= t0 - 40; })
+            .slice(-5).map(function(l){ return l.d + 'ms' + (l.n ? '(' + l.n + ')' : ''); }).join(' ');
           __pfShow('drawTree=' + (t1 - t0).toFixed(1) + 'ms renderView=' + window.__pf.renders
             + '  rows=' + rowsN + ' nodes=' + nodes + ' 预挂adder=' + adders
             + '  RO存活=' + ro.alive + ' RO累计=' + ro.created
-            + '  后续帧ms=' + frames.join(','));
+            + '  后续帧ms=' + frames.join(',')
+            + (longs ? '  ★长任务: ' + longs : '  无长任务'));
           window.__pf = null;
         }
       })();
