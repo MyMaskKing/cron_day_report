@@ -10993,6 +10993,12 @@ function mountDetailAdder(container, parentNode, submitFn, onAddForRoot) {
   }
   var suppress = false; // 本次 collapse 是否由保存触发(需解除恢复锁)
   function collapse() {
+    // 先立即收起(display:none)给点击即时反馈, 再做清值/解绑: 否则先在 editor 可见态 dispatch input,
+    // autoGrow 读 scrollHeight 触发强制同步布局, 任务多的详情页手机上表现为"点取消后卡一下才收起"。
+    // 隐藏后清值/dispatch 的布局不可见且更省(display:none 元素 scrollHeight=0), 视觉效果一致。
+    wrap.classList.remove('editing');
+    wrap.classList.add('collapsed');
+    window._todoAdderActive = 0;
     draftClear(); // 收起(取消/Esc/保存成功)即清草稿
     if (suppress) { suppress = false; todoUnlockAddRestore(); }
     titleEl.value = ''; noteEl.value = '';
@@ -11001,9 +11007,6 @@ function mountDetailAdder(container, parentNode, submitFn, onAddForRoot) {
     // 触发一次 input 让 autoGrow 复位
     titleEl.dispatchEvent(new Event('input')); noteEl.dispatchEvent(new Event('input'));
     saveBtn.disabled = false; cancelBtn.disabled = false; // 收起时恢复按钮, 下次展开可再点
-    wrap.classList.remove('editing');
-    wrap.classList.add('collapsed');
-    window._todoAdderActive = 0;
     if (window.visualViewport) window.visualViewport.removeEventListener('resize', onVV);
     document.removeEventListener('click', onDocClick, true);
     todoUnregisterAddForm(collapse);
