@@ -8749,7 +8749,8 @@ function todoBuildTree(rows) {
   }
   roots.forEach(function(r){ tag(r, r, null); });
   // 顶层排序: 未完成在前, 已完成(自身 done)沉底——重复任务勾出的旧周期实例不该夹在未完成任务中间。
-  //   未完成组保持看板习惯按显示日期倒序(越晚越靠前, 无日期排最后);
+  //   未完成组·手动模式(default): sort_order 优先(创建即同父递增、拖拽重写 0..n), 仅并列(克隆/迁移撞值)
+  //     才回落到显示日期倒序(越晚越靠前, 无日期排最后); 日期模式(due_*)由 todoSortRoots 终排, 此处保持日期倒序。
   //   已完成组按完成时间倒序(刚完成在上); 同序再按 sort_order+id。
   // 注意: 未完成的 child_due 容器即使含已完成子任务仍属活跃清单, 不沉底(整清单自身勾选完成才沉)。
   // 显示日期取 todoRootDue: 旧模式=自身 due_date; 新模式=最早到期的未完成子任务
@@ -8763,6 +8764,8 @@ function todoBuildTree(rows) {
         return aa < bb ? 1 : -1;
       }
     } else {
+      // 手动排序任何场合优先: sort_order 不同即定序, 不看日期
+      if (_todoSortMode === 'default' && a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
       var ad = todoRootDue(a) || '', bd = todoRootDue(b) || '';
       if (ad !== bd) {
         if (!ad) return 1;
@@ -8773,12 +8776,15 @@ function todoBuildTree(rows) {
     return (a.sort_order - b.sort_order) || (a.id - b.id);
   });
   // 子任务排序(顶层卡片排序不受影响, 见上方 roots.sort):
-  //   未完成在前, 按有效截止日期升序(逾期→今天→未来, 无日期沉底; 同日回退手动 sort_order+创建序);
+  //   未完成在前; 手动模式(default)下 sort_order 优先(拖拽序), 仅并列(克隆/迁移撞值)才按有效截止日期
+  //   升序(逾期→今天→未来, 无日期沉底); 日期模式(due_*)保持按日期升序;
   //   已完成沉底, 内部按完成时间倒序(刚完成在上), 无完成日期再回退创建序。
   // 旧模式子任务均无自身日期, effDue 沿父链继承到同一日期, 恒走回退键 = 原创建序, 行为不变。
   function childCmp(a, b){
     if (!!a.done !== !!b.done) return a.done ? 1 : -1;
     if (!a.done) {
+      // 手动排序任何场合优先: sort_order 不同即定序, 不看日期
+      if (_todoSortMode === 'default' && a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
       var ad = todoEffDueRow(a, byId) || '', bd = todoEffDueRow(b, byId) || '';
       if (ad !== bd) {
         if (!ad) return 1;
