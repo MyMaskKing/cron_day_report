@@ -11638,10 +11638,15 @@ function todoEditFormHtml(t, isChild, fopts) {
       '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;"></div>';
   var noteField = '<label>备注（可选）</label>' +
       '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
-  // 归属级联（仅子任务；openTodoEdit 传 canMove；协作页 lockMode 不渲染）。
-  // hidden 载体存目标父 id，级联 DOM 由 todoInitParentCascade 生成
+  // 归属级联（仅子任务；openTodoEdit 传 canMove；协作页 lockMode 与自身勾选各自截止的任务不渲染）。
+  // trigger + 多列浮层由 todoInitParentCascade 填充，hidden 载体存目标父 id
   var parentField = (isChild && !lockMode && fopts.canMove)
-    ? '<div class="tfedit-parent"><label>归属</label><div id="tfParentCascade"></div>' +
+    ? '<div class="tfedit-parent"><label>归属</label>' +
+      '<button type="button" class="tf-cas-trigger" id="tfCasTrigger" aria-expanded="false">' +
+        '<span class="tf-cas-trigger__v is-ph" id="tfCasLabel">点击选择归属…</span>' +
+        '<span class="tf-cas-trigger__c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>' +
+      '</button>' +
+      '<div class="tf-cas-pop" id="tfCasPop"><div class="tf-cas-cols" id="tfCasCols"></div></div>' +
       '<input type="hidden" id="tfParent" data-self="' + t.id + '" data-current="' + (t.parent_id == null ? '' : t.parent_id) + '"></div>'
     : '';
   var caretSvg = '<span class="tfedit-more__caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></span>';
@@ -13093,16 +13098,19 @@ function renderPendingStats() {
 }
 // 视图 3 态循环需要的一对回调: 取当前 rows / 触发树重绘
 function _todoGetRows() { return _rows; }
-// 编辑弹窗·归属级联折叠框（#tfParentCascade + hidden #tfParent）：
-// 每层一个可折叠 details：summary 显示「主任务 / XX 的下级：选中名」（即面包屑链），点开列该层
-// 未完成节点，点节点=选中并自动展开下一层；第一级=全部未完成主任务（含其他主任务，排除 done/ghost）。
+// 编辑弹窗·归属级联浮层（#tfCasTrigger/#tfCasPop/#tfCasCols + hidden #tfParent）：
+// 点触发器在其下方弹出多列面板，列内点节点=立即选中并向右展开下一列（点击展开，兼容手机；
+// 列横向排列、窄屏横滑）；第一级=全部未完成主任务（含其他主任务，排除 done/ghost）。
 // 可任意跨树、选上下平级。被编辑节点自身是穿透项（is-self，📍）：点它只展开下一级不改目标，
-// 选其后代=树旋转；hidden 值=path 中最后一个非 self 节点；=data-current 时 todoFormRead 不带 parent_id。
+// 选其后代=树旋转；叶子节点被点后浮层自动关闭；hidden 值=path 中最后一个非 self 节点。
 function todoInitParentCascade() {
-  var box = document.getElementById('tfParentCascade');
+  var trigger = document.getElementById('tfCasTrigger');
+  var pop = document.getElementById('tfCasPop');
+  var cols = document.getElementById('tfCasCols');
+  var label = document.getElementById('tfCasLabel');
   var hidden = document.getElementById('tfParent');
-  if (!box || !hidden || box.__init) return;
-  box.__init = 1;
+  if (!trigger || !pop || !cols || !hidden || trigger.__init) return;
+  trigger.__init = 1;
   var selfId = parseInt(hidden.getAttribute('data-self'), 10);
   var curRaw = hidden.getAttribute('data-current');
   var currentId = curRaw ? parseInt(curRaw, 10) : null;
@@ -13119,71 +13127,114 @@ function todoInitParentCascade() {
   var path = [];
   var cur0 = currentId != null ? byId[currentId] : null;
   while (cur0) { path.unshift(cur0); cur0 = cur0._parent; }
-  // 选择后自动展开的层级（初始全折叠，逐层点开）
-  var autoOpen = -1;
-  var SVG_CARET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>';
   function targetId() {
     for (var i = path.length - 1; i >= 0; i--) if (path[i].id !== selfId) return path[i].id;
     return null;
   }
-  function render() {
-    box.innerHTML = '';
+  function labelOf(n) { return n.id === selfId ? '📍 当前任务' : n.title; }
+  function syncValue() {
     var tid = targetId();
     hidden.value = tid == null ? '' : String(tid);
-    // 层数 = path.length + 1：末层是最深选中节点的下级（供继续深入）；无下级则不渲染
+    var text = path.map(labelOf).join(' / ');
+    label.textContent = text || '点击选择归属…';
+    label.classList.toggle('is-ph', !text);
+  }
+  function renderCols() {
+    cols.innerHTML = '';
+    // 列数 = path.length + 1：末列是最深选中节点的下级（供继续深入）；无下级则不渲染
     for (var k = 0; k <= path.length; k++) {
       var parentNode = k === 0 ? null : path[k - 1];
       var kids = visibleKids(parentNode);
       if (k > 0 && !kids.length) break;
       var sel = k < path.length ? path[k] : null;
-      var d = document.createElement('details');
-      d.className = 'tf-cas-lvl';
-      if (k === autoOpen) d.open = true;
-      var tLabel = k === 0 ? '主任务' : (parentNode.title + ' 的下级');
-      var vText = sel ? (sel.id === selfId ? '📍 当前任务' : sel.title) : '';
-      var sum = document.createElement('summary');
-      sum.className = 'tf-cas-lvl__sum';
-      sum.innerHTML =
-        '<span class="tf-cas-lvl__t">' + esc(tLabel) + '</span>' +
-        '<span class="tf-cas-lvl__v' + (vText ? '' : ' is-ph') + '">' + (vText ? esc(vText) : '点击选择…') + '</span>' +
-        '<span class="tf-cas-lvl__c">' + SVG_CARET + '</span>';
-      d.appendChild(sum);
-      var opts = document.createElement('div');
-      opts.className = 'tf-cas-opts';
+      var col = document.createElement('div');
+      col.className = 'tf-cas-col';
       kids.forEach(function(c){
         var b = document.createElement('button');
         b.type = 'button';
-        b.className = 'tf-cas-opt' +
+        b.className = 'tf-cas-item' +
           ((sel && c.id === sel.id) ? ' is-on' : '') +
           (c.id === selfId ? ' is-self' : '');
         b.setAttribute('data-k', String(k));
         b.setAttribute('data-v', c.id === selfId ? '__self__' : String(c.id));
-        b.innerHTML = '<span class="tf-cas-opt__t">' +
-          esc(c.id === selfId ? '📍 当前任务（点击展开其下级）' : c.title) + '</span>' +
-          (visibleKids(c).length ? '<span class="tf-cas-opt__go">›</span>' : '');
-        opts.appendChild(b);
+        b.innerHTML = '<span class="tf-cas-item__t">' +
+          esc(c.id === selfId ? '📍 当前任务' : c.title) + '</span>' +
+          (visibleKids(c).length ? '<span class="tf-cas-item__go">›</span>' : '');
+        col.appendChild(b);
       });
-      d.appendChild(opts);
-      box.appendChild(d);
+      cols.appendChild(col);
     }
+    // 新列在右侧：滚到最右让用户看到可继续深入的层级
+    cols.scrollLeft = cols.scrollWidth;
   }
-  function onPick(k, v) {
+  // 浮层定位：优先触发器下方，放不下翻上方，左右夹进可视区（口径同 .dp-pop）
+  function placePop() {
+    var r = trigger.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    pop.style.visibility = 'hidden';
+    pop.classList.add('show');
+    var pw = Math.min(pop.offsetWidth || 300, vw - 16);
+    var ph = pop.offsetHeight || 200;
+    var left = Math.max(8, Math.min(r.left, vw - pw - 8));
+    var top;
+    if (r.bottom + 6 + ph <= vh - 8) top = r.bottom + 6;
+    else if (r.top - 6 - ph >= 8) top = r.top - 6 - ph;
+    else top = Math.max(8, Math.min(r.bottom + 6, vh - ph - 8));
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+    pop.style.minWidth = Math.min(Math.max(r.width, 220), vw - 16) + 'px';
+    pop.style.visibility = '';
+  }
+  function openPop() {
+    renderCols();
+    placePop();
+    trigger.setAttribute('aria-expanded', 'true');
+  }
+  function closePop() {
+    pop.classList.remove('show');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+  function isOpen() { return pop.classList.contains('show'); }
+  trigger.addEventListener('click', function(e){
+    e.stopPropagation();
+    if (isOpen()) closePop(); else openPop();
+  });
+  // 列选项事件委托（cols 每次重建，委托挂在稳定的 pop 上）
+  pop.addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('.tf-cas-item') : null;
+    if (!b || !pop.contains(b)) return;
+    e.stopPropagation();
+    var k = parseInt(b.getAttribute('data-k'), 10);
+    var v = b.getAttribute('data-v');
     var base = path.slice(0, k);
     if (v === '__self__') path = base.concat([byId[selfId]]);
     else {
       var n = byId[parseInt(v, 10)];
       if (n) path = base.concat([n]);
     }
-    autoOpen = k + 1; // 选中后自动展开下一层
-    render();
-  }
-  // 事件委托：选项按钮（summary 折叠由 details 原生处理）
-  box.addEventListener('click', function(e){
-    var b = e.target.closest ? e.target.closest('.tf-cas-opt') : null;
-    if (!b || !box.contains(b)) return;
-    onPick(parseInt(b.getAttribute('data-k'), 10), b.getAttribute('data-v'));
+    syncValue();
+    var pickedNode = v === '__self__' ? byId[selfId] : byId[parseInt(v, 10)];
+    if (pickedNode && visibleKids(pickedNode).length) {
+      renderCols(); // 有下级：保持浮层，向右展开
+    } else {
+      closePop(); // 叶子（或 self 但无下级）：选择完成
+      renderCols();
+    }
   });
-  render();
+  // 点浮层/触发器外部关闭；弹窗 innerHTML 重建后 pop 脱文档，监听自清理
+  function onDocClick(e){
+    if (!document.body.contains(pop)) { document.removeEventListener('click', onDocClick); return; }
+    if (isOpen() && e.target.closest && !e.target.closest('.tf-cas-pop') && !e.target.closest('.tf-cas-trigger')) closePop();
+  }
+  document.addEventListener('click', onDocClick);
+  function onKey(e){
+    if (!document.body.contains(pop)) { document.removeEventListener('keydown', onKey); return; }
+    if (e.key === 'Escape' && isOpen()) closePop();
+  }
+  document.addEventListener('keydown', onKey);
+  window.addEventListener('resize', function(){ if (isOpen()) placePop(); });
+  syncValue();
+  renderCols();
 }
 // 打开任务编辑弹窗（任务详情「编辑」按钮与卡片操作入口共用；小组件 ?edit 深链现先进查看视图）
 function openTodoEdit(node) {
@@ -13194,8 +13245,9 @@ function openTodoEdit(node) {
     ? { childDueMode: !!(node._parent && node._parent.child_due),
         inheritDue: todoEffDueRow(node, _byId) || '' }
     : {};
-  // 归属级联选择器仅登录态主页子任务开放（协作页 lockMode 不渲染；顶层任务无归属）
-  if (isChild) fopts.canMove = true;
+  // 归属级联选择器仅登录态主页子任务开放（协作页 lockMode、顶层任务、自身勾选各自截止的容器任务不渲染；
+  // 容器任务里的子任务不受影响，仍可换归属）
+  if (isChild && !node.child_due) fopts.canMove = true;
   // 子任务弹窗标题带所属主任务名(组件深链 ?edit 与卡片/树编辑共用), 明确当前在编辑哪个清单下的任务
   var _rootTitle = isChild && node._root ? node._root.title : '';
   var _modalTitle = isChild
@@ -13318,7 +13370,7 @@ function openTodoEdit(node) {
     });
   }
   // 子任务归属级联选择器
-  if (document.getElementById('tfParentCascade')) todoInitParentCascade();
+  if (document.getElementById('tfCasTrigger')) todoInitParentCascade();
   var _doSave = async function(body){
     await api('/api/todo/' + node.id, { method:'PUT', body: body });
     if (!todoAlarmSaveForm(node.id)) return;

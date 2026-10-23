@@ -2867,47 +2867,61 @@ body { padding-bottom: var(--kb-inset, 0px); }
 .tfedit-more__body .tfedit-parent { margin-bottom: 10px; }
 .tfedit-more__body .tfedit-pri .todo-priority { margin-bottom: 0; }
 .tfedit-pri > label, .tfedit-cat > label, .tfedit-parent > label { display: block; margin-bottom: 6px; }
-/* 归属级联折叠框：每层一张可折叠卡片，summary 即面包屑，点开逐层选择 */
-#tfParentCascade { display: flex; flex-direction: column; gap: 6px; }
-.tf-cas-lvl { border: 1px solid var(--border); border-radius: 8px; background: var(--bg, #fff); overflow: hidden; }
-.tf-cas-lvl__sum {
-  list-style: none; cursor: pointer; user-select: none;
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 12px; font-size: 13.5px;
+/* 归属级联浮层：触发器仿 select，点开后多列面板逐级向右展开（点击展开，列横向滚动兼容手机） */
+.tf-cas-trigger {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 8px 11px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text);
+  font-size: 14px; line-height: 1.4; text-align: left; cursor: pointer;
 }
-.tf-cas-lvl__sum::-webkit-details-marker { display: none; }
-.tf-cas-lvl__t { flex: none; color: var(--muted); }
-.tf-cas-lvl__v {
-  flex: 1; min-width: 0; text-align: right; color: var(--text); font-weight: 500;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.tf-cas-trigger:hover:not(:active) { background: var(--muted-bg); }
+.tf-cas-trigger__v {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.tf-cas-lvl__v.is-ph { color: var(--muted); font-weight: 400; }
-.tf-cas-lvl__c { flex: none; display: inline-flex; color: var(--muted); transition: transform .2s ease; }
-.tf-cas-lvl__c svg { width: 15px; height: 15px; }
-.tf-cas-lvl[open] .tf-cas-lvl__c { transform: rotate(90deg); }
-.tf-cas-opts { display: flex; flex-direction: column; padding: 0 6px 7px; }
-.tf-cas-opt {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 8px 10px; border: none; border-radius: 7px; background: transparent;
+.tf-cas-trigger__v.is-ph { color: var(--muted); font-weight: 400; }
+.tf-cas-trigger__c { flex: none; display: inline-flex; color: var(--muted); transition: transform .18s ease; }
+.tf-cas-trigger__c svg { width: 16px; height: 16px; }
+.tf-cas-trigger[aria-expanded="true"] .tf-cas-trigger__c { transform: rotate(180deg); }
+.tf-cas-pop {
+  display: none; position: fixed; z-index: 10002;
+  max-width: calc(100vw - 16px);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 14px 44px rgba(20,20,40,.22); overflow: hidden;
+}
+.tf-cas-pop.show { display: block; }
+.tf-cas-cols { display: flex; align-items: stretch; overflow-x: auto; max-height: 280px; }
+.tf-cas-col {
+  flex: none; width: 156px; max-height: 280px; overflow-y: auto;
+  padding: 6px; border-right: 1px solid var(--border);
+}
+.tf-cas-col:last-child { border-right: none; }
+.tf-cas-item {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 8px 9px; border: none; border-radius: 7px; background: transparent;
   font-size: 13.5px; line-height: 1.3; color: var(--text); text-align: left; cursor: pointer;
 }
-.tf-cas-opt__t { flex: 1; min-width: 0; }
-.tf-cas-opt__go { flex: none; color: var(--muted); font-size: 16px; line-height: 1; }
-.tf-cas-opt:hover:not(:active) { background: var(--muted-bg); }
-.tf-cas-opt.is-on { background: var(--hover-brand); color: var(--brand-text); font-weight: 600; }
-.tf-cas-opt.is-self { color: var(--muted); }
-/* 日期框内清空钮：绝对定位在原生日历 glyph 左侧并与之垂直对齐（em 偏移随输入字号缩放） */
+.tf-cas-item__t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-cas-item__go { flex: none; color: var(--muted); font-size: 16px; line-height: 1; }
+.tf-cas-item:hover:not(:active) { background: var(--muted-bg); }
+.tf-cas-item.is-on { background: var(--hover-brand); color: var(--brand-text); font-weight: 600; }
+.tf-cas-item.is-self { color: var(--muted); }
+@media (max-width: 640px) {
+  .tf-cas-col { width: 140px; }
+  .tf-cas-cols { max-height: 248px; }
+}
+/* 日期框内清空钮：撑满输入框高度 flex 居中（top/bottom 拉伸与原生日历 glyph 同一垂直中心），
+   right 用 em 定位在 glyph 左侧，随输入字号缩放 */
 .tf-due-rel { display: flex; gap: 8px; align-items: center; }
 .tf-due-inputwrap { position: relative; flex: 1; min-width: 0; display: flex; }
 .tf-due-inputwrap > input { flex: 1; min-width: 0; }
-.tf-due-inputwrap.is-clearable > input { padding-right: 3.1em; }
+.tf-due-inputwrap.is-clearable > input { padding-right: 3.4em; }
 .tf-due-clear {
-  position: absolute; right: 1.5em; top: 50%; transform: translateY(-50%);
-  width: 1.35em; height: 1.35em; padding: 0; border: none; border-radius: 6px;
+  position: absolute; right: 1.9em; top: 0; bottom: 0;
+  width: 1.4em; padding: 0; border: none; border-radius: 6px;
   background: transparent; color: var(--muted);
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
-.tf-due-clear svg { width: .8em; height: .8em; }
+.tf-due-clear svg { width: .78em; height: .78em; display: block; }
 .tf-due-clear:hover:not(:active) { background: var(--muted-bg); color: var(--text); }
 .tf-due-clear:disabled { cursor: default; background: transparent; color: var(--muted); }
 /* 隐藏日期框原生清除钮：清空必须走自定义 ✕ 的二次确认（会转备忘录） */

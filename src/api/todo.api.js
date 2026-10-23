@@ -260,6 +260,8 @@ async function updateTodo({ request, env, params }) {
     const rawNewParent = body.parent_id === null || body.parent_id === '' ? null : parseInt(body.parent_id, 10);
     if (rawNewParent == null || !Number.isInteger(rawNewParent)) return error('请选择归属任务', 400);
     if (rawNewParent !== t.parent_id) {
+      // 自身勾选「各自截止」的容器任务不能换归属（移动会与其日期门控语义冲突）；其内部子任务不受影响
+      if (t.child_due === 1) return error('该任务已开启「子任务各自设置截止日期」，不能变更归属；请先关闭该开关', 400);
       const np = await storage.todo.findById(rawNewParent);
       if (!np) return error('归属任务不存在', 404);
       const npAcc = await todoAccess(storage, dc, np);
