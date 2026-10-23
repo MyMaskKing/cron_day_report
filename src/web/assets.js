@@ -8297,10 +8297,13 @@ function todoBindRecurUI() {
       var advanced = document.querySelector('.todo-form-advanced');
       if (on && advanced) advanced.open = true;
       var dueWrap = document.getElementById('tfDueWrap');
+      var dueRow = document.getElementById('tfDueRow');
       var recurWrap = document.getElementById('tfRecurWrap');
       var memoTip = document.getElementById('tfMemoTip');
       var cdTip = document.getElementById('tfChildDueTip');
       if (dueWrap) dueWrap.style.display = on ? 'none' : 'block';
+      // 编辑弹窗「截止日期」label 与清空钮同行（#tfDueRow），勾选时整块隐藏（新建 sheet 无此元素）
+      if (dueRow) dueRow.style.display = on ? 'none' : 'block';
       if (recurWrap) recurWrap.style.display = on ? 'none' : 'block';
       if (memoTip) memoTip.style.display = on ? 'none' : 'block';
       if (cdTip) cdTip.style.display = on ? 'block' : 'none';
@@ -11399,7 +11402,9 @@ function todoInitPrioritySegmented(box) {
 
 // 值载体·日期/闹钟整块（todoInitAlarmForm 依赖 #tfDueWrap/#tfDue/#tfAlarmBtn/#tfAlarmClear）
 // hidden=true：视觉隐藏（新建 sheet 图标栏用）；false：可见表单块（编辑弹窗）
-function todoDueNativeHtml(defDue, hidden, initMinute) {
+// clearable=true（仅编辑弹窗·普通主任务）：日期框内输出 #tfDueClear 清空钮，有值才显示，
+// 点击行为（转备忘录二次确认）由 openTodoEdit 绑定
+function todoDueNativeHtml(defDue, hidden, initMinute, clearable) {
   // initMinute：编辑时库存权威闹钟值（即使本周期时间已过也照常回显）
   var initAttr = (initMinute != null && initMinute >= 0 && initMinute < 1440) ? ' data-init-minute="' + initMinute + '"' : '';
   if (hidden) {
@@ -11411,9 +11416,14 @@ function todoDueNativeHtml(defDue, hidden, initMinute) {
     '</div>';
   }
   // 编辑弹窗：旧表单可见结构（date + 闹钟钮并排；清除钮整行）
+  var clearHtml = clearable
+    ? '<button type="button" id="tfDueClear" class="tf-due-clear" title="清空截止日期" tabindex="-1" style="display:none;">✕</button>'
+    : '';
   return '<div id="tfDueWrap" data-alarm-minute=""' + initAttr + '>' +
-    '<div style="display:flex;gap:8px;align-items:center;">' +
-      '<input id="tfDue" type="date" value="' + defDue + '" style="flex:1;min-width:0;">' +
+    '<div class="tf-due-rel">' +
+      '<span class="tf-due-inputwrap' + (clearable && defDue ? ' is-val' : '') + '">' +
+        '<input id="tfDue" type="date" value="' + defDue + '">' + clearHtml +
+      '</span>' +
       '<button type="button" id="tfAlarmBtn" class="btn sm gray" style="flex:none;white-space:nowrap;">🔔 闹钟</button>' +
     '</div>' +
     '<button type="button" id="tfAlarmClear" class="btn sm gray" style="display:none;margin-top:6px;width:100%;">取消闹钟</button>' +
@@ -11588,45 +11598,66 @@ function todoEditFormHtml(t, isChild, fopts) {
   var draftScope = '<input type="hidden" id="tfDraftScope" value="edit:' + t.id + '">';
   var s = '<label>标题</label>' +
     '<textarea id="tfTitle" rows="2" data-autogrow="1" placeholder="要做什么？（支持换行）" style="resize:vertical;">' + esc(t.title || '') + '</textarea>';
+  // 归属（仅子任务；候选项由 openTodoEdit 按层级预算后传入）
+  if (fopts.moveParents && fopts.moveParents.length) {
+    var moveOpts = fopts.moveParents.map(function(p){
+      return '<option value="' + p.id + '"' + (p.id === t.parent_id ? ' selected' : '') + '>' + esc(p.label) + '</option>';
+    }).join('');
+    s += '<label>归属</label><select id="tfParent" data-current="' + t.parent_id + '">' + moveOpts + '</select>';
+  }
   // 截止日期 + 闹钟（常显）
   if (lockedChild) {
     s += '<div style="padding:7px 10px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);color:var(--muted,#888);font-size:13px;line-height:1.5;">'
       + '📅 截止日期跟随上级任务' + (fopts.inheritDue ? '：<span style="white-space:nowrap;">' + esc(fopts.inheritDue) + '</span>' : '（上级暂未设置日期）') + '</div>';
   } else if (memoEdit) {
     // 备忘录: 仅保留隐藏值载体, 不显示日期/闹钟控件
-    s += todoDueNativeHtml('', true);
+    s += '<div id="tfDueRow" style="display:none;">' + todoDueNativeHtml('', true) + '</div>';
   } else {
-    s += '<label>截止日期</label>' + todoDueNativeHtml(defDue, false, t.alarm_minute);
+    // 清空钮仅普通主任务（非协作锁定/非各自截止壳；子任务不能转备忘录）
+    var clearable = !isChild && !lockMode && !childDueOn;
+    s += '<div id="tfDueRow"><label>截止日期</label>' + todoDueNativeHtml(defDue, false, t.alarm_minute, clearable) + '</div>';
   }
   // 重复（常显；备忘录不渲染, todoFormRead 对缺失 #tfRecur 有 null 兜底）
   if (recurAvailable && !memoEdit) s += todoRecurNativeHtml(t, false);
   // 各自截止（常显勾选行；/t/ 协作页根 lockMode 与备忘录不渲染）
   if (!lockedChild && !lockMode && !memoEdit) {
-    s += '<label style="display:flex;align-items:center;gap:8px;margin:2px 0 4px;cursor:pointer;font-weight:normal;white-space:nowrap;">' +
+    s += '<div id="tfChildDueRow">' +
+      '<label style="display:flex;align-items:center;gap:8px;margin:2px 0 4px;cursor:pointer;font-weight:normal;white-space:nowrap;">' +
       '<input type="checkbox" id="tfChildDue"' + (childDueOn ? ' checked' : '') + ' style="width:auto;margin:0;flex:none;">' +
       '<span>子任务各自设置截止日期</span></label>' +
       '<p id="tfChildDueTip" class="muted" style="margin:-2px 0 10px;font-size:12px;display:' + (childDueOn ? 'block' : 'none') + ';">' +
-      '📌 本任务不设日期；直接子任务可各自设置截止日期与重复，本任务显示最早到期的子任务日期</p>';
+      '📌 本任务不设日期；直接子任务可各自设置截止日期与重复，本任务显示最早到期的子任务日期</p></div>';
   }
   // 折叠区：优先级 / 分类 / 备注（三角两态常驻）
-  // 跟随子任务 / 勾选各自截止时优先级分类不可设, 折叠区只留备注
+  // 跟随子任务 / 勾选各自截止时优先级分类不可设, 折叠区只留备注;
+  // 备忘录无优先级但保留文本分类(分类检索适配备忘录), 折叠区为「分类 / 备注」
   var priCatAvailable = !lockedChild && !childDueOn;
-  var priorityField = '<label>优先级</label><div class="todo-priority">' +
+  var priorityField = '<div class="tfedit-pri"><label>优先级</label><div class="todo-priority">' +
       '<label class="todo-priority-option" data-priority="-1"><input type="radio" name="tfPri" value="-1"' + (t.priority == null || t.priority === -1 ? ' checked' : '') + '><i class="todo-pri-none-ic"></i><span>无</span></label>' +
       '<label class="todo-priority-option" data-priority="0"><input type="radio" name="tfPri" value="0"' + (t.priority === 0 ? ' checked' : '') + '><i class="todo-priority-dot pri-0"></i><span>低</span></label>' +
       '<label class="todo-priority-option" data-priority="1"><input type="radio" name="tfPri" value="1"' + (t.priority === 1 ? ' checked' : '') + '><i class="todo-priority-dot pri-1"></i><span>中</span></label>' +
       '<label class="todo-priority-option" data-priority="2"><input type="radio" name="tfPri" value="2"' + (t.priority === 2 ? ' checked' : '') + '><i class="todo-priority-dot pri-2"></i><span>高</span></label>' +
-    '</div>';
-  var categoryFields = '<label>分类（可选）</label>' +
+    '</div></div>';
+  var categoryFields = '<div class="tfedit-cat"><label>分类（可选）</label>' +
       '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
-      '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;">';
+      '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;"></div>';
   var noteField = '<label>备注（可选）</label>' +
       '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
   var caretSvg = '<span class="tfedit-more__caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></span>';
-  var moreTitle = priCatAvailable ? '更多（优先级 / 分类 / 备注）' : '更多（备注）';
-  s += '<details class="tfedit-more" id="tfEditMore"><summary>' + caretSvg + ' ' + moreTitle + '</summary>' +
-    '<div class="tfedit-more__body">' + (priCatAvailable ? priorityField + categoryFields : '') + noteField + '</div></details>';
-  return '<div class="tfedit">' + draftScope + s + '</div>';
+  var moreBody, moreTitle;
+  if (memoEdit) {
+    moreBody = categoryFields + noteField;
+    moreTitle = '更多（分类 / 备注）';
+  } else if (priCatAvailable) {
+    moreBody = priorityField + categoryFields + noteField;
+    moreTitle = '更多（优先级 / 分类 / 备注）';
+  } else {
+    moreBody = noteField;
+    moreTitle = '更多（备注）';
+  }
+  s += '<details class="tfedit-more" id="tfEditMore"><summary>' + caretSvg + ' <span id="tfMoreTitle">' + moreTitle + '</span></summary>' +
+    '<div class="tfedit-more__body">' + moreBody + '</div></details>';
+  return '<div class="tfedit' + (memoEdit ? ' is-memo' : '') + '">' + draftScope + s + '</div>';
 }
 function todoFormRead() {
   var dueEl = document.getElementById('tfDue');
@@ -11676,6 +11707,11 @@ function todoFormRead() {
   // child_due 勾选框存在(主任务/自由子任务)才输出该键; 锁定跟随态与协作页根任务不渲染, 后端即不切换模式
   var cdEl = document.getElementById('tfChildDue');
   if (cdEl) out.child_due = cdEl.checked ? 1 : 0;
+  // 变更归属: 仅编辑子任务弹窗有 #tfParent；与 data-current（现值）相同则不带键，后端即不移动
+  var parentSel = document.getElementById('tfParent');
+  if (parentSel && String(parentSel.value) !== String(parentSel.getAttribute('data-current'))) {
+    out.parent_id = parseInt(parentSel.value, 10);
+  }
   // 始终携带: null=无分类/个人分类(编辑共享任务时即"移出共享"), 数字=移入该共享分类
   out.shared_cat_id = sharedCatId;
   // 闹钟时间: 取 🔔 按钮维护在 #tfDueWrap 上的 data-alarm-minute；无值=null
@@ -13064,6 +13100,38 @@ function openTodoEdit(node) {
     ? { childDueMode: !!(node._parent && node._parent.child_due),
         inheritDue: todoEffDueRow(node, _byId) || '' }
     : {};
+  // 归属下拉候选（仅子任务）：
+  //   第一层子任务 → 全部未完成顶层任务（含有日期主任务/备忘录/各自截止壳；排除已完成与 ghost 投影）；
+  //   深层 → 同一主任务树内 DFS：主任务自身置顶（选它=提升为第一层），其余按层级全角缩进，
+  //          排除自身整支（含全部后代）与已完成/ghost
+  if (isChild) {
+    var _mvRoots = todoBuildTree(_rows);
+    var _mvById = {};
+    _mvRoots.forEach(function(rt){
+      var stk = [rt];
+      while (stk.length) { var n0 = stk.pop(); _mvById[n0.id] = n0; (n0.children || []).forEach(function(c0){ stk.push(c0); }); }
+    });
+    var _mvRoot = node._parent;
+    while (_mvRoot && _mvRoot.parent_id != null) _mvRoot = _mvRoot._parent;
+    var _cands = [];
+    var _IND = '　';
+    if (node._parent.parent_id == null) {
+      _mvRoots.forEach(function(rt){
+        if (rt.done || rt._ghost === 1) return;
+        _cands.push({ id: rt.id, label: rt.title });
+      });
+    } else if (_mvRoot && _mvById[_mvRoot.id]) {
+      (function walk(n0, depth){
+        if (n0.id === node.id) return; // 剪掉自身整支（自身与全部后代）
+        if (!n0.done && n0._ghost !== 1) {
+          var label = depth === 0 ? '（主任务）' + n0.title : new Array(depth).join(_IND) + n0.title;
+          _cands.push({ id: n0.id, label: label });
+        }
+        (n0.children || []).forEach(function(c0){ walk(c0, depth + 1); });
+      })(_mvById[_mvRoot.id], 0);
+    }
+    fopts.moveParents = _cands;
+  }
   // 子任务弹窗标题带所属主任务名(组件深链 ?edit 与卡片/树编辑共用), 明确当前在编辑哪个清单下的任务
   var _rootTitle = isChild && node._root ? node._root.title : '';
   var _modalTitle = isChild
@@ -13119,6 +13187,58 @@ function openTodoEdit(node) {
     var _catSelEl = document.getElementById('tfCatSel');
     if (_catSelEl) _catSelEl.disabled = true;
   }
+  // 日期框清空钮：有值才显示；点击先在日期行内联二次确认（不能用 confirmModal——它会先关掉编辑弹窗）
+  var _dueRow = document.getElementById('tfDueRow');
+  var _dueEl = document.getElementById('tfDue');
+  var _dueClear = document.getElementById('tfDueClear');
+  function _syncDueClear() {
+    if (!_dueClear || !_dueEl) return;
+    var on = !!_dueEl.value;
+    _dueClear.style.display = on ? 'inline-flex' : 'none';
+    if (_dueClear.parentNode) _dueClear.parentNode.classList.toggle('is-val', on);
+  }
+  // 确认清空：表单当场进入备忘录态（日期/闹钟/重复/各自截止/优先级清值隐藏，文本分类与共享归属保留）
+  function _enterEditMemo() {
+    var _er = document.querySelector('.tfedit');
+    if (_er) _er.classList.add('is-memo');
+    if (_dueEl) _dueEl.value = '';
+    var _alarmClear = document.getElementById('tfAlarmClear');
+    if (_alarmClear) _alarmClear.click(); // 复用闹钟初始化逻辑清 data-alarm-minute
+    var _rec = document.getElementById('tfRecur');
+    if (_rec) { _rec.value = ''; _rec.dispatchEvent(new Event('change')); }
+    var _priNone = document.querySelector('input[name="tfPri"][value="-1"]');
+    if (_priNone) {
+      _priNone.checked = true;
+      Array.prototype.forEach.call(document.querySelectorAll('.todo-priority-option'), function(l){
+        l.classList.toggle('is-checked', !!l.querySelector('input:checked'));
+      });
+    }
+    // syncChildDue 初始化给这些块写过 inline display:block（优先级高于 CSS），需手动压掉
+    var _dr = document.getElementById('tfDueRow'); if (_dr) _dr.style.display = 'none';
+    var _dw = document.getElementById('tfDueWrap'); if (_dw) _dw.style.display = 'none';
+    var _rw = document.getElementById('tfRecurWrap'); if (_rw) _rw.style.display = 'none';
+    _syncDueClear();
+    var _mt = document.getElementById('tfMoreTitle');
+    if (_mt) _mt.textContent = '更多（分类 / 备注）';
+  }
+  if (_dueRow && _dueEl && _dueClear) {
+    _syncDueClear();
+    _dueEl.addEventListener('change', _syncDueClear);
+    var _dueCf = document.createElement('div');
+    _dueCf.className = 'tf-due-confirm';
+    _dueCf.style.display = 'none';
+    _dueCf.innerHTML =
+      '<span class="tf-due-confirm__msg">清空后将变为备忘录任务，闹钟、重复与优先级会清除（分类保留）</span>' +
+      '<button type="button" class="btn sm danger" id="tfDueClearOk">确认清空</button>' +
+      '<button type="button" class="btn sm gray" id="tfDueClearNo">取消</button>';
+    _dueRow.appendChild(_dueCf);
+    _dueClear.addEventListener('click', function(){ _dueCf.style.display = 'flex'; });
+    _dueCf.querySelector('#tfDueClearNo').addEventListener('click', function(){ _dueCf.style.display = 'none'; });
+    _dueCf.querySelector('#tfDueClearOk').addEventListener('click', function(){
+      _dueCf.style.display = 'none';
+      _enterEditMemo();
+    });
+  }
   var _doSave = async function(body){
     await api('/api/todo/' + node.id, { method:'PUT', body: body });
     if (!todoAlarmSaveForm(node.id)) return;
@@ -13127,12 +13247,28 @@ function openTodoEdit(node) {
     // 当前节点在"今日+逾期"等筛选下可能消失 → 按落点自动定位: 勾选→计划中; 取消无日期→备忘录
     if (body.child_due === 1) switchTodoFilter('planned');
     else if (body.child_due === 0 && node.child_due === 1) switchTodoFilter(body.due_date ? 'planned' : 'memo');
+    // 普通主任务清空截止日期转备忘录（未动 child_due 开关）→ 同样定位到备忘录筛选
+    else if (!isChild && !node.child_due && node.due_date && !body.due_date) switchTodoFilter('memo');
   };
   bindClickBusy(document.getElementById('tfSave'), async function(){
     var body = todoFormRead();
     if (!body.title) { alertModal('请填写标题', {ok:false}); return; }
     // 自由子任务(直接父勾选)且未勾自身开关时, 截止日期必填(与快捷添加框同口径)
     if (isChild && fopts.childDueMode && body.child_due !== 1 && !body.due_date) { alertModal('请选择截止日期（默认今天），或勾选"子任务各自设置截止日期"', {ok:false}); return; }
+    // 变更归属(换父): 新父未开各自截止时整支日期/重复/优先级将清空跟随, 二次确认;
+    // 新父是 child_due 壳时日期保留不打扰; confirmModal 会关弹窗, body 已读取, 确认后直接保存
+    var _parentSel = document.getElementById('tfParent');
+    if (_parentSel && String(_parentSel.value) !== String(node.parent_id)) {
+      var _np = _byId[parseInt(_parentSel.value, 10)];
+      if (_np && _np.child_due !== 1 && body.due_date) {
+        confirmModal(
+          '变更归属',
+          '新上级未开启「子任务各自设置截止日期」，移动后该任务及其子任务的截止日期、重复与优先级将清空并跟随上级，是否继续？',
+          function(){ return _doSave(body); }
+        );
+        return;
+      }
+    }
     // 归属变更(移入/移出共享分类)影响整棵任务树可见性, 二次确认(复用 confirmModal; 取消即放弃本次编辑)
     var _fromCat = node.shared_cat_id != null ? node.shared_cat_id : null;
     var _toCat = body.shared_cat_id ? parseInt(body.shared_cat_id, 10) : null;

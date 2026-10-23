@@ -249,9 +249,67 @@ async function updateTodo({ request, env, params }) {
   const acc = await todoAccess(storage, dc, t);
   if (!acc) return error('任务不存在', 404);
   // 共享分类下任务就是普通协作任务, 成员均可编辑(删除才收口给 owner, 见 removeTodo)
-  const isRoot = t.parent_id == null;
-  const parentRow = isRoot ? null : await storage.todo.findById(t.parent_id);
-  // 逐级门控: 顶层恒允许; 子任务须其【直接父】勾选 child_due 才能自设日期/切换自身开关
+  let isRoot = t.parent_id == null;
+  let parentRow = isRoot ? null : await storage.todo.findById(t.parent_id);
+  // 变更归属（仅子任务；编辑弹窗「归属」下拉携带 body.parent_id 且与现值不同时）。
+  // move 非空 = { parentId, ownerId, catId, allowsDate }：本节点及整支后代随新父走，
+  // 后续日期/重复/优先级/分类/开关门控一律按新父重算；落库在 update 之后做归属迁移与 move。
+  let move = null;
+  if (!isRoot && Object.prototype.hasOwnProperty.call(body, 'parent_id')) {
+    const rawNewParent = body.parent_id === null || body.parent_id === '' ? null : parseInt(body.parent_id, 10);
+    if (rawNewParent == null || !Number.isInteger(rawNewParent)) return error('请选择归属任务', 400);
+    if (rawNewParent !== t.parent_id) {
+      const np = await storage.todo.findById(rawNewParent);
+      if (!np) return error('归属任务不存在', 404);
+      const npAcc = await todoAccess(storage, dc, np);
+      if (!npAcc) return error('归属任务不存在', 404);
+      if (np.done) return error('不能移动到已完成的任务下', 400);
+      if (np.id === id) return error('不能把任务移动到自己之下', 400);
+      const selfDescIds = await storage.todo.collectDescendantIds(id);
+      if (selfDescIds.includes(np.id)) return error('不能移动到自己的子任务下', 400);
+      // 逐级上溯取根（深度通常很小；guard 防御历史脏数据成环）
+      const rootOf = async (row) => {
+        let cur = row;
+        for (let guard = 0; cur && cur.parent_id != null && guard < 300; guard++) {
+          cur = await storage.todo.findById(cur.parent_id);
+        }
+        return cur;
+      };
+      const srcRoot = await rootOf(parentRow);
+      // 第一层子任务只能换到另一个顶层任务下；深层只能在同一主任务树内换父
+      // （新父就是主任务自身 = 提升为第一层子任务）
+      if (parentRow.parent_id == null) {
+        if (np.parent_id != null) return error('第一层子任务只能归属到主任务', 400);
+      } else {
+        const npRoot = await rootOf(np);
+        if (!npRoot || !srcRoot || npRoot.id !== srcRoot.id) return error('深层子任务只能在当前主任务内更换上级', 400);
+      }
+      // 归属目标随新父：个人父→树主人/无分类；共享父→分类 owner/该共享分类。
+      // 跨个人/共享边界的校验与顶层移入移出口径一致（成员可挂入，仅分类 owner 可摘出）。
+      const curCatId = t.shared_cat_id != null ? t.shared_cat_id : null;
+      const wantCatId = np.shared_cat_id != null ? np.shared_cat_id : null;
+      const moveIds = [id, ...selfDescIds];
+      if (np.user_id !== t.user_id || wantCatId !== curCatId) {
+        if (curCatId == null && wantCatId != null) {
+          const cat = await storage.sharedCat.findCatById(wantCatId);
+          if (!cat) return error('共享分类不存在', 404);
+          const member = await storage.sharedCat.findMember(wantCatId, dc.uid);
+          if (!member) return error('你不是该共享分类成员', 403);
+          const prior = await storage.todo.findSharedCatsAmong(moveIds);
+          if (prior.length) return error('子任务中已有其他共享分类，请先移出', 400);
+        } else if (curCatId != null && wantCatId == null) {
+          if (acc.role !== 'owner') return error('仅分类创建者可把任务移出共享分类', 403);
+          const stray = (await storage.todo.findSharedCatsAmong(moveIds)).filter(c => c !== curCatId);
+          if (stray.length) return error('子任务中已有其他共享分类，请先移出', 400);
+        } else if (curCatId != null && wantCatId !== curCatId) {
+          return error('暂不支持在共享分类之间直接移动，请先移出再移入', 400);
+        }
+      }
+      move = { parentId: rawNewParent, ownerId: np.user_id, catId: wantCatId };
+      parentRow = np;
+    }
+  }
+  // 逐级门控: 顶层恒允许; 子任务须其【直接父】（换父后为新父）勾选 child_due 才能自设日期/切换自身开关
   const allowsDate = parentAllowsDate(parentRow);
 
   // child_due 开关(直接父允许才可切): 开→自身日期/重复由下方归一清空;
@@ -265,6 +323,9 @@ async function updateTodo({ request, env, params }) {
       await storage.todo.clearSubtreeDates(id);
     }
   }
+  // 换父后新父不允许子任务自设日期: 自身开关强制收回（原勾选态也不得残留）,
+  // 后代日期/开关在落库后统一清；body 未携带 child_due（如直连 API）也一样归一
+  if (move && !allowsDate) selfChildDue = false;
   // 截止日期: 勾选态自身不设; 否则直接父允许才接受 body.due_date; 跟随态恒 null
   const dueDate = selfChildDue
     ? null
@@ -280,20 +341,26 @@ async function updateTodo({ request, env, params }) {
     category: canHavePriCat ? ((body.category || '').trim() || null) : null,
     note: (body.note || '').trim() || null
   };
-  // 闹钟: 勾选态清空; 允许自设日期且 body 显式携带才写入; 未携带沿用原值
+  // 闹钟: 勾选态清空; 允许自设日期且 body 显式携带才写入——无日期一律 null
+  // (清空日期转备忘录/换父到跟随态都不得残留旧闹钟); 未携带沿用原值
   if (selfChildDue) {
     payload.alarm_minute = null;
-  } else if (allowsDate && dueDate &&
-    Object.prototype.hasOwnProperty.call(body, 'alarm_minute')) {
-    try { payload.alarm_minute = normAlarmMinute(body.alarm_minute); }
-    catch (e) { return error(e.message); }
+  } else if (allowsDate && Object.prototype.hasOwnProperty.call(body, 'alarm_minute')) {
+    if (!dueDate) {
+      payload.alarm_minute = null;
+    } else {
+      try { payload.alarm_minute = normAlarmMinute(body.alarm_minute); }
+      catch (e) { return error(e.message); }
+    }
   }
   // 开关逐级有效: 仅直接父允许且 body 显式携带时写入(跟随态保存标题等不触及其值)
   if (allowsDate && Object.prototype.hasOwnProperty.call(body, 'child_due')) {
     payload.child_due = selfChildDue ? 1 : 0;
+  } else if (move && !allowsDate) {
+    payload.child_due = 0;
   }
-  // body 显式携带 recurrence, 或本任务切到勾选态(需清空其旧重复)时, 归一重复字段
-  if (Object.prototype.hasOwnProperty.call(body, 'recurrence') || selfChildDue) {
+  // body 显式携带 recurrence, 或本任务切到勾选态/换父到跟随态(需清空其旧重复)时, 归一重复字段
+  if (Object.prototype.hasOwnProperty.call(body, 'recurrence') || selfChildDue || (move && !allowsDate)) {
     const recFields = readRecurFields(body, allowRecur);
     payload.recurrence = recFields.recurrence;
     payload.recur_interval = recFields.recur_interval;
@@ -301,6 +368,19 @@ async function updateTodo({ request, env, params }) {
     payload.recur_weekday = recFields.recur_weekday;
   }
   await storage.todo.update(id, acc.ownerUid, payload);
+  // 换父到未开各自截止的普通父下: 整支后代日期/重复/开关收回跟随（本节点已由 payload 归一）
+  if (move && !allowsDate) await storage.todo.clearSubtreeDates(id);
+  // 换父执行: 先按新父归属整树 reassign（个人↔共享随新父；归属未变则跳过），
+  // 再改 parent_id——move 的双校验按新 owner，顺序不可颠倒。
+  // 下方 body.shared_cat_id 两段用 t 快照比较，move 场景前端传值=旧值不会重复触发。
+  if (move) {
+    const moveIds = [id, ...(await storage.todo.collectDescendantIds(id))];
+    const curCatId = t.shared_cat_id != null ? t.shared_cat_id : null;
+    if (move.ownerId !== acc.ownerUid || move.catId !== curCatId) {
+      await storage.todo.reassignSubtree(moveIds, move.ownerId, move.catId);
+    }
+    await storage.todo.move(id, move.ownerId, move.parentId);
+  }
   // 共享分类归属变更（仅顶层主任务；子任务继承父任务归属，忽略该字段）。
   // body 显式带 shared_cat_id 键才处理（前端编辑保存始终携带；null=个人/移出，数字=移入该分类）。
   if (isRoot && Object.prototype.hasOwnProperty.call(body, 'shared_cat_id')) {

@@ -877,6 +877,15 @@ function createD1Adapter(env) {
         });
         await db.batch(stmts);
       },
+      // 移动单个节点到新父下（只改本节点 parent_id；其全部后代靠父子关系自动跟随，不动后代行）。
+      // sort_order 落到新父同 user_id+parent_id 的同级末尾（IS 语义同 create）；
+      // 环/层级/完成态/权限由 API 层把关，WHERE 带 id+userId 双校验（须在归属 reassign 之后调用）。
+      async move(id, userId, newParentId) {
+        const pid = newParentId != null ? newParentId : null;
+        await db.prepare(
+          'UPDATE todos SET parent_id=?, sort_order=COALESCE((SELECT MAX(sort_order) FROM todos WHERE user_id=? AND parent_id IS ?), -1) + 1 WHERE id=? AND user_id=?'
+        ).bind(pid, userId, pid, id, userId).run();
+      },
       // 仅修改当前任务状态；done=1 写完成日期与完成人(doneBy)，done=0 一并清空
       async setDone(id, done, doneAt, doneBy) {
         await db.prepare(
