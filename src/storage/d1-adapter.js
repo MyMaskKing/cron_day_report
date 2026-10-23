@@ -112,6 +112,10 @@ function createD1Adapter(env) {
       async updateTodoViewList(id, listJson) {
         await db.prepare('UPDATE users SET todo_view_list = ? WHERE id = ?').bind(listJson, id).run();
       },
+      // 待办全屏「显示」菜单设置: optsJson 为归一化 JSON 对象串，null = 全默认
+      async updateTodoViewOpts(id, optsJson) {
+        await db.prepare('UPDATE users SET todo_view_opts = ? WHERE id = ?').bind(optsJson, id).run();
+      },
       // 默认首页: home ∈ todo|dashboard，由 api 层校验后传入
       async updateDefaultHome(id, home) {
         await db.prepare('UPDATE users SET default_home = ? WHERE id = ?').bind(home, id).run();

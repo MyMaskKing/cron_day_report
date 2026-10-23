@@ -15,6 +15,7 @@
 -- investment_strategy: 投资策略 Markdown, 每用户一条
 -- theme: 界面主题 light(默认) | dark | eye
 -- todo_auto_parent: 待办偏好, 1=子任务全部完成后父任务自动完成(默认) | 0=关闭
+-- todo_view_opts: 待办全屏「显示」菜单 JSON {sort,hide_done,group_by_due,timeline_full_axis}, NULL=全默认
 -- motto: 每日勉励卡正文(用户私有), 空=不弹; motto_style: a=极光能量(默认) | c=手账打气 | h1=战书令 | h2=最后通牒
 -- motto_seen_date: (已废弃, 0006 起被 motto_seen 取代, 保留供滚动部署兼容)
 -- motto_freq: JSON {pc,mobile,app} ∈ daily(默认)|every|off; motto_seen: JSON 各设备独立已读日期
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
   todo_bg_theme        TEXT NOT NULL DEFAULT '',
   todo_auto_parent     INTEGER NOT NULL DEFAULT 1,
   todo_view_list       TEXT,
+  todo_view_opts       TEXT,
   default_home         TEXT NOT NULL DEFAULT 'todo',
   motto                TEXT,
   motto_style          TEXT NOT NULL DEFAULT 'a',

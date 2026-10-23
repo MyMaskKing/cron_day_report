@@ -7727,6 +7727,65 @@ function todoSaveTimelineFullAxis(v) {
   catch (e) { /* 存储被禁仅本次生效 */ }
 }
 var _todoTimelineFullAxis = todoLoadTimelineFullAxis();
+// 隐藏已完成：localStorage 'todoHideDone'；未存按 true（与历史 checkbox 写死 checked 同口径）
+function todoLoadHideDone() {
+  try { return localStorage.getItem('todoHideDone') !== '0'; }
+  catch (e) { return true; }
+}
+function todoSaveHideDone(v) {
+  try { localStorage.setItem('todoHideDone', v ? '1' : '0'); }
+  catch (e) { /* 存储被禁仅本次生效 */ }
+}
+var _todoHideDone = todoLoadHideDone();
+// 「显示」菜单四值整包同步：DB(users.todo_view_opts) 为准，localStorage 四个键作本机缓存（首帧用）。
+// 应用一份设置（profile 校正）：写运行时变量 → 同步 #hideDone/#hideDoneFs → 回写缓存；
+// 与缓存现状有差异且传入 onDrawTree 时重绘一次。onDrawTree 缺省（公开页/仪表盘）只同步状态。
+function todoApplyViewOpts(o, onDrawTree) {
+  if (!o || typeof o !== 'object') return;
+  var sort = (o.sort === 'due_asc' || o.sort === 'due_desc') ? o.sort : 'default';
+  var hide = o.hide_done !== false;
+  var group = o.group_by_due === true;
+  var fullAxis = o.timeline_full_axis === true;
+  var changed = sort !== _todoSortMode || hide !== _todoHideDone
+    || group !== _todoGroupByDue || fullAxis !== _todoTimelineFullAxis;
+  _todoSortMode = sort;
+  _todoHideDone = hide;
+  _todoGroupByDue = group;
+  _todoTimelineFullAxis = fullAxis;
+  todoSaveSortMode(sort);
+  todoSaveHideDone(hide);
+  todoSaveGroupByDue(group);
+  todoSaveTimelineFullAxis(fullAxis);
+  var orig = document.getElementById('hideDone');
+  if (orig && orig.checked !== hide) {
+    orig.checked = hide;
+    var fs = document.getElementById('hideDoneFs');
+    if (fs) fs.checked = hide;
+  }
+  if (changed && typeof onDrawTree === 'function') onDrawTree();
+}
+// 菜单任意项变更后防抖整包 PUT（800ms 合并连点，与重绘防抖同量级）；失败静默：本机缓存仍生效
+var _todoViewOptsSaveTimer = null;
+function todoScheduleSaveViewOpts() {
+  if (typeof api !== 'function') return;
+  if (_todoViewOptsSaveTimer) clearTimeout(_todoViewOptsSaveTimer);
+  _todoViewOptsSaveTimer = setTimeout(function () {
+    _todoViewOptsSaveTimer = null;
+    try {
+      // silent: 菜单即时切换不弹全局 loading 遮罩，只做后台同步
+      api('/api/auth/todo-view-opts', {
+        method: 'PUT',
+        silent: true,
+        body: {
+          sort: _todoSortMode,
+          hide_done: _todoHideDone,
+          group_by_due: _todoGroupByDue,
+          timeline_full_axis: _todoTimelineFullAxis
+        }
+      }).catch(function () {});
+    } catch (e) { /* 离线等场景静默，缓存保留本机状态 */ }
+  }, 800);
+}
 /** 顶层树排序（主列表用，不改变原数组）；日期口径 todoRootDue，无日期沉底 */
 function todoSortRoots(trees, mode) {
   if (mode !== 'due_asc' && mode !== 'due_desc') return trees;
@@ -13682,6 +13741,7 @@ function openDisplayChooser(ev) {
         if (b.dataset.sort != null) {
           _todoSortMode = b.dataset.sort;
           todoSaveSortMode(_todoSortMode);
+          todoScheduleSaveViewOpts();
           redrawNextFrame(quickReorderCards); // 卡片主列表走纯重排快路径, 失败内部回退全量 drawTree
           return;
         }
@@ -13696,10 +13756,13 @@ function openDisplayChooser(ev) {
           todoSaveGroupByDue(_todoGroupByDue);
         } else if (b.dataset.k === 'hide' && hideOrig) {
           hideOrig.checked = !hideOrig.checked;
+          _todoHideDone = hideOrig.checked;
+          todoSaveHideDone(_todoHideDone);
           // 镜像全屏顶栏 checkbox（CORE 仅有 fs→orig 方向绑定，这里手动同步）
           var hideFs = document.getElementById('hideDoneFs');
           if (hideFs) hideFs.checked = hideOrig.checked;
         }
+        todoScheduleSaveViewOpts();
         redrawNextFrame();
       });
     });
@@ -13740,7 +13803,21 @@ document.getElementById('todoDrawerMask').addEventListener('click', function(){
 });
 // 视口【宽度】变化时刷新抽屉状态(用户拖窗跨越 640px 边界/旋转); 软键盘只变高度, 不重绘
 window.addEventListener('resize', function(){ todoApplyViewOnResize(_todoGetRows, drawTree); });
-document.getElementById('hideDone').addEventListener('change', drawTree);
+// 隐藏已完成：首帧前按本机缓存校正 checkbox（HTML 写死 checked，缓存 '0' 时取消）
+(function(){
+  var _hd = document.getElementById('hideDone');
+  if (!_hd) return;
+  _hd.checked = _todoHideDone;
+  var _hdfs = document.getElementById('hideDoneFs');
+  if (_hdfs) _hdfs.checked = _todoHideDone;
+})();
+// 三个入口（全屏顶栏 #hideDoneFs、抽屉镜像均 dispatch 回本复选框）统一在此收口：缓存 + 入库 + 重绘
+document.getElementById('hideDone').addEventListener('change', function(){
+  _todoHideDone = this.checked;
+  todoSaveHideDone(_todoHideDone);
+  todoScheduleSaveViewOpts();
+  drawTree();
+});
 // 筛选 tab：点击切换 active 并重绘
 document.getElementById('todoFilter').addEventListener('click', function(e){
   var btn = e.target.closest('button[data-filter]');
@@ -13829,6 +13906,10 @@ bindClickBusy(document.getElementById('pushSend'), async function(){
     try {
       var _viewPf = await api('/api/auth/profile');
       todoApplyViewCycle(_viewPf.profile.todo_view_list, _todoGetRows, drawTree, true);
+      // 「显示」菜单设置：DB 有值即以 DB 为准校正本机缓存（有差异才重绘）；
+      // DB 为 NULL（首次升级的老用户）则把本机现有缓存选择上云，不用全默认冲掉旧习惯
+      if (_viewPf.profile.todo_view_opts) todoApplyViewOpts(_viewPf.profile.todo_view_opts, drawTree);
+      else todoScheduleSaveViewOpts();
     } catch(_e){}
     // ?join=<code>: 邀请链接落地, 确认后加入共享分类(加入成功会刷新列表, 抽屉出现该分类)
     var _joinCode = _q.get('join');

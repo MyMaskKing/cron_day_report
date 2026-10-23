@@ -73,6 +73,31 @@ function normalizeTodoViewList(raw) {
   return out;
 }
 
+// 待办全屏「显示」菜单排序合法值（与前端 todoSortMode 一致）；非法回退 default
+const TODO_SORT_MODES = ['default', 'due_asc', 'due_desc'];
+// 菜单设置缺省值：与前端历史行为一致（手动排序 / 隐藏已完成开 / 到期分组关 / 时间轴补齐关）
+const TODO_VIEW_OPTS_DEFAULT = { sort: 'default', hide_done: true, group_by_due: false, timeline_full_axis: false };
+/**
+ * 归一化待办全屏「显示」菜单设置：解析 JSON 串/对象 → 四字段白名单校验 + 缺省填充。
+ * 非法/空 → 全默认对象（永不返回 null/缺字段）；未知字段剥离。
+ */
+function normalizeTodoViewOpts(raw) {
+  let o = null;
+  if (typeof raw === 'string') {
+    if (!raw) return { ...TODO_VIEW_OPTS_DEFAULT };
+    try { o = JSON.parse(raw); } catch { o = null; }
+  } else if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    o = raw;
+  }
+  if (!o || typeof o !== 'object') return { ...TODO_VIEW_OPTS_DEFAULT };
+  return {
+    sort: TODO_SORT_MODES.includes(o.sort) ? o.sort : 'default',
+    hide_done: typeof o.hide_done === 'boolean' ? o.hide_done : true,
+    group_by_due: typeof o.group_by_due === 'boolean' ? o.group_by_due : false,
+    timeline_full_axis: typeof o.timeline_full_axis === 'boolean' ? o.timeline_full_axis : false
+  };
+}
+
 // 注册人数上限相关 app_settings 键
 const SETTING_REG_LIMIT = 'register_limit';
 const SETTING_REG_LIMIT_MSG = 'register_limit_msg';
@@ -196,6 +221,8 @@ async function getProfile({ request, env }) {
     todo_bg_theme: BG_THEMES.includes(u.todo_bg_theme) ? u.todo_bg_theme : '',
     todo_auto_parent: u.todo_auto_parent === 0 ? 0 : 1,
     todo_view_list: normalizeTodoViewList(u.todo_view_list),
+    // NULL=从未入库：前端据此把本机旧缓存选择首次上云，不用全默认冲掉老用户习惯
+    todo_view_opts: u.todo_view_opts == null ? null : normalizeTodoViewOpts(u.todo_view_opts),
     default_home: DEFAULT_HOMES.includes(u.default_home) ? u.default_home : 'todo',
     motto: u.motto || '',
     motto_style: MOTTO_STYLES.includes(u.motto_style) ? u.motto_style : 'a',
@@ -454,6 +481,21 @@ async function updateTodoViewList({ request, env }) {
 }
 
 /**
+ * PUT /api/auth/todo-view-opts  保存待办全屏「显示」菜单设置（整包）
+ * body: { sort?, hide_done?, group_by_due?, timeline_full_axis? }；返回归一化后的完整对象
+ */
+async function updateTodoViewOpts({ request, env }) {
+  const token = getTokenFromRequest(request);
+  const session = await getSession(env, token);
+  if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  const opts = normalizeTodoViewOpts(body);
+  const storage = getStorage(env);
+  await storage.users.updateTodoViewOpts(session.user_id, JSON.stringify(opts));
+  return json({ success: true, message: '设置已保存', opts });
+}
+
+/**
  * PUT /api/auth/motto  保存自己的每日勉励卡  body: { motto, style, freq? }
  * motto 去空白后正文 0-80 字（空=清空，不再弹卡）；style 白名单见 MOTTO_STYLES；
  * freq 可选 {pc,mobile,app} ∈ daily|every|off，缺省/非法回退 daily
@@ -544,7 +586,7 @@ export {
   register, login, logout, me, bootstrap, setupStatus, registerStatus,
   getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, resolvePublicOwnerId,
   updateQuickloginRestrict, updateShowQuickloginButton,
-  updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateMotto, markMottoSeen,
+  updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateTodoViewOpts, updateMotto, markMottoSeen,
   updateDefaultHome
 };
 // 免密页服务端直出主人偏好复用：背景合法值与视图循环归一化（勿在页面层另造字面量）
