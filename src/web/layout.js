@@ -1385,8 +1385,11 @@ input[type="date"], input[type="month"] { cursor: pointer; }
 .todo-dot.pri-2 { background: #e5484d; }
 .todo-dot.pri-1 { background: #e8a317; }
 .todo-dot.pri-0 { background: #b4bccb; }
-/* 层级连接线：非顶层节点左侧竖向引导线 */
-.todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before {
+/* 层级连接线：非顶层节点左侧竖向引导线。
+   伪元素挂 .todo-node 而非 .todo-row：行 hover(translateX)/拖拽(scale)的 transform 会让
+   绝对定位伪元素改以行为包含块，整根线向右错位钻进任务行；挂节点后定位恒定相对节点，
+   定位值沿用原口径（行 static 时包含块即节点），手风琴/速览/根卡按既有口径排除 */
+.todo-node[data-depth]:not([data-depth="0"]):not(.todo-acc):not(.flat-group):not(.todo-bandcard)::before {
   content: ''; position: absolute; left: calc(var(--depth, 0) * 26px - 13px); top: -4px; bottom: 50%;
   border-left: 1.5px solid var(--border); border-bottom: 1.5px solid var(--border);
   width: 12px; border-bottom-left-radius: 8px;
@@ -3206,7 +3209,7 @@ html { scrollbar-gutter: stable; }
   .table-scroll-mobile { max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; position: relative; }
   /* 待办树：缩进收窄, 操作按钮常显 */
   .todo-row { margin-left: calc(var(--depth, 0) * 16px); gap: 8px; padding: 8px 10px; }
-  .todo-node[data-depth]:not([data-depth="0"]) > .todo-row::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
+  .todo-node[data-depth]:not([data-depth="0"]):not(.todo-acc):not(.flat-group):not(.todo-bandcard)::before { left: calc(var(--depth, 0) * 16px - 9px); width: 8px; }
   /* 完整树添加框缩进同步窄屏系数(同外层 26px 口径两条规则) */
   .todo-children > .todo-detail-adder { margin-left: calc((var(--depth, 0) + 1) * 16px); }
   .todo-node:not(.todo-acc):not(.flat-group):not(.todo-bandcard) > .todo-detail-adder { margin-left: calc(var(--depth, 0) * 16px); }
