@@ -2916,13 +2916,19 @@ if (mottoInput) {
     try {
       await api('/api/auth/motto', { method: 'PUT', body: { motto: text, style: mottoStyle, freq: mottoFreqBody() } });
       sessionStorage.setItem('mottoPreview', '1');
+      sessionStorage.setItem('mottoPreviewScroll', String(window.scrollY || window.pageYOffset || 0));
       location.reload();
     } catch(err) { showMsg(msg, err.message, false); }
   });
   // 刷新后若带预览标记，自动打开服务端按最新数据直出的卡片
   if (sessionStorage.getItem('mottoPreview') === '1') {
     sessionStorage.removeItem('mottoPreview');
-    setTimeout(function(){ if (window.__mottoPreview) window.__mottoPreview(); }, 350);
+    var mottoPreviewY = parseInt(sessionStorage.getItem('mottoPreviewScroll') || '0', 10) || 0;
+    sessionStorage.removeItem('mottoPreviewScroll');
+    setTimeout(function(){
+      window.scrollTo(0, mottoPreviewY);   // 手机 reload 常丢失滚动位置，弹卡前先还原（卡为全屏，用户无感）
+      if (window.__mottoPreview) window.__mottoPreview();
+    }, 350);
   }
 }
 document.getElementById('pwdForm').addEventListener('submit', async function(e){
