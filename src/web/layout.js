@@ -2862,24 +2862,27 @@ body { padding-bottom: var(--kb-inset, 0px); }
 .tfedit-more[open] .tfedit-more__caret { transform: rotate(90deg); }
 .tfedit-more__body { padding-bottom: 8px; }
 .tfedit-more__body > label, .tfedit-more__body .todo-priority { margin-bottom: 10px; }
-/* 折叠区优先级/分类块包裹后（备忘录隐藏用），间距改挂在包裹层上 */
-.tfedit-more__body .tfedit-pri, .tfedit-more__body .tfedit-cat { margin-bottom: 10px; }
+/* 折叠区优先级/分类/归属块包裹后（备忘录隐藏用），间距改挂在包裹层上 */
+.tfedit-more__body .tfedit-pri, .tfedit-more__body .tfedit-cat,
+.tfedit-more__body .tfedit-parent { margin-bottom: 10px; }
 .tfedit-more__body .tfedit-pri .todo-priority { margin-bottom: 0; }
-.tfedit-pri > label, .tfedit-cat > label { display: block; margin-bottom: 6px; }
-/* 编辑弹窗日期框内清空钮（仅普通主任务；有值才显示） */
+.tfedit-pri > label, .tfedit-cat > label, .tfedit-parent > label { display: block; margin-bottom: 6px; }
+/* 归属级联：逐级 select 纵向排列 */
+#tfParentCascade { display: flex; flex-direction: column; gap: 6px; }
+#tfParentCascade select { width: 100%; }
+/* 编辑弹窗日期框外清空钮（仅普通主任务）：与日期框/闹钟钮同行的细线幽灵方钮 */
 .tf-due-rel { display: flex; gap: 8px; align-items: center; }
-.tf-due-inputwrap { position: relative; flex: 1; min-width: 0; display: flex; }
-.tf-due-inputwrap > input { flex: 1; min-width: 0; }
-.tf-due-inputwrap.is-val > input { padding-right: 28px; }
-/* 隐藏日期框原生清除钮：清空必须走自定义 ✕ 的二次确认（会转备忘录） */
-.tf-due-inputwrap > input::-webkit-clear-button { display: none; }
 .tf-due-clear {
-  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%;
-  background: transparent; color: var(--muted); font-size: 11px; line-height: 20px;
-  text-align: center; cursor: pointer;
+  flex: none; width: 34px; height: 34px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 8px; background: transparent;
+  color: var(--muted); cursor: pointer;
 }
+.tf-due-clear svg { width: 15px; height: 15px; }
 .tf-due-clear:hover:not(:active) { background: var(--muted-bg); color: var(--text); }
+.tf-due-clear:disabled { opacity: .35; cursor: default; background: transparent; color: var(--muted); }
+/* 隐藏日期框原生清除钮：清空必须走自定义 ✕ 的二次确认（会转备忘录） */
+.tf-due-rel > input::-webkit-clear-button { display: none; }
 /* 清空日期的内联二次确认条（不用弹窗：确认后需留在编辑表单） */
 .tf-due-confirm {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;

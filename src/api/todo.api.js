@@ -255,6 +255,7 @@ async function updateTodo({ request, env, params }) {
   // move 非空 = { parentId, ownerId, catId, allowsDate }：本节点及整支后代随新父走，
   // 后续日期/重复/优先级/分类/开关门控一律按新父重算；落库在 update 之后做归属迁移与 move。
   let move = null;
+  let oldParentRow = null;
   if (!isRoot && Object.prototype.hasOwnProperty.call(body, 'parent_id')) {
     const rawNewParent = body.parent_id === null || body.parent_id === '' ? null : parseInt(body.parent_id, 10);
     if (rawNewParent == null || !Number.isInteger(rawNewParent)) return error('请选择归属任务', 400);
@@ -266,24 +267,9 @@ async function updateTodo({ request, env, params }) {
       if (np.done) return error('不能移动到已完成的任务下', 400);
       if (np.id === id) return error('不能把任务移动到自己之下', 400);
       const selfDescIds = await storage.todo.collectDescendantIds(id);
-      if (selfDescIds.includes(np.id)) return error('不能移动到自己的子任务下', 400);
-      // 逐级上溯取根（深度通常很小；guard 防御历史脏数据成环）
-      const rootOf = async (row) => {
-        let cur = row;
-        for (let guard = 0; cur && cur.parent_id != null && guard < 300; guard++) {
-          cur = await storage.todo.findById(cur.parent_id);
-        }
-        return cur;
-      };
-      const srcRoot = await rootOf(parentRow);
-      // 第一层子任务只能换到另一个顶层任务下；深层只能在同一主任务树内换父
-      // （新父就是主任务自身 = 提升为第一层子任务）
-      if (parentRow.parent_id == null) {
-        if (np.parent_id != null) return error('第一层子任务只能归属到主任务', 400);
-      } else {
-        const npRoot = await rootOf(np);
-        if (!npRoot || !srcRoot || npRoot.id !== srcRoot.id) return error('深层子任务只能在当前主任务内更换上级', 400);
-      }
+      // 新父是自身后代 = 合法树旋转（该后代顶替本节点位置，本节点降到它下面）；
+      // 唯一硬环约束就是不能选自身。跨树/任意层级不再限制（级联选择器可到达任意未完成节点）。
+      const isRotation = selfDescIds.includes(np.id);
       // 归属目标随新父：个人父→树主人/无分类；共享父→分类 owner/该共享分类。
       // 跨个人/共享边界的校验与顶层移入移出口径一致（成员可挂入，仅分类 owner 可摘出）。
       const curCatId = t.shared_cat_id != null ? t.shared_cat_id : null;
@@ -305,7 +291,8 @@ async function updateTodo({ request, env, params }) {
           return error('暂不支持在共享分类之间直接移动，请先移出再移入', 400);
         }
       }
-      move = { parentId: rawNewParent, ownerId: np.user_id, catId: wantCatId };
+      oldParentRow = parentRow;
+      move = { parentId: rawNewParent, ownerId: np.user_id, catId: wantCatId, rotation: isRotation, newParentRow: np };
       parentRow = np;
     }
   }
@@ -368,18 +355,28 @@ async function updateTodo({ request, env, params }) {
     payload.recur_weekday = recFields.recur_weekday;
   }
   await storage.todo.update(id, acc.ownerUid, payload);
-  // 换父到未开各自截止的普通父下: 整支后代日期/重复/开关收回跟随（本节点已由 payload 归一）
-  if (move && !allowsDate) await storage.todo.clearSubtreeDates(id);
-  // 换父执行: 先按新父归属整树 reassign（个人↔共享随新父；归属未变则跳过），
-  // 再改 parent_id——move 的双校验按新 owner，顺序不可颠倒。
-  // 下方 body.shared_cat_id 两段用 t 快照比较，move 场景前端传值=旧值不会重复触发。
   if (move) {
+    // 后代快照必须在任何结构移动前取（旋转后新父支会离开 node 子树）
     const moveIds = [id, ...(await storage.todo.collectDescendantIds(id))];
     const curCatId = t.shared_cat_id != null ? t.shared_cat_id : null;
+    // 1) 归属随新父：先整树 reassign（move 的双校验按新 owner，须早于 move）
     if (move.ownerId !== acc.ownerUid || move.catId !== curCatId) {
       await storage.todo.reassignSubtree(moveIds, move.ownerId, move.catId);
     }
+    // 2) 树旋转：新父此刻仍是 node 后代，先把它顶到 node 的原位置；
+    //    它在新父（node 旧父）下若不允许自设日期，自身与原后代时间属性收回跟随
+    //    （此刻 node 支尚未挂入，clearSubtreeDates 不会误伤）
+    if (move.rotation) {
+      await storage.todo.move(move.newParentRow.id, move.newParentRow.user_id, t.parent_id);
+      if (!parentAllowsDate(oldParentRow)) {
+        await storage.todo.stripRowScheduling(move.newParentRow.id, move.newParentRow.user_id);
+        await storage.todo.clearSubtreeDates(move.newParentRow.id);
+      }
+    }
+    // 3) node 挂到新父下
     await storage.todo.move(id, move.ownerId, move.parentId);
+    // 4) 新父不允许自设日期：整支后代收回（旋转后 node 后代已不含被顶走的新父支）
+    if (!allowsDate) await storage.todo.clearSubtreeDates(id);
   }
   // 共享分类归属变更（仅顶层主任务；子任务继承父任务归属，忽略该字段）。
   // body 显式带 shared_cat_id 键才处理（前端编辑保存始终携带；null=个人/移出，数字=移入该分类）。

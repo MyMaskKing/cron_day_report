@@ -886,6 +886,15 @@ function createD1Adapter(env) {
           'UPDATE todos SET parent_id=?, sort_order=COALESCE((SELECT MAX(sort_order) FROM todos WHERE user_id=? AND parent_id IS ?), -1) + 1 WHERE id=? AND user_id=?'
         ).bind(pid, userId, pid, id, userId).run();
       },
+      // 单行收回全部时间属性（树旋转中被顶到跟随态父下的节点用）：
+      // 日期/优先级/文本分类/重复四伴生/闹钟/各自截止开关一律清空
+      async stripRowScheduling(id, userId) {
+        await db.prepare(
+          `UPDATE todos SET due_date=NULL, priority=NULL, category=NULL, child_due=0,
+             recurrence=NULL, recur_interval=NULL, recur_nth=NULL, recur_weekday=NULL, alarm_minute=NULL
+           WHERE id=? AND user_id=?`
+        ).bind(id, userId).run();
+      },
       // 仅修改当前任务状态；done=1 写完成日期与完成人(doneBy)，done=0 一并清空
       async setDone(id, done, doneAt, doneBy) {
         await db.prepare(

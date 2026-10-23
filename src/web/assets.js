@@ -11415,15 +11415,15 @@ function todoDueNativeHtml(defDue, hidden, initMinute, clearable) {
       '<button type="button" id="tfAlarmClear">取消闹钟</button>' +
     '</div>';
   }
-  // 编辑弹窗：旧表单可见结构（date + 闹钟钮并排；清除钮整行）
+  // 编辑弹窗：旧表单可见结构（date + 清空钮 + 闹钟钮并排；闹钟清除钮整行）。
+  // 清空钮放框外（框内会与浏览器原生日历 glyph 挤在一起）：细线 SVG 幽灵方钮，值空时 disabled
+  var SVG_CROSS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
   var clearHtml = clearable
-    ? '<button type="button" id="tfDueClear" class="tf-due-clear" title="清空截止日期" tabindex="-1" style="display:none;">✕</button>'
+    ? '<button type="button" id="tfDueClear" class="tf-due-clear" title="清空截止日期" tabindex="-1"' + (defDue ? '' : ' disabled') + '>' + SVG_CROSS + '</button>'
     : '';
   return '<div id="tfDueWrap" data-alarm-minute=""' + initAttr + '>' +
     '<div class="tf-due-rel">' +
-      '<span class="tf-due-inputwrap' + (clearable && defDue ? ' is-val' : '') + '">' +
-        '<input id="tfDue" type="date" value="' + defDue + '">' + clearHtml +
-      '</span>' +
+      '<input id="tfDue" type="date" value="' + defDue + '" style="flex:1;min-width:0;">' + clearHtml +
       '<button type="button" id="tfAlarmBtn" class="btn sm gray" style="flex:none;white-space:nowrap;">🔔 闹钟</button>' +
     '</div>' +
     '<button type="button" id="tfAlarmClear" class="btn sm gray" style="display:none;margin-top:6px;width:100%;">取消闹钟</button>' +
@@ -11598,13 +11598,6 @@ function todoEditFormHtml(t, isChild, fopts) {
   var draftScope = '<input type="hidden" id="tfDraftScope" value="edit:' + t.id + '">';
   var s = '<label>标题</label>' +
     '<textarea id="tfTitle" rows="2" data-autogrow="1" placeholder="要做什么？（支持换行）" style="resize:vertical;">' + esc(t.title || '') + '</textarea>';
-  // 归属（仅子任务；候选项由 openTodoEdit 按层级预算后传入）
-  if (fopts.moveParents && fopts.moveParents.length) {
-    var moveOpts = fopts.moveParents.map(function(p){
-      return '<option value="' + p.id + '"' + (p.id === t.parent_id ? ' selected' : '') + '>' + esc(p.label) + '</option>';
-    }).join('');
-    s += '<label>归属</label><select id="tfParent" data-current="' + t.parent_id + '">' + moveOpts + '</select>';
-  }
   // 截止日期 + 闹钟（常显）
   if (lockedChild) {
     s += '<div style="padding:7px 10px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);color:var(--muted,#888);font-size:13px;line-height:1.5;">'
@@ -11643,18 +11636,25 @@ function todoEditFormHtml(t, isChild, fopts) {
       '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;"></div>';
   var noteField = '<label>备注（可选）</label>' +
       '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
+  // 归属级联（仅子任务；openTodoEdit 传 canMove；协作页 lockMode 不渲染）。
+  // hidden 载体存目标父 id，级联 DOM 由 todoInitParentCascade 生成
+  var parentField = (isChild && !lockMode && fopts.canMove)
+    ? '<div class="tfedit-parent"><label>归属</label><div id="tfParentCascade"></div>' +
+      '<input type="hidden" id="tfParent" data-self="' + t.id + '" data-current="' + (t.parent_id == null ? '' : t.parent_id) + '"></div>'
+    : '';
   var caretSvg = '<span class="tfedit-more__caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg></span>';
-  var moreBody, moreTitle;
+  // 折叠区按实际字段拼接（跟随态子任务无优先级/分类但有归属；备忘录有分类无优先级/归属）
+  var moreParts = [], moreBody = '';
   if (memoEdit) {
+    moreParts = ['分类', '备注'];
     moreBody = categoryFields + noteField;
-    moreTitle = '更多（分类 / 备注）';
-  } else if (priCatAvailable) {
-    moreBody = priorityField + categoryFields + noteField;
-    moreTitle = '更多（优先级 / 分类 / 备注）';
   } else {
-    moreBody = noteField;
-    moreTitle = '更多（备注）';
+    if (priCatAvailable) { moreParts.push('优先级', '分类'); moreBody += priorityField + categoryFields; }
+    if (parentField) { moreParts.push('归属'); moreBody += parentField; }
+    moreParts.push('备注');
+    moreBody += noteField;
   }
+  var moreTitle = '更多（' + moreParts.join(' / ') + '）';
   s += '<details class="tfedit-more" id="tfEditMore"><summary>' + caretSvg + ' <span id="tfMoreTitle">' + moreTitle + '</span></summary>' +
     '<div class="tfedit-more__body">' + moreBody + '</div></details>';
   return '<div class="tfedit' + (memoEdit ? ' is-memo' : '') + '">' + draftScope + s + '</div>';
@@ -13091,6 +13091,80 @@ function renderPendingStats() {
 }
 // 视图 3 态循环需要的一对回调: 取当前 rows / 触发树重绘
 function _todoGetRows() { return _rows; }
+// 编辑弹窗·归属级联选择器（#tfParentCascade + hidden #tfParent）：
+// 逐级 select 选目标父任务——第一级=全部未完成主任务（含其他主任务，排除 done/ghost），
+// 选中后下一级列其未完成直接子节点，末级占位「就选「XX」」=停在该节点；可任意跨树、选上下平级。
+// 被编辑节点自身是穿透项（__self__）：选中只进入下一级看它的子任务，选自身后代=树旋转，
+// hidden 值始终是 path 中最后一个非 self 节点；与 data-current 相同则 todoFormRead 不带 parent_id。
+function todoInitParentCascade() {
+  var box = document.getElementById('tfParentCascade');
+  var hidden = document.getElementById('tfParent');
+  if (!box || !hidden || box.__init) return;
+  box.__init = 1;
+  var selfId = parseInt(hidden.getAttribute('data-self'), 10);
+  var curRaw = hidden.getAttribute('data-current');
+  var currentId = curRaw ? parseInt(curRaw, 10) : null;
+  var roots = todoBuildTree(_rows);
+  var byId = {};
+  roots.forEach(function(rt){
+    var stk = [rt];
+    while (stk.length) { var n0 = stk.pop(); byId[n0.id] = n0; (n0.children || []).forEach(function(c){ stk.push(c); }); }
+  });
+  function visibleKids(n) {
+    return (n ? (n.children || []) : roots).filter(function(c){ return !c.done && c._ghost !== 1; });
+  }
+  // path=导航经过的节点（可能含 self 穿透节点）；初始为当前父上溯到主任务的链
+  var path = [];
+  var cur0 = currentId != null ? byId[currentId] : null;
+  while (cur0) { path.unshift(cur0); cur0 = cur0._parent; }
+  function targetId() {
+    for (var i = path.length - 1; i >= 0; i--) if (path[i].id !== selfId) return path[i].id;
+    return null;
+  }
+  function render() {
+    box.innerHTML = '';
+    var tid = targetId();
+    hidden.value = tid == null ? '' : String(tid);
+    // select 数 = path.length + 1：末级是「就选 XX」占位级；末节点无未完成子则不追加空级
+    for (var k = 0; k <= path.length; k++) {
+      var parentNode = k === 0 ? null : path[k - 1];
+      var kids = visibleKids(parentNode);
+      if (k > 0 && !kids.length) break;
+      var sel = document.createElement('select');
+      if (k === path.length) {
+        var stop = document.createElement('option');
+        stop.value = '';
+        stop.textContent = parentNode ? '就选「' + parentNode.title + '」' : '选择主任务';
+        sel.appendChild(stop);
+      }
+      kids.forEach(function(c){
+        var o = document.createElement('option');
+        if (c.id === selfId) { o.value = '__self__'; o.textContent = '📍 当前任务（展开可选择其下级）'; }
+        else { o.value = String(c.id); o.textContent = c.title; }
+        sel.appendChild(o);
+      });
+      if (k < path.length) {
+        var cn = path[k];
+        sel.value = cn.id === selfId ? '__self__' : String(cn.id);
+      } else {
+        sel.value = '';
+      }
+      // sel 是 var 函数作用域，必须把当次迭代元素一并传入 IIFE，否则 handler 闭包会读到最后一个 select
+      (function(level, selEl){ selEl.addEventListener('change', function(){ onPick(level, selEl.value); }); })(k, sel);
+      box.appendChild(sel);
+    }
+  }
+  function onPick(k, v) {
+    var base = path.slice(0, k);
+    if (v === '__self__') path = base.concat([byId[selfId]]);
+    else if (v !== '') {
+      var n = byId[parseInt(v, 10)];
+      if (n) path = base.concat([n]);
+    } else path = base;
+    render();
+  }
+  render();
+}
 // 打开任务编辑弹窗（任务详情「编辑」按钮与卡片操作入口共用；小组件 ?edit 深链现先进查看视图）
 function openTodoEdit(node) {
   var isChild = node.parent_id != null;
@@ -13100,38 +13174,8 @@ function openTodoEdit(node) {
     ? { childDueMode: !!(node._parent && node._parent.child_due),
         inheritDue: todoEffDueRow(node, _byId) || '' }
     : {};
-  // 归属下拉候选（仅子任务）：
-  //   第一层子任务 → 全部未完成顶层任务（含有日期主任务/备忘录/各自截止壳；排除已完成与 ghost 投影）；
-  //   深层 → 同一主任务树内 DFS：主任务自身置顶（选它=提升为第一层），其余按层级全角缩进，
-  //          排除自身整支（含全部后代）与已完成/ghost
-  if (isChild) {
-    var _mvRoots = todoBuildTree(_rows);
-    var _mvById = {};
-    _mvRoots.forEach(function(rt){
-      var stk = [rt];
-      while (stk.length) { var n0 = stk.pop(); _mvById[n0.id] = n0; (n0.children || []).forEach(function(c0){ stk.push(c0); }); }
-    });
-    var _mvRoot = node._parent;
-    while (_mvRoot && _mvRoot.parent_id != null) _mvRoot = _mvRoot._parent;
-    var _cands = [];
-    var _IND = '　';
-    if (node._parent.parent_id == null) {
-      _mvRoots.forEach(function(rt){
-        if (rt.done || rt._ghost === 1) return;
-        _cands.push({ id: rt.id, label: rt.title });
-      });
-    } else if (_mvRoot && _mvById[_mvRoot.id]) {
-      (function walk(n0, depth){
-        if (n0.id === node.id) return; // 剪掉自身整支（自身与全部后代）
-        if (!n0.done && n0._ghost !== 1) {
-          var label = depth === 0 ? '（主任务）' + n0.title : new Array(depth).join(_IND) + n0.title;
-          _cands.push({ id: n0.id, label: label });
-        }
-        (n0.children || []).forEach(function(c0){ walk(c0, depth + 1); });
-      })(_mvById[_mvRoot.id], 0);
-    }
-    fopts.moveParents = _cands;
-  }
+  // 归属级联选择器仅登录态主页子任务开放（协作页 lockMode 不渲染；顶层任务无归属）
+  if (isChild) fopts.canMove = true;
   // 子任务弹窗标题带所属主任务名(组件深链 ?edit 与卡片/树编辑共用), 明确当前在编辑哪个清单下的任务
   var _rootTitle = isChild && node._root ? node._root.title : '';
   var _modalTitle = isChild
@@ -13187,18 +13231,18 @@ function openTodoEdit(node) {
     var _catSelEl = document.getElementById('tfCatSel');
     if (_catSelEl) _catSelEl.disabled = true;
   }
-  // 日期框清空钮：有值才显示；点击先在日期行内联二次确认（不能用 confirmModal——它会先关掉编辑弹窗）
+  // 日期框清空钮（框外细线钮）：点击先在日期行内联二次确认（不能用 confirmModal——它会先关掉编辑弹窗）
   var _dueRow = document.getElementById('tfDueRow');
   var _dueEl = document.getElementById('tfDue');
   var _dueClear = document.getElementById('tfDueClear');
   function _syncDueClear() {
     if (!_dueClear || !_dueEl) return;
-    var on = !!_dueEl.value;
-    _dueClear.style.display = on ? 'inline-flex' : 'none';
-    if (_dueClear.parentNode) _dueClear.parentNode.classList.toggle('is-val', on);
+    _dueClear.disabled = !_dueEl.value;
   }
   // 确认清空：表单当场进入备忘录态（日期/闹钟/重复/各自截止/优先级清值隐藏，文本分类与共享归属保留）
+  var _memoEntering = false;
   function _enterEditMemo() {
+    _memoEntering = true;
     var _er = document.querySelector('.tfedit');
     if (_er) _er.classList.add('is-memo');
     if (_dueEl) _dueEl.value = '';
@@ -13222,8 +13266,8 @@ function openTodoEdit(node) {
     if (_mt) _mt.textContent = '更多（分类 / 备注）';
   }
   if (_dueRow && _dueEl && _dueClear) {
+    var _lastDue = _dueEl.value;
     _syncDueClear();
-    _dueEl.addEventListener('change', _syncDueClear);
     var _dueCf = document.createElement('div');
     _dueCf.className = 'tf-due-confirm';
     _dueCf.style.display = 'none';
@@ -13232,13 +13276,27 @@ function openTodoEdit(node) {
       '<button type="button" class="btn sm danger" id="tfDueClearOk">确认清空</button>' +
       '<button type="button" class="btn sm gray" id="tfDueClearNo">取消</button>';
     _dueRow.appendChild(_dueCf);
-    _dueClear.addEventListener('click', function(){ _dueCf.style.display = 'flex'; });
-    _dueCf.querySelector('#tfDueClearNo').addEventListener('click', function(){ _dueCf.style.display = 'none'; });
+    function _askClear() { _dueCf.style.display = 'flex'; }
+    _dueClear.addEventListener('click', _askClear);
+    // 键盘/原生途径把日期清空也必须走同一确认：取消恢复旧值；改到别的日期则更新旧值
+    _dueEl.addEventListener('change', function(){
+      if (!_memoEntering && !_dueEl.value && _lastDue) { _askClear(); return; }
+      _lastDue = _dueEl.value;
+      _syncDueClear();
+    });
+    _dueCf.querySelector('#tfDueClearNo').addEventListener('click', function(){
+      _dueCf.style.display = 'none';
+      if (!_dueEl.value && _lastDue) _dueEl.value = _lastDue; // 键盘清空路径：恢复
+      _syncDueClear();
+    });
     _dueCf.querySelector('#tfDueClearOk').addEventListener('click', function(){
       _dueCf.style.display = 'none';
+      _lastDue = '';
       _enterEditMemo();
     });
   }
+  // 子任务归属级联选择器
+  if (document.getElementById('tfParentCascade')) todoInitParentCascade();
   var _doSave = async function(body){
     await api('/api/todo/' + node.id, { method:'PUT', body: body });
     if (!todoAlarmSaveForm(node.id)) return;
