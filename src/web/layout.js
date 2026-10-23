@@ -1580,10 +1580,12 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-acc__leafrow .todo-ops { align-self: center; }
 .todo-acc__row:hover:not(:active) .todo-ops,
 .todo-acc__leafrow:hover:not(:active) .todo-ops { opacity: 1; }
-/* 桌面悬停：右侧日期让位淡出，避免与浮起的操作组重叠（手机日期保留） */
+/* 桌面悬停：右侧日期让位淡出，避免与浮起的操作组重叠（手机日期保留）。
+   必须同时 pointer-events:none——opacity:0 会让 chip 形成层叠上下文、按 DOM 序压在
+   绝对定位的 .todo-ops 之上，透明却劫持点击，导致点眼睛/分享/删除落到整行误进详情。 */
 @media (min-width: 641px) {
   .todo-acc__row:hover:not(:active) .todo-chip.due,
-  .todo-acc__leafrow:hover:not(:active) .todo-chip.due { opacity: 0; }
+  .todo-acc__leafrow:hover:not(:active) .todo-chip.due { opacity: 0; pointer-events: none; }
 }
 /* 拖拽浮起（对齐老树 .todo-node.dragging > .todo-row） */
 .todo-node.dragging > .todo-acc__row,

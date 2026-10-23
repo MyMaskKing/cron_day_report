@@ -8883,7 +8883,10 @@ function todoSharedCat(catId) {
   var scs = (typeof _sharedCats !== 'undefined' && _sharedCats) ? _sharedCats : [];
   return scs.filter(function(c){ return c.cat_id === catId; })[0] || null;
 }
-var _todoCollapsed = {}; // id -> true 折叠状态（前端会话内保留）
+var _todoCollapsed = {}; // id -> true 折叠状态（手风琴 + 详情子树共用，前端会话内保留，默认展开）
+// 完整树【主列表】专用折叠态：id->true/false 为用户显式选择；未登记的有子女节点默认折叠。
+// 不与 _todoCollapsed 合用：手风琴默认展开，且页面式详情里的子树始终默认展开（isDetail 分支）。
+var _todoTreeCollapsed = {};
 function renderTodoTree(container, trees, opts) {
   opts = opts || {};
   var today = opts.today || '';
@@ -8929,13 +8932,25 @@ function renderTodoTree(container, trees, opts) {
       + (cardRoot ? ' is-root' : '');
     row.style.setProperty('--depth', depth);
     var hasChildren = node.children.length > 0;
+    // 折叠态分流：完整树主列表默认折叠(未显式操作过的有子女节点)，用户选择记 _todoTreeCollapsed；
+    // 详情子树(isDetail)读 _todoCollapsed、默认展开，保持进详情即见全部子任务
+    function nodeCollapsed() {
+      if (!hasChildren) return false;
+      if (isDetail) return !!_todoCollapsed[node.id];
+      return Object.prototype.hasOwnProperty.call(_todoTreeCollapsed, node.id)
+        ? !!_todoTreeCollapsed[node.id] : true;
+    }
+    function setNodeCollapsed(v) {
+      if (isDetail) _todoCollapsed[node.id] = v;
+      else _todoTreeCollapsed[node.id] = v;
+    }
 
     // 折叠三角
     var caret = document.createElement('span');
     // 真顶层主任务的折叠移到行右侧(防与勾选误触); 左侧三角仅留不可点对齐占位
     // 仅手机端把根主任务折叠移到右侧; PC 保持左侧三角不变
     var caretMoveRight = cardRoot && window.matchMedia && window.matchMedia('(max-width:640px)').matches;
-    caret.className = 'todo-caret' + ((hasChildren && !caretMoveRight) ? '' : ' leaf') + (_todoCollapsed[node.id] ? ' collapsed' : '');
+    caret.className = 'todo-caret' + ((hasChildren && !caretMoveRight) ? '' : ' leaf') + (nodeCollapsed() ? ' collapsed' : '');
     caret.textContent = '▼';
     row.appendChild(caret);
 
@@ -9067,11 +9082,9 @@ function renderTodoTree(container, trees, opts) {
         });
         ops.appendChild(b1);
       }
-      if (opts.onDetail || opts.onEdit || (isRealRoot && opts.onEnter)) {
-        var b2 = mkOp(ICONS.view, '查看详情', function(){
-          var _go = isRealRoot ? (opts.onEnter || opts.onDetail || opts.onEdit) : (opts.onDetail || opts.onEdit);
-          _go(node);
-        });
+      // 眼睛恒为「查看详情」弹层(onDetail/onEdit), 与卡片视图同一画面; 主体点击才走 onEnter 页面式详情
+      if (opts.onDetail || opts.onEdit) {
+        var b2 = mkOp(ICONS.view, '查看详情', function(){ (opts.onDetail || opts.onEdit)(node); });
         ops.appendChild(b2);
       }
       // 分享单元是整棵顶层清单(后端仅允许 parent_id==null), 不能只看渲染深度:
@@ -9082,16 +9095,16 @@ function renderTodoTree(container, trees, opts) {
       if (ops.childNodes.length) {
         // 手机端根主任务: 折叠/展开子任务常驻操作区最右(⋯ 之前), 与左侧勾选物理远离防误触
         if (caretMoveRight && hasChildren) {
-          var bFold = mkOp(ICONS.chevron, _todoCollapsed[node.id] ? '展开子任务' : '折叠子任务', function(){
-            _todoCollapsed[node.id] = !_todoCollapsed[node.id];
-            var collapsedNow = !!_todoCollapsed[node.id];
+          var bFold = mkOp(ICONS.chevron, nodeCollapsed() ? '展开子任务' : '折叠子任务', function(){
+            var collapsedNow = !nodeCollapsed();
+            setNodeCollapsed(collapsedNow);
             bFold.classList.toggle('is-collapsed', collapsedNow);
             bFold.title = collapsedNow ? '展开子任务' : '折叠子任务';
             bFold.setAttribute('aria-label', bFold.title);
             childBox.classList.toggle('collapsed', collapsedNow);
           });
           bFold.classList.add('todo-fold');
-          if (_todoCollapsed[node.id]) bFold.classList.add('is-collapsed');
+          if (nodeCollapsed()) bFold.classList.add('is-collapsed');
           ops.appendChild(bFold);
         }
         var bMore = mkOp(ICONS.more, '更多操作', function(){ todoOpMenuToggle(row, ops); });
@@ -9105,7 +9118,7 @@ function renderTodoTree(container, trees, opts) {
     wrap.appendChild(row);
 
     var childBox = document.createElement('div');
-    childBox.className = 'todo-children' + (_todoCollapsed[node.id] ? ' collapsed' : '');
+    childBox.className = 'todo-children' + (nodeCollapsed() ? ' collapsed' : '');
     node.children.forEach(function(c){ var el = walk(c, depth + 1, effDue); if (el) childBox.appendChild(el); });
     wrap.appendChild(childBox);
     // 底部常驻「添加子任务」（同卡片视图详情）；叶子点 ＋ 时动态挂载
@@ -9119,9 +9132,10 @@ function renderTodoTree(container, trees, opts) {
       caret.style.cursor = 'pointer';
       caret.addEventListener('click', function(e){
         e.stopPropagation();
-        _todoCollapsed[node.id] = !_todoCollapsed[node.id];
-        caret.classList.toggle('collapsed');
-        childBox.classList.toggle('collapsed');
+        var collapsedNow = !nodeCollapsed();
+        setNodeCollapsed(collapsedNow);
+        caret.classList.toggle('collapsed', collapsedNow);
+        childBox.classList.toggle('collapsed', collapsedNow);
       });
     }
     // 顶层主任务主体点击进页面式详情；中间层/叶子仍打开信息弹窗
@@ -9208,13 +9222,13 @@ function renderTodoAccordion(container, trees, opts) {
       });
       opsEl.appendChild(b1);
     }
-    if (opts.onDetail || opts.onEdit || (isRealRoot && opts.onEnter)) {
+    // 眼睛恒为「查看详情」弹层(onDetail/onEdit), 与卡片视图同一画面; 整行/标题点击才走 onEnter 页面式详情
+    if (opts.onDetail || opts.onEdit) {
       var b2 = document.createElement('button');
       b2.type = 'button'; b2.className = 'todo-op'; b2.title = '查看详情'; b2.innerHTML = ICONS.view;
       b2.addEventListener('click', function(e){
         e.stopPropagation();
-        var _go = isRealRoot ? (opts.onEnter || opts.onDetail || opts.onEdit) : (opts.onDetail || opts.onEdit);
-        _go(node);
+        (opts.onDetail || opts.onEdit)(node);
       });
       opsEl.appendChild(b2);
     }
@@ -11139,7 +11153,13 @@ function todoOpenDetailAdder(wrap, node, submitFn, onAddForRoot) {
     host.classList.remove('collapsed');
     var caret0 = wrap.querySelector('.todo-acc__caret.is-collapsed,.todo-caret.collapsed');
     if (caret0) caret0.classList.remove('is-collapsed', 'collapsed');
-    _todoCollapsed[node.id] = false;
+    // 手风琴(acc kids)与页面式详情内子树(body.todo-detail)用 _todoCollapsed；
+    // 完整树主列表用 _todoTreeCollapsed（默认折叠，➕展开即登记为用户显式展开）
+    if (host.classList.contains('todo-acc__kids') || document.body.classList.contains('todo-detail')) {
+      _todoCollapsed[node.id] = false;
+    } else {
+      _todoTreeCollapsed[node.id] = false;
+    }
   }
   var ph = adder && adder.querySelector('.todo-detail-adder__placeholder');
   if (ph) ph.click();
