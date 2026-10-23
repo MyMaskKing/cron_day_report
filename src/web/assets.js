@@ -11582,6 +11582,9 @@ function todoEditFormHtml(t, isChild, fopts) {
   var childDueOn = !lockedChild && (lockMode ? !!fopts.forceChildDue : !!t.child_due);
   var recurAvailable = !lockedChild && (!isChild ? (!lockMode || !childDueOn) : allowsDate);
   var defDue = lockedChild ? '' : (t.due_date || '');
+  // 备忘录(顶层·无日期·未勾各自截止): 与新建备忘录动作一致, 不展示任何时间控件;
+  // 日期/闹钟仍输出隐藏值载体(空值), 保存口径不变
+  var memoEdit = !isChild && !lockedChild && !lockMode && !t.child_due && !defDue;
   var draftScope = '<input type="hidden" id="tfDraftScope" value="edit:' + t.id + '">';
   var s = '<label>标题</label>' +
     '<textarea id="tfTitle" rows="2" data-autogrow="1" placeholder="要做什么？（支持换行）" style="resize:vertical;">' + esc(t.title || '') + '</textarea>';
@@ -11589,13 +11592,16 @@ function todoEditFormHtml(t, isChild, fopts) {
   if (lockedChild) {
     s += '<div style="padding:7px 10px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);color:var(--muted,#888);font-size:13px;line-height:1.5;">'
       + '📅 截止日期跟随上级任务' + (fopts.inheritDue ? '：<span style="white-space:nowrap;">' + esc(fopts.inheritDue) + '</span>' : '（上级暂未设置日期）') + '</div>';
+  } else if (memoEdit) {
+    // 备忘录: 仅保留隐藏值载体, 不显示日期/闹钟控件
+    s += todoDueNativeHtml('', true);
   } else {
     s += '<label>截止日期</label>' + todoDueNativeHtml(defDue, false, t.alarm_minute);
   }
-  // 重复（常显）
-  if (recurAvailable) s += todoRecurNativeHtml(t, false);
-  // 各自截止（常显勾选行；/t/ 协作页根 lockMode 不渲染）
-  if (!lockedChild && !lockMode) {
+  // 重复（常显；备忘录不渲染, todoFormRead 对缺失 #tfRecur 有 null 兜底）
+  if (recurAvailable && !memoEdit) s += todoRecurNativeHtml(t, false);
+  // 各自截止（常显勾选行；/t/ 协作页根 lockMode 与备忘录不渲染）
+  if (!lockedChild && !lockMode && !memoEdit) {
     s += '<label style="display:flex;align-items:center;gap:8px;margin:2px 0 4px;cursor:pointer;font-weight:normal;white-space:nowrap;">' +
       '<input type="checkbox" id="tfChildDue"' + (childDueOn ? ' checked' : '') + ' style="width:auto;margin:0;flex:none;">' +
       '<span>子任务各自设置截止日期</span></label>' +
