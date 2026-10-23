@@ -1595,37 +1595,12 @@ function initGlobalSwipeBack() {
   document.addEventListener('touchend', function(){ tracking = false; }, { passive: true });
   document.addEventListener('touchcancel', function(){ tracking = false; }, { passive: true });
   function handleSwipeBack() {
-    // 1. 待办抽屉打开 → 关抽屉
-    var drawer = document.getElementById('todoDrawer');
-    if (drawer && drawer.classList.contains('open')) {
-      try { window._todoDrawerOpen = false; } catch(e){}
-      try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
-      drawer.classList.remove('open'); drawer.classList.add('closed');
-      var m = document.getElementById('todoDrawerMask');
-      if (m) m.classList.remove('show');
-      return;
-    }
-    // 2. 图表全屏遮罩
-    var chartMask = document.querySelector('.chart-fs-mask');
-    if (chartMask) {
-      var closeBtn = chartMask.querySelector('.chart-fs-close');
-      if (closeBtn) closeBtn.click();
-      return;
-    }
-    // 3. modal 遮罩
-    var modal = document.getElementById('modalMask');
-    if (modal && modal.classList.contains('show')) { closeModal(); return; }
-    // 4. 待办详情面包屑(先于全屏关闭: 详情本身仍处于全屏容器中, 若先退出全屏会跳过返回卡片列表这一步)
-    //    判据用面包屑 DOM 可见性, 比 offsetParent 更稳(卡片视图与全屏视图都可能出现详情)
-    var crumb = document.getElementById('todoCrumb');
-    if (crumb && crumb.style.display !== 'none' && crumb.style.display !== '') {
-      var back = crumb.querySelector('.todo-crumb__back');
-      if (back) { back.click(); return; }
-    }
-    // 5. 待办全屏: 非详情态(第4步已先处理详情内返回卡片列表)右滑手势不退出全屏——
+    // 浮层/详情公共层级: 命中即已关闭一层
+    if (consumeAppBackLayer()) return;
+    // 待办全屏: 非详情态右滑手势不退出全屏——
     // 五个视图行为统一, 退出全屏只走顶栏「退出」按钮, 避免浏览列表时横向滑动误退
     if (document.body.classList.contains('todo-fs-on')) return;
-    // 6. 兜底: history.back / 回 dashboard
+    // 兜底: history.back / 回 dashboard
     var canBack = false;
     try {
       if (document.referrer) {
@@ -1639,6 +1614,51 @@ function initGlobalSwipeBack() {
     navTo(homePath());
   }
 }
+// 系统返回/手势返回的公共浮层层级: 命中并关闭一层返回 true, 无层可关返回 false。
+// 网页触摸右滑(handleSwipeBack)与 App 原生壳系统返回(window._appShellBack: 安卓边缘
+// 左滑手势/返回键经 evaluateJavascript 调入)共用, 层级只此一份, 改动两边同时生效。
+// 顺序按浮层堆叠自高到低; 只关浮层/详情, 不做 history 跳转、不退待办全屏——
+// 全屏顶层的去留由调用方决定(触摸手势防误触吞掉, 原生壳回桌面)。
+function consumeAppBackLayer() {
+  // 1. 自定义日期选择器浮层(z-index 10030, 叠在任务弹窗之上): 只关浮层, 底层弹窗保留
+  var tdp = document.querySelector('.tdp-mask');
+  if (tdp) {
+    var tdpClose = tdp.querySelector('#tdpClose');
+    if (tdpClose) { tdpClose.click(); return true; }
+  }
+  // 2. alertModal 独立结果弹窗(动态创建的无 id .modal-mask; 静态遮罩是 #modalMask)
+  var amOk = document.querySelector('.modal-mask.show .amOk');
+  if (amOk) { amOk.click(); return true; }
+  // 3. 待办抽屉打开 → 关抽屉
+  var drawer = document.getElementById('todoDrawer');
+  if (drawer && drawer.classList.contains('open')) {
+    try { window._todoDrawerOpen = false; } catch(e){}
+    try { localStorage.setItem('todoDrawer', '0'); } catch(e){}
+    drawer.classList.remove('open'); drawer.classList.add('closed');
+    var dm = document.getElementById('todoDrawerMask');
+    if (dm) dm.classList.remove('show');
+    return true;
+  }
+  // 4. 图表全屏遮罩
+  var chartMask = document.querySelector('.chart-fs-mask');
+  if (chartMask) {
+    var closeBtn = chartMask.querySelector('.chart-fs-close');
+    if (closeBtn) { closeBtn.click(); return true; }
+  }
+  // 5. modal 遮罩(pinned 弹窗同样可关, 与 ESC 口径一致)
+  var modal = document.getElementById('modalMask');
+  if (modal && modal.classList.contains('show')) { closeModal(); return true; }
+  // 6. 待办详情面包屑(先于全屏关闭: 详情本身仍处于全屏容器中, 若先退出全屏会跳过返回卡片列表这一步)
+  //    判据用面包屑 DOM 可见性, 比 offsetParent 更稳(卡片视图与全屏视图都可能出现详情)
+  var crumb = document.getElementById('todoCrumb');
+  if (crumb && crumb.style.display !== 'none' && crumb.style.display !== '') {
+    var back = crumb.querySelector('.todo-crumb__back');
+    if (back) { back.click(); return true; }
+  }
+  return false;
+}
+// App 原生壳系统返回入口: 仅消费浮层/详情; 返回 false 时由原生决定(当前=回桌面)
+window._appShellBack = function () { return consumeAppBackLayer(); };
 
 // 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
 function initChartFullscreen() {
