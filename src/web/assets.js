@@ -2656,6 +2656,7 @@ var showMsg = function(_el, text, ok){ showToast(text, ok); };
         b.classList.toggle('on', b.dataset.style === mottoStyle);
       });
       document.getElementById('mottoCount').textContent = mottoPlainLen(mi0.value) + '/80（样式标记不计）';
+      if (window.__mottoAutoGrow) window.__mottoAutoGrow();
       var freq = d.profile.motto_freq || {};
       ['Pc','Mobile','App'].forEach(function(k){
         var sel = document.getElementById('mottoFreq' + k);
@@ -2844,6 +2845,14 @@ if (mottoInput) {
     mottoCount.style.color = n > 80 ? 'var(--danger)' : '';
   }
   mottoInput.addEventListener('input', mottoUpdateCount);
+  // 手机端随内容自动增高（封顶 200px 后才内部滚动；80 字正文约 4-5 行不会到顶），PC 保留 resize:vertical
+  function mottoAutoGrow(){
+    if (window.innerWidth > 640) return;
+    mottoInput.style.height = 'auto';
+    mottoInput.style.height = Math.min(mottoInput.scrollHeight, 200) + 'px';
+  }
+  mottoInput.addEventListener('input', mottoAutoGrow);
+  window.__mottoAutoGrow = mottoAutoGrow;   // profile 回填后经 window 桥初始化高度
   // 行内标记工具栏：选中文字包标记；无选中时插入占位「文字」并选中，方便直接改写
   var MOTTO_TAGS = { b:['**','**'], s:['~~','~~'], u:['__','__'], w:['~','~'], big:['++','++'], font:['[f:y]','[/f]'] };
   var mottoTb = document.getElementById('mottoToolbar');

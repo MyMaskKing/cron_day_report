@@ -3459,6 +3459,10 @@ html { scrollbar-gutter: stable; }
   padding: 9px 11px; resize: vertical;
 }
 .motto-input:focus { outline: none; border-color: var(--brand-text); }
+@media (max-width: 640px) {
+  /* 手机端输入框随内容自动增高（JS 按 scrollHeight 设 height），去掉拉伸手柄避免打架 */
+  .motto-input { resize: none; }
+}
 .motto-styles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
 .motto-style {
   flex: 1; border: 1.5px solid var(--border-strong); border-radius: 10px; overflow: hidden;
