@@ -11415,15 +11415,17 @@ function todoDueNativeHtml(defDue, hidden, initMinute, clearable) {
       '<button type="button" id="tfAlarmClear">取消闹钟</button>' +
     '</div>';
   }
-  // 编辑弹窗：旧表单可见结构（date + 清空钮 + 闹钟钮并排；闹钟清除钮整行）。
-  // 清空钮放框外（框内会与浏览器原生日历 glyph 挤在一起）：细线 SVG 幽灵方钮，值空时 disabled
+  // 编辑弹窗：旧表单可见结构（date 内含清空钮 + 原生日历 glyph；外侧闹钟钮；闹钟清除钮整行）。
+  // 清空钮绝对定位在日历 glyph 左侧（对齐见 .tf-due-clear CSS），无值时 visibility 占位隐藏
   var SVG_CROSS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
   var clearHtml = clearable
     ? '<button type="button" id="tfDueClear" class="tf-due-clear" title="清空截止日期" tabindex="-1"' + (defDue ? '' : ' disabled') + '>' + SVG_CROSS + '</button>'
     : '';
   return '<div id="tfDueWrap" data-alarm-minute=""' + initAttr + '>' +
     '<div class="tf-due-rel">' +
-      '<input id="tfDue" type="date" value="' + defDue + '" style="flex:1;min-width:0;">' + clearHtml +
+      '<span class="tf-due-inputwrap' + (clearable ? ' is-clearable' : '') + '">' +
+        '<input id="tfDue" type="date" value="' + defDue + '">' + clearHtml +
+      '</span>' +
       '<button type="button" id="tfAlarmBtn" class="btn sm gray" style="flex:none;white-space:nowrap;">🔔 闹钟</button>' +
     '</div>' +
     '<button type="button" id="tfAlarmClear" class="btn sm gray" style="display:none;margin-top:6px;width:100%;">取消闹钟</button>' +
@@ -13091,11 +13093,11 @@ function renderPendingStats() {
 }
 // 视图 3 态循环需要的一对回调: 取当前 rows / 触发树重绘
 function _todoGetRows() { return _rows; }
-// 编辑弹窗·归属级联选择器（#tfParentCascade + hidden #tfParent）：
-// 逐级 select 选目标父任务——第一级=全部未完成主任务（含其他主任务，排除 done/ghost），
-// 选中后下一级列其未完成直接子节点，末级占位「就选「XX」」=停在该节点；可任意跨树、选上下平级。
-// 被编辑节点自身是穿透项（__self__）：选中只进入下一级看它的子任务，选自身后代=树旋转，
-// hidden 值始终是 path 中最后一个非 self 节点；与 data-current 相同则 todoFormRead 不带 parent_id。
+// 编辑弹窗·归属级联折叠框（#tfParentCascade + hidden #tfParent）：
+// 每层一个可折叠 details：summary 显示「主任务 / XX 的下级：选中名」（即面包屑链），点开列该层
+// 未完成节点，点节点=选中并自动展开下一层；第一级=全部未完成主任务（含其他主任务，排除 done/ghost）。
+// 可任意跨树、选上下平级。被编辑节点自身是穿透项（is-self，📍）：点它只展开下一级不改目标，
+// 选其后代=树旋转；hidden 值=path 中最后一个非 self 节点；=data-current 时 todoFormRead 不带 parent_id。
 function todoInitParentCascade() {
   var box = document.getElementById('tfParentCascade');
   var hidden = document.getElementById('tfParent');
@@ -13117,6 +13119,9 @@ function todoInitParentCascade() {
   var path = [];
   var cur0 = currentId != null ? byId[currentId] : null;
   while (cur0) { path.unshift(cur0); cur0 = cur0._parent; }
+  // 选择后自动展开的层级（初始全折叠，逐层点开）
+  var autoOpen = -1;
+  var SVG_CARET = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>';
   function targetId() {
     for (var i = path.length - 1; i >= 0; i--) if (path[i].id !== selfId) return path[i].id;
     return null;
@@ -13125,44 +13130,59 @@ function todoInitParentCascade() {
     box.innerHTML = '';
     var tid = targetId();
     hidden.value = tid == null ? '' : String(tid);
-    // select 数 = path.length + 1：末级是「就选 XX」占位级；末节点无未完成子则不追加空级
+    // 层数 = path.length + 1：末层是最深选中节点的下级（供继续深入）；无下级则不渲染
     for (var k = 0; k <= path.length; k++) {
       var parentNode = k === 0 ? null : path[k - 1];
       var kids = visibleKids(parentNode);
       if (k > 0 && !kids.length) break;
-      var sel = document.createElement('select');
-      if (k === path.length) {
-        var stop = document.createElement('option');
-        stop.value = '';
-        stop.textContent = parentNode ? '就选「' + parentNode.title + '」' : '选择主任务';
-        sel.appendChild(stop);
-      }
+      var sel = k < path.length ? path[k] : null;
+      var d = document.createElement('details');
+      d.className = 'tf-cas-lvl';
+      if (k === autoOpen) d.open = true;
+      var tLabel = k === 0 ? '主任务' : (parentNode.title + ' 的下级');
+      var vText = sel ? (sel.id === selfId ? '📍 当前任务' : sel.title) : '';
+      var sum = document.createElement('summary');
+      sum.className = 'tf-cas-lvl__sum';
+      sum.innerHTML =
+        '<span class="tf-cas-lvl__t">' + esc(tLabel) + '</span>' +
+        '<span class="tf-cas-lvl__v' + (vText ? '' : ' is-ph') + '">' + (vText ? esc(vText) : '点击选择…') + '</span>' +
+        '<span class="tf-cas-lvl__c">' + SVG_CARET + '</span>';
+      d.appendChild(sum);
+      var opts = document.createElement('div');
+      opts.className = 'tf-cas-opts';
       kids.forEach(function(c){
-        var o = document.createElement('option');
-        if (c.id === selfId) { o.value = '__self__'; o.textContent = '📍 当前任务（展开可选择其下级）'; }
-        else { o.value = String(c.id); o.textContent = c.title; }
-        sel.appendChild(o);
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'tf-cas-opt' +
+          ((sel && c.id === sel.id) ? ' is-on' : '') +
+          (c.id === selfId ? ' is-self' : '');
+        b.setAttribute('data-k', String(k));
+        b.setAttribute('data-v', c.id === selfId ? '__self__' : String(c.id));
+        b.innerHTML = '<span class="tf-cas-opt__t">' +
+          esc(c.id === selfId ? '📍 当前任务（点击展开其下级）' : c.title) + '</span>' +
+          (visibleKids(c).length ? '<span class="tf-cas-opt__go">›</span>' : '');
+        opts.appendChild(b);
       });
-      if (k < path.length) {
-        var cn = path[k];
-        sel.value = cn.id === selfId ? '__self__' : String(cn.id);
-      } else {
-        sel.value = '';
-      }
-      // sel 是 var 函数作用域，必须把当次迭代元素一并传入 IIFE，否则 handler 闭包会读到最后一个 select
-      (function(level, selEl){ selEl.addEventListener('change', function(){ onPick(level, selEl.value); }); })(k, sel);
-      box.appendChild(sel);
+      d.appendChild(opts);
+      box.appendChild(d);
     }
   }
   function onPick(k, v) {
     var base = path.slice(0, k);
     if (v === '__self__') path = base.concat([byId[selfId]]);
-    else if (v !== '') {
+    else {
       var n = byId[parseInt(v, 10)];
       if (n) path = base.concat([n]);
-    } else path = base;
+    }
+    autoOpen = k + 1; // 选中后自动展开下一层
     render();
   }
+  // 事件委托：选项按钮（summary 折叠由 details 原生处理）
+  box.addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('.tf-cas-opt') : null;
+    if (!b || !box.contains(b)) return;
+    onPick(parseInt(b.getAttribute('data-k'), 10), b.getAttribute('data-v'));
+  });
   render();
 }
 // 打开任务编辑弹窗（任务详情「编辑」按钮与卡片操作入口共用；小组件 ?edit 深链现先进查看视图）
@@ -13237,7 +13257,9 @@ function openTodoEdit(node) {
   var _dueClear = document.getElementById('tfDueClear');
   function _syncDueClear() {
     if (!_dueClear || !_dueEl) return;
+    // 框内绝对定位：用 visibility 占位隐藏（无值时不挡日历 glyph，也不引起输入框文字跳动）
     _dueClear.disabled = !_dueEl.value;
+    _dueClear.style.visibility = _dueEl.value ? 'visible' : 'hidden';
   }
   // 确认清空：表单当场进入备忘录态（日期/闹钟/重复/各自截止/优先级清值隐藏，文本分类与共享归属保留）
   var _memoEntering = false;
