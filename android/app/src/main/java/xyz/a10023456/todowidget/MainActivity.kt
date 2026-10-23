@@ -477,26 +477,18 @@ private fun AppShell(
     // 1) 「我的」原生面板打开 → 仅关面板；
     // 2) 否则交网页按浮层层级消费（日历浮层/结果弹窗/抽屉/图表全屏/modal/待办详情，
     //    见网页 window._appShellBack），消费一层即结束；
-    // 3) 网页无层可关（false，含全屏列表顶层）→ 回桌面（不 finish，状态保留）。
-    // 不做 WebView goBack：网页内跳转不与底部 Tab 同步，goBack 会造成画面与 Tab 错位。
+    // 3) 网页无层可关（false，含全屏列表顶层）→ 吞掉不处理：不退出 App、不回桌面、不做
+    //    WebView goBack（网页内跳转不与底部 Tab 同步，goBack 会造成画面与 Tab 错位）。
     BackHandler(enabled = true) {
         if (showMe) {
             showMe = false
             return@BackHandler
         }
-        val wv = webViewRef
-        if (wv == null) {
-            (context as? android.app.Activity)?.moveTaskToBack(true)
-            return@BackHandler
-        }
-        // 严格判 === true：JS 未就绪/函数缺失时表达式恒为 false，同样回落桌面
-        wv.evaluateJavascript(
-            "(window._appShellBack && window._appShellBack()) === true"
-        ) { result ->
-            if (result != "true") {
-                (context as? android.app.Activity)?.moveTaskToBack(true)
-            }
-        }
+        // 返回值仅用于网页内部关层；false/JS 未就绪时原生无动作，返回被 BackHandler 吞掉
+        webViewRef?.evaluateJavascript(
+            "(window._appShellBack && window._appShellBack()) === true",
+            null
+        )
     }
 
     Scaffold(

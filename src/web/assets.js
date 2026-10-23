@@ -1618,7 +1618,7 @@ function initGlobalSwipeBack() {
 // 网页触摸右滑(handleSwipeBack)与 App 原生壳系统返回(window._appShellBack: 安卓边缘
 // 左滑手势/返回键经 evaluateJavascript 调入)共用, 层级只此一份, 改动两边同时生效。
 // 顺序按浮层堆叠自高到低; 只关浮层/详情, 不做 history 跳转、不退待办全屏——
-// 全屏顶层的去留由调用方决定(触摸手势防误触吞掉, 原生壳回桌面)。
+// 全屏顶层的去留由调用方决定(触摸手势防误触吞掉, App 原生壳同样吞掉: 不退出 App)。
 function consumeAppBackLayer() {
   // 1. 自定义日期选择器浮层(z-index 10030, 叠在任务弹窗之上): 只关浮层, 底层弹窗保留
   var tdp = document.querySelector('.tdp-mask');
@@ -1657,7 +1657,7 @@ function consumeAppBackLayer() {
   }
   return false;
 }
-// App 原生壳系统返回入口: 仅消费浮层/详情; 返回 false 时由原生决定(当前=回桌面)
+// App 原生壳系统返回入口: 仅消费浮层/详情; 返回 false 时原生吞掉返回(不退出 App)
 window._appShellBack = function () { return consumeAppBackLayer(); };
 
 // 页面加载后自动为所有图表加横屏按钮（canvas 为静态元素，DOM 就绪即存在）
