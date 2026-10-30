@@ -913,146 +913,172 @@ function settingsPage(user) {
     <div class="card" style="max-width:480px;margin:0 auto;">
       <h2>个人设置</h2>
       <div id="msg" class="msg"></div>
-      <form id="nickForm">
-        <label>用户名（登录用，不可修改）</label>
-        <input id="pfUsername" readonly disabled style="background:var(--surface-2);">
-        <label>昵称</label>
-        <input id="pfNick" maxlength="32">
-        <button class="btn" type="submit">保存昵称</button>
-      </form>
-      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
-      <h2 style="font-size:15px;">邮箱</h2>
-      <p class="muted" style="font-size:12px;">用于接收验证码、找回账号与密码；绑定或换绑均需邮箱验证码验证，一个邮箱只能绑定一个账号。</p>
-      <div id="emailCard">
-        <p style="margin:0 0 8px;">当前邮箱：<b id="pfEmailCur">未绑定</b></p>
-        <label>新邮箱</label>
-        <div class="row">
-          <input id="pfEmail" type="email" autocomplete="email" placeholder="输入要绑定的邮箱" style="flex:1;">
-          <button type="button" class="btn gray" id="pfSendCode" style="white-space:nowrap;">发送验证码</button>
+      <div class="adm-tabs" role="tablist" style="margin-top:12px;">
+        <button class="adm-tab is-on" data-pane="account" type="button" role="tab">账号</button>
+        <button class="adm-tab" data-pane="pref" type="button" role="tab">偏好</button>
+        <button class="adm-tab" data-pane="motto" type="button" role="tab">勉励</button>
+        <button class="adm-tab" data-pane="share" type="button" role="tab">共享</button>
+      </div>
+
+      <!-- 账号：昵称 / 邮箱 / 修改密码 -->
+      <div class="adm-pane is-on" data-pane="account">
+        <form id="nickForm">
+          <label>用户名（登录用，不可修改）</label>
+          <input id="pfUsername" readonly disabled style="background:var(--surface-2);">
+          <label>昵称</label>
+          <input id="pfNick" maxlength="32">
+          <button class="btn" type="submit">保存昵称</button>
+        </form>
+        <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+        <h2 style="font-size:15px;">邮箱</h2>
+        <p class="muted" style="font-size:12px;">用于接收验证码、找回账号与密码；绑定或换绑均需邮箱验证码验证，一个邮箱只能绑定一个账号。</p>
+        <div id="emailCard">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:14px;">当前邮箱：<b id="pfEmailCur">未绑定</b></span>
+            <button type="button" class="btn sm gray" id="pfEmailEdit">绑定邮箱</button>
+          </div>
+          <div id="pfEmailForm" style="display:none;margin-top:12px;">
+            <label>新邮箱</label>
+            <input id="pfEmail" type="email" autocomplete="email" placeholder="输入要绑定的邮箱">
+            <button type="button" class="btn sm gray" id="pfSendCode" style="margin-top:6px;">发送验证码</button>
+            <label style="margin-top:12px;">验证码</label>
+            <input id="pfEmailCode" inputmode="numeric" maxlength="6" placeholder="6 位数字" autocomplete="one-time-code">
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button type="button" class="btn" id="pfBindBtn">确认绑定</button>
+              <button type="button" class="btn gray" id="pfEmailCancel">取消</button>
+            </div>
+          </div>
         </div>
-        <label>验证码</label>
-        <div class="row">
-          <input id="pfEmailCode" inputmode="numeric" maxlength="6" placeholder="6 位数字" autocomplete="one-time-code" style="flex:1;">
-          <button type="button" class="btn" id="pfBindBtn" style="white-space:nowrap;">确认绑定</button>
-        </div>
+        <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+        <details>
+          <summary style="cursor:pointer;font-size:15px;font-weight:600;">修改密码</summary>
+          <form id="pwdForm" style="margin-top:12px;">
+            <label>原密码</label>
+            <input id="pwOld" type="password" autocomplete="current-password">
+            <label>新密码（至少6位）</label>
+            <input id="pwNew" type="password" autocomplete="new-password">
+            <button class="btn" type="submit">修改密码</button>
+          </form>
+        </details>
       </div>
-      <label style="margin:14px 0 4px;display:block;">默认首页（手机浏览器 / App）</label>
-      <select id="defaultHome" style="width:auto;">
-        <option value="todo">待办</option>
-        <option value="dashboard">仪表盘</option>
-      </select>
-      <p class="muted" style="font-size:12px;margin:4px 0 0;">登录后打开的第一个页面；选仪表盘时，底部导航最左侧会出现「仪表盘」入口。</p>
-      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
-      <h2 style="font-size:15px;">每日勉励</h2>
-      <p class="muted" style="font-size:12px;">写一句给自己的话，每天首次打开面板时全屏展示一次；当天关闭后手机 / PC / Android 都不再出现，留空则完全不展示。支持加粗、删除线、下划线、波浪线、放大与快乐体。</p>
-      <div class="motto-tb" id="mottoToolbar">
-        <button type="button" data-tag="b" title="加粗"><b>B</b></button>
-        <button type="button" data-tag="s" title="删除线"><s>S</s></button>
-        <button type="button" data-tag="u" title="下划线"><u>U</u></button>
-        <button type="button" data-tag="w" title="波浪线">波浪</button>
-        <button type="button" data-tag="big" title="放大">A+</button>
-        <button type="button" data-tag="font" title="快乐体">快乐体</button>
-      </div>
-      <textarea id="mottoInput" class="motto-input" rows="2" maxlength="500" placeholder="例如：日拱一卒，**功不唐捐**。"></textarea>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
-        <label style="margin:0;">卡片风格</label>
-        <span class="muted" id="mottoCount" style="font-size:12px;">0/80（样式标记不计）</span>
-      </div>
-      <div class="motto-styles" id="mottoStyles">
-        <button type="button" class="motto-style" data-style="a">
-          <span class="ms-prev">日拱一卒</span>
-          <span class="ms-name">极光能量<small>深色 · 流动光斑 · 能量感</small></span>
-        </button>
-        <button type="button" class="motto-style" data-style="c">
-          <span class="ms-prev"><i></i></span>
-          <span class="ms-name">手账打气<small>暖色便签 · 治愈陪伴</small></span>
-        </button>
-        <button type="button" class="motto-style" data-style="h1">
-          <span class="ms-prev">今日必办</span>
-          <span class="ms-name">战书令<small>黑红战书 · 狠话叫醒</small></span>
-        </button>
-        <button type="button" class="motto-style" data-style="h2">
-          <span class="ms-prev">23:59:59</span>
-          <span class="ms-name">最后通牒<small>今日倒计时 · 时间在烧</small></span>
-        </button>
-      </div>
-      <label style="margin:14px 0 6px;">展示频率（各设备独立，已读也按设备分别记录）</label>
-      <div id="mottoFreqBox" style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;">
-        <span style="font-size:13px;color:var(--label);">PC 浏览器</span>
-        <select id="mottoFreqPc" class="motto-freq">
-          <option value="daily">每天首次打开一次</option>
-          <option value="every">每次打开都展示</option>
-          <option value="off">不展示</option>
+
+      <!-- 偏好：默认首页 / 免密登录安全 / 待办偏好 -->
+      <div class="adm-pane" data-pane="pref">
+        <h2 style="font-size:15px;">默认首页</h2>
+        <select id="defaultHome" style="width:auto;margin-top:6px;">
+          <option value="todo">待办</option>
+          <option value="dashboard">仪表盘</option>
         </select>
-        <span style="font-size:13px;color:var(--label);">手机浏览器</span>
-        <select id="mottoFreqMobile" class="motto-freq">
-          <option value="daily">每天首次打开一次</option>
-          <option value="every">每次打开都展示</option>
-          <option value="off">不展示</option>
-        </select>
-        <span style="font-size:13px;color:var(--label);">App</span>
-        <select id="mottoFreqApp" class="motto-freq">
-          <option value="daily">每天首次打开一次</option>
-          <option value="every">每次冷启动展示</option>
-          <option value="off">不展示</option>
-        </select>
-      </div>
-      <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn" id="mottoSave" type="button">保存勉励</button>
-        <button class="btn gray" id="mottoPreview" type="button">预览今日卡片</button>
-      </div>
-      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
-      <form id="pwdForm">
-        <h2 style="font-size:15px;">修改密码</h2>
-        <label>原密码</label>
-        <input id="pwOld" type="password" autocomplete="current-password">
-        <label>新密码（至少6位）</label>
-        <input id="pwNew" type="password" autocomplete="new-password">
-        <button class="btn" type="submit">修改密码</button>
-      </form>
-      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
-      <h2 style="font-size:15px;">免密登录安全</h2>
-      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
-        <input type="checkbox" id="qlRestrict" style="width:auto;margin:0;"> 免密链接「用本人账号登录」后仅能访问对应模块页
-      </label>
-      <p class="muted" style="font-size:12px;">开启后，从免密页登录只能看到对应模块，其他页面不可访问；关闭则为完整登录。</p>
-      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin-top:12px;">
-        <input type="checkbox" id="qlBtnShow" style="width:auto;margin:0;"> 免密页面显示「用本人账号登录」按钮
-      </label>
-      <p class="muted" style="font-size:12px;">取消后，所有免密填写/查看页不再出现该按钮；默认显示。</p>
-      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
-      <h2 style="font-size:15px;">待办偏好</h2>
-      <label style="display:flex;align-items:center;gap:8px;font-weight:normal;">
-        <input type="checkbox" id="todoAutoParent" style="width:auto;margin:0;"> 子任务全部完成后，自动完成父任务
-      </label>
-      <p class="muted" style="font-size:12px;">开启后（默认），当一个任务的所有子任务都勾选完成时，其父任务会自动标记完成并逐级向上；反之取消勾选某个子任务时，已完成的父任务会自动恢复为未完成。关闭则父子勾选完全独立，互不影响。</p>
-      <div style="margin-top:16px;">
-        <label style="font-weight:600;">视图循环</label>
-        <p class="muted" style="font-size:12px;margin:2px 0 6px;">进入待办时显示列表首项（默认视图），全屏顶栏按此顺序循环切换。未自定义时为 卡片 → 完整树 → 手风琴 → 速览 → 时间轴。</p>
-        <div id="viewCycleList"></div>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
-          <select id="addViewChoice" style="width:auto;"></select>
-          <button class="btn sm gray" type="button" id="addViewBtn">添加</button>
-          <button class="btn sm gray" type="button" id="resetViewBtn" style="margin-left:auto;">恢复默认</button>
+        <p class="muted" style="font-size:12px;margin:4px 0 0;">登录后打开的第一个页面（手机浏览器 / App）；选仪表盘时，底部导航最左侧会出现「仪表盘」入口。</p>
+        <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+        <h2 style="font-size:15px;">免密登录安全</h2>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin-top:8px;">
+          <input type="checkbox" id="qlRestrict" style="width:auto;margin:0;"> 免密链接「用本人账号登录」后仅能访问对应模块页
+        </label>
+        <p class="muted" style="font-size:12px;">开启后，从免密页登录只能看到对应模块，其他页面不可访问；关闭则为完整登录。</p>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin-top:12px;">
+          <input type="checkbox" id="qlBtnShow" style="width:auto;margin:0;"> 免密页面显示「用本人账号登录」按钮
+        </label>
+        <p class="muted" style="font-size:12px;">取消后，所有免密填写/查看页不再出现该按钮；默认显示。</p>
+        <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+        <h2 style="font-size:15px;">待办偏好</h2>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:normal;margin-top:8px;">
+          <input type="checkbox" id="todoAutoParent" style="width:auto;margin:0;"> 子任务全部完成后，自动完成父任务
+        </label>
+        <p class="muted" style="font-size:12px;">开启后（默认），当一个任务的所有子任务都勾选完成时，其父任务会自动标记完成并逐级向上；反之取消勾选某个子任务时，已完成的父任务会自动恢复为未完成。关闭则父子勾选完全独立，互不影响。</p>
+        <div style="margin-top:16px;">
+          <label style="font-weight:600;">视图循环</label>
+          <p class="muted" style="font-size:12px;margin:2px 0 6px;">进入待办时显示列表首项（默认视图），全屏顶栏按此顺序循环切换。未自定义时为 卡片 → 完整树 → 手风琴 → 速览 → 时间轴。</p>
+          <div id="viewCycleList"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+            <select id="addViewChoice" style="width:auto;"></select>
+            <button class="btn sm gray" type="button" id="addViewBtn">添加</button>
+            <button class="btn sm gray" type="button" id="resetViewBtn" style="margin-left:auto;">恢复默认</button>
+          </div>
         </div>
       </div>
-      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
-      <h2 style="font-size:15px;">免密 Token</h2>
-      <p class="muted" style="font-size:12px;">每个模块一个 report_token，用于公开报告页链接与 Android 桌面小组件；点「复制」即可取用。从未生成过的会在打开本页时自动创建。</p>
-      <div id="shareTokenBox" style="margin-top:8px;"><p class="muted" style="font-size:12px;">加载中…</p></div>
-      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
-      <h2 style="font-size:15px;">重置免密链接</h2>
-      <p class="muted" style="font-size:12px;">重置后该模块下全部旧免密链接（含报告链接与小组件 token）立即失效，需用上方新 token 重新配置。</p>
-      <div id="shareResetBox" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
-        <button class="btn sm gray" onclick="resetShare('fund')">重置基金链接</button>
-        <button class="btn sm gray" onclick="resetShare('weight')">重置体重链接</button>
-        <button class="btn sm gray" onclick="resetShare('asset')">重置资产链接</button>
-        <button class="btn sm gray" onclick="resetShare('todo')">重置待办链接</button>
+
+      <!-- 勉励：每日勉励 -->
+      <div class="adm-pane" data-pane="motto">
+        <h2 style="font-size:15px;">每日勉励</h2>
+        <p class="muted" style="font-size:12px;">写一句给自己的话，每天首次打开面板时全屏展示一次；当天关闭后手机 / PC / Android 都不再出现，留空则完全不展示。支持加粗、删除线、下划线、波浪线、放大与快乐体。</p>
+        <div class="motto-tb" id="mottoToolbar">
+          <button type="button" data-tag="b" title="加粗"><b>B</b></button>
+          <button type="button" data-tag="s" title="删除线"><s>S</s></button>
+          <button type="button" data-tag="u" title="下划线"><u>U</u></button>
+          <button type="button" data-tag="w" title="波浪线">波浪</button>
+          <button type="button" data-tag="big" title="放大">A+</button>
+          <button type="button" data-tag="font" title="快乐体">快乐体</button>
+        </div>
+        <textarea id="mottoInput" class="motto-input" rows="2" maxlength="500" placeholder="例如：日拱一卒，**功不唐捐**。"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+          <label style="margin:0;">卡片风格</label>
+          <span class="muted" id="mottoCount" style="font-size:12px;">0/80（样式标记不计）</span>
+        </div>
+        <div class="motto-styles" id="mottoStyles">
+          <button type="button" class="motto-style" data-style="a">
+            <span class="ms-prev">日拱一卒</span>
+            <span class="ms-name">极光能量<small>深色 · 流动光斑 · 能量感</small></span>
+          </button>
+          <button type="button" class="motto-style" data-style="c">
+            <span class="ms-prev"><i></i></span>
+            <span class="ms-name">手账打气<small>暖色便签 · 治愈陪伴</small></span>
+          </button>
+          <button type="button" class="motto-style" data-style="h1">
+            <span class="ms-prev">今日必办</span>
+            <span class="ms-name">战书令<small>黑红战书 · 狠话叫醒</small></span>
+          </button>
+          <button type="button" class="motto-style" data-style="h2">
+            <span class="ms-prev">23:59:59</span>
+            <span class="ms-name">最后通牒<small>今日倒计时 · 时间在烧</small></span>
+          </button>
+        </div>
+        <label style="margin:14px 0 6px;">展示频率（各设备独立，已读也按设备分别记录）</label>
+        <div id="mottoFreqBox" style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;">
+          <span style="font-size:13px;color:var(--label);">PC 浏览器</span>
+          <select id="mottoFreqPc" class="motto-freq">
+            <option value="daily">每天首次打开一次</option>
+            <option value="every">每次打开都展示</option>
+            <option value="off">不展示</option>
+          </select>
+          <span style="font-size:13px;color:var(--label);">手机浏览器</span>
+          <select id="mottoFreqMobile" class="motto-freq">
+            <option value="daily">每天首次打开一次</option>
+            <option value="every">每次打开都展示</option>
+            <option value="off">不展示</option>
+          </select>
+          <span style="font-size:13px;color:var(--label);">App</span>
+          <select id="mottoFreqApp" class="motto-freq">
+            <option value="daily">每天首次打开一次</option>
+            <option value="every">每次冷启动展示</option>
+            <option value="off">不展示</option>
+          </select>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn" id="mottoSave" type="button">保存勉励</button>
+          <button class="btn gray" id="mottoPreview" type="button">预览今日卡片</button>
+        </div>
       </div>
-      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
-      <h2 style="font-size:15px;">家庭数据共享</h2>
-      <p class="muted" style="font-size:12px;">生成共享码并勾选模块，把码发给家人；家人在自己账号的本页输入码加入后，即可在对应模块顶部切换数据源，共同查看/录入同一套数据（数据仍归你所有）。</p>
-      <div id="dataShareBox" style="margin-top:10px;"><p class="muted" style="font-size:12px;">加载中…</p></div>
+
+      <!-- 共享：免密 Token / 重置链接 / 家庭数据共享 -->
+      <div class="adm-pane" data-pane="share">
+        <h2 style="font-size:15px;">免密 Token</h2>
+        <p class="muted" style="font-size:12px;">每个模块一个 report_token，用于公开报告页链接与 Android 桌面小组件；点「复制」即可取用。从未生成过的会在打开本页时自动创建。</p>
+        <div id="shareTokenBox" style="margin-top:8px;"><p class="muted" style="font-size:12px;">加载中…</p></div>
+        <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+        <h2 style="font-size:15px;">重置免密链接</h2>
+        <p class="muted" style="font-size:12px;">重置后该模块下全部旧免密链接（含报告链接与小组件 token）立即失效，需用上方新 token 重新配置。</p>
+        <div id="shareResetBox" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+          <button class="btn sm gray" onclick="resetShare('fund')">重置基金链接</button>
+          <button class="btn sm gray" onclick="resetShare('weight')">重置体重链接</button>
+          <button class="btn sm gray" onclick="resetShare('asset')">重置资产链接</button>
+          <button class="btn sm gray" onclick="resetShare('todo')">重置待办链接</button>
+        </div>
+        <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+        <h2 style="font-size:15px;">家庭数据共享</h2>
+        <p class="muted" style="font-size:12px;">生成共享码并勾选模块，把码发给家人；家人在自己账号的本页输入码加入后，即可在对应模块顶部切换数据源，共同查看/录入同一套数据（数据仍归你所有）。</p>
+        <div id="dataShareBox" style="margin-top:10px;"><p class="muted" style="font-size:12px;">加载中…</p></div>
+      </div>
     </div>
   </div>`;
   return renderPage({ title: '个人设置', body, scripts: ['page-settings.js'], theme: user.theme });

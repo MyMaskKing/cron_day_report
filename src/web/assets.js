@@ -2729,6 +2729,8 @@ var showMsg = function(_el, text, ok){ showToast(text, ok); };
     document.getElementById('pfNick').value = d.profile.nickname;
     var pfEmailCur0 = document.getElementById('pfEmailCur');
     if (pfEmailCur0) pfEmailCur0.textContent = d.profile.email || '未绑定';
+    var pfEmailEdit0 = document.getElementById('pfEmailEdit');
+    if (pfEmailEdit0) pfEmailEdit0.textContent = d.profile.email ? '更换邮箱' : '绑定邮箱';
     var ql = document.getElementById('qlRestrict');
     if (ql) ql.checked = d.profile.restrict_quicklogin != 0;
     var qb = document.getElementById('qlBtnShow');
@@ -2920,13 +2922,47 @@ document.getElementById('nickForm').addEventListener('submit', async function(e)
   } catch(err){ showMsg(msg, err.message, false); }
 });
 
-// ===== 邮箱绑定/换绑（新邮箱 + bind 验证码，一个邮箱只能绑一个账号） =====
+// 设置页分段 tab：账号 / 偏好 / 勉励 / 共享（复用 adm-tabs/adm-pane 样式，本页仅此一组）
+(function(){
+  var PANES = ['account', 'pref', 'motto', 'share'];
+  function show(name, writeHash){
+    document.querySelectorAll('.adm-tab').forEach(function(t){
+      t.classList.toggle('is-on', t.dataset.pane === name);
+    });
+    document.querySelectorAll('.adm-pane').forEach(function(p){
+      p.classList.toggle('is-on', p.dataset.pane === name);
+    });
+    if (writeHash) history.replaceState(null, '', '#' + name);
+    // 勉励 textarea 在隐藏面板里初始化高度为 0，切过来时重算
+    if (name === 'motto' && window.__mottoAutoGrow) window.__mottoAutoGrow();
+  }
+  document.querySelectorAll('.adm-tab').forEach(function(t){
+    t.addEventListener('click', function(){ show(t.dataset.pane, true); });
+  });
+  var initial = (location.hash || '').replace('#', '');
+  if (PANES.indexOf(initial) >= 0) show(initial, false);
+})();
+
+// ===== 邮箱绑定/换绑（收起态一行；点开竖向两步：发码 → 填码确认） =====
 (function(){
   var box = document.getElementById('emailCard');
   if (!box) return;
   var pfEmail = document.getElementById('pfEmail');
   var pfEmailCode = document.getElementById('pfEmailCode');
   var pfEmailCur = document.getElementById('pfEmailCur');
+  var pfEmailForm = document.getElementById('pfEmailForm');
+  var pfEmailEdit = document.getElementById('pfEmailEdit');
+  function openForm(){
+    pfEmailForm.style.display = 'block';
+    setTimeout(function(){ pfEmail.focus(); }, 0);
+  }
+  function closeForm(){
+    pfEmailForm.style.display = 'none';
+    pfEmail.value = '';
+    pfEmailCode.value = '';
+  }
+  pfEmailEdit.addEventListener('click', openForm);
+  document.getElementById('pfEmailCancel').addEventListener('click', closeForm);
   window.bindEmailCodeBtn(document.getElementById('pfSendCode'), {
     purpose: 'bind',
     email: function(){ return pfEmail.value; },
@@ -2940,8 +2976,8 @@ document.getElementById('nickForm').addEventListener('submit', async function(e)
     try {
       var r = await api('/api/auth/email', { method: 'PUT', body: { email: emailVal, code: codeVal }});
       pfEmailCur.textContent = r.email;
-      pfEmail.value = '';
-      pfEmailCode.value = '';
+      pfEmailEdit.textContent = '更换邮箱';
+      closeForm();
       showMsg(msg, '邮箱已绑定', true);
     } catch(err){ showMsg(msg, err.message, false); }
   });
