@@ -57,20 +57,28 @@ function createD1Adapter(env) {
       async findByName(username) {
         return await db.prepare('SELECT * FROM users WHERE username = ?').bind(username).first();
       },
+      async findByEmail(email) {
+        return await db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+      },
       async findById(id) {
         return await db.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
       },
-      async create({ username, password_hash, role = 'user', nickname = null }) {
+      // email 为 null = 不绑定邮箱；非空邮箱在 api 层已完成验证码校验且归一化为小写
+      async create({ username, password_hash, role = 'user', nickname = null, email = null }) {
         const res = await db.prepare(
-          'INSERT INTO users (username, password_hash, role, nickname) VALUES (?, ?, ?, ?)'
-        ).bind(username, password_hash, role, nickname || username).run();
+          'INSERT INTO users (username, password_hash, role, nickname, email) VALUES (?, ?, ?, ?, ?)'
+        ).bind(username, password_hash, role, nickname || username, email).run();
         return res.meta.last_row_id;
       },
       async list() {
         const { results } = await db.prepare(
-          'SELECT id, username, nickname, role, status, created_at, last_login_at, last_public_at FROM users ORDER BY id'
+          'SELECT id, username, nickname, email, role, status, created_at, last_login_at, last_public_at FROM users ORDER BY id'
         ).all();
         return results || [];
+      },
+      // 换绑邮箱（api 层已完成新邮箱验证码校验与占用检查）
+      async updateEmail(id, email) {
+        await db.prepare('UPDATE users SET email = ? WHERE id = ?').bind(email, id).run();
       },
       async updateLastLogin(id) {
         await db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").bind(id).run();

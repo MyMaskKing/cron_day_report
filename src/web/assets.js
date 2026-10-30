@@ -825,6 +825,34 @@ function showToast(text, ok) {
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(function(){ bar.style.opacity = '0'; }, 2800);
 }
+// 邮箱验证码发送按钮通用绑定（注册页/设置页共用）：发送成功后 60 秒倒计时
+// opts: { purpose:'register'|'bind', email:()=>string, msg:(text,ok)=>void }
+window.bindEmailCodeBtn = function(btn, opts){
+  if (!btn) return;
+  // 注意：本函数处于模板字符串内，正则反斜杠必须双写
+  var RE = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+  var timer = null;
+  btn.addEventListener('click', async function(){
+    var email = (opts.email() || '').trim();
+    if (!RE.test(email)) { opts.msg('请输入正确的邮箱', false); return; }
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try {
+      await api('/api/auth/email-code', { method: 'POST', body: { email: email, purpose: opts.purpose } });
+      opts.msg('验证码已发送，10 分钟内有效', true);
+      var n = 60, oldText = btn.textContent;
+      btn.textContent = n + ' 秒后重发';
+      timer = setInterval(function(){
+        n--;
+        if (n <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = oldText; }
+        else btn.textContent = n + ' 秒后重发';
+      }, 1000);
+    } catch(e){
+      btn.disabled = false;
+      opts.msg(e.message, false);
+    }
+  });
+};
 function bindLogout() {
   bindClickBusy(document.getElementById('logoutBtn'), async function(e){
     if (e && e.preventDefault) e.preventDefault();
@@ -2376,14 +2404,31 @@ tabReg.addEventListener('click', function() {
   tabReg.className = 'btn'; tabLogin.className = 'btn gray';
   regForm.style.display = 'block'; loginForm.style.display = 'none';
 });
+// 注册邮箱（选填）：非空才显示验证码行
+var regEmail = document.getElementById('rem');
+var regCodeBox = document.getElementById('regCodeBox');
+regEmail.addEventListener('input', function(){
+  regCodeBox.style.display = regEmail.value.trim() ? 'block' : 'none';
+});
+window.bindEmailCodeBtn(document.getElementById('regSendCode'), {
+  purpose: 'register',
+  email: function(){ return regEmail.value; },
+  msg: function(t, ok){ showMsg(msg, t, ok); }
+});
 regForm.addEventListener('submit', async function(e) {
   e.preventDefault();
+  var body = {
+    username: document.getElementById('ru').value,
+    nickname: document.getElementById('rn').value || undefined,
+    password: document.getElementById('rp').value
+  };
+  var emailVal = regEmail.value.trim();
+  if (emailVal) {
+    body.email = emailVal;
+    body.emailCode = document.getElementById('rec').value.trim();
+  }
   try {
-    await api('/api/auth/register', { method: 'POST', body: {
-      username: document.getElementById('ru').value,
-      nickname: document.getElementById('rn').value || undefined,
-      password: document.getElementById('rp').value
-    }});
+    await api('/api/auth/register', { method: 'POST', body: body });
     showMsg(msg, '注册成功，请登录', true);
     tabLogin.click();
   } catch (err) {
@@ -2429,6 +2474,50 @@ cpForm.addEventListener('submit', async function(e) {
     }});
     navTo('/login?changed=1');
   } catch (err) { showMsg(cpMsg, err.message, false); }
+});
+`;
+
+// 忘记密码页 JS：输入注册邮箱，发送账号名 + 重置链接邮件（后端防枚举统一文案）
+const FORGOT_PASSWORD_JS = `
+var fpForm = document.getElementById('fpForm');
+var fpMsg = document.getElementById('fpMsg');
+fpForm.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  try {
+    var r = await api('/api/auth/forgot-password', { method: 'POST', body: {
+      email: document.getElementById('fpe').value
+    }});
+    showMsg(fpMsg, r.message, true);
+  } catch (err) { showMsg(fpMsg, err.message, false); }
+});
+`;
+
+// 重置密码落地页 JS：先校验邮件链接里的 token，有效才展示设新密码表单
+const RESET_PASSWORD_JS = `
+var rpMsg = document.getElementById('rpMsg');
+var rpForm = document.getElementById('rpForm');
+var rpToken = '';
+try { rpToken = new URLSearchParams(location.search).get('token') || ''; } catch (e) {}
+(async function(){
+  var valid = false;
+  if (rpToken) {
+    try {
+      var st = await api('/api/auth/reset-token?token=' + encodeURIComponent(rpToken));
+      valid = !!st.valid;
+    } catch (err) { valid = false; }
+  }
+  document.getElementById('rpLoading').style.display = 'none';
+  if (valid) rpForm.style.display = 'block';
+  else document.getElementById('rpInvalid').style.display = 'block';
+})();
+rpForm.addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var np = document.getElementById('rnp').value;
+  if (np !== document.getElementById('rnp2').value) { showMsg(rpMsg, '两次输入的新密码不一致', false); return; }
+  try {
+    await api('/api/auth/password-reset', { method: 'POST', body: { token: rpToken, newPassword: np }});
+    navTo('/login?changed=1');
+  } catch (err) { showMsg(rpMsg, err.message, false); }
 });
 `;
 
@@ -2638,6 +2727,8 @@ var showMsg = function(_el, text, ok){ showToast(text, ok); };
     var d = await api('/api/auth/profile');
     document.getElementById('pfUsername').value = d.profile.username;
     document.getElementById('pfNick').value = d.profile.nickname;
+    var pfEmailCur0 = document.getElementById('pfEmailCur');
+    if (pfEmailCur0) pfEmailCur0.textContent = d.profile.email || '未绑定';
     var ql = document.getElementById('qlRestrict');
     if (ql) ql.checked = d.profile.restrict_quicklogin != 0;
     var qb = document.getElementById('qlBtnShow');
@@ -2828,6 +2919,33 @@ document.getElementById('nickForm').addEventListener('submit', async function(e)
     showMsg(msg, '昵称已更新，刷新后生效', true);
   } catch(err){ showMsg(msg, err.message, false); }
 });
+
+// ===== 邮箱绑定/换绑（新邮箱 + bind 验证码，一个邮箱只能绑一个账号） =====
+(function(){
+  var box = document.getElementById('emailCard');
+  if (!box) return;
+  var pfEmail = document.getElementById('pfEmail');
+  var pfEmailCode = document.getElementById('pfEmailCode');
+  var pfEmailCur = document.getElementById('pfEmailCur');
+  window.bindEmailCodeBtn(document.getElementById('pfSendCode'), {
+    purpose: 'bind',
+    email: function(){ return pfEmail.value; },
+    msg: function(t, ok){ showMsg(msg, t, ok); }
+  });
+  document.getElementById('pfBindBtn').addEventListener('click', async function(){
+    var emailVal = pfEmail.value.trim();
+    var codeVal = pfEmailCode.value.trim();
+    if (!emailVal) { showMsg(msg, '请输入要绑定的邮箱', false); return; }
+    if (!codeVal) { showMsg(msg, '请填写邮箱验证码', false); return; }
+    try {
+      var r = await api('/api/auth/email', { method: 'PUT', body: { email: emailVal, code: codeVal }});
+      pfEmailCur.textContent = r.email;
+      pfEmail.value = '';
+      pfEmailCode.value = '';
+      showMsg(msg, '邮箱已绑定', true);
+    } catch(err){ showMsg(msg, err.message, false); }
+  });
+})();
 
 // ===== 每日勉励卡（用户私有座右铭，a=极光能量默认 / c=手账打气） =====
 // 正文字数：去除行内样式标记后按码点计数（与后端 mottoPlainLen、卡片字号分档同一口径）
@@ -3133,6 +3251,7 @@ async function loadUsers() {
         '<td data-label="ID">' + u.id + '</td>' +
         '<td data-label="用户名">' + esc(u.username) + '</td>' +
         '<td data-label="昵称">' + esc(u.nickname || u.username) + '</td>' +
+        '<td data-label="邮箱">' + (u.email ? esc(u.email) : '<span class="muted">—</span>') + '</td>' +
         '<td data-label="角色"><span class="tag ' + u.role + '">' + (u.role === 'admin' ? '超管' : '用户') + '</span></td>' +
         '<td data-label="状态"><span class="tag ' + u.status + '">' + (u.status === 'active' ? '正常' : '禁用') + '</span></td>' +
         '<td data-label="创建时间">' + fmtUTC2CN(u.created_at) + '</td>' +
@@ -3361,6 +3480,38 @@ if (regLimitMsgBtn) regLimitMsgBtn.addEventListener('click', function(){
   });
 });
 loadRegisterLimit();
+
+// 系统邮件网关（邮箱验证码 / 找回密码）：token 不回显，留空保存=不修改
+(async function(){
+  var mgUrl = document.getElementById('mgUrl');
+  if (!mgUrl) return;
+  var stMsg = document.getElementById('stMsg');
+  var mgToken = document.getElementById('mgToken');
+  var mgTestTo = document.getElementById('mgTestTo');
+  try {
+    var d = await api('/api/admin/settings/mail-gateway');
+    mgUrl.value = d.url || '';
+    mgToken.placeholder = d.configured ? '已配置，留空=不修改' : '网关调用 Token';
+  } catch (err) { /* 忽略 */ }
+  document.getElementById('mgSave').addEventListener('click', async function(){
+    try {
+      var body = { url: mgUrl.value };
+      if (mgToken.value) body.token = mgToken.value;
+      var r = await api('/api/admin/settings/mail-gateway', { method: 'PUT', body: body });
+      mgUrl.value = r.url || '';
+      mgToken.value = '';
+      mgToken.placeholder = r.configured ? '已配置，留空=不修改' : '网关调用 Token';
+      showMsg(stMsg, r.message || '已保存', true);
+    } catch (err) { showMsg(stMsg, err.message, false); }
+  });
+  document.getElementById('mgTest').addEventListener('click', async function(){
+    if (!mgTestTo.value.trim()) { showMsg(stMsg, '请填写测试收件人', false); return; }
+    try {
+      var r = await api('/api/admin/settings/mail-gateway/test', { method: 'POST', body: { to: mgTestTo.value }});
+      showMsg(stMsg, r.message || '已发送', true);
+    } catch (err) { showMsg(stMsg, err.message, false); }
+  });
+})();
 
 // 全站公告（弹窗内复用通用 Markdown 编辑器，含图片/附件上传）
 var annContent = '', annUpdatedAt = '';
@@ -15218,7 +15369,8 @@ const DOWNLOAD_JS = `
 `;
 
 export {
-  COMMON_JS, LOGIN_JS, CHANGE_PASSWORD_JS, DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
+  COMMON_JS, LOGIN_JS, CHANGE_PASSWORD_JS, FORGOT_PASSWORD_JS, RESET_PASSWORD_JS,
+  DASHBOARD_JS, ADMIN_JS, SETUP_JS, MONITOR_JS, FUND_JS,
   PUBLIC_BUY_JS, WEIGHT_JS, PUBLIC_WEIGHT_JS, SETTINGS_JS, ASSET_JS, PUBLIC_ASSET_JS, CHANNELS_JS,
   WEIGHT_REPORT_JS, ASSET_REPORT_JS, FUND_REPORT_JS,
   TODO_TREE_CORE, TODO_JS, PUBLIC_TODO_JS, TODO_REPORT_JS, TODO_COLLAB_JS, STORAGE_ADMIN_JS,

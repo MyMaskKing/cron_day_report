@@ -4,13 +4,59 @@
 
 import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
-import { hashPassword, verifyPassword } from '../auth/password.js';
+import { hashPassword, verifyPassword, generateToken } from '../auth/password.js';
 import { parseOffset } from '../services/time.service.js';
 import { nowCN } from '../services/schedule.service.js';
+import { resolveBaseUrl } from '../config.js';
+import {
+  kvSetEmailCode, kvGetEmailCode, kvPutEmailCode, kvDelEmailCode,
+  kvSetPwdReset, kvGetPwdReset, kvDelPwdReset,
+  kvEmailRateBlocked, kvEmailRateMark
+} from '../storage/kv-store.js';
+import {
+  getMailGateway, sendSystemMail, isValidEmail, verificationMailText, resetPasswordMailText
+} from '../services/mail-gateway.service.js';
 import {
   createSession, destroySession, getSession,
   getTokenFromRequest, buildSessionCookie, buildClearCookie
 } from '../auth/session.js';
+
+// 邮箱归一化（校验复用 mail-gateway.service 的 isValidEmail，全站同口径）
+function normalizeEmail(s) {
+  return String(s == null ? '' : s).trim().toLowerCase();
+}
+// 6 位数字验证码（对 2^32 取模的极小幅偏可接受）
+function genEmailCode() {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return String(buf[0] % 1000000).padStart(6, '0');
+}
+// 发信限频参数
+const CODE_RATE = { cooldownSec: 60, windowSec: 3600, windowMax: 5 };
+const RESET_RATE = { cooldownSec: 60, windowSec: 3600, windowMax: 3 };
+const CODE_TTL = 600;      // 验证码 10 分钟
+const RESET_TOKEN_TTL = 3600; // 重置链接 1 小时
+
+/**
+ * 校验并消费邮箱验证码（通过即删除；错码累计 5 次作废，回写不延长原有效期）
+ * @returns {Promise<string|null>} 错误文案；null = 通过
+ */
+async function consumeEmailCode(env, purpose, email, codeInput) {
+  const rec = await kvGetEmailCode(env.KV, purpose, email);
+  if (!rec) return '验证码不存在或已过期，请重新获取';
+  if ((rec.a || 0) >= 5) {
+    await kvDelEmailCode(env.KV, purpose, email);
+    return '验证码错误次数过多，请重新获取';
+  }
+  if (!codeInput || rec.c !== String(codeInput).trim()) {
+    rec.a = (rec.a || 0) + 1;
+    if (rec.a >= 5) await kvDelEmailCode(env.KV, purpose, email);
+    else await kvPutEmailCode(env.KV, purpose, email, rec);
+    return '验证码错误';
+  }
+  await kvDelEmailCode(env.KV, purpose, email);
+  return null;
+}
 
 /** 校验用户名/密码基本规则 */
 function validateCredentials(username, password) {
@@ -119,7 +165,8 @@ async function readRegisterLimit(storage) {
 
 /**
  * POST /api/auth/register  注册普通用户
- * body: { username, password }
+ * body: { username, password, nickname?, email?, emailCode? }
+ * 邮箱可选；填了邮箱必须带同邮箱的 register 验证码
  */
 async function register({ request, env }) {
   const body = await request.json().catch(() => ({}));
@@ -127,6 +174,13 @@ async function register({ request, env }) {
   const nickname = (body.nickname || '').trim() || username;
   const invalid = validateCredentials(username, password);
   if (invalid) return error(invalid);
+
+  // 邮箱可选：非空必须格式合法且携带验证码
+  const email = normalizeEmail(body.email);
+  if (email) {
+    if (!isValidEmail(email)) return error('邮箱格式不正确');
+    if (!body.emailCode) return error('请填写邮箱验证码');
+  }
 
   const storage = getStorage(env);
 
@@ -142,13 +196,32 @@ async function register({ request, env }) {
   const existing = await storage.users.findByName(username);
   if (existing) return error('用户名已存在');
 
+  // 邮箱：占用预检 + 验证码消费（验码放在各类预检之后，避免无谓作废验证码）
+  let emailToStore = null;
+  if (email) {
+    const emailOwner = await storage.users.findByEmail(email);
+    if (emailOwner) return error('该邮箱已被注册');
+    const codeErr = await consumeEmailCode(env, 'register', email, body.emailCode);
+    if (codeErr) return error(codeErr);
+    emailToStore = email;
+  }
+
   const password_hash = await hashPassword(password);
-  const id = await storage.users.create({ username, password_hash, role: 'user', nickname });
+  let id;
+  try {
+    id = await storage.users.create({ username, password_hash, role: 'user', nickname, email: emailToStore });
+  } catch (err) {
+    // 并发兜底：用户名/邮箱唯一索引冲突
+    if (/UNIQUE constraint failed/i.test(String(err && err.message))) {
+      return error('用户名或邮箱已存在');
+    }
+    throw err;
+  }
   return json({ success: true, message: '注册成功', user: { id, username, role: 'user' } });
 }
 
 /**
- * POST /api/auth/login  登录
+ * POST /api/auth/login  登录（用户名或邮箱 + 密码）
  * body: { username, password }
  */
 async function login({ request, env }) {
@@ -157,7 +230,13 @@ async function login({ request, env }) {
   if (!username || !password) return error('请输入用户名和密码');
 
   const storage = getStorage(env);
-  const user = await storage.users.findByName(username);
+  // 先按用户名查；未命中且输入形如邮箱时再按邮箱查
+  const nameOrEmail = String(username).trim();
+  let user = await storage.users.findByName(nameOrEmail);
+  if (!user) {
+    const email = normalizeEmail(nameOrEmail);
+    if (isValidEmail(email)) user = await storage.users.findByEmail(email);
+  }
   if (!user) return error('用户名或密码错误', 401);
   if (user.status === 'disabled') return error('账号已被禁用', 403);
 
@@ -215,6 +294,7 @@ async function getProfile({ request, env }) {
   return json({ success: true, profile: {
     username: u.username,
     nickname: u.nickname || u.username,
+    email: u.email || null,
     restrict_quicklogin: u.restrict_quicklogin != null ? u.restrict_quicklogin : 1,
     show_quicklogin_btn: u.show_quicklogin_btn != null ? u.show_quicklogin_btn : 1,
     theme: THEMES.includes(u.theme) ? u.theme : 'light',
@@ -316,6 +396,147 @@ async function selfChangePassword({ request, env }) {
   const password_hash = await hashPassword(newPassword);
   await storage.users.updatePassword(u.id, password_hash);
   return json({ success: true, message: '密码已修改' });
+}
+
+/**
+ * POST /api/auth/email-code  发送邮箱验证码
+ * body: { email, purpose: 'register' | 'bind' }
+ * register 为公开接口（要求邮箱未被注册）；bind 需登录（要求邮箱未被他人占用）
+ */
+async function sendEmailCode({ request, env }) {
+  const body = await request.json().catch(() => ({}));
+  const purpose = body.purpose === 'bind' ? 'bind' : 'register';
+  const email = normalizeEmail(body.email);
+  if (!isValidEmail(email)) return error('邮箱格式不正确');
+
+  const storage = getStorage(env);
+
+  if (purpose === 'bind') {
+    const session = await getSession(env, getTokenFromRequest(request));
+    if (!session) return error('未登录', 401);
+    const owner = await storage.users.findByEmail(email);
+    if (owner && owner.id !== session.user_id) return error('该邮箱已被其他账号使用');
+  } else {
+    const existing = await storage.users.findByEmail(email);
+    if (existing) return error('该邮箱已被注册');
+  }
+
+  if (await kvEmailRateBlocked(env.KV, purpose, email, CODE_RATE)) {
+    return error('验证码请求过于频繁，请 60 秒后再试（每小时最多 5 封）');
+  }
+
+  const code = genEmailCode();
+  await kvSetEmailCode(env.KV, purpose, email, code, CODE_TTL);
+  try {
+    await sendSystemMail(
+      storage, email,
+      '生活面板 · 邮箱验证码',
+      verificationMailText(code, purpose === 'bind' ? '绑定/换绑邮箱' : '注册账号')
+    );
+  } catch (err) {
+    // 发信失败：销毁验证码且不记限频，用户可立即重试
+    await kvDelEmailCode(env.KV, purpose, email);
+    if (err.message === '邮件服务未配置') return error('邮件服务未配置，暂无法使用邮箱功能', 503);
+    return error(err.message || '验证码发送失败', 502);
+  }
+  await kvEmailRateMark(env.KV, purpose, email, CODE_RATE);
+  return json({ success: true, message: '验证码已发送，10 分钟内有效' });
+}
+
+/**
+ * PUT /api/auth/email  登录后绑定/换绑邮箱（需 bind 验证码）
+ * body: { email, code }
+ */
+async function bindEmail({ request, env }) {
+  const session = await getSession(env, getTokenFromRequest(request));
+  if (!session) return error('未登录', 401);
+  const body = await request.json().catch(() => ({}));
+  const email = normalizeEmail(body.email);
+  if (!isValidEmail(email)) return error('邮箱格式不正确');
+  if (!body.code) return error('请填写邮箱验证码');
+
+  const storage = getStorage(env);
+  const owner = await storage.users.findByEmail(email);
+  if (owner && owner.id !== session.user_id) return error('该邮箱已被其他账号使用');
+  const codeErr = await consumeEmailCode(env, 'bind', email, body.code);
+  if (codeErr) return error(codeErr);
+  try {
+    await storage.users.updateEmail(session.user_id, email);
+  } catch (err) {
+    if (/UNIQUE constraint failed/i.test(String(err && err.message))) {
+      return error('该邮箱已被其他账号使用');
+    }
+    throw err;
+  }
+  return json({ success: true, message: '邮箱已绑定', email });
+}
+
+/**
+ * POST /api/auth/forgot-password  申请重置密码邮件
+ * body: { email }
+ * 防枚举：无论邮箱是否存在都返回统一文案，仅已注册邮箱才真正发信
+ */
+async function forgotPassword({ request, env }) {
+  const body = await request.json().catch(() => ({}));
+  const email = normalizeEmail(body.email);
+  if (!isValidEmail(email)) return error('邮箱格式不正确');
+
+  const storage = getStorage(env);
+  const uniformMsg = '若该邮箱已注册，重置密码邮件将发送至该邮箱';
+  const u = await storage.users.findByEmail(email);
+  if (u) {
+    const gw = await getMailGateway(storage);
+    if (!gw.url) return error('邮件服务未配置，暂无法找回密码', 503);
+    if (await kvEmailRateBlocked(env.KV, 'reset', email, RESET_RATE)) {
+      return error('重置请求过于频繁，请 60 秒后再试（每小时最多 3 次）');
+    }
+    const resetToken = generateToken();
+    await kvSetPwdReset(env.KV, resetToken, { uid: u.id, email }, RESET_TOKEN_TTL);
+    const reqUrl = new URL(request.url);
+    const base = await resolveBaseUrl(storage, env, reqUrl) || reqUrl.origin;
+    const link = `${base}/reset-password?token=${encodeURIComponent(resetToken)}`;
+    try {
+      await sendSystemMail(storage, email, '生活面板 · 重置密码', resetPasswordMailText(u.username, link));
+    } catch (err) {
+      await kvDelPwdReset(env.KV, resetToken);
+      if (err.message === '邮件服务未配置') return error('邮件服务未配置，暂无法找回密码', 503);
+      return error(err.message || '重置邮件发送失败', 502);
+    }
+    await kvEmailRateMark(env.KV, 'reset', email, RESET_RATE);
+  }
+  return json({ success: true, message: uniformMsg });
+}
+
+/**
+ * GET /api/auth/reset-token?token=  校验重置链接是否有效（重置页加载时调用）
+ */
+async function resetTokenStatus({ request, env }) {
+  const token = String(new URL(request.url).searchParams.get('token') || '');
+  const rec = token ? await kvGetPwdReset(env.KV, token) : null;
+  return json({ success: true, valid: !!rec });
+}
+
+/**
+ * POST /api/auth/password-reset  凭一次性重置 token 设置新密码（不签发会话）
+ * body: { token, newPassword }
+ */
+async function passwordReset({ request, env }) {
+  const body = await request.json().catch(() => ({}));
+  const { token, newPassword } = body;
+  if (!token) return error('重置链接无效或已过期');
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) return error('新密码至少 6 位');
+
+  const rec = await kvGetPwdReset(env.KV, String(token));
+  if (!rec) return error('重置链接无效或已过期');
+
+  const storage = getStorage(env);
+  const u = await storage.users.findById(rec.uid);
+  if (!u) return error('账号不存在', 404);
+
+  const password_hash = await hashPassword(newPassword);
+  await storage.users.updatePassword(u.id, password_hash);
+  await kvDelPwdReset(env.KV, String(token));
+  return json({ success: true, message: '密码已重置，请用新密码登录' });
 }
 
 /**
@@ -585,6 +806,7 @@ async function updateShowQuickloginButton({ request, env }) {
 export {
   register, login, logout, me, bootstrap, setupStatus, registerStatus,
   getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, resolvePublicOwnerId,
+  sendEmailCode, bindEmail, forgotPassword, resetTokenStatus, passwordReset,
   updateQuickloginRestrict, updateShowQuickloginButton,
   updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateTodoViewOpts, updateMotto, markMottoSeen,
   updateDefaultHome

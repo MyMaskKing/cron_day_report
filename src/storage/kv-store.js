@@ -7,6 +7,13 @@ const SESSION_PREFIX = 'session:';
 const WSHARE_PREFIX = 'wshare:';
 const NAV_PREFIX = 'nav:';
 const ANN_PREFIX = 'annread:';
+// 邮箱验证码（register=注册 bind=登录后绑定/换绑）
+const EMAIL_CODE_PREFIX = 'emailcode:';
+// 忘记密码的一次性重置 token
+const PWD_RESET_PREFIX = 'pwdreset:';
+// 发信限频：60 秒冷却键 + 小时窗口计数键
+const EMAIL_CD_PREFIX = 'emailcd:';
+const EMAIL_WIN_PREFIX = 'emailwin:';
 
 /**
  * 写入会话
@@ -81,9 +88,132 @@ async function kvGetAnnRead(kv, userId) {
   return (await kv.get(ANN_PREFIX + userId)) || '';
 }
 
+// ==================== 邮箱验证码 / 密码重置（临时凭证，TTL 过期，不进业务库） ====================
+
+/**
+ * 写入邮箱验证码（覆盖同邮箱同用途的旧码）
+ * @param {string} purpose - register | bind
+ * @param {string} email - 已归一化（trim+小写）
+ * @param {string} code - 6 位数字码
+ * @param {number} ttlSeconds - 有效期（默认 10 分钟）
+ * @returns {Promise<number>} 过期 Unix 秒（回写错误次数时据此计算剩余 TTL，不续期）
+ */
+async function kvSetEmailCode(kv, purpose, email, code, ttlSeconds = 600) {
+  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
+  await kv.put(
+    EMAIL_CODE_PREFIX + purpose + ':' + email,
+    JSON.stringify({ c: code, a: 0, exp }),
+    { expirationTtl: ttlSeconds }
+  );
+  return exp;
+}
+
+/** 读取验证码记录 {c,a,exp}；不存在/已过期返回 null */
+async function kvGetEmailCode(kv, purpose, email) {
+  const raw = await kv.get(EMAIL_CODE_PREFIX + purpose + ':' + email);
+  if (!raw) return null;
+  try {
+    const rec = JSON.parse(raw);
+    if (rec && rec.exp && rec.exp < Math.floor(Date.now() / 1000)) return null;
+    return rec;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 回写验证码记录（错误次数 +1 时用；TTL 按原过期时间收敛，不延长有效期）
+ */
+async function kvPutEmailCode(kv, purpose, email, rec) {
+  const ttl = Math.max((rec.exp || 0) - Math.floor(Date.now() / 1000), 1);
+  await kv.put(
+    EMAIL_CODE_PREFIX + purpose + ':' + email,
+    JSON.stringify(rec),
+    { expirationTtl: ttl }
+  );
+}
+
+async function kvDelEmailCode(kv, purpose, email) {
+  await kv.delete(EMAIL_CODE_PREFIX + purpose + ':' + email);
+}
+
+/**
+ * 写入一次性密码重置 token
+ * @param {string} token - 明文随机 token（仅出现在邮件链接中，库内 key 即明文，与会话 token 同口径）
+ * @param {{uid:number, email:string}} data
+ * @param {number} ttlSeconds - 默认 1 小时
+ */
+async function kvSetPwdReset(kv, token, data, ttlSeconds = 3600) {
+  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
+  await kv.put(
+    PWD_RESET_PREFIX + token,
+    JSON.stringify({ uid: data.uid, email: data.email, exp }),
+    { expirationTtl: ttlSeconds }
+  );
+}
+
+async function kvGetPwdReset(kv, token) {
+  const raw = await kv.get(PWD_RESET_PREFIX + token);
+  if (!raw) return null;
+  try {
+    const rec = JSON.parse(raw);
+    if (rec && rec.exp && rec.exp < Math.floor(Date.now() / 1000)) return null;
+    return rec;
+  } catch {
+    return null;
+  }
+}
+
+async function kvDelPwdReset(kv, token) {
+  await kv.delete(PWD_RESET_PREFIX + token);
+}
+
+/**
+ * 发信限频检查（不写入）：冷却中或窗口内次数已达上限返回 true
+ * @param {string} scope - register | bind | reset
+ * @param {{cooldownSec?:number, windowSec?:number, windowMax?:number}} [opts]
+ */
+async function kvEmailRateBlocked(kv, scope, email, opts = {}) {
+  const cooldownSec = opts.cooldownSec || 60;
+  const windowSec = opts.windowSec || 3600;
+  const windowMax = opts.windowMax || 5;
+  if (await kv.get(EMAIL_CD_PREFIX + scope + ':' + email)) return true;
+  const raw = await kv.get(EMAIL_WIN_PREFIX + scope + ':' + email);
+  if (raw) {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.filter(t => t > Date.now() - windowSec * 1000).length >= windowMax) {
+        return true;
+      }
+    } catch { /* 计数串损坏按未限流处理 */ }
+  }
+  return false;
+}
+
+/**
+ * 发信成功后记一次限频：写冷却键 + 向小时窗口追加当前时间戳
+ */
+async function kvEmailRateMark(kv, scope, email, opts = {}) {
+  const cooldownSec = opts.cooldownSec || 60;
+  const windowSec = opts.windowSec || 3600;
+  await kv.put(EMAIL_CD_PREFIX + scope + ':' + email, '1', { expirationTtl: cooldownSec });
+  const now = Date.now();
+  let arr = [];
+  const raw = await kv.get(EMAIL_WIN_PREFIX + scope + ':' + email);
+  if (raw) {
+    try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) arr = parsed; } catch { /* 同上 */ }
+  }
+  arr = arr.filter(t => t > now - windowSec * 1000);
+  arr.push(now);
+  await kv.put(EMAIL_WIN_PREFIX + scope + ':' + email, JSON.stringify(arr), { expirationTtl: windowSec });
+}
+
 export {
   kvSetSession, kvGetSession, kvDeleteSession,
   kvSetShare, kvGetShare, kvDeleteShare,
   kvSetNav, kvGetNav,
-  kvSetAnnRead, kvGetAnnRead
+  kvSetAnnRead, kvGetAnnRead,
+  kvSetEmailCode, kvGetEmailCode, kvPutEmailCode, kvDelEmailCode,
+  kvSetPwdReset, kvGetPwdReset, kvDelPwdReset,
+  kvEmailRateBlocked, kvEmailRateMark
 };

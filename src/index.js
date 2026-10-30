@@ -16,12 +16,13 @@ import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
 
 // API handlers
-import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, resolvePublicOwnerId, updateQuickloginRestrict, updateShowQuickloginButton, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateTodoViewOpts, updateMotto, markMottoSeen, updateDefaultHome, BG_THEMES, normalizeTodoViewList } from './api/auth.api.js';
+import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, resolvePublicOwnerId, sendEmailCode, bindEmail, forgotPassword, resetTokenStatus, passwordReset, updateQuickloginRestrict, updateShowQuickloginButton, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateTodoViewOpts, updateMotto, markMottoSeen, updateDefaultHome, BG_THEMES, normalizeTodoViewList } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
   getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
   getRegisterLimit, setRegisterLimit,
+  getMailGatewaySetting, setMailGatewaySetting, testMailGateway,
   getAnnouncementPublic, markAnnouncementRead, getAnnouncement, setAnnouncement,
   setAppDownload
 } from './api/users.api.js';
@@ -85,7 +86,8 @@ import { parseOffset, fmtShort } from './services/time.service.js';
 
 // Pages
 import {
-  loginPage, changePasswordPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
+  loginPage, changePasswordPage, forgotPasswordPage, resetPasswordPage,
+  dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
   weightReportPage, assetReportPage, fundReportPage,
   todoPage, publicTodoPage, todoReportPage, todoCollabPage, storageAdminPage, downloadPage
@@ -118,6 +120,11 @@ router.put('/api/auth/bg', updateBg);
 router.put('/api/auth/default-home', updateDefaultHome);
 router.put('/api/auth/password', changePassword);
 router.post('/api/auth/reset-password', selfChangePassword);
+router.post('/api/auth/email-code', sendEmailCode);
+router.put('/api/auth/email', bindEmail);
+router.post('/api/auth/forgot-password', forgotPassword);
+router.get('/api/auth/reset-token', resetTokenStatus);
+router.post('/api/auth/password-reset', passwordReset);
 router.put('/api/auth/quicklogin-restrict', updateQuickloginRestrict);
 router.put('/api/auth/quicklogin-button', updateShowQuickloginButton);
 router.put('/api/auth/todo-auto-parent', updateTodoAutoParent);
@@ -149,6 +156,9 @@ router.get('/api/admin/settings/base-url', getBaseUrl);
 router.put('/api/admin/settings/base-url', setBaseUrl);
 router.get('/api/admin/settings/register-limit', getRegisterLimit);
 router.put('/api/admin/settings/register-limit', setRegisterLimit);
+router.get('/api/admin/settings/mail-gateway', getMailGatewaySetting);
+router.put('/api/admin/settings/mail-gateway', setMailGatewaySetting);
+router.post('/api/admin/settings/mail-gateway/test', testMailGateway);
 // 全站公告：登录态读取（免密公开页无会话，401 静默）；管理端仅超管
 router.get('/api/announcement', getAnnouncementPublic);
 router.post('/api/announcement/read', markAnnouncementRead);
@@ -397,6 +407,8 @@ async function handlePages(request, env) {
   // 公开页
   if (path === '/login') return html(loginPage());
   if (path === '/change-password') return html(changePasswordPage());
+  if (path === '/forgot-password') return html(forgotPasswordPage());
+  if (path === '/reset-password') return html(resetPasswordPage());
   if (path === '/setup') return html(setupPage());
   // App「在浏览器中打开」免密桥接 /auth/bridge?sid=<会话token>&to=<站内路径>
   // 系统浏览器与 App WebView 的 cookie 仓库相互独立，sid 带不过去；

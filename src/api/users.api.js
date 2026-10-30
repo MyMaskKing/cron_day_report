@@ -12,6 +12,7 @@ import { parseOffset, DEFAULT_TZ_OFFSET } from '../services/time.service.js';
 import { kvGetAnnRead, kvSetAnnRead } from '../storage/kv-store.js';
 import { getFileStore } from '../storage/file-store.js';
 import { pruneRefFiles } from './file.api.js';
+import { getMailGateway, sendSystemMail, isValidEmail } from '../services/mail-gateway.service.js';
 
 const DEFAULT_PASSWORD = '123456';
 
@@ -328,6 +329,64 @@ async function setRegisterLimit({ request, env }) {
   return json({ success: true, message: '注册限制已保存', limit, msg });
 }
 
+// ============ 系统邮件网关（邮箱验证码 / 找回密码） ============
+
+/**
+ * GET /api/admin/settings/mail-gateway  读取网关地址；token 不回明文，仅回 configured
+ */
+async function getMailGatewaySetting({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const gw = await getMailGateway(storage);
+  return json({ success: true, url: gw.url, configured: !!gw.token });
+}
+
+/**
+ * PUT /api/admin/settings/mail-gateway  保存网关
+ * body: { url, token? }；url 空串=清空整组配置；token 留空=不修改
+ */
+async function setMailGatewaySetting({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const url = (body.url != null ? String(body.url) : '').trim();
+  const token = body.token != null ? String(body.token).trim() : '';
+  if (url && !/^https?:\/\//i.test(url)) return error('网关地址需以 http:// 或 https:// 开头');
+  const storage = getStorage(env);
+  if (!url) {
+    await storage.settings.set('mail_relay_url', '');
+    await storage.settings.set('mail_relay_token', '');
+    return json({ success: true, message: '邮件网关已清空', url: '', configured: false });
+  }
+  await storage.settings.set('mail_relay_url', url);
+  if (token) await storage.settings.set('mail_relay_token', token);
+  const gw = await getMailGateway(storage);
+  return json({ success: true, message: '邮件网关已保存', url: gw.url, configured: !!gw.token });
+}
+
+/**
+ * POST /api/admin/settings/mail-gateway/test  用当前配置发一封测试邮件
+ * body: { to }
+ */
+async function testMailGateway({ request, env }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const to = String(body.to || '').trim().toLowerCase();
+  if (!isValidEmail(to)) return error('收件人邮箱格式不正确');
+  const storage = getStorage(env);
+  const gw = await getMailGateway(storage);
+  if (!gw.url) return error('邮件网关未配置', 503);
+  try {
+    await sendSystemMail(storage, to, '生活面板 · 测试邮件',
+      '这是一封来自生活面板的测试邮件，收到说明邮件网关配置正确。');
+  } catch (err) {
+    return error(err.message || '发送失败', 502);
+  }
+  return json({ success: true, message: '测试邮件已发送' });
+}
+
 // ============ 全站公告 ============
 // 正文存 app_settings.announcement（markdown，空串=未发布/已下线）；
 // announcement_updated_at 存毫秒时间戳字符串，每次发布刷新，前端兼作版本号（关闭过同一条不再弹）。
@@ -422,6 +481,7 @@ export {
   createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
   getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
   getRegisterLimit, setRegisterLimit,
+  getMailGatewaySetting, setMailGatewaySetting, testMailGateway,
   getAnnouncementPublic, markAnnouncementRead, getAnnouncement, setAnnouncement,
   setAppDownload
 };

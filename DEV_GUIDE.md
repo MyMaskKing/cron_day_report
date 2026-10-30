@@ -119,14 +119,14 @@ token 长期有效，缺失时代码自动 `generateToken()` 生成并持久化�
 
 | 表 | 说明 | 关键列 |
 |----|------|--------|
-| `users` | 用户 | role(user/admin)、status、nickname、weight_unit(jin/kg) |
+| `users` | 用户 | role(user/admin)、status、nickname、email（可选，partial unique）、weight_unit(jin/kg) |
 | `notify_channels` | 通知渠道 | type(wechat/webhook/email)、url、method、headers_json、body_template |
 | `monitor_tasks` / `monitor_logs` | 监控任务与日志 | return_type、channel_id、standalone |
 | `funds` / `fund_nav_cache` | 基金持仓 / 净值缓存 | shares、cost_nav、share_token；nav、gsz |
 | `weight_members` / `weight_records` | 体重成员/记录 | share_token；weight(存 kg)、record_date |
 | `wallets` / `wallet_records` / `asset_goals` | 资产钱包/月记录/年目标 | type、balance/principal/profit、month(YYYY-MM) |
 | `push_config` | ★ 统一推送配置 | (user_id,module) 主键、channel_id、format、enabled、hours、days、report_token |
-| `app_settings` | 全局键值 | 存 `tz_offset`、`todo_attach_max_mb`（附件上限 MB，默认 5） |
+| `app_settings` | 全局键值 | 存 `tz_offset`、`todo_attach_max_mb`（附件上限 MB，默认 5）、`mail_relay_url`/`mail_relay_token`（系统邮件网关） |
 | `files` | 统一文件元数据 | source（`todo` 任务附件 / `user` 各模块 md 文件）、owner_uid、todo_id、uploader_uid、file_token（兼免密下载凭证）、origin_name、mime、size、is_image |
 
 附件文件本体不入库：Cloudflare 走 R2 bucket `cron-todo-files`（绑定名 `FILES`，首次需 `wrangler r2 bucket create`），Docker 走 `DATA_DIR/files/`（`docker/file-shim.mjs`）。业务经 `src/storage/file-store.js` 的 `getFileStore(env)` 取统一接口（put/get/delete）；通用上传/下载/上限 API 见 `file.api.js`（`POST /api/files/upload`、`GET /todo-file/:fileToken`，图片 inline、其余 attachment，SVG 不算图片防脚本），待办附件的业务化上传/鉴权/级联在 `todo.api.js`。R2 key 按来源分前缀 `todo/<token>`、`user/<token>`；任务删除时 source='todo' 附件随子树级联清理。

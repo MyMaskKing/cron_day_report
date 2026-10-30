@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
   status               TEXT NOT NULL DEFAULT 'active',
   weight_unit          TEXT NOT NULL DEFAULT 'jin',
   nickname             TEXT,
+  email                TEXT,
   restrict_quicklogin  INTEGER NOT NULL DEFAULT 1,
   show_quicklogin_btn  INTEGER NOT NULL DEFAULT 1,
   investment_strategy  TEXT,
@@ -45,6 +46,9 @@ CREATE TABLE IF NOT EXISTS users (
   last_public_at       TEXT,
   created_at           TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- 邮箱唯一（可选字段）：仅约束非空邮箱，多个 NULL（未绑定）互不冲突
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
 
 -- ==================== 通知渠道 ====================
 -- type: wechat | webhook | email

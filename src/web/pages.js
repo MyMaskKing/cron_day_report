@@ -135,8 +135,8 @@ function loginPage() {
     </div>
     <div id="regLimitMsg" style="display:none;margin:12px 0;padding:10px 12px;border:1px solid var(--border-strong);background:var(--surface-2);border-radius:8px;"></div>
     <form id="loginForm">
-      <label>用户名</label>
-      <input id="lu" autocomplete="username" required>
+      <label>用户名或邮箱</label>
+      <input id="lu" autocomplete="username" placeholder="用户名 / 注册邮箱" required>
       <label>密码</label>
       <input id="lp" type="password" autocomplete="current-password" required>
       <button class="btn" style="width:100%;" type="submit">登录</button>
@@ -148,6 +148,15 @@ function loginPage() {
       <input id="ru" required>
       <label>昵称 (显示用，可选)</label>
       <input id="rn" placeholder="留空则同用户名">
+      <label>邮箱 (选填，用于找回密码)</label>
+      <input id="rem" type="email" autocomplete="email" placeholder="选填；填写后需邮箱验证码验证">
+      <div id="regCodeBox" style="display:none;">
+        <label>邮箱验证码</label>
+        <div class="row">
+          <input id="rec" inputmode="numeric" maxlength="6" placeholder="6 位数字" autocomplete="one-time-code">
+          <button type="button" class="btn gray" id="regSendCode" style="white-space:nowrap;">发送验证码</button>
+        </div>
+      </div>
       <label>密码 (至少6位)</label>
       <input id="rp" type="password" required>
       <button class="btn" style="width:100%;" type="submit">注册</button>
@@ -176,10 +185,52 @@ function changePasswordPage() {
         <input id="cnp2" type="password" autocomplete="new-password" required>
         <button class="btn" style="width:100%;" type="submit">确认修改</button>
         <div style="text-align:center;margin-top:12px;"><a href="/login" class="muted">← 返回登录</a></div>
+        <div style="text-align:center;margin-top:8px;"><a href="/forgot-password" class="muted">忘记密码？通过邮箱找回</a></div>
       </form>
     </div>
   </div>`;
   return renderPage({ title: '修改密码', body, scripts: ['page-change-password.js'] });
+}
+
+/** 忘记密码页：输入注册邮箱发送账号名 + 重置链接邮件 */
+function forgotPasswordPage() {
+  const body = `<div class="login-wrap">
+    <div class="card">
+      <h1>${ICO_KEY}找回密码</h1>
+      <p class="muted" style="text-align:center;margin-bottom:16px;">输入注册时填写的邮箱，我们将把登录账号与重置密码链接发送给你</p>
+      <div id="fpMsg" class="msg"></div>
+      <form id="fpForm">
+        <label>注册邮箱</label>
+        <input id="fpe" type="email" autocomplete="email" required>
+        <button class="btn" style="width:100%;" type="submit">发送重置邮件</button>
+        <div style="text-align:center;margin-top:12px;"><a href="/change-password" class="muted">← 返回修改密码</a></div>
+      </form>
+    </div>
+  </div>`;
+  return renderPage({ title: '找回密码', body, scripts: ['page-forgot-password.js'] });
+}
+
+/** 重置密码落地页：从邮件链接进入，token 有效时设置新密码 */
+function resetPasswordPage() {
+  const body = `<div class="login-wrap">
+    <div class="card">
+      <h1>${ICO_KEY}设置新密码</h1>
+      <div id="rpMsg" class="msg"></div>
+      <div id="rpLoading" class="muted" style="text-align:center;padding:12px 0;">正在校验重置链接…</div>
+      <div id="rpInvalid" style="display:none;">
+        <p style="text-align:center;color:var(--danger);">重置链接无效或已过期（链接 1 小时内有效且仅可使用一次）。</p>
+        <div style="text-align:center;margin-top:12px;"><a class="btn" href="/forgot-password">重新申请重置邮件</a></div>
+      </div>
+      <form id="rpForm" style="display:none;">
+        <label>新密码 (至少6位)</label>
+        <input id="rnp" type="password" autocomplete="new-password" required>
+        <label>确认新密码</label>
+        <input id="rnp2" type="password" autocomplete="new-password" required>
+        <button class="btn" style="width:100%;" type="submit">确认重置</button>
+      </form>
+    </div>
+  </div>`;
+  return renderPage({ title: '设置新密码', body, scripts: ['page-reset-password.js'] });
 }
 
 /** 仪表盘：今日概览（KPI 数据由 page-dashboard.js 聚合现有只读接口） */
@@ -272,6 +323,24 @@ function adminPage(user) {
       </div>
       <p class="muted">达到上限后，登录页隐藏注册入口并向访客展示满员提示词（支持 markdown）。提示词留空则使用默认文案。</p>
       <div class="row">
+        <div style="flex:1;"><label>系统邮件网关地址（HTTP→SMTP 转发服务，如 mailrelay 的 /send）</label>
+          <input id="mgUrl" type="text" placeholder="http://主机:8080/send，留空=停用邮箱功能">
+        </div>
+        <div style="flex:1;"><label>调用 Token</label>
+          <input id="mgToken" type="password" autocomplete="new-password" placeholder="已配置时留空=不修改">
+        </div>
+      </div>
+      <div class="row">
+        <div style="flex:1;"><label>测试收件人</label>
+          <input id="mgTestTo" type="email" placeholder="保存后先发一封测试邮件">
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:12px;">
+          <button class="btn gray" id="mgTest">发送测试邮件</button>
+          <button class="btn" id="mgSave">保存网关</button>
+        </div>
+      </div>
+      <p class="muted">用于发送注册/换绑邮箱验证码与找回密码邮件；未配置时这两项功能不可用。</p>
+      <div class="row">
         <div style="flex:1;">
           <label>全站公告</label>
           <p class="muted" id="annMeta" style="font-size:12px;margin-top:4px;">加载中…</p>
@@ -360,7 +429,7 @@ function adminPage(user) {
         <button class="btn sm" id="newUserBtn" style="float:right;">+ 新建用户</button>
       </h2>
       <table>
-        <thead><tr><th>ID</th><th>用户名</th><th>昵称</th><th>角色</th><th>状态</th><th>创建时间</th><th>最后登录</th><th>最后免密</th><th>操作</th></tr></thead>
+        <thead><tr><th>ID</th><th>用户名</th><th>昵称</th><th>邮箱</th><th>角色</th><th>状态</th><th>创建时间</th><th>最后登录</th><th>最后免密</th><th>操作</th></tr></thead>
         <tbody id="userTbody"></tbody>
       </table>
     </div>
@@ -851,6 +920,22 @@ function settingsPage(user) {
         <input id="pfNick" maxlength="32">
         <button class="btn" type="submit">保存昵称</button>
       </form>
+      <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+      <h2 style="font-size:15px;">邮箱</h2>
+      <p class="muted" style="font-size:12px;">用于接收验证码、找回账号与密码；绑定或换绑均需邮箱验证码验证，一个邮箱只能绑定一个账号。</p>
+      <div id="emailCard">
+        <p style="margin:0 0 8px;">当前邮箱：<b id="pfEmailCur">未绑定</b></p>
+        <label>新邮箱</label>
+        <div class="row">
+          <input id="pfEmail" type="email" autocomplete="email" placeholder="输入要绑定的邮箱" style="flex:1;">
+          <button type="button" class="btn gray" id="pfSendCode" style="white-space:nowrap;">发送验证码</button>
+        </div>
+        <label>验证码</label>
+        <div class="row">
+          <input id="pfEmailCode" inputmode="numeric" maxlength="6" placeholder="6 位数字" autocomplete="one-time-code" style="flex:1;">
+          <button type="button" class="btn" id="pfBindBtn" style="white-space:nowrap;">确认绑定</button>
+        </div>
+      </div>
       <label style="margin:14px 0 4px;display:block;">默认首页（手机浏览器 / App）</label>
       <select id="defaultHome" style="width:auto;">
         <option value="todo">待办</option>
@@ -1513,6 +1598,7 @@ function downloadPage(user, mdContent, updatedAt) {
 export {
   loginPage, changePasswordPage, dashboardPage, adminPage, setupPage, monitorPage, fundPage, publicBuyPage,
   weightPage, publicWeightPage, settingsPage, assetPage, publicAssetPage, channelsPage,
+  forgotPasswordPage, resetPasswordPage,
   weightReportPage, assetReportPage, fundReportPage,
   todoPage, publicTodoPage, todoReportPage, todoCollabPage, storageAdminPage, downloadPage
 };
