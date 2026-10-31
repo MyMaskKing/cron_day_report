@@ -137,8 +137,9 @@ function createD1Adapter(env) {
       async updateMottoSeen(id, seenJson) {
         await db.prepare('UPDATE users SET motto_seen = ? WHERE id = ?').bind(seenJson, id).run();
       },
+      // 注册名额口径：只计启用用户，禁用用户不占名额（当前无删除功能）
       async count() {
-        const row = await db.prepare('SELECT COUNT(*) AS c FROM users').first();
+        const row = await db.prepare("SELECT COUNT(*) AS c FROM users WHERE status = 'active'").first();
         return row ? row.c : 0;
       },
       async countAdmins() {

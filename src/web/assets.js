@@ -1266,12 +1266,22 @@ function alertModal(message, opts) {
 function toggleDropdown(el) {
   var menu = el.nextElementSibling;
   var isOpen = menu.classList.contains('show');
-  document.querySelectorAll('.dropdown-menu.show').forEach(function(m){ m.classList.remove('show'); });
-  if (!isOpen) menu.classList.add('show');
+  document.querySelectorAll('.dropdown-menu.show').forEach(function(m){ m.classList.remove('show', 'dropdown-menu--up'); });
+  if (!isOpen) {
+    menu.classList.add('show');
+    // 底部空间不足且上方更宽时向上展开: 否则菜单后几项溢出视口; 手机端还会被 fixed 底栏盖住
+    // (菜单封在 .card 的 z-index:1 堆叠上下文内, 高过底栏 200 无望, 只能躲开)
+    var br = el.getBoundingClientRect();
+    var tabbar = document.querySelector('.m-tabbar');
+    var reserved = (tabbar && tabbar.offsetHeight) ? tabbar.offsetHeight + 6 : 8;
+    var below = window.innerHeight - br.bottom - reserved;
+    var above = br.top - 8;
+    if (menu.offsetHeight > below && above > below) menu.classList.add('dropdown-menu--up');
+  }
 }
 document.addEventListener('click', function(e){
   if (!e.target.closest('.dropdown')) {
-    document.querySelectorAll('.dropdown-menu.show').forEach(function(m){ m.classList.remove('show'); });
+    document.querySelectorAll('.dropdown-menu.show').forEach(function(m){ m.classList.remove('show', 'dropdown-menu--up'); });
   }
 });
 window.toggleDropdown = toggleDropdown;

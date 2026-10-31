@@ -1266,6 +1266,8 @@ input[type="date"], input[type="month"] { cursor: pointer; }
 .dropdown { position: relative; display: inline-block; }
 .dropdown-menu { display: none; position: absolute; right: 0; top: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); min-width: 120px; z-index: 50; overflow: hidden; }
 .dropdown-menu.show { display: block; }
+/* 底部空间不足时 JS 加此修饰向上展开（避开视口底沿与手机 fixed 底栏） */
+.dropdown-menu.dropdown-menu--up { top: auto; bottom: 100%; margin-bottom: 4px; }
 .dropdown-menu button { display: block; width: 100%; text-align: left; padding: 9px 14px; border: none; background: none; font-size: 14px; cursor: pointer; color: var(--text); }
 .dropdown-menu button:hover:not(:active) { background: var(--hover-brand); }
 .dropdown-menu button.danger { color: var(--danger); }
