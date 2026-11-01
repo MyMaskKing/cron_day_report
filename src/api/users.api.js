@@ -156,6 +156,8 @@ async function updateUserNickname({ request, env, params }) {
   if (!user) return error('用户不存在', 404);
 
   await storage.users.updateNickname(userId, nickname);
+  // 本人成员（is_self）名跟随账号昵称；没有则静默跳过
+  await storage.weight.renameSelfMember(userId, nickname);
   return json({ success: true, message: '昵称已更新' });
 }
 

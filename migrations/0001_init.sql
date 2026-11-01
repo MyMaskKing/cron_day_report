@@ -177,7 +177,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_fpd_user_date ON fund_profit_daily (user_i
 -- share_token: 免密快速填写链接 token
 -- sort_order: 排序权重, 越小越靠前
 -- disabled: 1=暂时停用(曲线/录入/日报隐藏, 数据保留); archived: 1=已移除(软删, 同名可恢复)
--- friend_visible: 1=对体重好友可见；默认 0，接受好友邀请时双方各自动开放一个本人成员（0021/0022），其余属主手动开启；停用成员不可开放
+-- friend_visible: 1=对体重好友可见；默认 0，接受好友邀请时双方各自动开放本人成员（0021/0022），其余属主手动开启；停用成员不可开放
+-- is_self: 1=代表账号本人的成员（自动创建的首个），改账号昵称时成员名同步；每用户至多一个（0023）
 CREATE TABLE IF NOT EXISTS weight_members (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL,
@@ -187,6 +188,7 @@ CREATE TABLE IF NOT EXISTS weight_members (
   disabled    INTEGER NOT NULL DEFAULT 0,
   archived    INTEGER NOT NULL DEFAULT 0,
   friend_visible INTEGER NOT NULL DEFAULT 0,
+  is_self     INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );

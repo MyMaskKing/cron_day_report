@@ -352,6 +352,8 @@ async function updateProfile({ request, env }) {
   if (!nickname || nickname.length > 32) return error('昵称需为 1-32 个字符');
   const storage = getStorage(env);
   await storage.users.updateNickname(session.user_id, nickname);
+  // 本人成员（is_self）名跟随账号昵称；没有则静默跳过
+  await storage.weight.renameSelfMember(session.user_id, nickname);
   return json({ success: true, message: '昵称已更新' });
 }
 

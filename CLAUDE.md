@@ -26,11 +26,11 @@ docker compose up -d --build      # 数据落 ./docker-data/
 docker compose logs -f
 ```
 
-数据库迁移（全量基线 `migrations/0001_init.sql` + 编号增量脚本，当前到 `0022_weight_friend_visible_default_off.sql`）——**两个宿主都已内置自动迁移，通常零命令**：
+数据库迁移（全量基线 `migrations/0001_init.sql` + 编号增量脚本，当前到 `0023_weight_member_self.sql`）——**两个宿主都已内置自动迁移，通常零命令**：
 - **Cloudflare**：Worker 首次请求 / 定时唤醒时 `src/storage/schema.js#ensureSchema(env)` 按 `MIGRATIONS` 登记表顺序执行未应用的 SQL（每个 isolate 仅查一次 `_migrations`，逐条独立提交，仅忽略 already exists/duplicate column）。
 - **Docker/Node**：容器启动时 `docker/migrate.mjs` 扫盘按编号执行 `migrations/*.sql`。两侧共用 `_migrations` 表按**文件名**去重。
 - **新库**：`0001_init.sql` 一次建出全部表/列/索引（`CREATE ... IF NOT EXISTS` + `INSERT OR IGNORE`，可任意重跑）；0002–0022 是基线发布后的增量（待办自动结算/附件、统一 files、每日勉励、闹钟、视图循环、待办全屏背景、WebDAV 备份、默认首页、文件引用/访问计数、免密按钮、基金封存/资产分析、待办显示菜单设置、用户邮箱、体重好友关系/邀请与成员好友可见列、可见性默认全关纠偏）。
-- **新增表/列（老库升级）**：**新建** `migrations/000N_描述.sql`（编号三位数对齐、紧接当前最大值，**下一个是 0023**），并**必须同时在 `src/storage/schema.js` 顶部 `import` 与 `MIGRATIONS` 数组登记**——Workers 运行时不能扫盘、`.sql` 靠 wrangler Text 规则构建期内联，漏登记则 CF 侧永不执行（Docker 侧扫盘不受影响）。语句写幂等：新表/索引用 `CREATE ... IF NOT EXISTS`，新列用 `ALTER TABLE ADD COLUMN`（"列已存在"两侧都自动忽略）。可顺带把新结构并进 `0001_init.sql` 的 `CREATE TABLE` 便于全新部署阅读。
+- **新增表/列（老库升级）**：**新建** `migrations/000N_描述.sql`（编号三位数对齐、紧接当前最大值，**下一个是 0024**），并**必须同时在 `src/storage/schema.js` 顶部 `import` 与 `MIGRATIONS` 数组登记**——Workers 运行时不能扫盘、`.sql` 靠 wrangler Text 规则构建期内联，漏登记则 CF 侧永不执行（Docker 侧扫盘不受影响）。语句写幂等：新表/索引用 `CREATE ... IF NOT EXISTS`，新列用 `ALTER TABLE ADD COLUMN`（"列已存在"两侧都自动忽略）。可顺带把新结构并进 `0001_init.sql` 的 `CREATE TABLE` 便于全新部署阅读。
 - **手动 D1**（可选/排障）：`wrangler d1 execute cron_db --remote --file=migrations/000N_xxx.sql`。
 
 首次部署到 Cloudflare 另需**手工建 R2 bucket**（不会随部署自动创建）：`wrangler r2 bucket create <名称>`，名称以 `wrangler.toml` 的 `[[r2_buckets]] bucket_name` 为准；D1/KV 则由首次 deploy 按名自动创建并把生成的 ID 回写 `wrangler.toml`。
@@ -126,7 +126,9 @@ token 缺失时代码自动 `generateToken()` 并持久化。
 
 - 邀请链接 `/weight?wlink=<token>`，`POST /api/weight/friends/accept` 接受；未登录访问 /weight 走既有页面鉴权。关系跟随**本人身份**（`auth.user_id`），不跟随 X-Data-As 数据源；dc.shared 时好友入口与 friend-chart 均禁用。
 - **只读**：好友成员进体重页走独立方法 `listMembersWithFriends`/`listRecordsWithFriends`（附 friend/owner_id/owner_nick；好友/停用成员名字渲染为不可点击纯文本），写入/改名/删除因 `canAccessMember` 不含好友天然 404/403。**体重日报仍用旧 listMembers/listRecords，绝不漏好友数据**。
-- 可见性 `weight_members.friend_visible`（0021 加列，**新成员一律默认 0**）：接受邀请时双方各执行一次 `ensureSelfMemberVisible`——自动开放各自「最早创建的启用成员」（通常即本人）实现默认互见，已手动开放过则尊重原选择；其余成员在成员「⋯」菜单或好友面板「谁对好友可见」手动开。**停用成员禁止开放**（后端 400、UI 置灰，仅允许关闭），停用即好友侧消失、重新启用恢复。0022 已把早期自动标记全部归零。与旧的成员级可写引用 `weight_member_shares`（超管「引用成员」）撞车时 SQL `NOT IN` 去重，引用形态优先。
+- 可见性 `weight_members.friend_visible`（0021 加列，**新成员一律默认 0**）：接受邀请时双方各执行一次 `ensureSelfMemberVisible`——优先开放本人成员 `is_self=1`（缺失兜底最早启用成员）实现默认互见，已手动开放过则尊重原选择；其余成员在成员「⋯」菜单或好友面板「谁对好友可见」手动开。**停用成员禁止开放**（后端 400、UI 置灰，仅允许关闭），停用即好友侧消失、重新启用恢复。0022 已把早期自动标记全部归零。与旧的成员级可写引用 `weight_member_shares`（超管「引用成员」）撞车时 SQL `NOT IN` 去重，引用形态优先。
+- `weight_members.is_self`（0023）：标记代表账号本人的成员（自动补建时置 1，存量按最早未归档成员回填，每用户至多一个）；改账号昵称（自己改 profile / 超管改用户）时 `renameSelfMember` 同步其名字，手建家人成员不跟随。成员列表分组排序：自己成员(grp0,sort_order，本人最前)→共享引用(grp1)→好友(grp2，按成为好友时间)。
+- 体重曲线图交互：默认多成员全对比（全彩实测线、无均值）；区间判断卡 chip 选中成员才显示该成员橙色均值虚线+判断，再点同一 chip 取消回全部；单成员自动选中。
 - 多用户对比仍是超管专属；普通用户没有好友对比卡/接口（曾实现后按用户意志移除）。
 
 ## 文件存储（第三存储层：R2 / 本地磁盘）
@@ -151,7 +153,7 @@ Android 端二次开发先读 **`android/DEV_GUIDE.md`**：构建环境（JDK 17
 ## 关键约定与坑
 
 1. **存储抽象不能破**：新增数据操作 → 加在 `d1-adapter.js` 对应域分组的方法上，再在 api 层调用；禁止业务层裸 SQL。
-2. **迁移 SQL 注释必须独立成行**，不要用行内 `--` 注释（splitSql 会剥整行注释，行内注释会污染语句）。`migrations/0001_init.sql` 是全量基线；老库升级**新建** `migrations/000N_描述.sql`（编号递增、三位数对齐，当前下一个是 0023），不要改已部署文件内容（`_migrations` 按文件名去重不会重跑），并务必同步登记 `src/storage/schema.js` 的 import + `MIGRATIONS`。
+2. **迁移 SQL 注释必须独立成行**，不要用行内 `--` 注释（splitSql 会剥整行注释，行内注释会污染语句）。`migrations/0001_init.sql` 是全量基线；老库升级**新建** `migrations/000N_描述.sql`（编号递增、三位数对齐，当前下一个是 0024），不要改已部署文件内容（`_migrations` 按文件名去重不会重跑），并务必同步登记 `src/storage/schema.js` 的 import + `MIGRATIONS`。
 3. **时区**：Worker 跑在 UTC，面向中国用户。全局偏移存 `app_settings.tz_offset`（默认 8），由超管在用户管理页设置。换算走 `time.service.js#parseOffset` + `schedule.service.js#nowCN`。**历史遗留**：`web/assets.js` 的 `COMMON_JS` 日期函数可能含硬编码 `+8*3600*1000`，改时区时前后端都要查。
 4. **推送格式降级**：`config.js#effectiveFormat` 自动处理——email 把 markdown 降级为 text，wechat/webhook 把 html 降级为 text。企业微信 markdown 单条 4096 字节截断。
 5. **PUBLIC_BASE_URL**：DB 设置优先，其次 `wrangler.toml` `[vars]` / 容器环境变量，最后 `request.url` origin。Docker 首次启动登录后到「系统设置」里填实际访问地址。

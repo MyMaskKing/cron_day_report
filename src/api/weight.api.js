@@ -45,7 +45,7 @@ async function listMembers({ request, env }) {
   if (dc instanceof Response) return dc;
   let members = await storage.weight.listMembers(dc.uid);
   if (members.length === 0) {
-    await storage.weight.createMember(dc.uid, (dc.owner && dc.owner.nickname) || auth.username);
+    await storage.weight.createMember(dc.uid, (dc.owner && dc.owner.nickname) || auth.username, true);
     members = await storage.weight.listMembers(dc.uid);
   }
   return json({ success: true, members });
@@ -177,14 +177,14 @@ async function weightChart({ request, env }) {
   if (dc.shared) {
     members = await storage.weight.listMembers(dc.uid);
     if (members.length === 0) {
-      await storage.weight.createMember(dc.uid, (dc.owner && dc.owner.nickname) || auth.username);
+      await storage.weight.createMember(dc.uid, (dc.owner && dc.owner.nickname) || auth.username, true);
       members = await storage.weight.listMembers(dc.uid);
     }
     records = await storage.weight.listRecords(dc.uid);
   } else {
     members = await storage.weight.listMembersWithFriends(auth.user_id);
     if (members.length === 0) {
-      await storage.weight.createMember(auth.user_id, auth.username);
+      await storage.weight.createMember(auth.user_id, auth.nickname || auth.username, true);
       members = await storage.weight.listMembersWithFriends(auth.user_id);
     }
     records = await storage.weight.listRecordsWithFriends(auth.user_id);

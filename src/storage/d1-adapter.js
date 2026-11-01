@@ -404,31 +404,40 @@ function createD1Adapter(env) {
       async findMember(id) {
         return await db.prepare('SELECT * FROM weight_members WHERE id = ?').bind(id).first();
       },
-      async createMember(userId, name) {
+      async createMember(userId, name, isSelf = false) {
         // sort_order 取该用户名下成员最大值 +1, 新成员排最后
-        // friend_visible 一律默认 0：哪个成员代表本人由用户手动对好友开放（首个成员≠本人，不可猜）
+        // friend_visible 一律默认 0；is_self 仅自动补建的本人成员为 1（手动新建都是家人）
         const res = await db.prepare(
-          'INSERT INTO weight_members (user_id, name, sort_order) ' +
-          'VALUES (?, ?, COALESCE((SELECT MAX(sort_order) FROM weight_members WHERE user_id = ?), -1) + 1)'
-        ).bind(userId, name, userId).run();
+          'INSERT INTO weight_members (user_id, name, sort_order, is_self) ' +
+          'VALUES (?, ?, COALESCE((SELECT MAX(sort_order) FROM weight_members WHERE user_id = ?), -1) + 1, ?)'
+        ).bind(userId, name, userId, isSelf ? 1 : 0).run();
         return res.meta.last_row_id;
+      },
+      // 账号昵称变更时同步本人成员名（没有本人成员则静默跳过，不顺带建成员）
+      async renameSelfMember(userId, name) {
+        await db.prepare(
+          'UPDATE weight_members SET name=? WHERE user_id=? AND is_self=1 AND archived=0'
+        ).bind(name, userId).run();
       },
       // 成员对好友可见开关（仅属主）
       async setMemberFriendVisible(id, userId, visible) {
         await db.prepare('UPDATE weight_members SET friend_visible=? WHERE id=? AND user_id=?')
           .bind(visible ? 1 : 0, id, userId).run();
       },
-      // 成为好友时确保该用户有一个对好友可见的成员（默认=最早创建的启用成员，通常即本人）；
-      // 已手动开放过成员则尊重其选择不动；没有可用成员则跳过
+      // 成为好友时确保该用户有一个对好友可见的成员：优先本人成员(is_self)，
+      // 本人缺失时兜底最早的启用成员；已手动开放过任意成员则尊重原选择不动
       async ensureSelfMemberVisible(userId) {
         await db.prepare(
           `UPDATE weight_members SET friend_visible = 1
-            WHERE user_id = ? AND archived = 0 AND disabled = 0
-              AND id = (SELECT MIN(id) FROM weight_members
-                         WHERE user_id = ? AND archived = 0 AND disabled = 0)
+            WHERE user_id = ? AND archived = 0 AND disabled = 0 AND friend_visible = 0
+              AND id = COALESCE(
+                (SELECT id FROM weight_members
+                  WHERE user_id = ? AND is_self = 1 AND archived = 0 AND disabled = 0 LIMIT 1),
+                (SELECT MIN(id) FROM weight_members
+                  WHERE user_id = ? AND archived = 0 AND disabled = 0))
               AND NOT EXISTS (SELECT 1 FROM weight_members
                                WHERE user_id = ? AND archived = 0 AND friend_visible = 1)`
-        ).bind(userId, userId, userId).run();
+        ).bind(userId, userId, userId, userId).run();
       },
       async updateMember(id, userId, name) {
         await db.prepare('UPDATE weight_members SET name=? WHERE id=? AND user_id=?').bind(name, id, userId).run();
