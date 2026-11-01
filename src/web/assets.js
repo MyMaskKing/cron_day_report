@@ -10338,10 +10338,11 @@ function todoSubtreeNextAlarm(node){
   })(node);
   return best;
 }
-// 闹钟 meta chip: 铃图标 + HH:MM, 样式复用 todo-metatxt(与重复徽章同级)
+// 闹钟 meta chip: 铃图标 + HH:MM, 胶囊标签(中性灰, 同源 .todo-chip.due.future), 不挂 due 类
+// (手风琴 hover 让位规则单独把 .todo-chip.alarm 与 due 同列, 避免与绝对定位 ops 重叠/劫持点击)
 function todoAlarmChipEl(minute){
   var el = document.createElement('span');
-  el.className = 'todo-metatxt';
+  el.className = 'todo-chip alarm';
   el.title = '闹钟 ' + todoAlarmFormat(minute);
   el.innerHTML = ICONS.bell + esc(todoAlarmFormat(minute));
   return el;

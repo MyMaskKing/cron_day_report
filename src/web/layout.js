@@ -1473,6 +1473,9 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-chip.due.soon { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 .todo-chip.due.future { background: var(--surface-2); color: var(--link-dim); }
 .todo-chip.due .due-days { opacity: .72; font-weight: 500; }
+/* 闹钟标签: 中性灰胶囊, 配色同源 due.future(语义不同于日期, 不挂 due 类) */
+.todo-chip.alarm { background: var(--surface-2); color: var(--link-dim); }
+.todo-chip.alarm svg { width: 12px; height: 12px; }
 /* child_due「子任务各自设置截止日期」模式标识 —— 鼠尾草绿低唤醒语言(浅底深字细边, 无渐变白字块):
    主任务(根)=浅绿底贴(卡片右上角贴/树行尾贴/面包屑/详情信息行); 中间层子分组=透明底描边胶囊 */
 .todo-cd-ribbon {
@@ -1572,6 +1575,7 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
 .todo-acc__leafname:hover:not(:active) { color: var(--brand-text); }
 .todo-acc__leafrow.done .todo-acc__leafname { color: var(--muted); text-decoration: line-through; }
 .todo-acc__leafrow .todo-chip.due { align-self: center; }
+.todo-acc__leafrow .todo-chip.alarm { align-self: center; }
 .todo-acc__leafrow .todo-acc__dot { align-self: center; }
 /* 桌面：操作组绝对定位贴右（不占流，标题空间最大化），平时透明，悬停行才浮现 */
 @media (min-width: 641px) {
@@ -1590,7 +1594,9 @@ body:not(.todo-detail) .todo-tree .todo-row.is-root .todo-chip.due.today {
    绝对定位的 .todo-ops 之上，透明却劫持点击，导致点眼睛/分享/删除落到整行误进详情。 */
 @media (min-width: 641px) {
   .todo-acc__row:hover:not(:active) .todo-chip.due,
-  .todo-acc__leafrow:hover:not(:active) .todo-chip.due { opacity: 0; pointer-events: none; }
+  .todo-acc__leafrow:hover:not(:active) .todo-chip.due,
+  .todo-acc__row:hover:not(:active) .todo-chip.alarm,
+  .todo-acc__leafrow:hover:not(:active) .todo-chip.alarm { opacity: 0; pointer-events: none; }
 }
 /* 拖拽浮起（对齐老树 .todo-node.dragging > .todo-row） */
 .todo-node.dragging > .todo-acc__row,
