@@ -5723,8 +5723,8 @@ function renderMembers(list) {
     var sharedTag = m.shared ? ' <span class="tag user" style="padding:0 6px;border-radius:8px;font-size:11px;">共享</span>' : '';
     var friendTag = m.friend ? ' <span class="tag" style="padding:0 6px;border-radius:8px;font-size:11px;background:var(--hover-brand);color:var(--brand-text);">好友</span>' : '';
     var offTag = m.disabled ? ' <span class="tag" style="background:var(--surface-2);color:var(--muted);padding:0 6px;border-radius:8px;font-size:11px;">已停用</span>' : '';
-    // 自己的成员已对好友可见时加小眼睛提示
-    var visMark = (!m.shared && !m.friend && m.friend_visible) ? ' <span title="对好友可见" style="font-size:11px;">👁</span>' : '';
+    // 自己的启用成员已对好友可见时加小眼睛提示（停用中好友本就看不到，不显示以免误解）
+    var visMark = (!m.shared && !m.friend && !m.disabled && m.friend_visible) ? ' <span title="对好友可见" style="font-size:11px;">👁</span>' : '';
     var nameStyle = m.disabled ? 'color:var(--muted);text-decoration:line-through;' : 'color:inherit;';
     // 已停用 / 好友成员不可录入：名字渲染为不可点击的纯文本（共享引用 shared 仍可写，保持可点）
     var clickable = !m.disabled && !m.friend;
@@ -6167,10 +6167,19 @@ async function openFriendPanel() {
   // 我的成员对好友可见开关：默认全部关闭，由本人显式开放代表自己的成员
   var myMembers = members.filter(function(m){ return !m.shared && !m.friend && !m.archived; });
   var memHtml = myMembers.length ? myMembers.map(function(m){
+    // 停用成员不能对好友开放：已开放的允许直接关闭，未开放的只显示「已停用」（先启用才能开放）
+    var action;
+    if (m.disabled) {
+      action = m.friend_visible
+        ? '<button class="btn sm" onclick="fSetVisible(' + m.id + ',0)">🙈 对好友隐藏</button>'
+        : '<span class="muted" style="font-size:12px;">已停用，先启用才能开放</span>';
+    } else {
+      action = '<button class="btn sm ' + (m.friend_visible ? '' : 'gray') + '" onclick="fSetVisible(' + m.id + ',' + (m.friend_visible ? 0 : 1) + ')">' +
+        (m.friend_visible ? '✅ 好友可见' : '对好友开放') + '</button>';
+    }
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">' +
       '<span>' + esc(m.name) + (m.disabled ? ' <span class="muted" style="font-size:12px;">(已停用)</span>' : '') + '</span>' +
-      '<button class="btn sm ' + (m.friend_visible ? '' : 'gray') + '" onclick="fSetVisible(' + m.id + ',' + (m.friend_visible ? 0 : 1) + ')">' +
-      (m.friend_visible ? '✅ 好友可见' : '对好友开放') + '</button></div>';
+      action + '</div>';
   }).join('') : '<p class="muted" style="margin:4px 0 0;">你还没有成员。</p>';
   var visibleCount = myMembers.filter(function(m){ return m.friend_visible; }).length;
   var flist = (d.friends || []).map(function(f){
