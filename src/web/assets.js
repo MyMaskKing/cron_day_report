@@ -5693,7 +5693,10 @@ function applyFilter() {
   });
   // 曲线/记录表只统计启用成员（停用成员历史数据保留但不展示）
   var active = members.filter(function(m){ return !m.disabled; });
-  drawChart(active, filtered);
+  // 选中态校正：选中成员失效（停用/删除/好友停用）→ 回全部对比态；仅 1 个启用成员时自动选中
+  if (wInsightMid != null && !active.some(function(m){ return m.id === wInsightMid; })) wInsightMid = null;
+  if (wInsightMid == null && active.length === 1) wInsightMid = active[0].id;
+  drawChart(active, filtered, wInsightMid);
   renderRecordTable(active, filtered);
   renderWeightInsight(active, filtered);
 }
@@ -5749,28 +5752,35 @@ function renderMemberSelect(list) {
   sel.innerHTML = list.map(function(m){ return '<option value="' + m.id + '">' + esc(m.name) + '</option>'; }).join('');
   if (cur) sel.value = cur; // 保持选择, 默认第一个(浏览器默认选中首项)
 }
-function drawChart(mlist, records) {
+// selectedMid=null 且成员>1：全部成员对比模式（全彩实测线，不画均值）；
+// selectedMid 有值（单成员自动选中/手动 chip 选中）：聚焦该成员——其实测线实色加粗、
+// 附橙色均值虚线，其余成员实测线淡化。_mid/_avg/_color 供联动识别（Chart.js 忽略未知字段）
+function drawChart(mlist, records, selectedMid) {
   var byMember = {};
-  mlist.forEach(function(m){ byMember[m.id] = { name: m.name, data: {} }; });
+  mlist.forEach(function(m){ byMember[m.id] = { name: mdName(m), data: {} }; });
   var dates = {};
   records.forEach(function(r){ if (byMember[r.member_id]) { byMember[r.member_id].data[r.record_date] = toDisplay(r.weight); dates[r.record_date] = 1; } });
   var labels = Object.keys(dates).sort();
-  // 每个成员：实线=实测，同色虚线=当前区间平均体重基准（随区间重算；legend 只列成员，虚线含义在报告卡说明）
-  // _mid/_avg/_color 供成员联动高亮使用（Chart.js 忽略未知字段）
+  var focusMid = selectedMid != null ? selectedMid : (mlist.length === 1 ? mlist[0].id : null);
   var datasets = [];
   mlist.forEach(function(m, i){
     var color = COLORS[i % COLORS.length];
     var series = labels.map(function(d){ var v = byMember[m.id].data[d]; return v != null ? v : null; });
     var mLabel = mdName(m);
+    var focused = focusMid != null && m.id === focusMid;
     datasets.push({ label: mLabel, data: series, _mid: m.id, _avg: false, _color: color,
-      borderColor: color, backgroundColor: color, spanGaps: true, tension: .3,
-      borderWidth: 2, pointRadius: 0, pointHitRadius: 14 });
-    var have = series.filter(function(v){ return v != null; });
-    if (have.length) {
-      var mavg = Math.round(have.reduce(function(s, v){ return s + v; }, 0) / have.length * 10) / 10;
-      datasets.push({ label: mLabel + ' 均值', data: labels.map(function(){ return mavg; }),
-        _mid: m.id, _avg: true, _color: color,
-        borderColor: color, borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, fill: false });
+      borderColor: focusMid == null || focused ? color : 'rgba(150,156,170,.35)',
+      backgroundColor: color, spanGaps: true, tension: .3,
+      borderWidth: focused ? 2.4 : 2, pointRadius: 0, pointHitRadius: 14 });
+    // 均值虚线只属于聚焦成员（全部对比模式不画任何均值）
+    if (focused) {
+      var have = series.filter(function(v){ return v != null; });
+      if (have.length) {
+        var mavg = Math.round(have.reduce(function(s, v){ return s + v; }, 0) / have.length * 10) / 10;
+        datasets.push({ label: mLabel + ' 均值', data: labels.map(function(){ return mavg; }),
+          _mid: m.id, _avg: true, _color: color,
+          borderColor: '#f97316', borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, fill: false });
+      }
     }
   });
   if (wChart) wChart.destroy();
@@ -5779,23 +5789,8 @@ function drawChart(mlist, records) {
     options: { plugins: { legend: { position: 'top', filter: function(item){ return (item.text || '').indexOf(' 均值') === -1; } } }, scales: { y: { title: { display: true, text: '体重(' + unitLabel() + ')' } } } } });
 }
 
-// 区间判断（报告视图）当前选中的成员；多成员时卡内 chip 切换，单成员隐藏
+// 区间判断（报告视图）当前选中的成员；null=全部成员对比态；多成员时卡内 chip 切换/再点取消
 var wInsightMid = null, _wCtx = null;   // _wCtx 保存最近一次渲染上下文，供 chip 委托点击使用（避免持有旧闭包）
-// 多成员联动：选中成员实测线用其成员色高亮，其均值基准线统一橙色虚线（与基金/资产基准线同语言）；
-// 其他成员实测线淡化、均值线隐藏。单成员时实测线正常，均值线同样为橙色虚线
-function applyWeightHighlight(mid, multi) {
-  if (!wChart) return;
-  wChart.data.datasets.forEach(function(ds){
-    if (ds._mid == null) return;
-    var on = !multi || ds._mid === mid;
-    if (ds._avg) ds.borderColor = on ? '#f97316' : 'transparent';
-    else {
-      ds.borderColor = on ? ds._color : 'rgba(150,156,170,.35)';
-      ds.borderWidth = on ? 2 : 1.5;
-    }
-  });
-  wChart.update('none');
-}
 /**
  * 体重区间判断：最新体重 vs 区间均值 + 较昨日/上周/上月 + 区间基准。
  * 体重方向不做好坏评判，差值用中性色 + ↑/↓ 箭头；周/月对比取全量记录就近基准日。
@@ -5806,30 +5801,36 @@ function renderWeightInsight(mlist, filtered) {
   _wCtx = { mlist: mlist, filtered: filtered };
   var box = document.getElementById('wInsight');
   if (!box) return;
-  if (!mlist.length || !filtered.length) { box.innerHTML = ''; wInsightMid = null; return; }
   var sortAsc = function(a){ return a.slice().sort(function(x, y){ return x.record_date < y.record_date ? -1 : 1; }); };
   var recsOf = function(list, mid){ return sortAsc(list.filter(function(r){ return r.member_id === mid; })); };
+  // 选中成员已失效（停用/删除/好友停用）→ 回全部对比态
+  if (wInsightMid != null && !mlist.some(function(m){ return m.id === wInsightMid; })) wInsightMid = null;
   if (!mlist.length) { box.innerHTML = ''; wInsightMid = null; return; }
-  if (!mlist.some(function(m){ return m.id === wInsightMid; })) {
-    // 默认取区间内最新记录所属成员；该成员不在启用列表（停用/归档/好友已停用，记录可能残留）
-    // 时回退到启用列表内有记录的成员；都没记录则取第一个（显示空态，仍可切换）
-    var activeIdMap = {};
-    mlist.forEach(function(x){ activeIdMap[x.id] = 1; });
-    var inList = filtered.filter(function(r){ return activeIdMap[r.member_id]; })
-      .sort(function(a, b){ return a.record_date < b.record_date ? 1 : -1; });
-    wInsightMid = inList.length ? inList[0].member_id : mlist[0].id;
+  // 成员 chips：二次点击取消选择；全部态无 on
+  var chipsHtml = function(mid) {
+    if (mlist.length <= 1) return '';
+    return '<div class="jn-members">' + mlist.map(function(x){
+      return '<button type="button" data-mid="' + x.id + '"' + (x.id === mid ? ' class="on"' : '') + '>' + esc(mdName(x)) + '</button>';
+    }).join('') + '</div>';
+  };
+  // 多成员且未选中：全部成员对比态，引导卡（不显示任何人的均值/判断）
+  if (wInsightMid == null && mlist.length > 1) {
+    box.innerHTML =
+      '<div class="jn"><div class="jn-head"><div><h3>区间判断 · 全部成员</h3>' +
+      '<div class="jn-sub">正在对比 ' + mlist.length + ' 位成员的体重曲线（对比模式不显示均值）。点击某位成员查看其区间判断与均值基准，再次点击同一成员可取消返回对比。</div></div>' +
+      chipsHtml(null) + '</div></div>';
+    bindWeightChips(box, mlist, filtered);
+    return;
   }
+  // 单成员：自动聚焦（只有一位时对比态无意义）
+  if (wInsightMid == null) wInsightMid = mlist[0].id;
   var m = mlist.filter(function(x){ return x.id === wInsightMid; })[0];
   if (!m) { box.innerHTML = ''; wInsightMid = null; return; }
-  // 选中成员在当前区间无记录：渲染空态卡（保留成员切换）
+  // 选中成员在当前区间无记录：渲染空态卡（保留成员切换/取消）
   if (!recsOf(filtered, m.id).length) {
-    var chipsEmpty = mlist.length > 1 ? '<div class="jn-members">' + mlist.map(function(x){
-      return '<button type="button" data-mid="' + x.id + '"' + (x.id === wInsightMid ? ' class="on"' : '') + '>' + esc(mdName(x)) + '</button>';
-    }).join('') + '</div>' : '';
     box.innerHTML = '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(mdName(m)) + '</h3>' +
-      '<div class="jn-sub">当前区间内暂无该成员的体重记录</div></div>' + chipsEmpty + '</div></div>';
+      '<div class="jn-sub">当前区间内暂无该成员的体重记录</div></div>' + chipsHtml(m.id) + '</div></div>';
     bindWeightChips(box, mlist, filtered);
-    applyWeightHighlight(wInsightMid, mlist.length > 1);
     return;
   }
   var recs = recsOf(filtered, m.id);               // 区间内（升序）
@@ -5880,9 +5881,7 @@ function renderWeightInsight(mlist, filtered) {
       '<div class="jn-delta__v"><span class="ar" style="color:var(--muted)">' + ar + '</span>' + sign1(d) + U() + '</div>' +
       '<div class="jn-delta__s">' + md(ref.record_date) + ' · ' + toDisplay(ref.weight) + U() + '</div></div>';
   }
-  var chips = mlist.length > 1 ? '<div class="jn-members">' + mlist.map(function(x){
-    return '<button type="button" data-mid="' + x.id + '"' + (x.id === wInsightMid ? ' class="on"' : '') + '>' + esc(x.name) + '</button>';
-  }).join('') + '</div>' : '';
+  var chips = chipsHtml(m.id);
   var hi = vals.indexOf(Math.max.apply(null, vals)), lo = vals.indexOf(Math.min.apply(null, vals));
   // 副标题：统计区间（跟随上方筛选）+ 虚线归属
   var allDates = filtered.map(function(r){ return r.record_date; }).sort();
@@ -5907,16 +5906,17 @@ function renderWeightInsight(mlist, filtered) {
         metric('记录天数', recs.length + ' 天') +
       '</div></div>';
 
-  // 与曲线图联动：多成员时只突出当前成员及其均值虚线
-  applyWeightHighlight(wInsightMid, mlist.length > 1);
   bindWeightChips(box, mlist, filtered);
 }
 
 // 成员 chip 直接绑定（每次 innerHTML 重建后重绑；不用委托，避免动态容器在部分 WebView 的事件差异）
+// 二次点击同一成员 → 取消选择回全部对比态（曲线图需重建以增删均值线）
 function bindWeightChips(box, mlist, filtered) {
   Array.prototype.forEach.call(box.querySelectorAll('button[data-mid]'), function(btn){
     btn.addEventListener('click', function(){
-      wInsightMid = parseInt(btn.getAttribute('data-mid'), 10);
+      var id = parseInt(btn.getAttribute('data-mid'), 10);
+      wInsightMid = (wInsightMid === id) ? null : id;
+      drawChart(mlist, filtered, wInsightMid);
       renderWeightInsight(mlist, filtered);
     });
   });

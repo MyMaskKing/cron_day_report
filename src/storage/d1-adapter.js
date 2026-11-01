@@ -602,28 +602,35 @@ function createD1Adapter(env) {
         ).bind(userId, token).run();
       },
       // 成员列表（含好友可见成员，只读）：自己拥有 ∪ shares 引用 ∪ 好友 friend_visible=1 成员
+      // 分组排序：grp 0=自己的成员(按手动 sort_order，默认即添加顺序，登录者本人在最前)
+      //          grp 1=shares 共享引用成员  grp 2=好友成员(按成为好友的时间，同好友内按成员 id)
       // 好友行附 friend=1/owner_id/owner_nick；停用的好友成员不展示；shares 已引用的不重复
       async listMembersWithFriends(userId) {
         const friendIds = await this.friendIdSet(userId);
         if (friendIds.length === 0) return await this.listMembers(userId);
         const marks = friendIds.map(() => '?').join(',');
         const { results } = await db.prepare(
-          `SELECT m.*, 0 AS shared, 0 AS friend, NULL AS owner_id, NULL AS owner_nick
+          `SELECT m.*, 0 AS shared, 0 AS friend, NULL AS owner_id, NULL AS owner_nick,
+                  0 AS grp, m.sort_order AS sort_key, NULL AS friend_since
              FROM weight_members m WHERE m.user_id = ? AND m.archived = 0
            UNION
-           SELECT m.*, 1 AS shared, 0 AS friend, NULL AS owner_id, NULL AS owner_nick
+           SELECT m.*, 1 AS shared, 0 AS friend, NULL AS owner_id, NULL AS owner_nick,
+                  1 AS grp, m.sort_order AS sort_key, NULL AS friend_since
              FROM weight_members m
              JOIN weight_member_shares s ON s.member_id = m.id
             WHERE s.user_id = ? AND m.archived = 0
            UNION
            SELECT m.*, 0 AS shared, 1 AS friend, u.id AS owner_id,
-                  COALESCE(NULLIF(u.nickname, ''), u.username) AS owner_nick
+                  COALESCE(NULLIF(u.nickname, ''), u.username) AS owner_nick,
+                  2 AS grp, m.id AS sort_key, f.created_at AS friend_since
              FROM weight_members m JOIN users u ON u.id = m.user_id
+             JOIN weight_friends f
+               ON (f.user_a = ? AND f.user_b = m.user_id) OR (f.user_b = ? AND f.user_a = m.user_id)
             WHERE m.archived = 0 AND m.disabled = 0 AND m.friend_visible = 1
               AND m.user_id IN (${marks})
               AND m.id NOT IN (SELECT member_id FROM weight_member_shares WHERE user_id = ?)
-            ORDER BY sort_order, id`
-        ).bind(userId, userId, ...friendIds, userId).all();
+            ORDER BY grp, friend_since, sort_key, id`
+        ).bind(userId, userId, userId, userId, ...friendIds, userId).all();
         return results || [];
       },
       // 记录集合（含好友可见成员），供体重页图表；推送仍走旧 listRecords 不含好友
