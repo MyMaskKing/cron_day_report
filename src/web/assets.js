@@ -5693,12 +5693,36 @@ function applyFilter() {
   });
   // 曲线/记录表只统计启用成员（停用成员历史数据保留但不展示）
   var active = members.filter(function(m){ return !m.disabled; });
-  // 选中态校正：选中成员失效（停用/删除/好友停用）→ 回全部对比态；仅 1 个启用成员时自动选中
-  if (wInsightMid != null && !active.some(function(m){ return m.id === wInsightMid; })) wInsightMid = null;
-  if (wInsightMid == null && active.length === 1) wInsightMid = active[0].id;
-  drawChart(active, filtered, wInsightMid);
-  renderRecordTable(active, filtered);
-  renderWeightInsight(active, filtered);
+  // 本人成员（is_self，兜底自己拥有的第一个）：默认/点「自己」时区间判断与历史记录的对象
+  var selfM = active.filter(function(m){ return m.is_self && !m.friend && !m.shared; })[0]
+    || active.filter(function(m){ return !m.friend && !m.shared; })[0]
+    || active[0] || null;
+  var selfId = selfM ? selfM.id : null;
+  // 区间判断/历史记录选择失效（停用/删除/好友停用）→ 回本人；曲线聚焦失效 → 回全部对比
+  if (wInsightMid != null && !active.some(function(m){ return m.id === wInsightMid; })) wInsightMid = selfId;
+  if (wInsightMid == null) wInsightMid = selfId;
+  if (wChartFocus != null && !active.some(function(m){ return m.id === wChartFocus; })) wChartFocus = null;
+  drawChart(active, filtered, wChartFocus);
+  // 历史记录跟随曲线焦点：null=全部成员，选中成员=只看该成员
+  renderRecordTable(active, filtered, wChartFocus);
+  renderWeightInsight(active, filtered, wInsightMid, selfId);
+}
+// chip 选择后统一重绘三处（曲线/区间判断/历史记录）
+function redrawWeightViews() {
+  var f = document.getElementById('fStart').value;
+  var e = document.getElementById('fEnd').value;
+  var filtered = allRecords.filter(function(r){
+    if (f && r.record_date < f) return false;
+    if (e && r.record_date > e) return false;
+    return true;
+  });
+  var active = members.filter(function(m){ return !m.disabled; });
+  drawChart(active, filtered, wChartFocus);
+  var selfM = active.filter(function(m){ return m.is_self && !m.friend && !m.shared; })[0]
+    || active.filter(function(m){ return !m.friend && !m.shared; })[0]
+    || active[0] || null;
+  renderRecordTable(active, filtered, wChartFocus);
+  renderWeightInsight(active, filtered, wInsightMid, selfM ? selfM.id : null);
 }
 
 async function loadAll() {
@@ -5789,52 +5813,46 @@ function drawChart(mlist, records, selectedMid) {
     options: { plugins: { legend: { position: 'top', filter: function(item){ return (item.text || '').indexOf(' 均值') === -1; } } }, scales: { y: { title: { display: true, text: '体重(' + unitLabel() + ')' } } } } });
 }
 
-// 区间判断（报告视图）当前选中的成员；null=全部成员对比态；多成员时卡内 chip 切换/再点取消
-var wInsightMid = null, _wCtx = null;   // _wCtx 保存最近一次渲染上下文，供 chip 委托点击使用（避免持有旧闭包）
+// wInsightMid：区间判断/历史记录当前成员（默认本人 is_self，永不为 null——无成员时空态）
+// wChartFocus：曲线聚焦成员；null=全部成员对比（点「自己」时的状态：曲线全部、判断/记录看本人）
+var wInsightMid = null, wChartFocus = null, _wCtx = null;
 /**
  * 体重区间判断：最新体重 vs 区间均值 + 较昨日/上周/上月 + 区间基准。
  * 体重方向不做好坏评判，差值用中性色 + ↑/↓ 箭头；周/月对比取全量记录就近基准日。
  * @param {Array} mlist - 启用成员
  * @param {Array} filtered - 当前区间内记录
  */
-function renderWeightInsight(mlist, filtered) {
+function renderWeightInsight(mlist, filtered, mid, selfId) {
   _wCtx = { mlist: mlist, filtered: filtered };
   var box = document.getElementById('wInsight');
   if (!box) return;
   var sortAsc = function(a){ return a.slice().sort(function(x, y){ return x.record_date < y.record_date ? -1 : 1; }); };
-  var recsOf = function(list, mid){ return sortAsc(list.filter(function(r){ return r.member_id === mid; })); };
-  // 选中成员已失效（停用/删除/好友停用）→ 回全部对比态
-  if (wInsightMid != null && !mlist.some(function(m){ return m.id === wInsightMid; })) wInsightMid = null;
-  if (!mlist.length) { box.innerHTML = ''; wInsightMid = null; return; }
-  // 成员 chips：二次点击取消选择；全部态无 on
-  var chipsHtml = function(mid) {
+  var recsOf = function(list, memberId){ return sortAsc(list.filter(function(r){ return r.member_id === memberId; })); };
+  if (!mlist.length || mid == null) { box.innerHTML = ''; return; }
+  // chips：「自己」=曲线全部对比+判断看本人；成员按钮=曲线/判断/历史都聚焦该成员
+  var chipsHtml = function() {
     if (mlist.length <= 1) return '';
-    return '<div class="jn-members">' + mlist.map(function(x){
-      return '<button type="button" data-mid="' + x.id + '"' + (x.id === mid ? ' class="on"' : '') + '>' + esc(mdName(x)) + '</button>';
+    var selfOn = wChartFocus == null ? ' class="on"' : '';
+    var selfBtn = selfId != null
+      ? '<button type="button" data-self="1" data-self-id="' + selfId + '"' + selfOn + '>全部</button>'
+      : '';
+    return '<div class="jn-members">' + selfBtn + mlist.map(function(x){
+      return '<button type="button" data-mid="' + x.id + '"' + (wChartFocus === x.id ? ' class="on"' : '') + '>' + esc(mdName(x)) + '</button>';
     }).join('') + '</div>';
   };
-  // 多成员且未选中：全部成员对比态，引导卡（不显示任何人的均值/判断）
-  if (wInsightMid == null && mlist.length > 1) {
-    box.innerHTML =
-      '<div class="jn"><div class="jn-head"><div><h3>区间判断 · 全部成员</h3>' +
-      '<div class="jn-sub">正在对比 ' + mlist.length + ' 位成员的体重曲线（对比模式不显示均值）。点击某位成员查看其区间判断与均值基准，再次点击同一成员可取消返回对比。</div></div>' +
-      chipsHtml(null) + '</div></div>';
+  var m = mlist.filter(function(x){ return x.id === mid; })[0];
+  if (!m) { box.innerHTML = ''; return; }
+  // 全部态（点「全部」/默认）判断对象是本人成员，标题标「（默认）」
+  var defTag = (wChartFocus == null && mid === selfId) ? '（默认）' : '';
+  // 选中成员在当前区间无记录：渲染空态卡（保留成员切换）
+  if (!recsOf(filtered, mid).length) {
+    box.innerHTML = '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(mdName(m)) + defTag + '</h3>' +
+      '<div class="jn-sub">当前区间内暂无该成员的体重记录</div></div>' + chipsHtml() + '</div></div>';
     bindWeightChips(box, mlist, filtered);
     return;
   }
-  // 单成员：自动聚焦（只有一位时对比态无意义）
-  if (wInsightMid == null) wInsightMid = mlist[0].id;
-  var m = mlist.filter(function(x){ return x.id === wInsightMid; })[0];
-  if (!m) { box.innerHTML = ''; wInsightMid = null; return; }
-  // 选中成员在当前区间无记录：渲染空态卡（保留成员切换/取消）
-  if (!recsOf(filtered, m.id).length) {
-    box.innerHTML = '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(mdName(m)) + '</h3>' +
-      '<div class="jn-sub">当前区间内暂无该成员的体重记录</div></div>' + chipsHtml(m.id) + '</div></div>';
-    bindWeightChips(box, mlist, filtered);
-    return;
-  }
-  var recs = recsOf(filtered, m.id);               // 区间内（升序）
-  var allM = recsOf(allRecords, m.id);             // 全量（升序，周月对比用）
+  var recs = recsOf(filtered, mid);                // 区间内（升序）
+  var allM = recsOf(allRecords, mid);              // 全量（升序，周月对比用）
   var vals = recs.map(function(r){ return toDisplay(r.weight); });
   var round1 = function(n){ return Math.round(n * 10) / 10; };
   var avg = round1(vals.reduce(function(s, v){ return s + v; }, 0) / vals.length);
@@ -5881,15 +5899,17 @@ function renderWeightInsight(mlist, filtered) {
       '<div class="jn-delta__v"><span class="ar" style="color:var(--muted)">' + ar + '</span>' + sign1(d) + U() + '</div>' +
       '<div class="jn-delta__s">' + md(ref.record_date) + ' · ' + toDisplay(ref.weight) + U() + '</div></div>';
   }
-  var chips = chipsHtml(m.id);
+  var chips = chipsHtml();
   var hi = vals.indexOf(Math.max.apply(null, vals)), lo = vals.indexOf(Math.min.apply(null, vals));
-  // 副标题：统计区间（跟随上方筛选）+ 虚线归属
+  // 副标题：统计区间（跟随上方筛选）+ 虚线归属；「自己」态曲线为全部对比、不显示均值线
   var allDates = filtered.map(function(r){ return r.record_date; }).sort();
   var rangeText = allDates.length ? md(allDates[0]) + ' – ' + md(allDates[allDates.length - 1]) : '';
-  var sub = rangeText + '（跟随上方时间区间）· 图中橙色虚线=「' + esc(mdName(m)) + '」的区间平均体重';
+  var sub = (wChartFocus == null)
+    ? rangeText + '（跟随上方时间区间）· 曲线为全部成员对比；点成员名聚焦，点「全部」返回'
+    : rangeText + '（跟随上方时间区间）· 图中橙色虚线=「' + esc(mdName(m)) + '」的区间平均体重';
 
   box.innerHTML =
-    '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(mdName(m)) + '</h3>' +
+    '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(mdName(m)) + defTag + '</h3>' +
       '<div class="jn-sub">' + sub + '</div></div>' + chips + '</div>' +
       '<div class="jn-hero"><div class="jn-hero__num">' + sign1(hero) + U() + '</div>' +
       '<div class="jn-hero__calc">最新 ' + latestV + U() + '（' + md(latest.record_date) + '）· 区间均值 ' + avg + U() + '</div></div>' +
@@ -5909,22 +5929,32 @@ function renderWeightInsight(mlist, filtered) {
   bindWeightChips(box, mlist, filtered);
 }
 
-// 成员 chip 直接绑定（每次 innerHTML 重建后重绑；不用委托，避免动态容器在部分 WebView 的事件差异）
-// 二次点击同一成员 → 取消选择回全部对比态（曲线图需重建以增删均值线）
+// chip 绑定（每次 innerHTML 重建后重绑；不用委托，避免动态容器在部分 WebView 的事件差异）
+// 「自己」=全部态：曲线全部对比(无均值)、判断卡看本人、历史记录全部；
+// 成员按钮=聚焦态：曲线只突出该成员+均值、判断卡与历史记录都只看该成员
 function bindWeightChips(box, mlist, filtered) {
+  var selfBtn = box.querySelector('button[data-self]');
+  if (selfBtn) selfBtn.addEventListener('click', function(){
+    var selfId = parseInt(selfBtn.getAttribute('data-self-id'), 10);
+    wChartFocus = null;
+    wInsightMid = selfId;
+    redrawWeightViews();
+  });
   Array.prototype.forEach.call(box.querySelectorAll('button[data-mid]'), function(btn){
     btn.addEventListener('click', function(){
       var id = parseInt(btn.getAttribute('data-mid'), 10);
-      wInsightMid = (wInsightMid === id) ? null : id;
-      drawChart(mlist, filtered, wInsightMid);
-      renderWeightInsight(mlist, filtered);
+      wChartFocus = id;
+      wInsightMid = id;
+      redrawWeightViews();
     });
   });
 }
-function renderRecordTable(mlist, records) {
+function renderRecordTable(mlist, records, focusMid) {
   var nameOf = {}; mlist.forEach(function(m){ nameOf[m.id] = mdName(m); });
   var friendOf = {}; mlist.forEach(function(m){ friendOf[m.id] = !!m.friend; });
   var tb = document.getElementById('recTbody');
+  // 跟随 chip 选择：聚焦某成员时只看该成员；null（点「自己」/默认）=全部成员
+  if (focusMid != null) records = records.filter(function(r){ return r.member_id === focusMid; });
   // 计算每条记录较同成员上一条(时间更早)的增减：按成员分组升序算差值, 存 id->delta
   var deltaOf = {};
   var byMember = {};
