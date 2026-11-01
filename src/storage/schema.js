@@ -34,6 +34,7 @@ import sql0018 from '../../migrations/0018_fund_archive_event_unique.sql';
 import sql0019 from '../../migrations/0019_todo_view_opts.sql';
 import sql0020 from '../../migrations/0020_user_email.sql';
 import sql0021 from '../../migrations/0021_weight_friends.sql';
+import sql0022 from '../../migrations/0022_weight_friend_visible_default_off.sql';
 
 // 显式迁移登记表：[文件名, SQL 文本]，数组顺序即执行顺序（新增 000N 时在此追加）
 const MIGRATIONS = [
@@ -57,7 +58,8 @@ const MIGRATIONS = [
   ['0018_fund_archive_event_unique.sql', sql0018],
   ['0019_todo_view_opts.sql', sql0019],
   ['0020_user_email.sql', sql0020],
-  ['0021_weight_friends.sql', sql0021]
+  ['0021_weight_friends.sql', sql0021],
+  ['0022_weight_friend_visible_default_off.sql', sql0022]
 ];
 
 const MIGRATIONS_TABLE_SQL = `

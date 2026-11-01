@@ -42,7 +42,7 @@ import {
   listMembers, createMember, updateMember, reorderMembers, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
   publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers, adminShareMember,
-  friendInvite, listFriends, acceptFriend, removeFriend, friendChart,
+  friendInvite, listFriends, acceptFriend, removeFriend,
   getUnit, setUnit
 } from './api/weight.api.js';
 import {
@@ -257,7 +257,6 @@ router.post('/api/weight/friend-invite', friendInvite);
 router.get('/api/weight/friends', listFriends);
 router.post('/api/weight/friends/accept', acceptFriend);
 router.delete('/api/weight/friends/:uid', removeFriend);
-router.get('/api/weight/friend-chart', friendChart);
 router.get('/api/public/weight/:token', publicMemberInfo);
 router.post('/api/public/weight/:token', publicSubmitWeight);
 router.get('/api/public/weight-report/:token', publicWeightReport);

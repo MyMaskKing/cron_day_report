@@ -854,14 +854,6 @@ function weightPage(user) {
       <button class="btn" id="cmpRun">生成对比曲线</button>
       <canvas id="compareChart" style="max-height:340px;margin-top:14px;"></canvas>
     </div>
-
-    <div class="card" id="friendCompareCard">
-      <h2>好友对比</h2>
-      <p class="muted" style="margin-top:-4px;">与体重好友同图 PK：仅显示各自标记为「对好友可见」的成员。邀请好友在「成员 → 👥 好友」中生成链接。</p>
-      <div id="fcmpUsers" style="margin-bottom:10px;"></div>
-      <button class="btn" id="fcmpRun">生成对比曲线</button>
-      <canvas id="friendCompareChart" style="max-height:340px;margin-top:14px;"></canvas>
-    </div>
   </div>`;
   return renderPage({ title: '体重曲线', body, scripts: ['page-weight.js'], theme: user.theme });
 }

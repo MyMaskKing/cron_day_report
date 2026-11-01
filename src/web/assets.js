@@ -420,6 +420,8 @@ var ICONS = {
   child_due_frame: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><rect x="1.2" y="1.2" width="21.6" height="21.6" rx="6"/><g stroke-width="2.2" transform="translate(12 12) scale(.7) translate(-12 -12)"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.9a4 4 0 0 0-1.176-2.828L3 3"/><path d="m22 3-7.824 7.252A4 4 0 0 0 13 13.1"/></g></svg>',
   // 重复: 环形箭头, 用于 repeat chip / form 提示
   repeat: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+  // 闹钟铃铛: 待办各视图闹钟 chip(铃 + HH:MM), path 与表单 #tfAlarmBtn 的 SVG_BELL 同源
+  bell: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
   // 分支线: 用于 child_due「子任务各自设置截止日期」模式标识(尺寸由 .todo-cd-* 类控制)
   branch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>',
   // 折叠箭头(细线 chevron): 手风琴分组行, 折叠态由 CSS 旋转 svg
@@ -5724,14 +5726,22 @@ function renderMembers(list) {
     // 自己的成员已对好友可见时加小眼睛提示
     var visMark = (!m.shared && !m.friend && m.friend_visible) ? ' <span title="对好友可见" style="font-size:11px;">👁</span>' : '';
     var nameStyle = m.disabled ? 'color:var(--muted);text-decoration:line-through;' : 'color:inherit;';
+    // 已停用 / 好友成员不可录入：名字渲染为不可点击的纯文本（共享引用 shared 仍可写，保持可点）
+    var clickable = !m.disabled && !m.friend;
+    var nameHtml = clickable
+      ? '<a href="#" onclick="selMember(' + m.id + ');return false;" style="' + nameStyle + 'text-decoration:none;">' + esc(mdName(m)) + '</a>'
+      : '<span title="' + (m.friend ? '好友成员，仅可查看' : '成员已停用') + '" style="' + nameStyle + 'cursor:default;">' + esc(mdName(m)) + '</span>';
     return '<span class="tag user" style="margin:2px 4px;padding:4px 10px;' + (m.disabled ? 'opacity:.75;' : '') + '">' +
-      '<a href="#" onclick="selMember(' + m.id + ');return false;" style="' + nameStyle + 'text-decoration:none;">' + esc(mdName(m)) + '</a>' + sharedTag + friendTag + visMark + offTag +
+      nameHtml + sharedTag + friendTag + visMark + offTag +
       ' <a href="#" title="更多操作" onclick="mMenu(' + m.id + ');return false;" style="margin-left:4px;color:var(--muted);font-weight:bold;text-decoration:none;">⋯</a></span>';
   }).join('') || '<span class="muted">暂无成员</span>';
 }
 function selMember(id) {
   var sel = document.getElementById('recMember');
-  if (sel) sel.value = id;
+  // 仅当下拉里确实存在该成员（启用且非好友只读）才选中，避免浏览器回退选中第一项
+  if (!sel) return;
+  if (!Array.prototype.some.call(sel.options, function(o){ return o.value === String(id); })) return;
+  sel.value = id;
 }
 function renderMemberSelect(list) {
   var sel = document.getElementById('recMember');
@@ -5966,7 +5976,14 @@ window.mMenu = function(id){
     html = btn('✏️ 改名', 'closeModal();mRename(' + id + ')') +
       btn('🔗 分享 / 填写链接', 'closeModal();mShare(' + id + ')');
     if (own) {
-      html += btn(m.friend_visible ? '🙈 对好友隐藏' : '👁 对好友可见', 'closeModal();fToggleVisible(' + id + ',' + (m.friend_visible ? 0 : 1) + ')') +
+      // 停用成员必须先启用才能对好友开放：已开放时仍允许关闭，未开放时按钮禁用
+      if (m.disabled) {
+        html += btn(m.friend_visible ? '🙈 对好友隐藏' : '👁 已停用，不可对好友开放',
+          m.friend_visible ? 'closeModal();fToggleVisible(' + id + ',0)' : '', 'gray', !m.friend_visible);
+      } else {
+        html += btn(m.friend_visible ? '🙈 对好友隐藏' : '👁 对好友可见', 'closeModal();fToggleVisible(' + id + ',' + (m.friend_visible ? 0 : 1) + ')');
+      }
+      html +=
         btn('⬆️ 上移', 'closeModal();mMove(' + id + ',-1)', 'gray', oi <= 0) +
         btn('⬇️ 下移', 'closeModal();mMove(' + id + ',1)', 'gray', oi < 0 || oi >= ownIds.length - 1) +
         btn(m.disabled ? '▶️ 启用' : '⏸️ 禁用', 'closeModal();mToggleDisable(' + id + ')') +
@@ -5988,7 +6005,7 @@ window.fToggleVisible = async function(id, show){
 // 解除好友（双向，不影响双方已有数据）
 window.fRemove = async function(ownerId){
   confirmModal('解除好友', '解除后双方体重页都不再出现对方成员，已有数据不受影响。确认解除？', async function(){
-    try { await api('/api/weight/friends/' + ownerId, { method:'DELETE' }); await loadAll(); await initFriendCompare(); }
+    try { await api('/api/weight/friends/' + ownerId, { method:'DELETE' }); await loadAll(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
@@ -6124,9 +6141,14 @@ if (unitSel) unitSel.addEventListener('change', async function(){
 });
 
 // ==================== 体重好友 ====================
-var fcmpChart = null, _fcmpMe = null;
 
-// 「👥 好友」面板：邀请链接管理 + 好友列表
+// X-Data-As 共享数据源：好友关系属于本人身份，隐藏好友入口、不处理邀请链接
+if (weightSharingSource()) {
+  var _fb = document.getElementById('fFriend');
+  if (_fb) _fb.style.display = 'none';
+}
+
+// 「👥 好友」面板：邀请链接管理 + 我的成员开放开关 + 好友列表
 async function openFriendPanel() {
   var d = await api('/api/weight/friends');
   var inviteHtml;
@@ -6136,12 +6158,21 @@ async function openFriendPanel() {
       '<input id="fInviteUrl" value="' + esc(d.invite.link) + '" readonly style="margin-bottom:8px;">' +
       '<button class="btn" onclick="fCopyInvite()">复制链接</button> ' +
       '<button class="btn gray" onclick="fResetInvite()">重置链接</button>' +
-      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">重置后旧链接立即失效，已添加的好友保留。好友默认只能看到你代表本人的成员，其余成员需在成员「⋯」菜单开启「对好友可见」。</p>';
+      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">重置后旧链接立即失效，已添加的好友保留。</p>';
   } else {
     inviteHtml =
       '<button class="btn" id="fGenInvite" style="width:100%;">生成我的邀请链接</button>' +
       '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">好友之间可在体重页互看曲线（仅可读，不能替对方录入），适合家人朋友一起打卡 PK。</p>';
   }
+  // 我的成员对好友可见开关：默认全部关闭，由本人显式开放代表自己的成员
+  var myMembers = members.filter(function(m){ return !m.shared && !m.friend && !m.archived; });
+  var memHtml = myMembers.length ? myMembers.map(function(m){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">' +
+      '<span>' + esc(m.name) + (m.disabled ? ' <span class="muted" style="font-size:12px;">(已停用)</span>' : '') + '</span>' +
+      '<button class="btn sm ' + (m.friend_visible ? '' : 'gray') + '" onclick="fSetVisible(' + m.id + ',' + (m.friend_visible ? 0 : 1) + ')">' +
+      (m.friend_visible ? '✅ 好友可见' : '对好友开放') + '</button></div>';
+  }).join('') : '<p class="muted" style="margin:4px 0 0;">你还没有成员。</p>';
+  var visibleCount = myMembers.filter(function(m){ return m.friend_visible; }).length;
   var flist = (d.friends || []).map(function(f){
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">' +
       '<span>' + esc(f.nickname) + ' <span class="muted" style="font-size:12px;">@' + esc(f.username) + '</span></span>' +
@@ -6149,10 +6180,13 @@ async function openFriendPanel() {
   }).join('') || '<p class="muted" style="margin:8px 0 0;">还没有好友，生成邀请链接发给家人朋友吧。</p>';
   openModal('体重好友',
     '<div style="margin-bottom:16px;">' + inviteHtml + '</div>' +
-    '<h3 style="font-size:14px;margin:0 0 6px;">我的好友</h3>' + flist);
+    '<h3 style="font-size:14px;margin:0 0 4px;">谁对好友可见</h3>' +
+    '<p class="muted" style="font-size:12px;line-height:1.6;margin:0 0 6px;">成为好友时已自动开放你最早创建的成员（通常即本人）；其他家庭成员默认隐藏，在这里手动开放才会被好友看到，也可关闭本人成员的开放。当前已开放 ' + visibleCount + ' 个。</p>' +
+    memHtml +
+    '<h3 style="font-size:14px;margin:14px 0 6px;">我的好友</h3>' + flist);
   var gen = document.getElementById('fGenInvite');
   if (gen) gen.addEventListener('click', async function(){
-    try { await api('/api/weight/friend-invite', { method:'POST' }); closeModal(); await openFriendPanel(); await initFriendCompare(); }
+    try { await api('/api/weight/friend-invite', { method:'POST' }); closeModal(); await openFriendPanel(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
 }
@@ -6168,68 +6202,18 @@ window.fResetInvite = function(){
     catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
+// 成员「⋯」菜单与好友面板共用：切换某成员对好友是否可见
+window.fSetVisible = async function(id, show){
+  try {
+    await api('/api/weight/members/' + id, { method:'PUT', body:{ friend_visible: !!show } });
+    await loadAll();
+    var mask = document.getElementById('modalMask');
+    if (mask && mask.classList.contains('show')) await openFriendPanel();
+  } catch(e){ alertModal(e.message, {ok:false}); }
+};
 var fFriendBtn = document.getElementById('fFriend');
 if (fFriendBtn) fFriendBtn.addEventListener('click', function(){
   openFriendPanel().catch(function(e){ alertModal(e.message, {ok:false}); });
-});
-
-// 好友对比卡：勾选自己与好友（默认仅自己），自己成员全部参与、好友仅可见成员
-async function initFriendCompare() {
-  var card = document.getElementById('friendCompareCard');
-  var btn = document.getElementById('fFriend');
-  // X-Data-As 共享数据源：好友关系属于本人身份，隐藏全部好友入口
-  if (weightSharingSource()) {
-    if (card) card.style.display = 'none';
-    if (btn) btn.style.display = 'none';
-    return;
-  }
-  try {
-    var d = await api('/api/weight/friends');
-    _fcmpMe = d.me;
-    var box = document.getElementById('fcmpUsers');
-    box.innerHTML =
-      '<label style="display:inline-block;margin:2px 8px;font-weight:normal;"><input type="checkbox" value="me" checked style="width:auto;"> 我</label>' +
-      (d.friends || []).map(function(f){
-        return '<label style="display:inline-block;margin:2px 8px;font-weight:normal;"><input type="checkbox" value="' + f.uid + '" style="width:auto;"> ' + esc(f.nickname) + '</label>';
-      }).join('');
-  } catch(e){ if (card) card.style.display = 'none'; }
-}
-async function runFriendCompare() {
-  if (!_fcmpMe) return;
-  var ids = Array.prototype.slice.call(document.querySelectorAll('#fcmpUsers input:checked')).map(function(x){
-    return x.value === 'me' ? String(_fcmpMe.id) : x.value;
-  });
-  if (!ids.length) { alertModal('请至少选择一人', {ok:false}); return; }
-  var d = await api('/api/weight/friend-chart?userIds=' + ids.join(','));
-  var nickOf = {};
-  (d.users || []).forEach(function(u){ nickOf[u.id] = u.nickname; });
-  var byKey = {}, dates = {};
-  d.records.forEach(function(r){
-    // 自己的成员只显示成员名；好友成员显示「昵称·成员名」
-    var key = (r.owner_id === _fcmpMe.id)
-      ? r.member_name
-      : (nickOf[r.owner_id] || ('用户' + r.owner_id)) + '·' + r.member_name;
-    if (!byKey[key]) byKey[key] = {};
-    byKey[key][r.record_date] = toDisplay(r.weight);
-    dates[r.record_date] = 1;
-  });
-  var labels = Object.keys(dates).sort();
-  var datasets = Object.keys(byKey).map(function(k, i){
-    return { label: k, data: labels.map(function(dt){ return byKey[k][dt] != null ? byKey[k][dt] : null; }),
-      borderColor: COLORS[i % COLORS.length], backgroundColor: COLORS[i % COLORS.length],
-      spanGaps: true, tension: .3, borderWidth: 2, pointRadius: 0, pointHitRadius: 14 };
-  });
-  if (fcmpChart) fcmpChart.destroy();
-  fcmpChart = new Chart(document.getElementById('friendCompareChart'), {
-    type: 'line',
-    data: { labels: labels, datasets: datasets },
-    options: { plugins: { legend: { position: 'top' } },
-      scales: { y: { title: { display: true, text: '体重(' + unitLabel() + ')' } } } }
-  });
-}
-var fcmpBtn = document.getElementById('fcmpRun');
-if (fcmpBtn) fcmpBtn.addEventListener('click', function(){
-  runFriendCompare().catch(function(e){ alertModal(e.message, {ok:false}); });
 });
 
 // ?wlink=<token>：好友邀请链接落地，确认后成为双向好友并刷新
@@ -6239,7 +6223,7 @@ if (fcmpBtn) fcmpBtn.addEventListener('click', function(){
   if (!token) return;
   try { history.replaceState(null, '', location.pathname); } catch(e){}
   confirmModal('接受体重好友邀请',
-    '接受后，你和邀请人将成为体重好友，双方可在体重页互看「对好友可见」成员的体重曲线（仅可读，不能替对方录入）。',
+    '接受后，你和邀请人成为体重好友，双方默认互见各自本人成员（最早创建的那个）的体重曲线，仅可读、不能替对方录入；其他家庭成员默认隐藏，之后都可在「成员 → 👥 好友 → 谁对好友可见」里调整。',
     async function(){
       try {
         var r = await api('/api/weight/friends/accept', { method:'POST', body:{ token: token } });
@@ -6363,7 +6347,7 @@ if (pushSend) pushSend.addEventListener('click', async function(){
 });
 
 (async function(){
-  try { await loadAll(); initFilter(); await loadPush(); await initCompare(); await initShare(); await initFriendCompare(); }
+  try { await loadAll(); initFilter(); await loadPush(); await initCompare(); await initShare(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
 })();
 `;
@@ -9495,6 +9479,8 @@ function renderTodoTree(container, trees, opts) {
       dc.innerHTML = dueChip.html;
       meta.appendChild(dc);
     }
+    // 闹钟: 谁绑定显示在谁的行(自身 alarm_minute); 过期/已完成/祖先完成由 helper 过滤
+    if (todoAlarmTriggerMs(node, effDue) != null) meta.appendChild(todoAlarmChipEl(Number(node.alarm_minute)));
     // 重复徽章: 哪个节点设了重复就显示在哪个节点(旧模式仅顶层; 新模式可在叶子子任务上)
     if (node.recurrence) {
       var rc = document.createElement('span');
@@ -9766,6 +9752,8 @@ function renderTodoAccordion(container, trees, opts) {
       dEl.innerHTML = leafChip0.html;
       rowEl.appendChild(dEl);
     }
+    // 闹钟: 谁绑定显示在谁的叶子行; showDone(含随上级完成)/过期由 helper 过滤
+    if (todoAlarmTriggerMs(node, effDue) != null) rowEl.appendChild(todoAlarmChipEl(Number(node.alarm_minute)));
     wrap.appendChild(rowEl);
     // 拖拽绑定（手柄 PC；手机长按整行，手柄已隐藏）
     if (!opts.readOnly && opts.onReorder) {
@@ -9863,6 +9851,8 @@ function renderTodoAccordion(container, trees, opts) {
       gEl.innerHTML = dueChip.html;
       rowEl.appendChild(gEl);
     }
+    // 闹钟: 谁绑定显示在谁的行(自身 alarm_minute); 过期/已完成由 helper 过滤
+    if (todoAlarmTriggerMs(node, effDue) != null) rowEl.appendChild(todoAlarmChipEl(Number(node.alarm_minute)));
     wrap.appendChild(rowEl);
     var kidsEl = document.createElement('div');
     kidsEl.className = 'todo-acc__kids' + (solo ? '' : (folded ? ' collapsed' : ''));
@@ -9898,6 +9888,8 @@ function renderTodoAccordion(container, trees, opts) {
         sdEl.innerHTML = soloChip0.html;
         srow.appendChild(sdEl);
       }
+      // 闹钟: solo 行即主任务自身
+      if (todoAlarmTriggerMs(node, effDue) != null) srow.appendChild(todoAlarmChipEl(Number(node.alarm_minute)));
       kidsEl.appendChild(srow);
     } else {
       node.children.forEach(function(c){
@@ -10039,6 +10031,8 @@ function todoLeafCard(leaf, opts, scene) {
     rc.innerHTML = ICONS.repeat + esc(todoRecurLabel(n.recurrence, n.recur_interval, n.recur_nth, n.recur_weekday));
     meta.appendChild(rc);
   }
+  // 闹钟: 谁绑定显示在谁的叶子卡; 放 scene 判断外, 速览与时间轴都显示; 过期/已完成由 helper 过滤
+  if (todoAlarmTriggerMs(n, leaf.effDue) != null) meta.appendChild(todoAlarmChipEl(Number(n.alarm_minute)));
   if (meta.childNodes.length) main.appendChild(meta);
   body.appendChild(main);
   item.appendChild(body);
@@ -10280,6 +10274,36 @@ function todoDetailEffDue(node){
   for(var n=node;n;n=n._parent){ if(n.due_date) return n.due_date; }
   return '';
 }
+// 任务闹钟是否仍待响: alarm_minute 存在 + 有效到期日(自身或沿父链继承, 与原生 reconcile 同口径)
+// + 自身及祖先链未完成 + 北京时区到期日当天 minute 时刻尚在未来; 返回触发毫秒, 已过/无效返回 null
+function todoAlarmTriggerMs(node, effDue){
+  if (!node || node.alarm_minute == null) return null;
+  var d = effDue || todoDetailEffDue(node);
+  var m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(d || '');
+  if (!m) return null;
+  for (var p = node; p; p = p._parent) { if (p.done) return null; }
+  var t = Date.UTC(+m[1], +m[2] - 1, +m[3]) + Number(node.alarm_minute) * 60000 - 8 * 3600000;
+  return t > Date.now() ? t : null;
+}
+// 卡片/详情面包屑用: 子树内"下一个待响闹钟"(触发时刻最早)。
+// 旧模式闹钟只在主任务自身; child_due 聚合最早到期的未完成子任务, 与 todoRootDue 平行
+function todoSubtreeNextAlarm(node){
+  var best = null;
+  (function walk(n){
+    var t = todoAlarmTriggerMs(n, todoDetailEffDue(n));
+    if (t != null && (!best || t < best.trig)) best = { trig: t, minute: Number(n.alarm_minute) };
+    (n.children || []).forEach(walk);
+  })(node);
+  return best;
+}
+// 闹钟 meta chip: 铃图标 + HH:MM, 样式复用 todo-metatxt(与重复徽章同级)
+function todoAlarmChipEl(minute){
+  var el = document.createElement('span');
+  el.className = 'todo-metatxt';
+  el.title = '闹钟 ' + todoAlarmFormat(minute);
+  el.innerHTML = ICONS.bell + esc(todoAlarmFormat(minute));
+  return el;
+}
 // 弹窗层级面包屑：从主任务名(含)到直接父；主任务自身返回 []
 function todoNodeCrumbPath(node){
   var path=[];
@@ -10446,6 +10470,9 @@ function renderTodoCards(container, trees, opts) {
       dc.innerHTML = rootDueChip.html;
       meta.appendChild(dc);
     }
+    // 闹钟 chip: 旧模式即主任务自身; child_due 聚合子树下一个待响闹钟(过期/已完成由 helper 过滤)
+    var rootAlarm = todoSubtreeNextAlarm(root);
+    if (rootAlarm) meta.appendChild(todoAlarmChipEl(rootAlarm.minute));
     if (root.done && root.done_at) {
       var doneC = document.createElement('span');
       doneC.className = 'todo-metatxt';
@@ -11028,6 +11055,9 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
         crumbDue.innerHTML = rootDueChip.html;
         crumb.appendChild(crumbDue);
       }
+      // 闹钟: 与日期 chip 同口径聚合(旧模式=主任务自身; child_due=子树最早待响闹钟)
+      var crumbAlarm = todoSubtreeNextAlarm(root);
+      if (crumbAlarm) crumb.appendChild(todoAlarmChipEl(crumbAlarm.minute));
     }
     // "完成主任务 / 编辑主任务"文字链：挂提示文末尾，无提示文兜底独立一行；ghost 壳不挂
     if (root._ghost !== 1) todoAttachDoneLinkToTip(container, root, opts);

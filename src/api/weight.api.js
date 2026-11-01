@@ -91,9 +91,10 @@ async function updateMember({ request, env, params }) {
     if (m.user_id !== dc.uid) return error('只有成员属主可以停用/启用', 403);
     await storage.weight.setMemberDisabled(id, dc.uid, body.disabled);
   }
-  // 对好友可见开关仅属主可操作
+  // 对好友可见开关仅属主可操作；已停用成员必须先启用才能对好友开放
   if (typeof body.friend_visible === 'boolean') {
     if (m.user_id !== dc.uid) return error('只有成员属主可以设置好友可见', 403);
+    if (body.friend_visible && m.disabled) return error('该成员已停用，请先启用再对好友开放', 400);
     await storage.weight.setMemberFriendVisible(id, dc.uid, body.friend_visible);
   }
   // 改名作用于成员本身（属主与共享方共用同一条），故按属主 user_id 更新
@@ -436,10 +437,8 @@ async function listFriends({ request, env, url }) {
   const invite = inv
     ? { token: inv.token, link: await friendInviteLink(storage, env, url, inv.token) }
     : null;
-  const meRow = await storage.users.findById(auth.user_id);
   return json({
     success: true,
-    me: meRow ? { id: meRow.id, username: meRow.username, nickname: meRow.nickname || meRow.username } : null,
     friends: rows.map(f => ({
       uid: f.uid, username: f.username, nickname: f.nickname || f.username, created_at: f.created_at
     })),
@@ -459,10 +458,14 @@ async function acceptFriend({ request, env }) {
   if (!inv) return error('邀请链接无效或已失效');
   if (inv.owner_user_id === auth.user_id) return error('这是你自己的邀请链接，无需接受');
   await storage.weight.addFriendPair(auth.user_id, inv.owner_user_id);
+  // 接受即默认互见：双方各自动开放一个成员（最早创建的启用成员，通常即本人）；
+  // 已手动开放过则尊重原选择。开放错了可在「好友 → 谁对好友可见」关闭/改开其他成员
+  await storage.weight.ensureSelfMemberVisible(auth.user_id);
+  await storage.weight.ensureSelfMemberVisible(inv.owner_user_id);
   const owner = await storage.users.findById(inv.owner_user_id);
   return json({
     success: true,
-    message: `已与「${owner ? (owner.nickname || owner.username) : ''}」成为体重好友，双方可在体重页互看可见成员的曲线（仅可读）`
+    message: `已与「${owner ? (owner.nickname || owner.username) : ''}」成为体重好友，双方默认互见本人成员曲线（仅可读）。其他成员默认隐藏，可在「成员 → 👥 好友 → 谁对好友可见」调整`
   });
 }
 
@@ -479,35 +482,10 @@ async function removeFriend({ request, env, params }) {
   return json({ success: true, message: '已解除好友关系' });
 }
 
-/** GET /api/weight/friend-chart?userIds=1,2  好友对比曲线
- * 自己：全部成员；好友：仅 friend_visible=1 成员。非好友 id 被过滤，全部非法时 403 */
-async function friendChart({ request, env, url }) {
-  const auth = await requireAuth(request, env);
-  if (auth instanceof Response) return auth;
-  const storage = getStorage(env);
-  const dc = await requireDataContext(storage, auth, 'weight', request);
-  if (dc instanceof Response) return dc;
-  if (dc.shared) return error('共享数据源下不支持好友对比', 400);
-  const raw = url.searchParams.get('userIds') || '';
-  const ids = [...new Set(raw.split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n)))];
-  if (ids.length === 0) return error('请至少选择一个用户', 400);
-  const friendSet = new Set(await storage.weight.friendIdSet(auth.user_id));
-  const allowed = ids.filter(uid => uid === auth.user_id || friendSet.has(uid));
-  if (allowed.length === 0) return error('无权查看这些用户的数据', 403);
-  const friendUids = allowed.filter(uid => uid !== auth.user_id);
-  const records = await storage.weight.listCompareRecords(auth.user_id, friendUids);
-  const users = [];
-  for (const uid of allowed) {
-    const u = await storage.users.findById(uid);
-    if (u) users.push({ id: u.id, username: u.username, nickname: u.nickname || u.username });
-  }
-  return json({ success: true, records, users });
-}
-
 export {
   listMembers, createMember, updateMember, reorderMembers, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
   publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers, adminShareMember,
-  friendInvite, listFriends, acceptFriend, removeFriend, friendChart,
+  friendInvite, listFriends, acceptFriend, removeFriend,
   getUnit, setUnit
 };

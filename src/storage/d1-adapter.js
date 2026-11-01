@@ -406,18 +406,29 @@ function createD1Adapter(env) {
       },
       async createMember(userId, name) {
         // sort_order 取该用户名下成员最大值 +1, 新成员排最后
-        // 该用户首个未归档成员视为本人成员，自动对好友可见；其余成员默认隐藏
+        // friend_visible 一律默认 0：哪个成员代表本人由用户手动对好友开放（首个成员≠本人，不可猜）
         const res = await db.prepare(
-          'INSERT INTO weight_members (user_id, name, sort_order, friend_visible) ' +
-          'VALUES (?, ?, COALESCE((SELECT MAX(sort_order) FROM weight_members WHERE user_id = ?), -1) + 1, ' +
-          'CASE WHEN NOT EXISTS (SELECT 1 FROM weight_members WHERE user_id = ? AND archived = 0) THEN 1 ELSE 0 END)'
-        ).bind(userId, name, userId, userId).run();
+          'INSERT INTO weight_members (user_id, name, sort_order) ' +
+          'VALUES (?, ?, COALESCE((SELECT MAX(sort_order) FROM weight_members WHERE user_id = ?), -1) + 1)'
+        ).bind(userId, name, userId).run();
         return res.meta.last_row_id;
       },
       // 成员对好友可见开关（仅属主）
       async setMemberFriendVisible(id, userId, visible) {
         await db.prepare('UPDATE weight_members SET friend_visible=? WHERE id=? AND user_id=?')
           .bind(visible ? 1 : 0, id, userId).run();
+      },
+      // 成为好友时确保该用户有一个对好友可见的成员（默认=最早创建的启用成员，通常即本人）；
+      // 已手动开放过成员则尊重其选择不动；没有可用成员则跳过
+      async ensureSelfMemberVisible(userId) {
+        await db.prepare(
+          `UPDATE weight_members SET friend_visible = 1
+            WHERE user_id = ? AND archived = 0 AND disabled = 0
+              AND id = (SELECT MIN(id) FROM weight_members
+                         WHERE user_id = ? AND archived = 0 AND disabled = 0)
+              AND NOT EXISTS (SELECT 1 FROM weight_members
+                               WHERE user_id = ? AND archived = 0 AND friend_visible = 1)`
+        ).bind(userId, userId, userId).run();
       },
       async updateMember(id, userId, name) {
         await db.prepare('UPDATE weight_members SET name=? WHERE id=? AND user_id=?').bind(name, id, userId).run();
@@ -633,27 +644,6 @@ function createD1Adapter(env) {
         ).bind(userId, userId, ...friendIds, userId).all();
         return results || [];
       },
-      // 好友对比曲线：自己全部成员 ∪ 好友仅可见成员；返回列对齐 listRecordsByUsers
-      async listCompareRecords(selfUid, friendUids) {
-        const uids = (friendUids || []).filter(uid => uid !== selfUid);
-        if (uids.length === 0) {
-          const { results: selfRows } = await db.prepare(
-            `SELECT r.*, m.name AS member_name, m.user_id AS owner_id
-               FROM weight_records r JOIN weight_members m ON r.member_id = m.id
-              WHERE m.user_id = ? ORDER BY r.record_date`
-          ).bind(selfUid).all();
-          return selfRows || [];
-        }
-        const marks = uids.map(() => '?').join(',');
-        const { results } = await db.prepare(
-          `SELECT r.*, m.name AS member_name, m.user_id AS owner_id
-             FROM weight_records r JOIN weight_members m ON r.member_id = m.id
-            WHERE m.user_id = ?
-               OR (m.user_id IN (${marks}) AND m.friend_visible = 1 AND m.archived = 0 AND m.disabled = 0)
-            ORDER BY r.record_date`
-        ).bind(selfUid, ...uids).all();
-        return results || [];
-      }
     },
 
     // ==================== 资产 ====================
