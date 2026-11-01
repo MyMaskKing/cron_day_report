@@ -1470,17 +1470,23 @@ function requirePushChannels(pick) {
   return true;
 }
 
-// 推送格式选项按渠道类型联动：email 只支持 text/html；wechat/webhook 额外支持 markdown
+// 通知渠道类型中文标签（渠道列表与各页推送渠道下拉共用）
+var CH_TYPE_LABEL = { wechat:'企业微信', webhook:'通用Webhook', email:'邮件(webhook)', sys_email:'官方邮件' };
+function chTypeLabel(t){ return CH_TYPE_LABEL[t] || t; }
+// 推送格式选项按渠道类型联动：email/sys_email 只支持 text/html；wechat/webhook 额外支持 markdown
 function fmtOptionsFor(type) {
   var base = [['text','text'],['html','html']];
   if (type === 'wechat' || type === 'webhook') base.push(['markdown','markdown']);
   return base.map(function(o){ return '<option value="'+o[0]+'">'+o[1]+'</option>'; }).join('');
 }
-// 从渠道下拉当前选中项文本尾部 [type] 解析渠道类型
+// 从渠道下拉当前选中项文本尾部 [类型] 解析渠道类型（兼容中文标签）
 function channelTypeOf(chSel) {
   var opt = chSel.selectedOptions && chSel.selectedOptions[0];
-  var m = opt && opt.textContent.match(/\\[(\\w+)\\]\\s*$/);
-  return m ? m[1] : '';
+  var m = opt && opt.textContent.match(/\\[([^\\]]+)\\]\\s*$/);
+  if (!m) return '';
+  if (/^\\w+$/.test(m[1])) return m[1];
+  for (var k in CH_TYPE_LABEL) { if (CH_TYPE_LABEL[k] === m[1]) return k; }
+  return '';
 }
 // 绑定：渠道变化时重建格式下拉，尽量保留原选中值（新列表不含则回退 text）
 function bindFormatByChannel(chSel, fmtSel) {
@@ -4379,7 +4385,7 @@ function channelName(id) {
 function channelOptions(sel) {
   var opts = '<option value="">（不发送通知）</option>';
   channels.forEach(function(c) {
-    opts += '<option value="' + c.id + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.name) + ' [' + c.type + ']</option>';
+    opts += '<option value="' + c.id + '"' + (c.id === sel ? ' selected' : '') + '>' + esc(c.name) + ' [' + chTypeLabel(c.type) + ']</option>';
   });
   return opts;
 }
@@ -4526,12 +4532,20 @@ var CH_HELP = {
   webhook: '<b>🔗 通用 Webhook</b><br>• <b>URL</b>：接收消息的接口地址<br>• <b>请求头 JSON</b>（可选）：<code>{"Authorization":"Bearer xxx"}</code><br>• <b>Body 模板</b>（可选）：用 <code>{{content}}</code> 代表正文，例 <code>{"text":"{{content}}"}</code>',
   email: '<b>📧 邮件（中转服务转发）</b><br>• <b>URL</b>：邮件中转服务地址<br>• <b>请求头 JSON</b>：<span style="color:var(--danger);">填收件人和主题</span> <code>{"mailto":"x@qq.com","subject":"标题"}</code><br>• <b>Body 模板</b>：留空'
 };
+// 官方邮件渠道不存 URL，列表第三列展示收件人（headers_json.mailto）
+function chTargetText(c) {
+  if (c.type === 'sys_email') {
+    try { var m = c.headers_json ? JSON.parse(c.headers_json) : {}; return m.mailto || m.to || ''; }
+    catch(e) { return ''; }
+  }
+  return c.url;
+}
 async function loadChannels() {
   var data = await api('/api/notify/channels');
   var tb = document.getElementById('chTbody');
   tb.innerHTML = data.channels.map(function(c) {
-    return '<tr><td data-label="名称">' + esc(c.name) + '</td><td data-label="类型">' + c.type + '</td>' +
-      '<td data-label="URL" class="muted" style="word-break:break-all;">' + esc(c.url) + '</td>' +
+    return '<tr><td data-label="名称">' + esc(c.name) + '</td><td data-label="类型">' + chTypeLabel(c.type) + '</td>' +
+      '<td data-label="URL" class="muted" style="word-break:break-all;">' + esc(chTargetText(c)) + '</td>' +
       '<td data-label="状态">' + (c.enabled ? '<span class="tag ok">启用</span>' : '<span class="tag disabled">停用</span>') + '</td>' +
       '<td data-label="操作">' +
         (c.enabled
@@ -4544,32 +4558,77 @@ async function loadChannels() {
 }
 function chModal(c) {
   c = c || {};
+  // 编辑官方邮件渠道：从 headers_json.mailto 回填收件人
+  var sysEmails = '';
+  if (c.type === 'sys_email' && c.headers_json) {
+    try { var pm = JSON.parse(c.headers_json); sysEmails = pm.mailto || pm.to || ''; } catch(e){}
+  }
   var help = '<div id="chHelp" style="background:var(--surface-3);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.7;"></div>';
   openModal(c.id ? '编辑渠道' : '新建渠道',
     '<input type="hidden" id="chId" value="' + (c.id||'') + '">' +
     '<label>渠道名称</label><input id="chName" value="' + esc(c.name||'') + '">' +
-    '<div class="row"><div><label>类型</label><select id="chType">' +
-      '<option value="wechat">企业微信机器人</option><option value="webhook">通用 Webhook</option><option value="email">邮件(webhook转发)</option>' +
-    '</select></div><div><label>请求方法</label><select id="chMethod"><option value="POST">POST</option><option value="PUT">PUT</option><option value="GET">GET</option></select></div></div>' +
+    '<div class="row"><div style="flex:1;"><label>类型</label><select id="chType">' +
+      '<option value="wechat">企业微信机器人</option><option value="webhook">通用 Webhook</option><option value="email">邮件(webhook转发)</option><option value="sys_email">官方邮件</option>' +
+    '</select></div><div id="chMethodBox" style="flex:1;"><label>请求方法</label><select id="chMethod"><option value="POST">POST</option><option value="PUT">PUT</option><option value="GET">GET</option></select></div></div>' +
     help +
-    '<label>URL</label><input id="chUrl" value="' + esc(c.url||'') + '" placeholder="https://...">' +
-    '<label>自定义请求头 JSON（可选）</label><textarea id="chHeaders" rows="2">' + esc(c.headers_json||'') + '</textarea>' +
-    '<label>Body 模板（可选，含 {{content}}）</label><textarea id="chBody" rows="2">' + esc(c.body_template||'') + '</textarea>' +
+    '<div id="chSysBox" style="display:none;">' +
+      '<label>收件邮箱（多个用分号分隔）</label>' +
+      '<textarea id="chEmails" rows="2" placeholder="a@example.com;b@example.com">' + esc(sysEmails) + '</textarea>' +
+      '<p class="muted" style="font-size:12px;line-height:1.7;margin:6px 0;">官方邮箱由管理员统一配置，<b>不保证一直完美运行</b>；如需更稳定或自定义的邮箱服务，可使用「邮件(webhook转发)」类型。</p>' +
+      '<div id="chSysStatus"></div>' +
+    '</div>' +
+    '<div id="chCommonBox">' +
+      '<label>URL</label><input id="chUrl" value="' + esc(c.url||'') + '" placeholder="https://...">' +
+      '<label>自定义请求头 JSON（可选）</label><textarea id="chHeaders" rows="2">' + esc(c.headers_json||'') + '</textarea>' +
+      '<label>Body 模板（可选，含 {{content}}）</label><textarea id="chBody" rows="2">' + esc(c.body_template||'') + '</textarea>' +
+    '</div>' +
     '<label><input type="checkbox" id="chEnabled" style="width:auto;"' + (c.enabled!==0&&c.enabled!==false?' checked':'') + '> 启用</label>' +
     '<div style="margin-top:12px;"><button class="btn" id="chSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('chType').value = c.type || 'wechat';
   document.getElementById('chMethod').value = c.method || 'POST';
   var renderHelp = function(){ document.getElementById('chHelp').innerHTML = CH_HELP[document.getElementById('chType').value] || ''; };
-  document.getElementById('chType').addEventListener('change', renderHelp); renderHelp();
+  // 类型联动：官方邮件只露收件邮箱，并实时检查超管是否已配置系统邮件网关（未配置禁保存）
+  function applyType() {
+    var sys = document.getElementById('chType').value === 'sys_email';
+    document.getElementById('chMethodBox').style.display = sys ? 'none' : '';
+    document.getElementById('chSysBox').style.display = sys ? 'block' : 'none';
+    document.getElementById('chCommonBox').style.display = sys ? 'none' : 'block';
+    document.getElementById('chHelp').style.display = sys ? 'none' : 'block';
+    if (!sys) { renderHelp(); return; }
+    var st = document.getElementById('chSysStatus');
+    st.innerHTML = '<span class="muted" style="font-size:12px;">正在检查官方邮件配置…</span>';
+    api('/api/notify/gateway-status').then(function(d){
+      var ok = !!d.configured;
+      st.innerHTML = ok
+        ? '<span class="tag ok">官方邮件已配置</span>'
+        : '<span style="color:var(--danger);font-size:12px;">官方邮件未配置，请联系管理员配置</span>';
+      document.getElementById('chSave').disabled = !ok;
+    }).catch(function(e){
+      st.innerHTML = '<span style="color:var(--danger);font-size:12px;">' + esc(e.message) + '</span>';
+      document.getElementById('chSave').disabled = true;
+    });
+  }
+  document.getElementById('chType').addEventListener('change', applyType); applyType();
   document.getElementById('chSave').addEventListener('click', async function(){
     var id = document.getElementById('chId').value;
-    var payload = {
-      name: document.getElementById('chName').value, type: document.getElementById('chType').value,
-      url: document.getElementById('chUrl').value, method: document.getElementById('chMethod').value,
-      headers_json: document.getElementById('chHeaders').value || null,
-      body_template: document.getElementById('chBody').value || null,
-      enabled: document.getElementById('chEnabled').checked
-    };
+    var type = document.getElementById('chType').value;
+    var payload;
+    if (type === 'sys_email') {
+      payload = {
+        name: document.getElementById('chName').value, type: type,
+        emails: document.getElementById('chEmails').value,
+        url: '', method: 'POST', headers_json: null, body_template: null,
+        enabled: document.getElementById('chEnabled').checked
+      };
+    } else {
+      payload = {
+        name: document.getElementById('chName').value, type: type,
+        url: document.getElementById('chUrl').value, method: document.getElementById('chMethod').value,
+        headers_json: document.getElementById('chHeaders').value || null,
+        body_template: document.getElementById('chBody').value || null,
+        enabled: document.getElementById('chEnabled').checked
+      };
+    }
     try {
       if (id) await api('/api/notify/channels/' + id, { method:'PUT', body: payload });
       else await api('/api/notify/channels', { method:'POST', body: payload });
@@ -5119,7 +5178,7 @@ document.getElementById('fNew').addEventListener('click', function(){ fundForm({
 var rcChannelPick = null;
 async function loadReportConfig() {
   var chData = await api('/api/notify/channels', { loadingText: stepText('正在加载通知渠道…') });
-  var items = chData.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + c.type + ']' }; });
+  var items = chData.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + chTypeLabel(c.type) + ']' }; });
 
   var data = await api('/api/push/fund', { loadingText: stepText('正在加载日报推送配置…') });
   var cfg = data.config;
@@ -5617,6 +5676,10 @@ function toDisplay(kg){ return unit === 'jin' ? Math.round(kg * 2 * 10) / 10 : k
 function toKg(v){ v = parseFloat(v); return unit === 'jin' ? v / 2 : v; }
 function todayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
 var allRecords = [];
+// 好友成员显示为「好友昵称·成员名」；其余用成员本名
+function mdName(m){ return m.friend ? (m.owner_nick + '·' + m.name) : m.name; }
+// 当前是否在 X-Data-As 共享数据源（好友功能只属于本人身份，共享时隐藏入口）
+function weightSharingSource(){ return !!dataShareGet('weight'); }
 
 function applyFilter() {
   var s = document.getElementById('fStart').value;
@@ -5641,8 +5704,8 @@ async function loadAll() {
   var us = document.getElementById('unitSel');
   if (us) us.value = unit;
   renderMembers(data.members);
-  // 录入下拉只列启用成员（管理列表 renderMembers 仍显示已停用，灰色可重新启用）
-  renderMemberSelect(data.members.filter(function(m){ return !m.disabled; }));
+  // 录入下拉只列启用成员；好友成员只读，不能替对方录入（管理列表 renderMembers 仍显示已停用，灰色可重新启用）
+  renderMemberSelect(data.members.filter(function(m){ return !m.disabled && !m.friend; }));
   updateUnitLabels();
   var dateInput = document.getElementById('recDate');
   if (dateInput && !dateInput.value) dateInput.value = todayStr();
@@ -5656,10 +5719,13 @@ function renderMembers(list) {
   var box = document.getElementById('memberList');
   box.innerHTML = list.map(function(m){
     var sharedTag = m.shared ? ' <span class="tag user" style="padding:0 6px;border-radius:8px;font-size:11px;">共享</span>' : '';
+    var friendTag = m.friend ? ' <span class="tag" style="padding:0 6px;border-radius:8px;font-size:11px;background:var(--hover-brand);color:var(--brand-text);">好友</span>' : '';
     var offTag = m.disabled ? ' <span class="tag" style="background:var(--surface-2);color:var(--muted);padding:0 6px;border-radius:8px;font-size:11px;">已停用</span>' : '';
+    // 自己的成员已对好友可见时加小眼睛提示
+    var visMark = (!m.shared && !m.friend && m.friend_visible) ? ' <span title="对好友可见" style="font-size:11px;">👁</span>' : '';
     var nameStyle = m.disabled ? 'color:var(--muted);text-decoration:line-through;' : 'color:inherit;';
     return '<span class="tag user" style="margin:2px 4px;padding:4px 10px;' + (m.disabled ? 'opacity:.75;' : '') + '">' +
-      '<a href="#" onclick="selMember(' + m.id + ');return false;" style="' + nameStyle + 'text-decoration:none;">' + esc(m.name) + '</a>' + sharedTag + offTag +
+      '<a href="#" onclick="selMember(' + m.id + ');return false;" style="' + nameStyle + 'text-decoration:none;">' + esc(mdName(m)) + '</a>' + sharedTag + friendTag + visMark + offTag +
       ' <a href="#" title="更多操作" onclick="mMenu(' + m.id + ');return false;" style="margin-left:4px;color:var(--muted);font-weight:bold;text-decoration:none;">⋯</a></span>';
   }).join('') || '<span class="muted">暂无成员</span>';
 }
@@ -5685,13 +5751,14 @@ function drawChart(mlist, records) {
   mlist.forEach(function(m, i){
     var color = COLORS[i % COLORS.length];
     var series = labels.map(function(d){ var v = byMember[m.id].data[d]; return v != null ? v : null; });
-    datasets.push({ label: m.name, data: series, _mid: m.id, _avg: false, _color: color,
+    var mLabel = mdName(m);
+    datasets.push({ label: mLabel, data: series, _mid: m.id, _avg: false, _color: color,
       borderColor: color, backgroundColor: color, spanGaps: true, tension: .3,
       borderWidth: 2, pointRadius: 0, pointHitRadius: 14 });
     var have = series.filter(function(v){ return v != null; });
     if (have.length) {
       var mavg = Math.round(have.reduce(function(s, v){ return s + v; }, 0) / have.length * 10) / 10;
-      datasets.push({ label: m.name + ' 均值', data: labels.map(function(){ return mavg; }),
+      datasets.push({ label: mLabel + ' 均值', data: labels.map(function(){ return mavg; }),
         _mid: m.id, _avg: true, _color: color,
         borderColor: color, borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, fill: false });
     }
@@ -5742,9 +5809,9 @@ function renderWeightInsight(mlist, filtered) {
   // 选中成员在当前区间无记录：渲染空态卡（保留成员切换）
   if (!recsOf(filtered, m.id).length) {
     var chipsEmpty = mlist.length > 1 ? '<div class="jn-members">' + mlist.map(function(x){
-      return '<button type="button" data-mid="' + x.id + '"' + (x.id === wInsightMid ? ' class="on"' : '') + '>' + esc(x.name) + '</button>';
+      return '<button type="button" data-mid="' + x.id + '"' + (x.id === wInsightMid ? ' class="on"' : '') + '>' + esc(mdName(x)) + '</button>';
     }).join('') + '</div>' : '';
-    box.innerHTML = '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(m.name) + '</h3>' +
+    box.innerHTML = '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(mdName(m)) + '</h3>' +
       '<div class="jn-sub">当前区间内暂无该成员的体重记录</div></div>' + chipsEmpty + '</div></div>';
     bindWeightChips(box, mlist, filtered);
     applyWeightHighlight(wInsightMid, mlist.length > 1);
@@ -5805,10 +5872,10 @@ function renderWeightInsight(mlist, filtered) {
   // 副标题：统计区间（跟随上方筛选）+ 虚线归属
   var allDates = filtered.map(function(r){ return r.record_date; }).sort();
   var rangeText = allDates.length ? md(allDates[0]) + ' – ' + md(allDates[allDates.length - 1]) : '';
-  var sub = rangeText + '（跟随上方时间区间）· 图中橙色虚线=「' + esc(m.name) + '」的区间平均体重';
+  var sub = rangeText + '（跟随上方时间区间）· 图中橙色虚线=「' + esc(mdName(m)) + '」的区间平均体重';
 
   box.innerHTML =
-    '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(m.name) + '</h3>' +
+    '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(mdName(m)) + '</h3>' +
       '<div class="jn-sub">' + sub + '</div></div>' + chips + '</div>' +
       '<div class="jn-hero"><div class="jn-hero__num">' + sign1(hero) + U() + '</div>' +
       '<div class="jn-hero__calc">最新 ' + latestV + U() + '（' + md(latest.record_date) + '）· 区间均值 ' + avg + U() + '</div></div>' +
@@ -5840,7 +5907,8 @@ function bindWeightChips(box, mlist, filtered) {
   });
 }
 function renderRecordTable(mlist, records) {
-  var nameOf = {}; mlist.forEach(function(m){ nameOf[m.id] = m.name; });
+  var nameOf = {}; mlist.forEach(function(m){ nameOf[m.id] = mdName(m); });
+  var friendOf = {}; mlist.forEach(function(m){ friendOf[m.id] = !!m.friend; });
   var tb = document.getElementById('recTbody');
   // 计算每条记录较同成员上一条(时间更早)的增减：按成员分组升序算差值, 存 id->delta
   var deltaOf = {};
@@ -5852,12 +5920,16 @@ function renderRecordTable(mlist, records) {
   });
   var sorted = records.slice().sort(function(a,b){ return (b.record_date||'').localeCompare(a.record_date||''); });
   tb.innerHTML = sorted.map(function(r){
+    // 好友成员只读：不提供改/删（后端同样硬拦）
+    var ops = friendOf[r.member_id]
+      ? '<span class="muted">—</span>'
+      : '<button class="btn sm gray" onclick="recEdit(' + r.id + ',' + r.weight + ",'" + r.record_date + "'" + ')">改</button> ' +
+        '<button class="btn sm danger" onclick="recDel(' + r.id + ')">删</button>';
     return '<tr><td data-label="日期">' + esc(r.record_date) + '</td>' +
       '<td data-label="成员">' + esc(nameOf[r.member_id]||'') + '</td>' +
       '<td data-label="体重">' + toDisplay(r.weight) + ' ' + unitLabel() + '</td>' +
       '<td data-label="较上次">' + deltaCell(deltaOf[r.id]) + '</td>' +
-      '<td data-label="操作"><button class="btn sm gray" onclick="recEdit(' + r.id + ',' + r.weight + ",'" + r.record_date + "'" + ')">改</button> ' +
-      '<button class="btn sm danger" onclick="recDel(' + r.id + ')">删</button></td></tr>';
+      '<td data-label="操作">' + ops + '</td></tr>';
   }).join('') || '<tr><td colspan="5" class="muted">暂无记录</td></tr>';
 }
 // 增减单元格：增重红色加粗↑, 减重绿色↓, 无上一条显示 —
@@ -5873,25 +5945,47 @@ function deltaCell(deltaKg) {
 window.mMenu = function(id){
   var m = members.filter(function(x){ return x.id === id; })[0];
   if (!m) return;
-  var own = !m.shared;
-  var ownIds = members.filter(function(x){ return !x.shared; }).map(function(x){ return x.id; });
+  // ownIds 仅含自己拥有的成员（共享引用与好友只读成员都不参与排序）
+  var own = !m.shared && !m.friend;
+  var ownIds = members.filter(function(x){ return !x.shared && !x.friend; }).map(function(x){ return x.id; });
   var oi = ownIds.indexOf(id);
   function btn(label, onclick, cls, disabled){
     if (disabled) return '<button class="btn gray" style="width:100%;margin-bottom:8px;" disabled>' + label + '</button>';
     return '<button class="btn ' + (cls || 'gray') + '" style="width:100%;margin-bottom:8px;" onclick="' + onclick + '">' + label + '</button>';
   }
-  var html = btn('✏️ 改名', 'closeModal();mRename(' + id + ')') +
-    btn('🔗 分享 / 填写链接', 'closeModal();mShare(' + id + ')');
-  if (own) {
-    html += btn('⬆️ 上移', 'closeModal();mMove(' + id + ',-1)', 'gray', oi <= 0) +
-      btn('⬇️ 下移', 'closeModal();mMove(' + id + ',1)', 'gray', oi < 0 || oi >= ownIds.length - 1) +
-      btn(m.disabled ? '▶️ 启用' : '⏸️ 禁用', 'closeModal();mToggleDisable(' + id + ')') +
-      btn('🗑️ 删除', 'closeModal();mDel(' + id + ')', 'danger');
+  var html;
+  if (m.friend) {
+    // 好友成员：只读，唯一操作是解除整段好友关系
+    html = btn('💔 解除好友关系（不影响对方数据）', 'closeModal();fRemove(' + m.owner_id + ')', 'danger');
   } else {
-    html += btn('移除共享（不影响属主数据）', 'closeModal();mDel(' + id + ')', 'danger');
+    html = btn('✏️ 改名', 'closeModal();mRename(' + id + ')') +
+      btn('🔗 分享 / 填写链接', 'closeModal();mShare(' + id + ')');
+    if (own) {
+      html += btn(m.friend_visible ? '🙈 对好友隐藏' : '👁 对好友可见', 'closeModal();fToggleVisible(' + id + ',' + (m.friend_visible ? 0 : 1) + ')') +
+        btn('⬆️ 上移', 'closeModal();mMove(' + id + ',-1)', 'gray', oi <= 0) +
+        btn('⬇️ 下移', 'closeModal();mMove(' + id + ',1)', 'gray', oi < 0 || oi >= ownIds.length - 1) +
+        btn(m.disabled ? '▶️ 启用' : '⏸️ 禁用', 'closeModal();mToggleDisable(' + id + ')') +
+        btn('🗑️ 删除', 'closeModal();mDel(' + id + ')', 'danger');
+    } else {
+      html += btn('移除共享（不影响属主数据）', 'closeModal();mDel(' + id + ')', 'danger');
+    }
   }
   html += '<button class="btn gray" style="width:100%;" onclick="closeModal()">取消</button>';
-  openModal('成员：' + m.name, html);
+  openModal('成员：' + mdName(m), html);
+};
+// 自己成员的「对好友可见」开关（仅本人成员，后端再校属主）
+window.fToggleVisible = async function(id, show){
+  try {
+    await api('/api/weight/members/' + id, { method:'PUT', body:{ friend_visible: !!show } });
+    await loadAll();
+  } catch(e){ alertModal(e.message, {ok:false}); }
+};
+// 解除好友（双向，不影响双方已有数据）
+window.fRemove = async function(ownerId){
+  confirmModal('解除好友', '解除后双方体重页都不再出现对方成员，已有数据不受影响。确认解除？', async function(){
+    try { await api('/api/weight/friends/' + ownerId, { method:'DELETE' }); await loadAll(); await initFriendCompare(); }
+    catch(e){ alertModal(e.message, {ok:false}); }
+  });
 };
 // 上移/下移：仅在自己的成员间调整顺序，提交完整有序 id 列表
 window.mMove = async function(id, dir){
@@ -6024,6 +6118,132 @@ if (unitSel) unitSel.addEventListener('change', async function(){
   catch(e){ alertModal(e.message, {ok:false}); }
 });
 
+// ==================== 体重好友 ====================
+var fcmpChart = null, _fcmpMe = null;
+
+// 「👥 好友」面板：邀请链接管理 + 好友列表
+async function openFriendPanel() {
+  var d = await api('/api/weight/friends');
+  var inviteHtml;
+  if (d.invite) {
+    inviteHtml =
+      '<label>我的邀请链接（发给家人朋友，对方登录后打开即成为双向好友）</label>' +
+      '<input id="fInviteUrl" value="' + esc(d.invite.link) + '" readonly style="margin-bottom:8px;">' +
+      '<button class="btn" onclick="fCopyInvite()">复制链接</button> ' +
+      '<button class="btn gray" onclick="fResetInvite()">重置链接</button>' +
+      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">重置后旧链接立即失效，已添加的好友保留。好友默认只能看到你代表本人的成员，其余成员需在成员「⋯」菜单开启「对好友可见」。</p>';
+  } else {
+    inviteHtml =
+      '<button class="btn" id="fGenInvite" style="width:100%;">生成我的邀请链接</button>' +
+      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">好友之间可在体重页互看曲线（仅可读，不能替对方录入），适合家人朋友一起打卡 PK。</p>';
+  }
+  var flist = (d.friends || []).map(function(f){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">' +
+      '<span>' + esc(f.nickname) + ' <span class="muted" style="font-size:12px;">@' + esc(f.username) + '</span></span>' +
+      '<button class="btn sm danger" onclick="fRemove(' + f.uid + ')">解除</button></div>';
+  }).join('') || '<p class="muted" style="margin:8px 0 0;">还没有好友，生成邀请链接发给家人朋友吧。</p>';
+  openModal('体重好友',
+    '<div style="margin-bottom:16px;">' + inviteHtml + '</div>' +
+    '<h3 style="font-size:14px;margin:0 0 6px;">我的好友</h3>' + flist);
+  var gen = document.getElementById('fGenInvite');
+  if (gen) gen.addEventListener('click', async function(){
+    try { await api('/api/weight/friend-invite', { method:'POST' }); closeModal(); await openFriendPanel(); await initFriendCompare(); }
+    catch(e){ alertModal(e.message, {ok:false}); }
+  });
+}
+window.fCopyInvite = function(){
+  var el = document.getElementById('fInviteUrl');
+  if (!el) return;
+  el.select();
+  try { document.execCommand('copy'); alertModal('已复制'); } catch(e){ alertModal('请手动复制', {ok:false}); }
+};
+window.fResetInvite = function(){
+  confirmModal('重置邀请链接', '重置后旧链接立即失效（已添加的好友保留），确认？', async function(){
+    try { await api('/api/weight/friend-invite', { method:'POST', body:{ reset:true } }); closeModal(); await openFriendPanel(); }
+    catch(e){ alertModal(e.message, {ok:false}); }
+  });
+};
+var fFriendBtn = document.getElementById('fFriend');
+if (fFriendBtn) fFriendBtn.addEventListener('click', function(){
+  openFriendPanel().catch(function(e){ alertModal(e.message, {ok:false}); });
+});
+
+// 好友对比卡：勾选自己与好友（默认仅自己），自己成员全部参与、好友仅可见成员
+async function initFriendCompare() {
+  var card = document.getElementById('friendCompareCard');
+  var btn = document.getElementById('fFriend');
+  // X-Data-As 共享数据源：好友关系属于本人身份，隐藏全部好友入口
+  if (weightSharingSource()) {
+    if (card) card.style.display = 'none';
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+  try {
+    var d = await api('/api/weight/friends');
+    _fcmpMe = d.me;
+    var box = document.getElementById('fcmpUsers');
+    box.innerHTML =
+      '<label style="display:inline-block;margin:2px 8px;font-weight:normal;"><input type="checkbox" value="me" checked style="width:auto;"> 我</label>' +
+      (d.friends || []).map(function(f){
+        return '<label style="display:inline-block;margin:2px 8px;font-weight:normal;"><input type="checkbox" value="' + f.uid + '" style="width:auto;"> ' + esc(f.nickname) + '</label>';
+      }).join('');
+  } catch(e){ if (card) card.style.display = 'none'; }
+}
+async function runFriendCompare() {
+  if (!_fcmpMe) return;
+  var ids = Array.prototype.slice.call(document.querySelectorAll('#fcmpUsers input:checked')).map(function(x){
+    return x.value === 'me' ? String(_fcmpMe.id) : x.value;
+  });
+  if (!ids.length) { alertModal('请至少选择一人', {ok:false}); return; }
+  var d = await api('/api/weight/friend-chart?userIds=' + ids.join(','));
+  var nickOf = {};
+  (d.users || []).forEach(function(u){ nickOf[u.id] = u.nickname; });
+  var byKey = {}, dates = {};
+  d.records.forEach(function(r){
+    // 自己的成员只显示成员名；好友成员显示「昵称·成员名」
+    var key = (r.owner_id === _fcmpMe.id)
+      ? r.member_name
+      : (nickOf[r.owner_id] || ('用户' + r.owner_id)) + '·' + r.member_name;
+    if (!byKey[key]) byKey[key] = {};
+    byKey[key][r.record_date] = toDisplay(r.weight);
+    dates[r.record_date] = 1;
+  });
+  var labels = Object.keys(dates).sort();
+  var datasets = Object.keys(byKey).map(function(k, i){
+    return { label: k, data: labels.map(function(dt){ return byKey[k][dt] != null ? byKey[k][dt] : null; }),
+      borderColor: COLORS[i % COLORS.length], backgroundColor: COLORS[i % COLORS.length],
+      spanGaps: true, tension: .3, borderWidth: 2, pointRadius: 0, pointHitRadius: 14 };
+  });
+  if (fcmpChart) fcmpChart.destroy();
+  fcmpChart = new Chart(document.getElementById('friendCompareChart'), {
+    type: 'line',
+    data: { labels: labels, datasets: datasets },
+    options: { plugins: { legend: { position: 'top' } },
+      scales: { y: { title: { display: true, text: '体重(' + unitLabel() + ')' } } } }
+  });
+}
+var fcmpBtn = document.getElementById('fcmpRun');
+if (fcmpBtn) fcmpBtn.addEventListener('click', function(){
+  runFriendCompare().catch(function(e){ alertModal(e.message, {ok:false}); });
+});
+
+// ?wlink=<token>：好友邀请链接落地，确认后成为双向好友并刷新
+(function handleWeightInviteLink(){
+  if (weightSharingSource()) return;
+  var token = new URLSearchParams(location.search).get('wlink');
+  if (!token) return;
+  try { history.replaceState(null, '', location.pathname); } catch(e){}
+  confirmModal('接受体重好友邀请',
+    '接受后，你和邀请人将成为体重好友，双方可在体重页互看「对好友可见」成员的体重曲线（仅可读，不能替对方录入）。',
+    async function(){
+      try {
+        var r = await api('/api/weight/friends/accept', { method:'POST', body:{ token: token } });
+        alertModal(r.message);
+        location.reload();
+      } catch(e){ alertModal(e.message, {ok:false}); }
+    });
+})();
+
 // 超管对比
 async function initCompare() {
   var wrap = document.getElementById('compareCard');
@@ -6108,7 +6328,7 @@ var wPushHourPick = null;
 var wPushChannelPick = null;
 async function loadPush() {
   var chs = await api('/api/notify/channels');
-  var items = chs.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + c.type + ']' }; });
+  var items = chs.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + chTypeLabel(c.type) + ']' }; });
   var d = await api('/api/push/weight');
   wPushChannelPick = initListPick(document.getElementById('pushCh'), items, d.config.channel_ids || []);
   document.getElementById('pushFmt').value = d.config.format || 'text';
@@ -6138,7 +6358,7 @@ if (pushSend) pushSend.addEventListener('click', async function(){
 });
 
 (async function(){
-  try { await loadAll(); initFilter(); await loadPush(); await initCompare(); await initShare(); }
+  try { await loadAll(); initFilter(); await loadPush(); await initCompare(); await initShare(); await initFriendCompare(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
 })();
 `;
@@ -7142,7 +7362,7 @@ function initAssetFilter() {
 var aPushDayPick = null, aPushHourPick = null, aPushChannelPick = null;
 async function loadPush() {
   var chs = await api('/api/notify/channels');
-  var items = chs.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + c.type + ']' }; });
+  var items = chs.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + chTypeLabel(c.type) + ']' }; });
   var d = await api('/api/push/asset');
   aPushChannelPick = initListPick(document.getElementById('pushCh'), items, d.config.channel_ids || []);
   document.getElementById('pushFmt').value = d.config.format || 'text';
@@ -14337,7 +14557,7 @@ async function loadPush() {
   // 两个请求互不依赖, 并行发出省一个往返(高 RTT 环境明显)
   var _rs = await Promise.all([api('/api/notify/channels'), api('/api/push/todo')]);
   var chs = _rs[0], d = _rs[1];
-  var items = chs.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + c.type + ']' }; });
+  var items = chs.channels.map(function(c){ return { value: c.id, label: c.name + ' [' + chTypeLabel(c.type) + ']' }; });
   tPushChannelPick = initListPick(document.getElementById('pushCh'), items, d.config.channel_ids || []);
   document.getElementById('pushFmt').value = d.config.format || 'text';
   tPushHourPick = initMultiPick(document.getElementById('pushHour'), 0, 23, d.config.hours || [9], function(n){ return n + '点'; });

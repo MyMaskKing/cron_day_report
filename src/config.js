@@ -50,14 +50,14 @@ async function resolveBaseUrl(storage, env, url) {
 
 /**
  * 按渠道类型计算有效推送格式（自动降级）
- * email: 支持 text/html，markdown 无意义降级为 text
+ * email/sys_email: 支持 text/html，markdown 无意义降级为 text
  * wechat/webhook: 支持 text/markdown，html 无意义降级为 text
  * @param {string} format - 用户选择的格式 text|html|markdown
- * @param {string} channelType - 渠道类型 email|wechat|webhook
+ * @param {string} channelType - 渠道类型 email|sys_email|wechat|webhook
  * @returns {string} 该渠道实际使用的格式
  */
 function effectiveFormat(format, channelType) {
-  if (channelType === 'email') return format === 'markdown' ? 'text' : format;
+  if (channelType === 'email' || channelType === 'sys_email') return format === 'markdown' ? 'text' : format;
   return format === 'html' ? 'text' : format;
 }
 

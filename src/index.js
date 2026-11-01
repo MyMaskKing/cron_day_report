@@ -14,6 +14,7 @@ import { getSession, getTokenFromRequest, buildSessionCookie } from './auth/sess
 import { generateToken } from './auth/password.js';
 import { batchAccessUrls, formatResults } from './services/monitor.service.js';
 import { sendNotification } from './services/notify.service.js';
+import { getMailGateway } from './services/mail-gateway.service.js';
 
 // API handlers
 import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, resolvePublicOwnerId, sendEmailCode, bindEmail, forgotPassword, resetTokenStatus, passwordReset, updateQuickloginRestrict, updateShowQuickloginButton, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateTodoViewOpts, updateMotto, markMottoSeen, updateDefaultHome, BG_THEMES, normalizeTodoViewList } from './api/auth.api.js';
@@ -26,7 +27,7 @@ import {
   getAnnouncementPublic, markAnnouncementRead, getAnnouncement, setAnnouncement,
   setAppDownload
 } from './api/users.api.js';
-import { listChannels, createChannel, updateChannel, setChannelStatus, removeChannel } from './api/notify.api.js';
+import { listChannels, gatewayStatus, createChannel, updateChannel, setChannelStatus, removeChannel } from './api/notify.api.js';
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
 import {
   listFunds, createFund, updateFund, removeFund,
@@ -41,6 +42,7 @@ import {
   listMembers, createMember, updateMember, reorderMembers, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
   publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers, adminShareMember,
+  friendInvite, listFriends, acceptFriend, removeFriend, friendChart,
   getUnit, setUnit
 } from './api/weight.api.js';
 import {
@@ -196,6 +198,7 @@ router.post('/api/monitor/run', runMyMonitors);
 
 // --- 通知渠道 API ---
 router.get('/api/notify/channels', listChannels);
+router.get('/api/notify/gateway-status', gatewayStatus);
 router.post('/api/notify/channels', createChannel);
 router.put('/api/notify/channels/:id', updateChannel);
 router.put('/api/notify/channels/:id/status', setChannelStatus);
@@ -250,6 +253,11 @@ router.delete('/api/weight/records/:id', removeRecord);
 router.get('/api/admin/weight/compare', adminCompare);
 router.get('/api/admin/weight/all-members', adminAllMembers);
 router.post('/api/admin/weight/share', adminShareMember);
+router.post('/api/weight/friend-invite', friendInvite);
+router.get('/api/weight/friends', listFriends);
+router.post('/api/weight/friends/accept', acceptFriend);
+router.delete('/api/weight/friends/:uid', removeFriend);
+router.get('/api/weight/friend-chart', friendChart);
 router.get('/api/public/weight/:token', publicMemberInfo);
 router.post('/api/public/weight/:token', publicSubmitWeight);
 router.get('/api/public/weight-report/:token', publicWeightReport);
@@ -633,6 +641,8 @@ async function runMyModulePush({ request, env, params }) {
   if (!channelIds.length) return error('请先配置推送渠道', 400);
 
   const format = (cfg && cfg.format) || 'text';
+  // 官方邮件渠道需要系统邮件网关配置（整批只取一次）
+  const gateway = await getMailGateway(storage);
   // 逐个绑定渠道发送，按渠道有效格式生成内容（同一有效格式只生成一次）
   const msgCache = {};
   const results = [];
@@ -646,7 +656,7 @@ async function runMyModulePush({ request, env, params }) {
     }
     const message = msgCache[fmt];
     if (!message) return error('暂无数据，无法生成推送内容', 400);
-    const r = await sendNotification(message, channel, fmt, moduleSubject(module, tzOffset));
+    const r = await sendNotification(message, channel, fmt, moduleSubject(module, tzOffset), gateway);
     results.push({ channel_id: cid, ...r });
     anySent = true;
     // 推送日志: 手动触发, 写失败不影响主流程
@@ -686,6 +696,8 @@ async function executeTasksAndNotify(env, storage, tasks, tzOffset = 8, triggerB
   const standaloneResults = results.filter(r => r.standalone && r.channel_id);
   const mergeResults = results.filter(r => !r.standalone);
   const subject = moduleSubject('monitor', tzOffset);
+  // 官方邮件渠道需要系统邮件网关配置（整批只取一次）
+  const gateway = await getMailGateway(storage);
 
   // 独立发送：每条一个消息
   for (const r of standaloneResults) {
@@ -693,7 +705,7 @@ async function executeTasksAndNotify(env, storage, tasks, tzOffset = 8, triggerB
     if (!channel || !channel.enabled) continue;
     const returnType = r.return_type || 'text';
     const message = formatResults([r], returnType, tzOffset);
-    const sendResult = await sendNotification(message, channel, returnType, subject);
+    const sendResult = await sendNotification(message, channel, returnType, subject, gateway);
     notified.push({ channelId: r.channel_id, standalone: true, ...sendResult });
     // 推送日志: 落发送动作本身, 失败原因取 sendResult.message; 写失败不影响主流程
     await storage.pushLog.add({
@@ -717,7 +729,7 @@ async function executeTasksAndNotify(env, storage, tasks, tzOffset = 8, triggerB
     if (!channel || !channel.enabled) continue;
     const returnType = group[0].return_type || 'text';
     const message = formatResults(group, returnType, tzOffset);
-    const sendResult = await sendNotification(message, channel, returnType, subject);
+    const sendResult = await sendNotification(message, channel, returnType, subject, gateway);
     notified.push({ channelId, ...sendResult });
     // 推送日志: 合并组以组内第一条的 user_id 作为归属 (同用户同渠道)
     await storage.pushLog.add({
@@ -831,6 +843,8 @@ async function runModulePush(env, storage, module, now, manual, tzOffset) {
     const format = cfg.format || 'text';
     // 待办分档提醒语用：当天第几次/共几次推送（manual 全量触发无确切序号，置 null 不显示）
     const pushSeq = (module === 'todo' && !manual) ? pushSeqOf(cfg, now) : null;
+    // 官方邮件渠道需要系统邮件网关配置（每用户每批只取一次）
+    const gateway = await getMailGateway(storage);
     // 按渠道有效格式生成消息并缓存（同一有效格式只生成一次）
     const msgCache = {};
     for (const cid of channelIds) {
@@ -842,7 +856,7 @@ async function runModulePush(env, storage, module, now, manual, tzOffset) {
       }
       const message = msgCache[fmt];
       if (!message) continue;
-      const r = await sendNotification(message, channel, fmt, moduleSubject(module, tzOffset));
+      const r = await sendNotification(message, channel, fmt, moduleSubject(module, tzOffset), gateway);
       sent.push({ user_id: cfg.user_id, channel_id: cid, ...r });
       // 推送日志: 定时触发; manual 全量重放时(/cron) trigger_by 记为 'manual'
       await storage.pushLog.add({

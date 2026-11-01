@@ -1,6 +1,7 @@
 /**
  * 通知服务：按渠道配置发送消息
  * 渠道类型: wechat(企业微信机器人) | webhook(通用/自定义POST) | email(通过webhook转发)
+ *          | sys_email(官方邮件, 走超管配置的系统邮件网关)
  * 迁移自原 index.js，扩展支持自定义 method/headers/body 模板。
  * 格式 returnType: text | html | markdown（markdown 仅 wechat/webhook 有意义）
  */
@@ -10,21 +11,26 @@
  * @param {string} message - 消息内容
  * @param {Object} channel - 通知渠道 { type, url, method, headers_json, body_template, name }
  * @param {string} returnType - 'text' | 'html' | 'markdown'
- * @param {string} subject - 邮件主题（仅 email 类型使用；含推送内容主题+时间）
+ * @param {string} subject - 邮件主题（email/sys_email 使用；含推送内容主题+时间）
+ * @param {{url:string,token:string}|null} [gateway] - 系统邮件网关（仅 sys_email 使用）
  * @returns {Promise<Object>} { success, message }
  */
-async function sendNotification(message, channel, returnType = 'text', subject = '') {
-  if (!channel || !channel.url) {
+async function sendNotification(message, channel, returnType = 'text', subject = '', gateway = null) {
+  if (!channel) {
     return { success: false, message: '未配置通知渠道' };
   }
   try {
     switch (channel.type) {
       case 'wechat':
+        if (!channel.url) return { success: false, message: '未配置通知渠道' };
         return await sendToWeChat(message, channel.url, returnType === 'markdown');
       case 'email':
         return await sendToEmail(message, channel, subject);
+      case 'sys_email':
+        return await sendToSystemEmail(message, channel, subject, gateway);
       case 'webhook':
       default:
+        if (!channel.url) return { success: false, message: '未配置通知渠道' };
         return await sendToWebhook(message, channel, returnType);
     }
   } catch (err) {
@@ -174,4 +180,46 @@ async function sendToEmail(message, channel, subject = '') {
   }
 }
 
-export { sendNotification, sendToWeChat, sendToWebhook, sendToEmail };
+/**
+ * 官方邮件：通过超管配置的系统邮件网关（mailrelay POST /send 同构）发送，
+ * 收件人存 headers_json.mailto（分号/逗号分隔多个）
+ * @param {string} message
+ * @param {Object} channel - 需含 headers_json
+ * @param {string} subject
+ * @param {{url:string,token:string}|null} gateway
+ * @returns {Promise<Object>}
+ */
+async function sendToSystemEmail(message, channel, subject = '', gateway = null) {
+  try {
+    if (!gateway || !gateway.url) return { success: false, message: '官方邮件未配置，请联系管理员配置' };
+    let meta = {};
+    if (channel.headers_json) {
+      try { meta = JSON.parse(channel.headers_json); } catch { /* 忽略非法JSON */ }
+    }
+    const to = String(meta.mailto || meta.to || '').trim();
+    if (!to) return { success: false, message: '收件邮箱未配置' };
+    const response = await fetch(gateway.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(gateway.token ? { Authorization: 'Bearer ' + gateway.token } : {})
+      },
+      body: JSON.stringify({ to, subject: subject || '定时任务执行报告', content: message })
+    });
+    if (response.ok) {
+      const result = await response.json().catch(() => ({}));
+      return { success: true, message: '官方邮件发送成功', details: result };
+    }
+    const errorText = await response.text().catch(() => '');
+    return { success: false, message: `邮件服务响应错误: ${response.status}`, details: errorText };
+  } catch (err) {
+    let cause = '';
+    if (err && err.cause) {
+      const c = err.cause;
+      cause = ` [${c.code || c.name || 'cause'}: ${c.message || c}]`;
+    }
+    return { success: false, message: `官方邮件发送异常: ${err.message}${cause}` };
+  }
+}
+
+export { sendNotification, sendToWeChat, sendToWebhook, sendToEmail, sendToSystemEmail };

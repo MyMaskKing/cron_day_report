@@ -177,6 +177,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_fpd_user_date ON fund_profit_daily (user_i
 -- share_token: 免密快速填写链接 token
 -- sort_order: 排序权重, 越小越靠前
 -- disabled: 1=暂时停用(曲线/录入/日报隐藏, 数据保留); archived: 1=已移除(软删, 同名可恢复)
+-- friend_visible: 1=对体重好友可见；默认仅本人首个成员为 1，其余成员属主手动开启
 CREATE TABLE IF NOT EXISTS weight_members (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL,
@@ -185,6 +186,7 @@ CREATE TABLE IF NOT EXISTS weight_members (
   sort_order  INTEGER NOT NULL DEFAULT 0,
   disabled    INTEGER NOT NULL DEFAULT 0,
   archived    INTEGER NOT NULL DEFAULT 0,
+  friend_visible INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -218,6 +220,26 @@ CREATE TABLE IF NOT EXISTS weight_member_shares (
 );
 CREATE INDEX IF NOT EXISTS idx_wms_user ON weight_member_shares(user_id);
 CREATE INDEX IF NOT EXISTS idx_wms_member ON weight_member_shares(member_id);
+
+-- ==================== 体重好友（用户级双向只读，竞赛对比）====================
+-- 邀请一人一条；重置 = 换 token
+CREATE TABLE IF NOT EXISTS weight_friend_invites (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner_user_id INTEGER NOT NULL UNIQUE,
+  token         TEXT NOT NULL UNIQUE,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (owner_user_id) REFERENCES users(id)
+);
+-- 好友关系对称存储：user_a < user_b 规范化，一行代表双向好友
+CREATE TABLE IF NOT EXISTS weight_friends (
+  user_a     INTEGER NOT NULL,
+  user_b     INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_a, user_b),
+  FOREIGN KEY (user_a) REFERENCES users(id),
+  FOREIGN KEY (user_b) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_weight_friends_b ON weight_friends(user_b);
 
 -- ==================== 资产钱包 ====================
 -- type: bank(银行卡) | alipay(支付宝) | wechat(微信) | investment(投资) | credit(信用支付, 负债) | cash(现金)

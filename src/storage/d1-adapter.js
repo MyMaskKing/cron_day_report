@@ -406,11 +406,18 @@ function createD1Adapter(env) {
       },
       async createMember(userId, name) {
         // sort_order 取该用户名下成员最大值 +1, 新成员排最后
+        // 该用户首个未归档成员视为本人成员，自动对好友可见；其余成员默认隐藏
         const res = await db.prepare(
-          'INSERT INTO weight_members (user_id, name, sort_order) ' +
-          'VALUES (?, ?, COALESCE((SELECT MAX(sort_order) FROM weight_members WHERE user_id = ?), -1) + 1)'
-        ).bind(userId, name, userId).run();
+          'INSERT INTO weight_members (user_id, name, sort_order, friend_visible) ' +
+          'VALUES (?, ?, COALESCE((SELECT MAX(sort_order) FROM weight_members WHERE user_id = ?), -1) + 1, ' +
+          'CASE WHEN NOT EXISTS (SELECT 1 FROM weight_members WHERE user_id = ? AND archived = 0) THEN 1 ELSE 0 END)'
+        ).bind(userId, name, userId, userId).run();
         return res.meta.last_row_id;
+      },
+      // 成员对好友可见开关（仅属主）
+      async setMemberFriendVisible(id, userId, visible) {
+        await db.prepare('UPDATE weight_members SET friend_visible=? WHERE id=? AND user_id=?')
+          .bind(visible ? 1 : 0, id, userId).run();
       },
       async updateMember(id, userId, name) {
         await db.prepare('UPDATE weight_members SET name=? WHERE id=? AND user_id=?').bind(name, id, userId).run();
@@ -526,6 +533,125 @@ function createD1Adapter(env) {
            FROM weight_members m JOIN users u ON m.user_id = u.id
            ORDER BY u.username, m.id`
         ).all();
+        return results || [];
+      },
+
+      // ==================== 体重好友（用户级双向只读）====================
+
+      // 好友 uid 集合（双向查）
+      async friendIdSet(userId) {
+        const { results } = await db.prepare(
+          `SELECT user_a AS uid FROM weight_friends WHERE user_b = ?
+           UNION
+           SELECT user_b AS uid FROM weight_friends WHERE user_a = ?`
+        ).bind(userId, userId).all();
+        return (results || []).map(r => r.uid);
+      },
+      // 好友列表（JOIN users 取昵称）
+      async listFriends(userId) {
+        const { results } = await db.prepare(
+          `SELECT u.id AS uid, u.username, u.nickname, f.created_at
+             FROM weight_friends f
+             JOIN users u ON u.id = CASE WHEN f.user_a = ? THEN f.user_b ELSE f.user_a END
+            WHERE f.user_a = ? OR f.user_b = ?
+           ORDER BY f.created_at`
+        ).bind(userId, userId, userId).all();
+        return results || [];
+      },
+      async addFriendPair(a, b) {
+        const ua = Math.min(a, b), ub = Math.max(a, b);
+        await db.prepare('INSERT OR IGNORE INTO weight_friends (user_a, user_b) VALUES (?, ?)')
+          .bind(ua, ub).run();
+      },
+      async removeFriendPair(a, b) {
+        const ua = Math.min(a, b), ub = Math.max(a, b);
+        await db.prepare('DELETE FROM weight_friends WHERE user_a=? AND user_b=?')
+          .bind(ua, ub).run();
+      },
+      async findFriendInviteByOwner(userId) {
+        return await db.prepare('SELECT * FROM weight_friend_invites WHERE owner_user_id = ?')
+          .bind(userId).first();
+      },
+      async findFriendInviteByToken(token) {
+        return await db.prepare('SELECT * FROM weight_friend_invites WHERE token = ?')
+          .bind(token).first();
+      },
+      // 一人一邀请：无则新建，有则换新 token
+      async upsertFriendInvite(userId, token) {
+        const existing = await db.prepare(
+          'SELECT id FROM weight_friend_invites WHERE owner_user_id = ?'
+        ).bind(userId).first();
+        if (existing) {
+          await db.prepare('UPDATE weight_friend_invites SET token=? WHERE id=?')
+            .bind(token, existing.id).run();
+          return;
+        }
+        await db.prepare(
+          'INSERT INTO weight_friend_invites (owner_user_id, token) VALUES (?, ?)'
+        ).bind(userId, token).run();
+      },
+      // 成员列表（含好友可见成员，只读）：自己拥有 ∪ shares 引用 ∪ 好友 friend_visible=1 成员
+      // 好友行附 friend=1/owner_id/owner_nick；停用的好友成员不展示；shares 已引用的不重复
+      async listMembersWithFriends(userId) {
+        const friendIds = await this.friendIdSet(userId);
+        if (friendIds.length === 0) return await this.listMembers(userId);
+        const marks = friendIds.map(() => '?').join(',');
+        const { results } = await db.prepare(
+          `SELECT m.*, 0 AS shared, 0 AS friend, NULL AS owner_id, NULL AS owner_nick
+             FROM weight_members m WHERE m.user_id = ? AND m.archived = 0
+           UNION
+           SELECT m.*, 1 AS shared, 0 AS friend, NULL AS owner_id, NULL AS owner_nick
+             FROM weight_members m
+             JOIN weight_member_shares s ON s.member_id = m.id
+            WHERE s.user_id = ? AND m.archived = 0
+           UNION
+           SELECT m.*, 0 AS shared, 1 AS friend, u.id AS owner_id,
+                  COALESCE(NULLIF(u.nickname, ''), u.username) AS owner_nick
+             FROM weight_members m JOIN users u ON u.id = m.user_id
+            WHERE m.archived = 0 AND m.disabled = 0 AND m.friend_visible = 1
+              AND m.user_id IN (${marks})
+              AND m.id NOT IN (SELECT member_id FROM weight_member_shares WHERE user_id = ?)
+            ORDER BY sort_order, id`
+        ).bind(userId, userId, ...friendIds, userId).all();
+        return results || [];
+      },
+      // 记录集合（含好友可见成员），供体重页图表；推送仍走旧 listRecords 不含好友
+      async listRecordsWithFriends(userId) {
+        const friendIds = await this.friendIdSet(userId);
+        if (friendIds.length === 0) return await this.listRecords(userId);
+        const marks = friendIds.map(() => '?').join(',');
+        const { results } = await db.prepare(
+          `SELECT * FROM weight_records WHERE member_id IN (
+             SELECT id FROM weight_members WHERE user_id = ?
+             UNION
+             SELECT member_id FROM weight_member_shares WHERE user_id = ?
+             UNION
+             SELECT m.id FROM weight_members m
+              WHERE m.user_id IN (${marks}) AND m.friend_visible = 1 AND m.archived = 0
+                AND m.id NOT IN (SELECT member_id FROM weight_member_shares WHERE user_id = ?)
+           ) ORDER BY record_date`
+        ).bind(userId, userId, ...friendIds, userId).all();
+        return results || [];
+      },
+      // 好友对比曲线：自己全部成员 ∪ 好友仅可见成员；返回列对齐 listRecordsByUsers
+      async listCompareRecords(selfUid, friendUids) {
+        const uids = (friendUids || []).filter(uid => uid !== selfUid);
+        if (uids.length === 0) {
+          const { results: selfRows } = await db.prepare(
+            `SELECT r.*, m.name AS member_name, m.user_id AS owner_id
+               FROM weight_records r JOIN weight_members m ON r.member_id = m.id
+              WHERE m.user_id = ? ORDER BY r.record_date`
+          ).bind(selfUid).all();
+          return selfRows || [];
+        }
+        const marks = uids.map(() => '?').join(',');
+        const { results } = await db.prepare(
+          `SELECT r.*, m.name AS member_name, m.user_id AS owner_id
+             FROM weight_records r JOIN weight_members m ON r.member_id = m.id
+            WHERE m.user_id = ?
+               OR (m.user_id IN (${marks}) AND m.friend_visible = 1 AND m.archived = 0)
+            ORDER BY r.record_date`
+        ).bind(selfUid, ...uids).all();
         return results || [];
       }
     },
