@@ -5801,11 +5801,16 @@ function renderWeightInsight(mlist, filtered) {
   var recsOf = function(list, mid){ return sortAsc(list.filter(function(r){ return r.member_id === mid; })); };
   if (!mlist.length) { box.innerHTML = ''; wInsightMid = null; return; }
   if (!mlist.some(function(m){ return m.id === wInsightMid; })) {
-    // 默认取区间内最新记录所属成员；都没记录则取第一个成员（显示空态，仍可切换）
-    var newest = filtered.length ? filtered.slice().sort(function(a, b){ return a.record_date < b.record_date ? 1 : -1; })[0] : null;
-    wInsightMid = newest ? newest.member_id : mlist[0].id;
+    // 默认取区间内最新记录所属成员；该成员不在启用列表（停用/归档/好友已停用，记录可能残留）
+    // 时回退到启用列表内有记录的成员；都没记录则取第一个（显示空态，仍可切换）
+    var activeIdMap = {};
+    mlist.forEach(function(x){ activeIdMap[x.id] = 1; });
+    var inList = filtered.filter(function(r){ return activeIdMap[r.member_id]; })
+      .sort(function(a, b){ return a.record_date < b.record_date ? 1 : -1; });
+    wInsightMid = inList.length ? inList[0].member_id : mlist[0].id;
   }
   var m = mlist.filter(function(x){ return x.id === wInsightMid; })[0];
+  if (!m) { box.innerHTML = ''; wInsightMid = null; return; }
   // 选中成员在当前区间无记录：渲染空态卡（保留成员切换）
   if (!recsOf(filtered, m.id).length) {
     var chipsEmpty = mlist.length > 1 ? '<div class="jn-members">' + mlist.map(function(x){

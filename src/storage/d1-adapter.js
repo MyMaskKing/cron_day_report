@@ -627,7 +627,7 @@ function createD1Adapter(env) {
              SELECT member_id FROM weight_member_shares WHERE user_id = ?
              UNION
              SELECT m.id FROM weight_members m
-              WHERE m.user_id IN (${marks}) AND m.friend_visible = 1 AND m.archived = 0
+              WHERE m.user_id IN (${marks}) AND m.friend_visible = 1 AND m.archived = 0 AND m.disabled = 0
                 AND m.id NOT IN (SELECT member_id FROM weight_member_shares WHERE user_id = ?)
            ) ORDER BY record_date`
         ).bind(userId, userId, ...friendIds, userId).all();
@@ -649,7 +649,7 @@ function createD1Adapter(env) {
           `SELECT r.*, m.name AS member_name, m.user_id AS owner_id
              FROM weight_records r JOIN weight_members m ON r.member_id = m.id
             WHERE m.user_id = ?
-               OR (m.user_id IN (${marks}) AND m.friend_visible = 1 AND m.archived = 0)
+               OR (m.user_id IN (${marks}) AND m.friend_visible = 1 AND m.archived = 0 AND m.disabled = 0)
             ORDER BY r.record_date`
         ).bind(selfUid, ...uids).all();
         return results || [];
