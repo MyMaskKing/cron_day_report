@@ -5678,8 +5678,11 @@ function toDisplay(kg){ return unit === 'jin' ? Math.round(kg * 2 * 10) / 10 : k
 function toKg(v){ v = parseFloat(v); return unit === 'jin' ? v / 2 : v; }
 function todayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
 var allRecords = [];
-// 好友成员显示为「好友昵称·成员名」；其余用成员本名
-function mdName(m){ return m.friend ? (m.owner_nick + '·' + m.name) : m.name; }
+// 好友成员显示为「好友昵称·成员名」以标明归属；成员名与好友昵称相同（本人成员跟随昵称）时不重复拼接
+function mdName(m){
+  if (m.friend) return (m.owner_nick && m.name !== m.owner_nick) ? (m.owner_nick + '·' + m.name) : m.name;
+  return m.name;
+}
 // 当前是否在 X-Data-As 共享数据源（好友功能只属于本人身份，共享时隐藏入口）
 function weightSharingSource(){ return !!dataShareGet('weight'); }
 
@@ -5842,8 +5845,8 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
   };
   var m = mlist.filter(function(x){ return x.id === mid; })[0];
   if (!m) { box.innerHTML = ''; return; }
-  // 全部态（点「全部」/默认）判断对象是本人成员，标题标「（默认）」
-  var defTag = (wChartFocus == null && mid === selfId) ? '（默认）' : '';
+  // 全部态（点「全部」/默认）判断对象是本人成员，标题标「（默认）」；只有自己一个启用成员时无需标注
+  var defTag = (wChartFocus == null && mid === selfId && mlist.length > 1) ? '（默认）' : '';
   // 选中成员在当前区间无记录：渲染空态卡（保留成员切换）
   if (!recsOf(filtered, mid).length) {
     box.innerHTML = '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(mdName(m)) + defTag + '</h3>' +
