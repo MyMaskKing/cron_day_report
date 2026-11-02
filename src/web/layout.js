@@ -207,6 +207,10 @@ const BASE_CSS = `
   --cd-border: #dfe4fb;
   --th-bg: rgba(20,20,40,.025);
   --th-border: rgba(20,20,40,.06);
+  /* 减肥竞赛名次色（金/银/铜，三主题各自取值） */
+  --gold: #b8860b; --gold-bg: rgba(212,160,23,.12);
+  --silver: #6b7280; --silver-bg: rgba(120,130,145,.14);
+  --bronze: #9a5b27; --bronze-bg: rgba(184,115,51,.14);
   --loading-mask: rgba(246,245,242,.65);
   --sticky-th: rgba(246,245,242,.96);
   --code-bg: rgba(127,127,127,.15);
@@ -284,6 +288,9 @@ const BASE_CSS = `
   --cd-border: rgba(185,123,255,.45);
   --th-bg: rgba(255,255,255,.04);
   --th-border: rgba(255,255,255,.08);
+  --gold: #f5c542; --gold-bg: rgba(245,197,66,.16);
+  --silver: #c2c9d4; --silver-bg: rgba(180,190,205,.14);
+  --bronze: #e0995e; --bronze-bg: rgba(224,153,94,.16);
   --loading-mask: rgba(10,12,20,.6);
   --sticky-th: rgba(34,36,46,.96);
   --code-bg: rgba(255,255,255,.12);
@@ -361,6 +368,9 @@ const BASE_CSS = `
   --cd-border: #d9cdf5;
   --th-bg: rgba(120,100,50,.05);
   --th-border: rgba(120,100,50,.10);
+  --gold: #8a6410; --gold-bg: rgba(160,110,20,.14);
+  --silver: #5d6470; --silver-bg: rgba(110,110,100,.14);
+  --bronze: #7c4a22; --bronze-bg: rgba(150,95,40,.14);
   --loading-mask: rgba(243,238,224,.65);
   --sticky-th: rgba(243,238,224,.96);
   --code-bg: rgba(120,100,50,.14);
@@ -2118,7 +2128,7 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .jn-chart-legend i.avg { border-top: 2px dashed #f97316; }
 .jn-chart-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-/* ===== 减肥竞赛弹窗（体重页 🏆 竞赛结果）===== */
+/* ===== 减肥竞赛弹窗（体重页 🏆 竞赛结果 · 运动 PK 风）===== */
 .rc-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .rc-controls .rc-spacer { flex: 1 1 auto; }
 .rc-help { width: 26px; height: 26px; flex: none; display: inline-flex; align-items: center; justify-content: center;
@@ -2130,76 +2140,75 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .rc-dates input { width: auto; padding: 4px 6px; font-size: 12px; }
 .rc-sub { font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
 .rc-sub b { color: var(--text); font-weight: 600; }
-/* 我的名次卡 */
-.rc-me { background: var(--brand-tint); border-radius: var(--r-lg); padding: 13px 14px; margin-bottom: 14px; }
-.rc-me__top { display: flex; align-items: center; gap: 10px; }
-.rc-avatar { width: 36px; height: 36px; flex: none; border-radius: 50%;
-  background: var(--hover-brand); color: var(--brand-text);
-  display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; }
-.rc-me__who { flex: 1; min-width: 0; }
-.rc-me__label { font-size: 11px; color: var(--brand-text); font-weight: 700; letter-spacing: .04em; }
-.rc-me__name { font-size: 14px; font-weight: 700; color: var(--text-strong); }
-.rc-me__rank { font-size: 24px; font-weight: 850; color: var(--brand-text); white-space: nowrap; line-height: 1.1; }
-.rc-me__rank small { font-size: 12px; font-weight: 600; }
-.rc-me__stats { display: flex; margin-top: 10px; }
-.rc-me__stats > div { flex: 1; min-width: 0; text-align: center; }
-.rc-me__stats > div + div { border-left: 1px solid var(--border); }
-.rc-me__stats .v { font-size: 14px; font-weight: 800; color: var(--text-strong); font-variant-numeric: tabular-nums; }
-.rc-me__stats .l { font-size: 11px; color: var(--muted); }
-.rc-me__bar { height: 4px; border-radius: 99px; background: var(--hover-brand); margin-top: 10px; overflow: hidden; }
-.rc-me__bar i { display: block; height: 100%; background: var(--brand-strong); border-radius: 99px; }
-.rc-me__hint { font-size: 11.5px; color: var(--brand-text); margin-top: 6px; }
-.rc-me.is-off { background: var(--surface-2); }
-.rc-me.is-off .rc-me__label, .rc-me.is-off .rc-me__hint { color: var(--muted); }
-.rc-me.is-off .rc-avatar { background: var(--surface-3); color: var(--muted); }
-.rc-me.is-off .rc-me__rank { color: var(--muted); }
-.rc-me.is-off .rc-me__bar { display: none; }
-/* 颁奖台 */
-.rc-podium { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 14px; }
-.rc-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
-.rc-medal { font-size: 20px; line-height: 1.2; }
-.rc-block { width: 100%; border-radius: var(--r-md) var(--r-md) 4px 4px;
-  background: var(--surface-2); display: flex; flex-direction: column; justify-content: flex-end;
-  padding: 8px 4px; text-align: center; min-height: 48px; }
-.rc-col--first .rc-block { background: var(--brand-tint); }
-.rc-block__delta { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; margin-bottom: 2px; }
-.rc-block__days { font-size: 10.5px; color: var(--muted); }
-.rc-block__name { font-size: 12.5px; font-weight: 700; color: var(--text-strong);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
-.rc-col--first .rc-block__name { color: var(--brand-text); }
-/* 单项最佳 */
-.rc-titles { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-bottom: 14px; }
-.rc-title { background: var(--surface-2); border-radius: var(--r-md); padding: 9px 10px; min-width: 0; }
-.rc-title__l { font-size: 11px; color: var(--muted); }
-.rc-title__v { font-size: 15px; font-weight: 800; color: var(--text-strong); margin-top: 2px; font-variant-numeric: tabular-nums; }
-.rc-title__n { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* 完整榜单 */
-.rc-sec { font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 2px 2px 6px; }
-.rc-row { position: relative; display: flex; align-items: center; gap: 9px;
-  padding: 8px; border-bottom: 1px solid var(--border); border-radius: var(--r-sm); }
-.rc-row.is-me { background: var(--hover-brand); }
-.rc-rank { width: 20px; flex: none; text-align: center; font-size: 13px; font-weight: 800; color: var(--muted);
-  font-variant-numeric: tabular-nums; }
-.rc-rank.top { font-size: 15px; }
-.rc-row .rc-avatar { width: 30px; height: 30px; font-size: 13px; }
-.rc-row__who { flex: 1; min-width: 0; }
-.rc-row__name { font-size: 13.5px; font-weight: 600; color: var(--text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-avatar { border-radius: 50%; background: var(--hover-brand); color: var(--brand-text);
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 800; flex: none; }
 .rc-tag { display: inline-block; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 6px;
   vertical-align: 1px; margin-left: 3px; background: var(--surface-3); color: var(--muted); border: 1px solid var(--border); }
 .rc-tag--friend { background: var(--hover-brand); color: var(--brand-text); border-color: transparent; }
-.rc-row__meta { font-size: 11px; color: var(--muted); }
-.rc-row__delta { font-size: 13.5px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.rc-row__score { width: 34px; flex: none; text-align: right; font-size: 15px; font-weight: 850;
-  color: var(--brand-text); font-variant-numeric: tabular-nums; }
-.rc-row__bar { position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; }
-.rc-row__bar i { display: block; height: 100%; background: var(--brand); opacity: .35; border-radius: 2px; }
 .rc-down { color: var(--ok-text); }
 .rc-up { color: var(--danger); }
 .rc-flat { color: var(--muted); font-weight: 700; }
+/* VS 卡：冠军 vs 我 */
+.rc-vs { display: flex; align-items: center; gap: 8px; background: var(--surface-2);
+  border-radius: var(--r-lg); padding: 14px 16px; margin-bottom: 12px; }
+.rc-vs__side { flex: 1; min-width: 0; text-align: center; }
+.rc-vs__ava { width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 5px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 800; background: var(--surface-3); color: var(--muted); }
+.rc-vs__ava.champ { background: var(--gold-bg); color: var(--gold); border: 2px solid var(--gold); }
+.rc-vs__ava.me { background: var(--hover-brand); color: var(--brand-text); border: 2px solid var(--brand-text); }
+.rc-vs__crown { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); font-size: 13px; }
+.rc-vs__name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-vs__sub { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 1px; }
+.rc-vs__mid { flex: none; text-align: center; }
+.rc-vs__mark { width: 34px; height: 34px; border-radius: 50%; background: var(--brand-strong); color: #fff;
+  font-weight: 850; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
+.rc-vs__gap { font-size: 10.5px; color: var(--brand-text); font-weight: 700; margin-top: 4px; white-space: nowrap; }
+.rc-vs--solo { flex-direction: column; gap: 2px; padding: 18px 16px; }
+.rc-vs--solo .rc-vs__ava { margin-bottom: 6px; }
+.rc-vs__solo-t { font-size: 14px; font-weight: 850; color: var(--brand-text); }
+.rc-vs__solo-s { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+/* 三维环形得分 */
+.rc-rings { display: flex; gap: 8px; margin-bottom: 12px; }
+.rc-ring { flex: 1; min-width: 0; background: var(--surface-2); border-radius: var(--r-md); padding: 10px 4px 8px; text-align: center; }
+.rc-ring svg { display: block; margin: 0 auto; }
+.rc-ring__track { stroke: var(--surface-3); }
+.rc-ring__prog { stroke: var(--brand-strong); }
+.rc-ring__v { font-size: 12.5px; font-weight: 850; fill: var(--text-strong); }
+.rc-ring__tot { font-size: 8.5px; fill: var(--muted); }
+.rc-ring__l { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.rc-ring__rank { font-size: 10.5px; font-weight: 700; color: var(--brand-text); margin-top: 1px; }
+/* 前三色卡 */
+.rc-top3 { display: flex; gap: 8px; margin-bottom: 14px; }
+.rc-tcard { flex: 1; min-width: 0; border-radius: var(--r-md); padding: 10px 6px 9px; text-align: center; }
+.rc-tcard--1 { background: var(--gold-bg); }
+.rc-tcard--2 { background: var(--silver-bg); }
+.rc-tcard--3 { background: var(--bronze-bg); }
+.rc-tcard__medal { font-size: 19px; line-height: 1.1; }
+.rc-tcard__name { font-size: 12.5px; font-weight: 800; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-tcard--1 .rc-tcard__name { color: var(--gold); }
+.rc-tcard--2 .rc-tcard__name { color: var(--silver); }
+.rc-tcard--3 .rc-tcard__name { color: var(--bronze); }
+.rc-tcard__delta { font-size: 12.5px; font-weight: 850; margin-top: 1px; font-variant-numeric: tabular-nums; }
+.rc-tcard__days { font-size: 10px; color: var(--muted); }
+/* 完整榜单胖行 */
+.rc-row { position: relative; display: flex; align-items: center; gap: 10px;
+  background: var(--surface-2); border-radius: var(--r-md); padding: 10px 12px; margin-bottom: 7px; overflow: hidden; }
+.rc-row.is-me { outline: 2px solid var(--brand-text); outline-offset: -2px; }
+.rc-rank { width: 24px; flex: none; text-align: center; font-size: 14px; font-weight: 850; color: var(--muted); }
+.rc-row .rc-avatar { width: 32px; height: 32px; font-size: 13px; }
+.rc-row__who { flex: 1; min-width: 0; }
+.rc-row__name { font-size: 13.5px; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-row__meta { font-size: 10.5px; color: var(--muted); }
+.rc-row__delta { font-size: 13.5px; font-weight: 850; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rc-row__score { font-size: 15px; font-weight: 850; color: var(--brand-text);
+  width: 26px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
+.rc-row__bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--brand); opacity: .35; }
 /* 数据不足 / 空态 / 规则页 */
-.rc-note { margin-top: 12px; padding: 10px 12px; background: var(--surface-2);
-  border-radius: var(--r-md); font-size: 12px; color: var(--muted); line-height: 1.7; }
+.rc-note { font-size: 11.5px; color: var(--muted); line-height: 1.7; padding: 9px 12px;
+  background: var(--surface-2); border-radius: var(--r-md); }
 .rc-note b { color: var(--text); font-weight: 700; }
 .rc-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 34px 12px; line-height: 1.9; }
 .rc-rules h3 { font-size: 14px; font-weight: 800; color: var(--text-strong); margin: 14px 0 4px; }
@@ -2208,10 +2217,6 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .rc-rules ul { margin: 4px 0 0; padding-left: 18px; }
 .rc-rules .formula { background: var(--surface-2); border-radius: 6px; padding: 1px 7px;
   font-size: 12px; font-variant-numeric: tabular-nums; }
-@media (max-width: 380px) {
-  .rc-me__stats .l { font-size: 10px; }
-  .rc-row { gap: 7px; padding: 8px 6px; }
-}
 @media (max-width: 640px) {
   .jn-head { flex-direction: column; align-items: stretch; gap: 10px; }
   .jn-members { width: 100%; }

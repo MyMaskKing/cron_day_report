@@ -6415,92 +6415,86 @@ function renderRaceBody() {
     box.innerHTML = '<div class="rc-empty">该区间内所有人的记录都不足 2 条<br>暂无法排名，换个更长的区间试试</div>' + raceInsufficientHtml(r);
     return;
   }
-  box.innerHTML = raceMeHtml(r) + racePodiumHtml(r) + raceTitlesHtml(r) +
-    '<div class="rc-sec">完整榜单</div>' + raceListHtml(r) + raceInsufficientHtml(r);
+  // 自我成员在榜中才有 VS 卡与个人环形得分；未入榜（数据不足）时只看前三与总榜
+  var mine = r.selfM ? r.qualified.filter(function(x){ return x.m.id === r.selfM.id; })[0] : null;
+  box.innerHTML =
+    (mine ? raceVsHtml(r, mine) : '') +
+    (mine ? raceRingsHtml(r, mine) : '') +
+    raceTop3Html(r) + raceListHtml(r) + raceInsufficientHtml(r);
 }
-// 我的名次卡：总分/打卡/减重/波动四格 + 相对榜首进度条
-function raceMeHtml(r) {
-  if (!r.selfM) return '';
-  var x = null;
-  for (var i = 0; i < r.qualified.length; i++) {
-    if (r.qualified[i].m.id === r.selfM.id) { x = r.qualified[i]; break; }
-  }
-  if (!x) {
-    var z = r.insufficient.filter(function(q){ return q.m.id === r.selfM.id; })[0];
-    return '<div class="rc-me is-off"><div class="rc-me__top">' + raceAvatar(r.selfM) +
-      '<div class="rc-me__who"><div class="rc-me__label">我的名次</div><div class="rc-me__name">' + esc(mdName(r.selfM)) + '</div></div>' +
-      '<div class="rc-me__rank">—</div></div>' +
-      '<div class="rc-me__hint">本区间仅 ' + (z ? z.n : 0) + ' 条记录，满 2 条才计入排名</div></div>';
-  }
-  var maxScore = r.qualified[0].score;
-  var pct = Math.round(x.score / maxScore * 100);
-  var hint = x.pos === 1 ? '当前榜首，守擂中' : '距榜首还差 ' + (maxScore - x.score) + ' 分';
-  var cvTxt = x.cv != null ? (Math.round(x.cv * 10) / 10) + '%' : '—';
-  return '<div class="rc-me"><div class="rc-me__top">' + raceAvatar(x.m) +
-    '<div class="rc-me__who"><div class="rc-me__label">我的名次</div><div class="rc-me__name">' + esc(mdName(x.m)) + '</div></div>' +
-    '<div class="rc-me__rank">第 ' + x.pos + '<small> / ' + r.P + ' 名</small></div></div>' +
-    '<div class="rc-me__stats">' +
-      '<div><div class="v">' + x.score + '</div><div class="l">总分</div></div>' +
-      '<div><div class="v">' + x.days + ' 天</div><div class="l">坚持打卡</div></div>' +
-      '<div><div class="v">' + raceDeltaHtml(x.delta) + '</div><div class="l">减肥效果</div></div>' +
-      '<div><div class="v">' + cvTxt + '</div><div class="l">波动</div></div>' +
-    '</div>' +
-    '<div class="rc-me__bar"><i style="width:' + pct + '%"></i></div>' +
-    '<div class="rc-me__hint">' + hint + '</div></div>';
+// VS 卡：自己非榜首=冠军 VS 我（差 X 分）；自己榜首=我 VS 第二名（领先 X 分）；P=1 单人冠军
+function raceVsSide(x, cls, crown) {
+  return '<div class="rc-vs__side"><div class="rc-vs__ava ' + cls + '">' +
+    (crown ? '<span class="rc-vs__crown">👑</span>' : '') + esc(mdName(x.m).slice(0, 1)) + '</div>' +
+    '<div class="rc-vs__name">' + esc(mdName(x.m)) + '</div>' +
+    '<div class="rc-vs__sub">' + raceDeltaHtml(x.delta) + ' · ' + x.score + '分</div></div>';
 }
-// 颁奖台：DOM 顺序银-金-铜（仅 2 人时只出银金）
-function racePodiumHtml(r) {
-  var order = [r.qualified[1], r.qualified[0], r.qualified[2]].filter(Boolean);
-  var medals = { 0: '🥈', 1: '🥇', 2: '🥉' };
-  var heights = { 0: 72, 1: 96, 2: 54 };
-  var cls = { 0: '', 1: ' rc-col--first', 2: '' };
-  return '<div class="rc-podium">' + order.map(function(x, i){
-    var key = x.pos === 1 ? 1 : (i === 0 ? 0 : 2);
-    return '<div class="rc-col' + cls[key] + '">' +
-      '<div class="rc-medal">' + medals[key] + '</div>' +
-      '<div class="rc-block" style="min-height:' + heights[key] + 'px;">' +
-        '<div class="rc-block__delta">' + raceDeltaHtml(x.delta) + '</div>' +
-        '<div class="rc-block__days">打卡 ' + x.days + ' 天</div>' +
-        '<div class="rc-block__name">' + esc(mdName(x.m)) + '</div>' +
-      '</div></div>';
+function raceVsHtml(r, mine) {
+  if (r.P === 1) {
+    return '<div class="rc-vs rc-vs--solo"><div class="rc-vs__ava champ"><span class="rc-vs__crown">👑</span>' +
+      esc(mdName(mine.m).slice(0, 1)) + '</div>' +
+      '<div class="rc-vs__name">' + esc(mdName(mine.m)) + '</div>' +
+      '<div class="rc-vs__solo-t">本期冠军</div>' +
+      '<div class="rc-vs__solo-s">暂无对手，邀请好友一起 PK</div></div>';
+  }
+  var champ = r.qualified[0], runner = r.qualified[1], left, right, gapTxt;
+  if (mine.pos === 1) {
+    left = raceVsSide(mine, 'champ', true);
+    right = raceVsSide(runner, '', false);
+    gapTxt = '领先 ' + (mine.score - runner.score) + ' 分';
+  } else {
+    left = raceVsSide(champ, 'champ', true);
+    right = raceVsSide(mine, 'me', false);
+    gapTxt = '差 ' + (champ.score - mine.score) + ' 分';
+  }
+  return '<div class="rc-vs">' + left +
+    '<div class="rc-vs__mid"><div class="rc-vs__mark">VS</div><div class="rc-vs__gap">' + gapTxt + '</div></div>' +
+    right + '</div>';
+}
+// 三维环形得分：环心=该维度单项得分/P（SVG 描边色走 class，presentation 属性不解析 CSS 变量）
+function raceRing(score, max, label, rankTxt) {
+  var R = 20, C = 2 * Math.PI * R, pct = Math.max(0.06, score / max);
+  return '<div class="rc-ring"><svg width="52" height="52" viewBox="0 0 52 52">' +
+    '<circle class="rc-ring__track" cx="26" cy="26" r="' + R + '" fill="none" stroke-width="5"/>' +
+    '<circle class="rc-ring__prog" cx="26" cy="26" r="' + R + '" fill="none" stroke-width="5" stroke-linecap="round" ' +
+    'stroke-dasharray="' + (C * pct) + ' ' + (C * (1 - pct)) + '" transform="rotate(-90 26 26)"/>' +
+    '<text x="26" y="25" text-anchor="middle" class="rc-ring__v">' + score + '</text>' +
+    '<text x="26" y="34" text-anchor="middle" class="rc-ring__tot">/' + max + '</text></svg>' +
+    '<div class="rc-ring__l">' + label + '</div><div class="rc-ring__rank">' + rankTxt + '</div></div>';
+}
+function raceRingsHtml(r, mine) {
+  function rankTxt(ri) { return ri === 1 ? '第 1 名 🥇' : '第 ' + ri + ' 名'; }
+  return '<div class="rc-rings">' +
+    raceRing(r.P - mine.rDays + 1, r.P, '坚持', rankTxt(mine.rDays)) +
+    raceRing(r.P - mine.rDelta + 1, r.P, '减重', rankTxt(mine.rDelta)) +
+    raceRing(r.P - mine.rCv + 1, r.P, '稳定', mine.cv == null ? '数据少' : rankTxt(mine.rCv)) +
+    '</div>';
+}
+// 前三色卡：金/银/铜淡色底（并列时按 pos 取奖牌，P=2 只出两张）
+function raceTop3Html(r) {
+  var medals = ['🥇', '🥈', '🥉'];
+  return '<div class="rc-top3">' + r.qualified.slice(0, 3).map(function(x){
+    return '<div class="rc-tcard rc-tcard--' + x.pos + '"><div class="rc-tcard__medal">' + medals[x.pos - 1] + '</div>' +
+      '<div class="rc-tcard__name">' + esc(mdName(x.m)) + '</div>' +
+      '<div class="rc-tcard__delta">' + raceDeltaHtml(x.delta) + '</div>' +
+      '<div class="rc-tcard__days">打卡 ' + x.days + ' 天</div></div>';
   }).join('') + '</div>';
 }
-// 单项最佳：坚持王 / 减重王 / 稳定王（全员不足 3 条时稳定王不出）
-function raceTitlesHtml(r) {
-  var tiles = [];
-  var daysBest = r.qualified.slice().sort(function(a, b){
-    return a.days === b.days ? a.m.id - b.m.id : b.days - a.days;
-  })[0];
-  var deltaBest = r.qualified.slice().sort(function(a, b){
-    return a.delta === b.delta ? a.m.id - b.m.id : (a.delta < b.delta ? -1 : 1);
-  })[0];
-  tiles.push({ l: '📅 坚持王', v: daysBest.days + ' 天', n: mdName(daysBest.m) });
-  tiles.push({ l: '⬇️ 减重王', v: (Math.round(Math.abs(toDisplay(deltaBest.delta)) * 10) / 10) + ' ' + unitLabel(), n: mdName(deltaBest.m) });
-  var stable = r.qualified.filter(function(x){ return x.cv != null; })
-    .sort(function(a, b){ return a.cv === b.cv ? a.m.id - b.m.id : (a.cv < b.cv ? -1 : 1); })[0];
-  if (stable) tiles.push({ l: '📊 稳定王', v: (Math.round(stable.cv * 10) / 10) + '%', n: mdName(stable.m) });
-  return '<div class="rc-titles">' + tiles.map(function(t){
-    return '<div class="rc-title"><div class="rc-title__l">' + t.l + '</div>' +
-      '<div class="rc-title__v">' + esc(t.v) + '</div><div class="rc-title__n">' + esc(t.n) + '</div></div>';
-  }).join('') + '</div>';
-}
-// 完整榜单：奖牌/名次、头像、名+标签、打卡·波动、减重、总分、行底进度条
+// 完整榜单胖行：奖牌/名次、头像、名+好友/共享标签、打卡·波动、减重、总分、行底胖进度条
 function raceListHtml(r) {
   var maxScore = r.qualified[0].score;
   var medals = ['🥇', '🥈', '🥉'];
   return r.qualified.map(function(x){
     var isMe = r.selfM && x.m.id === r.selfM.id;
-    var rankCell = x.pos <= 3
-      ? '<span class="rc-rank top">' + medals[x.pos - 1] + '</span>'
-      : '<span class="rc-rank">' + x.pos + '</span>';
     var cvTxt = x.cv != null ? '波动 ' + (Math.round(x.cv * 10) / 10) + '%' : '波动 —';
     return '<div class="rc-row' + (isMe ? ' is-me' : '') + '">' +
-      rankCell + raceAvatar(x.m) +
+      '<span class="rc-rank">' + (x.pos <= 3 ? medals[x.pos - 1] : x.pos) + '</span>' +
+      raceAvatar(x.m) +
       '<div class="rc-row__who"><div class="rc-row__name">' + esc(mdName(x.m)) + raceTags(x.m) + '</div>' +
       '<div class="rc-row__meta">打卡 ' + x.days + ' 天 · ' + cvTxt + '</div></div>' +
-      '<div class="rc-row__delta">' + raceDeltaHtml(x.delta) + '</div>' +
-      '<div class="rc-row__score">' + x.score + '</div>' +
-      '<div class="rc-row__bar"><i style="width:' + Math.round(x.score / maxScore * 100) + '%"></i></div>' +
+      '<span class="rc-row__delta">' + raceDeltaHtml(x.delta) + '</span>' +
+      '<span class="rc-row__score">' + x.score + '</span>' +
+      '<div class="rc-row__bar" style="width:' + Math.round(x.score / maxScore * 100) + '%;"></div>' +
     '</div>';
   }).join('');
 }
