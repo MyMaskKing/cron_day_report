@@ -2401,6 +2401,13 @@ var regForm = document.getElementById('regForm');
 var msg = document.getElementById('msg');
 var tabLogin = document.getElementById('tabLogin');
 var tabReg = document.getElementById('tabReg');
+// 登录回跳：?next=/weight?wlink=... 等受保护页被拦下时带来；仅放行同站相对路径，防开放重定向
+function loginNext() {
+  var n = '';
+  try { n = new URLSearchParams(location.search).get('next') || ''; } catch(e) {}
+  if (/^\\/[a-zA-Z0-9/?=&_.:%-]*$/.test(n) && n.slice(0, 2) !== '//') return n;
+  return '';
+}
 // 登录提交：表单底部"登录"按钮与顶部"登录"标签（已在登录页时）共用
 async function doLogin() {
   try {
@@ -2408,7 +2415,8 @@ async function doLogin() {
       username: document.getElementById('lu').value,
       password: document.getElementById('lp').value
     }});
-    navTo(homePath(r.user && r.user.default_home));
+    var nxt = loginNext();
+    navTo(nxt || homePath(r.user && r.user.default_home));
   } catch (err) { showMsg(msg, err.message, false); }
 }
 loginForm.addEventListener('submit', function(e) { e.preventDefault(); doLogin(); });

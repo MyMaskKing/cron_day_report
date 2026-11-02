@@ -511,7 +511,12 @@ async function handlePages(request, env) {
     const token = getTokenFromRequest(request);
     const session = await getSession(env, token);
     if (!session) {
-      return new Response(null, { status: 302, headers: { Location: '/login' } });
+      // 带回跳地址（如 /weight?wlink=xxx 邀请链接），登录页校验为同站相对路径后跳回
+      const next = url.pathname + url.search;
+      return new Response(null, {
+        status: 302,
+        headers: { Location: '/login?next=' + encodeURIComponent(next) }
+      });
     }
     // 受限免密会话：只放行对应模块页，其他一律重定向回允许页
     if (session.quicklogin_module) {
