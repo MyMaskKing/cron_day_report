@@ -146,6 +146,51 @@ function createD1Adapter(env) {
         const row = await db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").first();
         return row ? row.c : 0;
       },
+      // 删除用户全部业务数据（单 batch 事务，FK 开启严格子表先于父表）。
+      // 文件本体由 api 层先删 R2/磁盘；本方法只处理 DB 行。调用前已做防自杀/最后超管校验。
+      async deleteCascade(uid) {
+        // 全部语句 bind(uid)；IN 子查询避免预查 id；一次 batch 单事务
+        const stmts = [
+          // 监控
+          db.prepare('DELETE FROM monitor_logs WHERE user_id = ?').bind(uid),
+          db.prepare('DELETE FROM monitor_tasks WHERE user_id = ?').bind(uid),
+          // 通知渠道
+          db.prepare('DELETE FROM notify_channels WHERE user_id = ?').bind(uid),
+          // 基金
+          db.prepare('DELETE FROM fund_archive_events WHERE user_id = ?').bind(uid),
+          db.prepare('DELETE FROM fund_profit_daily WHERE user_id = ?').bind(uid),
+          db.prepare('DELETE FROM fund_report_config WHERE user_id = ?').bind(uid),
+          db.prepare('DELETE FROM funds WHERE user_id = ?').bind(uid),
+          // 体重：记录先于成员；引用/好友关系双向摘除
+          db.prepare('DELETE FROM weight_records WHERE member_id IN (SELECT id FROM weight_members WHERE user_id = ?)').bind(uid),
+          db.prepare('DELETE FROM weight_member_shares WHERE user_id = ? OR member_id IN (SELECT id FROM weight_members WHERE user_id = ?)').bind(uid, uid),
+          db.prepare('DELETE FROM weight_friends WHERE user_a = ? OR user_b = ?').bind(uid, uid),
+          db.prepare('DELETE FROM weight_friend_invites WHERE owner_user_id = ?').bind(uid),
+          db.prepare('DELETE FROM weight_members WHERE user_id = ?').bind(uid),
+          // 资产
+          db.prepare('DELETE FROM wallet_records WHERE wallet_id IN (SELECT id FROM wallets WHERE user_id = ?)').bind(uid),
+          db.prepare('DELETE FROM wallets WHERE user_id = ?').bind(uid),
+          db.prepare('DELETE FROM asset_goals WHERE user_id = ?').bind(uid),
+          db.prepare('DELETE FROM asset_analyses WHERE user_id = ?').bind(uid),
+          // 推送配置与历史
+          db.prepare('DELETE FROM push_config WHERE user_id = ?').bind(uid),
+          db.prepare('DELETE FROM push_log WHERE user_id = ?').bind(uid),
+          // 待办共享分类：成员关系（他加入的 + 他分类下的成员）先于分类
+          db.prepare('DELETE FROM todo_shared_cat_members WHERE user_id = ? OR cat_id IN (SELECT id FROM todo_shared_cats WHERE owner_user_id = ?)').bind(uid, uid),
+          db.prepare('DELETE FROM todo_shared_cats WHERE owner_user_id = ?').bind(uid),
+          // 待办任务（含其共享分类下全部任务）
+          db.prepare('DELETE FROM todos WHERE user_id = ?').bind(uid),
+          // 文件：自己拥有的删行；作为别人文件的上传者仅置空（uploader_uid 无 FK）
+          db.prepare('UPDATE files SET uploader_uid = NULL WHERE uploader_uid = ?').bind(uid),
+          db.prepare('DELETE FROM files WHERE owner_uid = ?').bind(uid),
+          // 家庭模块共享：他作为 guest 的关系 + 他邀请下的全部成员关系，再删邀请
+          db.prepare('DELETE FROM share_members WHERE guest_user_id = ? OR owner_user_id = ?').bind(uid, uid),
+          db.prepare('DELETE FROM share_invites WHERE owner_user_id = ?').bind(uid),
+          // 用户最后删
+          db.prepare('DELETE FROM users WHERE id = ?').bind(uid)
+        ];
+        await db.batch(stmts);
+      },
       async getInvestmentStrategy(userId) {
         const row = await db.prepare('SELECT investment_strategy FROM users WHERE id = ?').bind(userId).first();
         return row ? row.investment_strategy : null;
@@ -1438,6 +1483,14 @@ function createD1Adapter(env) {
         return { rows: rowsQ.results || [], total: totalQ ? totalQ.c : 0 };
       },
       // 按归属用户+编辑框标记取文件（source='user' 附件自动清理候选行）
+      // 某用户拥有的全部文件（todo 附件 + user 图片），删除用户时删本体用
+      async listByOwner(ownerUid) {
+        const q = await db.prepare(
+          `SELECT id, owner_uid, source, todo_id, file_token, origin_name, mime, size, is_image, created_at
+             FROM files WHERE owner_uid=? ORDER BY id`
+        ).bind(ownerUid).all();
+        return q.results || [];
+      },
       async listByOwnerRef(ownerUid, refKind) {
         const q = await db.prepare(
           `SELECT id, owner_uid, source, todo_id, uploader_uid, file_token, origin_name, mime, size, is_image, created_at

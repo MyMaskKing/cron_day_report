@@ -3298,6 +3298,8 @@ bindLogout();
 bindModal();
 var tbody = document.getElementById('userTbody');
 var detail = document.getElementById('detail');
+var _adminMeId = null;
+api('/api/auth/me').then(function(m){ _adminMeId = m.user ? m.user.id : m.id; }).catch(function(){});
 
 // DB 时间(datetime('now') 存 UTC)统一按配置时区显示: 复用 COMMON_JS 的 fmtDbTime(与顶栏时钟同口径); 空值显示破折号
 function fmtUTC2CN(s) {
@@ -3307,6 +3309,10 @@ function fmtUTC2CN(s) {
 
 async function loadUsers() {
   try {
+    // 先拿当前超管 id，用于隐藏自己的删除按钮（后端也硬拦）
+    if (_adminMeId == null) {
+      try { var me = await api('/api/auth/me'); _adminMeId = me.user ? me.user.id : me.id; } catch(e) {}
+    }
     var data = await api('/api/admin/users');
     tbody.innerHTML = data.users.map(function(u) {
       return '<tr>' +
@@ -3328,6 +3334,7 @@ async function loadUsers() {
             '<button onclick="resetPwd(' + u.id + ",'" + esc(u.username).replace(/'/g,'') + "'" + ')">重置密码</button>' +
             '<button onclick="toggleRole(' + u.id + ",'" + u.role + "'" + ')">' + (u.role === 'admin' ? '降为用户' : '升为超管') + '</button>' +
             '<button class="danger" onclick="toggleStatus(' + u.id + ",'" + u.status + "'" + ')">' + (u.status === 'active' ? '禁用' : '启用') + '</button>' +
+            (u.id === _adminMeId ? '' : '<button class="danger" onclick="deleteUserRow(' + u.id + ",'" + esc(u.nickname||u.username).replace(/'/g,'') + "'" + ')">删除用户</button>') +
           '</div>' +
         '</div></td></tr>';
     }).join('');
@@ -3378,6 +3385,17 @@ async function toggleStatus(id, cur) {
     catch (err) { alertModal(err.message, {ok:false}); }
   });
 }
+window.deleteUserRow = function(id, name){
+  confirmModal('删除用户：' + name,
+    '将永久删除该账号及其全部数据（基金/体重/资产/待办、通知渠道、共享关系、上传的文件与附件），不可恢复。其好友与家庭成员页面会自动摘掉该用户。建议删除前先到「备份恢复」导出全量数据。确认删除？',
+    async function(){
+      try {
+        var r = await api('/api/admin/users/' + id, { method: 'DELETE' });
+        alertModal(r.message || '已删除');
+        loadUsers();
+      } catch (err) { alertModal(err.message, { ok: false }); }
+    });
+};
 async function impersonate(id, name) {
   confirmModal('切换身份', '确认切换到 ' + name + ' 的身份浏览?', async function(){
     try { await api('/api/admin/users/' + id + '/impersonate', { method: 'POST' }); navTo('/dashboard'); }

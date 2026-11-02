@@ -20,7 +20,7 @@ import { getMailGateway } from './services/mail-gateway.service.js';
 import { register, registerStatus, login, logout, me, bootstrap, setupStatus, getProfile, updateProfile, changePassword, selfChangePassword, quickLoginByToken, resolvePublicOwnerId, sendEmailCode, bindEmail, forgotPassword, resetTokenStatus, passwordReset, updateQuickloginRestrict, updateShowQuickloginButton, updateTheme, updateBg, updateTodoAutoParent, updateTodoViewList, updateTodoViewOpts, updateMotto, markMottoSeen, updateDefaultHome, BG_THEMES, normalizeTodoViewList } from './api/auth.api.js';
 import {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
-  createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
+  createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname, deleteUser,
   getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
   getRegisterLimit, setRegisterLimit,
   getMailGatewaySetting, setMailGatewaySetting, testMailGateway,
@@ -145,6 +145,7 @@ router.post('/api/admin/stop-impersonate', stopImpersonateUser);
 router.get('/api/admin/users/:id', getUserDetail);
 router.put('/api/admin/users/:id/role', updateUserRole);
 router.put('/api/admin/users/:id/status', updateUserStatus);
+router.delete('/api/admin/users/:id', deleteUser);
 router.put('/api/admin/users/:id/password', resetPassword);
 router.put('/api/admin/users/:id/nickname', updateUserNickname);
 router.post('/api/admin/users/:id/impersonate', impersonateUser);

@@ -115,6 +115,44 @@ async function updateUserStatus({ request, env, params }) {
 }
 
 /**
+ * DELETE /api/admin/users/:id  硬删除用户及其全部业务数据（不可恢复）
+ * 文件本体先删 R2/磁盘，DB 级联在单事务内；双向好友/家庭/分类共享关系同步摘除。
+ */
+async function deleteUser({ request, env, params }) {
+  const auth = await requireAdmin(request, env);
+  if (auth instanceof Response) return auth;
+  const userId = parseInt(params.id, 10);
+  const storage = getStorage(env);
+  const user = await storage.users.findById(userId);
+  if (!user) return error('用户不存在', 404);
+  if (userId === auth.user_id) return error('不能删除当前登录的自己', 400);
+  if (user.role === 'admin' && (await storage.users.countAdmins()) <= 1) {
+    return error('系统至少保留一个超管，无法删除', 400);
+  }
+
+  // 文件本体（todo 附件 + user 图片）：逐行删，失败不阻断（元数据随级联删除，可由孤儿扫描清理）
+  let fileCount = 0;
+  try {
+    const fileStore = getFileStore(env);
+    if (fileStore) {
+      for (const r of await storage.file.listByOwner(userId)) {
+        try {
+          await fileStore.delete((r.source === 'todo' ? 'todo/' : 'user/') + r.file_token);
+          fileCount++;
+        } catch { /* 单个失败不阻断 */ }
+      }
+    }
+  } catch { /* 存储未绑定等异常不阻断 DB 删除 */ }
+
+  await storage.users.deleteCascade(userId);
+  return json({
+    success: true,
+    message: `用户「${user.nickname || user.username}」及其全部数据已删除`,
+    deleted_files: fileCount
+  });
+}
+
+/**
  * POST /api/admin/users  创建用户（默认密码 123456）
  * body: { username, password?, role? }
  */
@@ -480,7 +518,7 @@ async function setAppDownload({ request, env }) {
 
 export {
   listUsers, getUserDetail, updateUserRole, updateUserStatus,
-  createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname,
+  createUser, resetPassword, impersonateUser, stopImpersonateUser, updateUserNickname, deleteUser,
   getTimezone, setTimezone, getTodoAttachMaxMb, setTodoAttachMaxMb, getBaseUrl, setBaseUrl,
   getRegisterLimit, setRegisterLimit,
   getMailGatewaySetting, setMailGatewaySetting, testMailGateway,
