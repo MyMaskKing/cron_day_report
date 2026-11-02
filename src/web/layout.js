@@ -2117,6 +2117,101 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .jn-chart-legend i { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid #667eea; border-radius: 2px; }
 .jn-chart-legend i.avg { border-top: 2px dashed #f97316; }
 .jn-chart-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ===== 减肥竞赛弹窗（体重页 🏆 竞赛结果）===== */
+.rc-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rc-controls .rc-spacer { flex: 1 1 auto; }
+.rc-help { width: 26px; height: 26px; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted);
+  border-radius: 50%; font-size: 13px; font-weight: 700; cursor: pointer; padding: 0; }
+.rc-help:hover:not(:active) { border-color: var(--brand-text); color: var(--brand-text); }
+.rc-dates { display: none; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.rc-dates.show { display: inline-flex; }
+.rc-dates input { width: auto; padding: 4px 6px; font-size: 12px; }
+.rc-sub { font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
+.rc-sub b { color: var(--text); font-weight: 600; }
+/* 我的名次卡 */
+.rc-me { background: var(--brand-tint); border-radius: var(--r-lg); padding: 13px 14px; margin-bottom: 14px; }
+.rc-me__top { display: flex; align-items: center; gap: 10px; }
+.rc-avatar { width: 36px; height: 36px; flex: none; border-radius: 50%;
+  background: var(--hover-brand); color: var(--brand-text);
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; }
+.rc-me__who { flex: 1; min-width: 0; }
+.rc-me__label { font-size: 11px; color: var(--brand-text); font-weight: 700; letter-spacing: .04em; }
+.rc-me__name { font-size: 14px; font-weight: 700; color: var(--text-strong); }
+.rc-me__rank { font-size: 24px; font-weight: 850; color: var(--brand-text); white-space: nowrap; line-height: 1.1; }
+.rc-me__rank small { font-size: 12px; font-weight: 600; }
+.rc-me__stats { display: flex; margin-top: 10px; }
+.rc-me__stats > div { flex: 1; min-width: 0; text-align: center; }
+.rc-me__stats > div + div { border-left: 1px solid var(--border); }
+.rc-me__stats .v { font-size: 14px; font-weight: 800; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.rc-me__stats .l { font-size: 11px; color: var(--muted); }
+.rc-me__bar { height: 4px; border-radius: 99px; background: var(--hover-brand); margin-top: 10px; overflow: hidden; }
+.rc-me__bar i { display: block; height: 100%; background: var(--brand-strong); border-radius: 99px; }
+.rc-me__hint { font-size: 11.5px; color: var(--brand-text); margin-top: 6px; }
+.rc-me.is-off { background: var(--surface-2); }
+.rc-me.is-off .rc-me__label, .rc-me.is-off .rc-me__hint { color: var(--muted); }
+.rc-me.is-off .rc-avatar { background: var(--surface-3); color: var(--muted); }
+.rc-me.is-off .rc-me__rank { color: var(--muted); }
+.rc-me.is-off .rc-me__bar { display: none; }
+/* 颁奖台 */
+.rc-podium { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 14px; }
+.rc-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.rc-medal { font-size: 20px; line-height: 1.2; }
+.rc-block { width: 100%; border-radius: var(--r-md) var(--r-md) 4px 4px;
+  background: var(--surface-2); display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 8px 4px; text-align: center; min-height: 48px; }
+.rc-col--first .rc-block { background: var(--brand-tint); }
+.rc-block__delta { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; margin-bottom: 2px; }
+.rc-block__days { font-size: 10.5px; color: var(--muted); }
+.rc-block__name { font-size: 12.5px; font-weight: 700; color: var(--text-strong);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
+.rc-col--first .rc-block__name { color: var(--brand-text); }
+/* 单项最佳 */
+.rc-titles { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.rc-title { background: var(--surface-2); border-radius: var(--r-md); padding: 9px 10px; min-width: 0; }
+.rc-title__l { font-size: 11px; color: var(--muted); }
+.rc-title__v { font-size: 15px; font-weight: 800; color: var(--text-strong); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.rc-title__n { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 完整榜单 */
+.rc-sec { font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 2px 2px 6px; }
+.rc-row { position: relative; display: flex; align-items: center; gap: 9px;
+  padding: 8px; border-bottom: 1px solid var(--border); border-radius: var(--r-sm); }
+.rc-row.is-me { background: var(--hover-brand); }
+.rc-rank { width: 20px; flex: none; text-align: center; font-size: 13px; font-weight: 800; color: var(--muted);
+  font-variant-numeric: tabular-nums; }
+.rc-rank.top { font-size: 15px; }
+.rc-row .rc-avatar { width: 30px; height: 30px; font-size: 13px; }
+.rc-row__who { flex: 1; min-width: 0; }
+.rc-row__name { font-size: 13.5px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-tag { display: inline-block; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 6px;
+  vertical-align: 1px; margin-left: 3px; background: var(--surface-3); color: var(--muted); border: 1px solid var(--border); }
+.rc-tag--friend { background: var(--hover-brand); color: var(--brand-text); border-color: transparent; }
+.rc-row__meta { font-size: 11px; color: var(--muted); }
+.rc-row__delta { font-size: 13.5px; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rc-row__score { width: 34px; flex: none; text-align: right; font-size: 15px; font-weight: 850;
+  color: var(--brand-text); font-variant-numeric: tabular-nums; }
+.rc-row__bar { position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; }
+.rc-row__bar i { display: block; height: 100%; background: var(--brand); opacity: .35; border-radius: 2px; }
+.rc-down { color: var(--ok-text); }
+.rc-up { color: var(--danger); }
+.rc-flat { color: var(--muted); font-weight: 700; }
+/* 数据不足 / 空态 / 规则页 */
+.rc-note { margin-top: 12px; padding: 10px 12px; background: var(--surface-2);
+  border-radius: var(--r-md); font-size: 12px; color: var(--muted); line-height: 1.7; }
+.rc-note b { color: var(--text); font-weight: 700; }
+.rc-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 34px 12px; line-height: 1.9; }
+.rc-rules h3 { font-size: 14px; font-weight: 800; color: var(--text-strong); margin: 14px 0 4px; }
+.rc-rules h3:first-of-type { margin-top: 12px; }
+.rc-rules p, .rc-rules li { font-size: 13px; color: var(--text); line-height: 1.75; margin: 0; }
+.rc-rules ul { margin: 4px 0 0; padding-left: 18px; }
+.rc-rules .formula { background: var(--surface-2); border-radius: 6px; padding: 1px 7px;
+  font-size: 12px; font-variant-numeric: tabular-nums; }
+@media (max-width: 380px) {
+  .rc-me__stats .l { font-size: 10px; }
+  .rc-row { gap: 7px; padding: 8px 6px; }
+}
 @media (max-width: 640px) {
   .jn-head { flex-direction: column; align-items: stretch; gap: 10px; }
   .jn-members { width: 100%; }

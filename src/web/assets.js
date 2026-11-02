@@ -6280,8 +6280,8 @@ if (fFriendBtn) fFriendBtn.addEventListener('click', function(){
 })();
 
 // ==================== 减肥竞赛排行榜 ====================
-// 弹窗内独立区间（不跟随页面筛选）：month / d30 / d60 / year / custom
-var raceRange = 'month';
+// 弹窗内独立区间（不跟随页面筛选）：d30 默认 / month / d60 / year / custom
+var raceRange = 'd30';
 // 预设区间闭区间，右端=今天
 function racePresetBounds() {
   var t = todayStr();
@@ -6302,10 +6302,17 @@ function currentRaceBounds() {
 function raceDeltaHtml(deltaKg) {
   var v = toDisplay(deltaKg);
   var abs = Math.abs(v);
-  if (abs < 0.05) return '<span class="muted">持平</span>';
+  if (abs < 0.05) return '<span class="rc-flat">持平</span>';
   var n = Math.round(abs * 10) / 10;
-  if (deltaKg < 0) return '<span style="color:var(--ok-text);font-weight:700;">↓ -' + n + ' ' + unitLabel() + '</span>';
-  return '<span style="color:var(--danger);font-weight:700;">↑ +' + n + ' ' + unitLabel() + '</span>';
+  if (deltaKg < 0) return '<span class="rc-down">↓ -' + n + ' ' + unitLabel() + '</span>';
+  return '<span class="rc-up">↑ +' + n + ' ' + unitLabel() + '</span>';
+}
+function raceAvatar(m) {
+  return '<span class="rc-avatar">' + esc(mdName(m).slice(0, 1)) + '</span>';
+}
+function raceTags(m) {
+  return (m.friend ? '<span class="rc-tag rc-tag--friend">好友</span>' : '') +
+    (m.shared ? '<span class="rc-tag">共享</span>' : '');
 }
 // 核心计算：active 启用成员 → 区间统计 → 三维名次积分 → 总榜
 function raceCompute() {
@@ -6391,92 +6398,189 @@ function raceCompute() {
 }
 function renderRaceBody() {
   var box = document.getElementById('rcBody');
+  var sub = document.getElementById('rcSub');
   if (!box) return;
   var r = raceCompute();
-  if (r.active.length < 2) { box.innerHTML = '<p class="muted">启用成员不足 2 人，暂无竞赛。</p>'; return; }
-  if (!r.hasAny) { box.innerHTML = '<p class="muted">该区间内暂无体重记录，换个区间试试。</p>'; return; }
-  var sub = '<p class="muted" style="font-size:12px;margin:0 0 10px;">实际统计 ' + r.hitLo + ' 至 ' + r.hitHi +
-    ' · 积分=三维名次等权相加，区间内独立统计，与页面曲线筛选无关</p>';
-  if (!r.P) {
-    box.innerHTML = sub + '<p class="muted">该区间内所有人的记录都不足 2 条，暂无法排名，换个更长的区间试试。</p>' + raceInsufficientHtml(r);
+  if (sub) {
+    sub.innerHTML = r.hasAny
+      ? '统计区间 <b>' + r.hitLo + ' 至 ' + r.hitHi + '</b> · ' + r.active.length + ' 名成员' + (r.P ? ' · ' + r.P + ' 人入榜' : '')
+      : '';
+  }
+  if (r.active.length < 2) { box.innerHTML = '<div class="rc-empty">启用成员不足 2 人，暂无竞赛。</div>'; return; }
+  if (!r.hasAny) {
+    box.innerHTML = '<div class="rc-empty">该区间内暂无体重记录<br>换个更长的区间或调整自定义日期试试</div>';
     return;
   }
-  // 我的名次卡
-  var mine = r.selfM ? r.qualified.filter(function(x){ return x.m.id === r.selfM.id; })[0] : null;
-  var hero = '';
-  if (r.selfM) {
-    if (mine) {
-      var cvTxt = mine.cv != null ? '波动 ' + (Math.round(mine.cv*10)/10) + '%' : '波动 —';
-      hero = '<div style="background:var(--hover-brand);border-radius:12px;padding:12px 14px;margin-bottom:12px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">' +
-        '<b style="color:var(--brand-text);">' + esc(mdName(mine.m)) + '</b>' +
-        '<span style="font-size:20px;font-weight:800;color:var(--brand-text);white-space:nowrap;">第 ' + mine.pos + ' / ' + r.P + ' 名</span></div>' +
-        '<div style="font-size:12px;color:var(--brand-text);margin-top:4px;">打卡 ' + mine.days + ' 天 · 减重 ' + raceDeltaHtml(mine.delta) +
-        ' · <span style="color:var(--brand-text);">' + cvTxt + '</span> · 总分 ' + mine.score + '</div></div>';
-    } else {
-      hero = '<div style="background:var(--surface-2);border-radius:12px;padding:12px 14px;margin-bottom:12px;">' +
-        '<b>' + esc(mdName(r.selfM)) + '</b> <span class="muted" style="font-size:12px;">区间内记录不足 2 条，本次未入榜</span></div>';
-    }
+  if (!r.P) {
+    box.innerHTML = '<div class="rc-empty">该区间内所有人的记录都不足 2 条<br>暂无法排名，换个更长的区间试试</div>' + raceInsufficientHtml(r);
+    return;
   }
-  // 前三
-  var medals = ['🥇', '🥈', '🥉'];
-  var top3 = '<div style="display:flex;gap:8px;margin-bottom:12px;">' + r.qualified.slice(0,3).map(function(x, i){
-    return '<div style="flex:1;min-width:0;text-align:center;background:var(--surface-2);border-radius:10px;padding:8px 4px;">' +
-      '<div style="font-size:18px;">' + medals[i] + '</div>' +
-      '<div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(mdName(x.m)) + '</div>' +
-      '<div style="font-size:12px;margin-top:2px;">' + raceDeltaHtml(x.delta) + '</div></div>';
+  box.innerHTML = raceMeHtml(r) + racePodiumHtml(r) + raceTitlesHtml(r) +
+    '<div class="rc-sec">完整榜单</div>' + raceListHtml(r) + raceInsufficientHtml(r);
+}
+// 我的名次卡：总分/打卡/减重/波动四格 + 相对榜首进度条
+function raceMeHtml(r) {
+  if (!r.selfM) return '';
+  var x = null;
+  for (var i = 0; i < r.qualified.length; i++) {
+    if (r.qualified[i].m.id === r.selfM.id) { x = r.qualified[i]; break; }
+  }
+  if (!x) {
+    var z = r.insufficient.filter(function(q){ return q.m.id === r.selfM.id; })[0];
+    return '<div class="rc-me is-off"><div class="rc-me__top">' + raceAvatar(r.selfM) +
+      '<div class="rc-me__who"><div class="rc-me__label">我的名次</div><div class="rc-me__name">' + esc(mdName(r.selfM)) + '</div></div>' +
+      '<div class="rc-me__rank">—</div></div>' +
+      '<div class="rc-me__hint">本区间仅 ' + (z ? z.n : 0) + ' 条记录，满 2 条才计入排名</div></div>';
+  }
+  var maxScore = r.qualified[0].score;
+  var pct = Math.round(x.score / maxScore * 100);
+  var hint = x.pos === 1 ? '当前榜首，守擂中' : '距榜首还差 ' + (maxScore - x.score) + ' 分';
+  var cvTxt = x.cv != null ? (Math.round(x.cv * 10) / 10) + '%' : '—';
+  return '<div class="rc-me"><div class="rc-me__top">' + raceAvatar(x.m) +
+    '<div class="rc-me__who"><div class="rc-me__label">我的名次</div><div class="rc-me__name">' + esc(mdName(x.m)) + '</div></div>' +
+    '<div class="rc-me__rank">第 ' + x.pos + '<small> / ' + r.P + ' 名</small></div></div>' +
+    '<div class="rc-me__stats">' +
+      '<div><div class="v">' + x.score + '</div><div class="l">总分</div></div>' +
+      '<div><div class="v">' + x.days + ' 天</div><div class="l">坚持打卡</div></div>' +
+      '<div><div class="v">' + raceDeltaHtml(x.delta) + '</div><div class="l">减肥效果</div></div>' +
+      '<div><div class="v">' + cvTxt + '</div><div class="l">波动</div></div>' +
+    '</div>' +
+    '<div class="rc-me__bar"><i style="width:' + pct + '%"></i></div>' +
+    '<div class="rc-me__hint">' + hint + '</div></div>';
+}
+// 颁奖台：DOM 顺序银-金-铜（仅 2 人时只出银金）
+function racePodiumHtml(r) {
+  var order = [r.qualified[1], r.qualified[0], r.qualified[2]].filter(Boolean);
+  var medals = { 0: '🥈', 1: '🥇', 2: '🥉' };
+  var heights = { 0: 72, 1: 96, 2: 54 };
+  var cls = { 0: '', 1: ' rc-col--first', 2: '' };
+  return '<div class="rc-podium">' + order.map(function(x, i){
+    var key = x.pos === 1 ? 1 : (i === 0 ? 0 : 2);
+    return '<div class="rc-col' + cls[key] + '">' +
+      '<div class="rc-medal">' + medals[key] + '</div>' +
+      '<div class="rc-block" style="min-height:' + heights[key] + 'px;">' +
+        '<div class="rc-block__delta">' + raceDeltaHtml(x.delta) + '</div>' +
+        '<div class="rc-block__days">打卡 ' + x.days + ' 天</div>' +
+        '<div class="rc-block__name">' + esc(mdName(x.m)) + '</div>' +
+      '</div></div>';
   }).join('') + '</div>';
-  // 完整榜单
-  var head = '<div style="display:grid;grid-template-columns:24px 1fr auto auto;gap:0 10px;align-items:center;' +
-    'padding:0 6px 4px;font-size:11px;color:var(--muted);"><span>名次</span><span>成员</span><span>减重</span><span>总分</span></div>';
-  var rows = r.qualified.map(function(x){
+}
+// 单项最佳：坚持王 / 减重王 / 稳定王（全员不足 3 条时稳定王不出）
+function raceTitlesHtml(r) {
+  var tiles = [];
+  var daysBest = r.qualified.slice().sort(function(a, b){
+    return a.days === b.days ? a.m.id - b.m.id : b.days - a.days;
+  })[0];
+  var deltaBest = r.qualified.slice().sort(function(a, b){
+    return a.delta === b.delta ? a.m.id - b.m.id : (a.delta < b.delta ? -1 : 1);
+  })[0];
+  tiles.push({ l: '📅 坚持王', v: daysBest.days + ' 天', n: mdName(daysBest.m) });
+  tiles.push({ l: '⬇️ 减重王', v: (Math.round(Math.abs(toDisplay(deltaBest.delta)) * 10) / 10) + ' ' + unitLabel(), n: mdName(deltaBest.m) });
+  var stable = r.qualified.filter(function(x){ return x.cv != null; })
+    .sort(function(a, b){ return a.cv === b.cv ? a.m.id - b.m.id : (a.cv < b.cv ? -1 : 1); })[0];
+  if (stable) tiles.push({ l: '📊 稳定王', v: (Math.round(stable.cv * 10) / 10) + '%', n: mdName(stable.m) });
+  return '<div class="rc-titles">' + tiles.map(function(t){
+    return '<div class="rc-title"><div class="rc-title__l">' + t.l + '</div>' +
+      '<div class="rc-title__v">' + esc(t.v) + '</div><div class="rc-title__n">' + esc(t.n) + '</div></div>';
+  }).join('') + '</div>';
+}
+// 完整榜单：奖牌/名次、头像、名+标签、打卡·波动、减重、总分、行底进度条
+function raceListHtml(r) {
+  var maxScore = r.qualified[0].score;
+  var medals = ['🥇', '🥈', '🥉'];
+  return r.qualified.map(function(x){
     var isMe = r.selfM && x.m.id === r.selfM.id;
-    var cvTxt = x.cv != null ? (Math.round(x.cv*10)/10) + '%' : '—';
-    return '<div style="display:grid;grid-template-columns:24px 1fr auto auto;gap:0 10px;align-items:center;' +
-      'padding:7px 6px;border-bottom:1px solid var(--border);' + (isMe ? 'background:var(--hover-brand);border-radius:8px;' : '') + '">' +
-      '<b style="color:var(--brand-text);">' + x.pos + '</b>' +
-      '<div style="min-width:0;"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(mdName(x.m)) + '</div>' +
-      '<div class="muted" style="font-size:11px;">打卡 ' + x.days + ' 天 · 波动 ' + cvTxt + '</div></div>' +
-      '<div style="font-size:13px;white-space:nowrap;">' + raceDeltaHtml(x.delta) + '</div>' +
-      '<div style="font-weight:800;color:var(--brand-text);text-align:center;min-width:24px;">' + x.score + '</div></div>';
+    var rankCell = x.pos <= 3
+      ? '<span class="rc-rank top">' + medals[x.pos - 1] + '</span>'
+      : '<span class="rc-rank">' + x.pos + '</span>';
+    var cvTxt = x.cv != null ? '波动 ' + (Math.round(x.cv * 10) / 10) + '%' : '波动 —';
+    return '<div class="rc-row' + (isMe ? ' is-me' : '') + '">' +
+      rankCell + raceAvatar(x.m) +
+      '<div class="rc-row__who"><div class="rc-row__name">' + esc(mdName(x.m)) + raceTags(x.m) + '</div>' +
+      '<div class="rc-row__meta">打卡 ' + x.days + ' 天 · ' + cvTxt + '</div></div>' +
+      '<div class="rc-row__delta">' + raceDeltaHtml(x.delta) + '</div>' +
+      '<div class="rc-row__score">' + x.score + '</div>' +
+      '<div class="rc-row__bar"><i style="width:' + Math.round(x.score / maxScore * 100) + '%"></i></div>' +
+    '</div>';
   }).join('');
-  box.innerHTML = sub + hero + top3 + head + rows + raceInsufficientHtml(r);
 }
 // 数据不足区（区间内 0-1 条记录，不入榜）
 function raceInsufficientHtml(r) {
   if (!r.insufficient.length) return '';
-  var names = r.insufficient.map(function(x){
-    return esc(mdName(x.m)) + '（' + x.n + ' 条）';
-  }).join('、');
-  return '<h3 style="font-size:13px;margin:14px 0 4px;">数据不足</h3>' +
-    '<p class="muted" style="font-size:12px;line-height:1.6;margin:0;">' + names + '：区间内记录少于 2 条，未计入排名。</p>';
+  return '<div class="rc-note"><b>数据不足 · 不计排名</b><br>' +
+    r.insufficient.map(function(x){
+      return esc(mdName(x.m)) + '（区间内 ' + x.n + ' 条记录）';
+    }).join('、') + '：满 2 条记录才能入榜。</div>';
 }
-function raceCtlHtml() {
-  return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">' +
+// 规则说明视图（? 按钮切换；减肥效果口径附具体例子）
+function raceRulesHtml() {
+  return '<button type="button" class="btn sm gray" id="rcBack">← 返回榜单</button>' +
+    '<h3>谁能参赛</h3>' +
+    '<p>体重页上<b>全部启用成员</b>自动参赛：你自己、家庭成员、共享引用的成员、好友对你开放的成员。停用或归档成员不参赛；解除好友后对方自动退出。</p>' +
+    '<h3>入榜门槛</h3>' +
+    '<p>统计区间内有 <b>≥ 2 条</b>体重记录才能进入排名；只有 0–1 条记录的成员会列在榜单下方「数据不足」，不参与积分。</p>' +
+    '<h3>三个维度</h3>' +
+    '<ul>' +
+      '<li><b>坚持天数</b>：区间内的打卡天数，天数越多越靠前。</li>' +
+      '<li><b>减肥效果</b>：区间内<b>最后一条</b>体重 − <b>第一条</b>体重（按该成员实际有记录的日期，不是区间自然日起点）。减得越多越靠前；增重排在后面，只呈现数据、不做好坏评价。<br>例：近30天内，10/04 第一次记录 136 斤、11/02 最后一次 129.6 斤 → 减重 6.4 斤；若 10/20 才开始记，就用 11/02 与 10/20 比较。</li>' +
+      '<li><b>稳定性</b>：<span class="formula">变异系数 = 体重标准差 ÷ 平均体重</span>，波动越小越靠前。至少 3 条记录才参与该维度排名；恰好 2 条时，该维度按末位计 1 分。</li>' +
+    '</ul>' +
+    '<h3>积分与排名</h3>' +
+    '<p>每个维度按名次单独计分：P 人参赛时第 1 名得 P 分、第 2 名得 P−1 分，依次递减；成绩相同则<b>并列同名次、同分</b>，下一名次顺延（如两人并列第 1，下一人是第 3）。三个维度得分相加为<b>总分</b>，总分高者排前。</p>' +
+    '<p>总分相同时，依次比较：减肥效果 → 坚持天数 → 稳定性，仍相同则并列。</p>' +
+    '<h3>统计区间</h3>' +
+    '<p>区间在弹窗内独立选择，与体重曲线页的时间筛选互不影响。</p>' +
+    '<h3>隐私</h3>' +
+    '<p>榜单只呈现减重量、打卡天数与波动幅度，<b>不展示任何人的绝对体重</b>。</p>';
+}
+function raceShowRules() {
+  var b = document.getElementById('rcBoard');
+  var rl = document.getElementById('rcRules');
+  if (b) b.hidden = true;
+  if (rl) rl.hidden = false;
+  var t = document.getElementById('modalTitle');
+  if (t) t.textContent = '竞赛规则说明';
+}
+function raceShowBoard() {
+  var b = document.getElementById('rcBoard');
+  var rl = document.getElementById('rcRules');
+  if (rl) rl.hidden = true;
+  if (b) b.hidden = false;
+  var t = document.getElementById('modalTitle');
+  if (t) t.textContent = '🏆 减肥竞赛';
+}
+function openRaceModal() {
+  var ctl = '<div class="rc-controls">' +
     '<select id="rcRange" class="btn sm gray" style="width:auto;padding:4px 8px;">' +
     '<option value="month">本月</option><option value="d30">近30天</option><option value="d60">近60天</option>' +
     '<option value="year">本年</option><option value="custom">自定义</option></select>' +
-    '<span id="rcCustom" style="display:none;align-items:center;gap:6px;font-size:12px;">' +
-    '<input type="date" id="rcStart" style="padding:4px 6px;"> 至 <input type="date" id="rcEnd" style="padding:4px 6px;"></span></div>';
-}
-function openRaceModal() {
-  openModal('🏆 减肥竞赛', raceCtlHtml() + '<div id="rcBody"></div>');
+    '<span class="rc-dates" id="rcCustom"><input type="date" id="rcStart"> 至 <input type="date" id="rcEnd"></span>' +
+    '<span class="rc-spacer"></span>' +
+    '<button type="button" class="rc-help" id="rcHelp" title="竞赛规则说明" aria-label="竞赛规则说明">?</button></div>';
+  var body =
+    '<div id="rcBoard">' + ctl + '<div class="rc-sub" id="rcSub"></div><div id="rcBody"></div></div>' +
+    '<div class="rc-rules" id="rcRules" hidden>' + raceRulesHtml() + '</div>';
+  openModal('🏆 减肥竞赛', body);
   var sel = document.getElementById('rcRange');
   if (sel) {
     sel.value = raceRange;
     sel.addEventListener('change', function(){
       raceRange = this.value;
       var cs = document.getElementById('rcCustom');
-      if (cs) cs.style.display = raceRange === 'custom' ? 'inline-flex' : 'none';
+      if (cs) cs.classList.toggle('show', raceRange === 'custom');
       renderRaceBody();
     });
   }
   var cs = document.getElementById('rcCustom');
-  if (cs) cs.style.display = raceRange === 'custom' ? 'inline-flex' : 'none';
+  if (cs) cs.classList.toggle('show', raceRange === 'custom');
   var rs = document.getElementById('rcStart');
   var re = document.getElementById('rcEnd');
   if (rs) rs.addEventListener('change', renderRaceBody);
   if (re) re.addEventListener('change', renderRaceBody);
+  var help = document.getElementById('rcHelp');
+  if (help) help.addEventListener('click', raceShowRules);
+  var back = document.getElementById('rcBack');
+  if (back) back.addEventListener('click', raceShowBoard);
   renderRaceBody();
 }
 var wRaceBtnEl = document.getElementById('wRaceBtn');
