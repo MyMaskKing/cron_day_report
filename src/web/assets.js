@@ -5742,6 +5742,9 @@ async function loadAll() {
   var dateInput = document.getElementById('recDate');
   if (dateInput && !dateInput.value) dateInput.value = todayStr();
   applyFilter();
+  // 竞赛结果：启用成员（自己/共享/好友）多于 1 人才开赛
+  var rb = document.getElementById('wRaceBtn');
+  if (rb) rb.style.display = members.filter(function(m){ return !m.disabled; }).length > 1 ? '' : 'none';
 }
 function updateUnitLabels() {
   var l = document.getElementById('recWeightLabel');
@@ -6222,6 +6225,7 @@ async function openFriendPanel() {
   }).join('') || '<p class="muted" style="margin:8px 0 0;">还没有好友，生成邀请链接发给家人朋友吧。</p>';
   openModal('体重好友',
     '<div style="margin-bottom:16px;">' + inviteHtml + '</div>' +
+    '<div style="background:var(--hover-brand);color:var(--brand-text);border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.6;margin-bottom:14px;">💡 体重页「体重曲线」旁的「🏆 竞赛结果」会把你、家庭成员和好友开放的成员放进同一张排行榜，按打卡天数、减重幅度、稳定性综合排名。</div>' +
     '<h3 style="font-size:14px;margin:0 0 4px;">谁对好友可见</h3>' +
     '<p class="muted" style="font-size:12px;line-height:1.6;margin:0 0 6px;">成为好友时已自动开放你最早创建的成员（通常即本人）；其他家庭成员默认隐藏，在这里手动开放才会被好友看到，也可关闭本人成员的开放。当前已开放 ' + visibleCount + ' 个。</p>' +
     memHtml +
@@ -6274,6 +6278,209 @@ if (fFriendBtn) fFriendBtn.addEventListener('click', function(){
       } catch(e){ alertModal(e.message, {ok:false}); }
     });
 })();
+
+// ==================== 减肥竞赛排行榜 ====================
+// 弹窗内独立区间（不跟随页面筛选）：month / d30 / d60 / year / custom
+var raceRange = 'month';
+// 预设区间闭区间，右端=今天
+function racePresetBounds() {
+  var t = todayStr();
+  function shift(n){ var d = new Date(t + 'T00:00:00'); d.setDate(d.getDate() - n); return d.toISOString().slice(0,10); }
+  if (raceRange === 'd30') return { lo: shift(29), hi: t };
+  if (raceRange === 'd60') return { lo: shift(59), hi: t };
+  if (raceRange === 'year') return { lo: t.slice(0,4) + '-01-01', hi: t };
+  if (raceRange === 'month') return { lo: t.slice(0,8) + '01', hi: t };
+  return { lo: null, hi: null };
+}
+function currentRaceBounds() {
+  if (raceRange !== 'custom') return racePresetBounds();
+  var s = document.getElementById('rcStart');
+  var e = document.getElementById('rcEnd');
+  return { lo: (s && s.value) || null, hi: (e && e.value) || null };
+}
+// 减重展示（入参 kg 差值，负=减重），色系与历史记录表 deltaCell 一致
+function raceDeltaHtml(deltaKg) {
+  var v = toDisplay(deltaKg);
+  var abs = Math.abs(v);
+  if (abs < 0.05) return '<span class="muted">持平</span>';
+  var n = Math.round(abs * 10) / 10;
+  if (deltaKg < 0) return '<span style="color:var(--ok-text);font-weight:700;">↓ -' + n + ' ' + unitLabel() + '</span>';
+  return '<span style="color:var(--danger);font-weight:700;">↑ +' + n + ' ' + unitLabel() + '</span>';
+}
+// 核心计算：active 启用成员 → 区间统计 → 三维名次积分 → 总榜
+function raceCompute() {
+  var active = members.filter(function(m){ return !m.disabled; });
+  var b = currentRaceBounds();
+  var inRange = allRecords.filter(function(r){
+    if (b.lo && r.record_date < b.lo) return false;
+    if (b.hi && r.record_date > b.hi) return false;
+    return true;
+  });
+  var stats = [];
+  active.forEach(function(m){
+    var rs = inRange.filter(function(r){ return r.member_id === m.id; })
+      .sort(function(a, c){ return a.record_date < c.record_date ? -1 : 1; });
+    if (rs.length < 2) { stats.push({ m: m, n: rs.length }); return; }
+    var vals = rs.map(function(r){ return r.weight; }); // kg
+    var delta = vals[vals.length - 1] - vals[0];
+    var cv = null; // 变异系数%，n>=3 才计算
+    if (vals.length >= 3) {
+      var mean = vals.reduce(function(s, v){ return s + v; }, 0) / vals.length;
+      if (mean > 0) {
+        var variance = vals.reduce(function(s, v){ return s + (v - mean) * (v - mean); }, 0) / vals.length;
+        cv = Math.sqrt(variance) / mean * 100;
+      }
+    }
+    stats.push({ m: m, n: rs.length, days: rs.length, delta: delta, cv: cv });
+  });
+  var qualified = stats.filter(function(x){ return x.n >= 2; });
+  var insufficient = stats.filter(function(x){ return x.n < 2; });
+  var P = qualified.length;
+  // 单维标准竞争排名（同值同名次，下一名顺延）；score=true 越大越好，否则越小越好
+  function rankBy(key, biggerBetter) {
+    var arr = qualified.slice().sort(function(a, c){
+      if (a[key] === c[key]) return a.m.id - c.m.id;
+      return biggerBetter ? (a[key] > c[key] ? -1 : 1) : (a[key] < c[key] ? -1 : 1);
+    });
+    var ranks = {};
+    arr.forEach(function(x, i){
+      if (i > 0 && arr[i-1][key] === x[key]) ranks[x.m.id] = ranks[arr[i-1].m.id];
+      else ranks[x.m.id] = i + 1;
+    });
+    return ranks;
+  }
+  var rankDays = rankBy('days', true);
+  var rankDelta = rankBy('delta', false);
+  // 稳定性：仅 n>=3 按 cv 升序排名；n=2 不参与该维排名，统一末位 P 积 1 分
+  var rankCv = {};
+  qualified.filter(function(x){ return x.cv != null; })
+    .sort(function(a, c){ return a.cv === c.cv ? a.m.id - c.m.id : (a.cv < c.cv ? -1 : 1); })
+    .forEach(function(x, i, arr){
+      if (i > 0 && arr[i-1].cv === x.cv) rankCv[x.m.id] = rankCv[arr[i-1].m.id];
+      else rankCv[x.m.id] = i + 1;
+    });
+  qualified.forEach(function(x){
+    x.rDays = rankDays[x.m.id];
+    x.rDelta = rankDelta[x.m.id];
+    x.rCv = rankCv[x.m.id] != null ? rankCv[x.m.id] : P;
+    x.score = (P - x.rDays + 1) + (P - x.rDelta + 1) + (P - x.rCv + 1);
+  });
+  // 总分降序；tiebreak：减重更多 → 打卡更多 → 更稳 → id
+  function cvKey(x){ return x.cv == null ? 1e18 : x.cv; }
+  qualified.sort(function(a, c){
+    if (a.score !== c.score) return c.score - a.score;
+    if (a.delta !== c.delta) return a.delta < c.delta ? -1 : 1;
+    if (a.days !== c.days) return c.days - a.days;
+    if (cvKey(a) !== cvKey(c)) return cvKey(a) < cvKey(c) ? -1 : 1;
+    return a.m.id - c.m.id;
+  });
+  qualified.forEach(function(x, i){
+    if (i > 0) {
+      var p = qualified[i-1];
+      x.pos = (p.score === x.score && p.delta === x.delta && p.days === x.days && cvKey(p) === cvKey(x)) ? p.pos : i + 1;
+    } else x.pos = 1;
+  });
+  var hitDates = inRange.map(function(r){ return r.record_date; }).sort();
+  var selfM = active.filter(function(m){ return m.is_self && !m.friend && !m.shared; })[0]
+    || active.filter(function(m){ return !m.friend && !m.shared; })[0] || null;
+  return {
+    active: active, qualified: qualified, insufficient: insufficient, P: P,
+    hasAny: hitDates.length > 0, hitLo: hitDates[0] || '', hitHi: hitDates[hitDates.length-1] || '',
+    selfM: selfM
+  };
+}
+function renderRaceBody() {
+  var box = document.getElementById('rcBody');
+  if (!box) return;
+  var r = raceCompute();
+  if (r.active.length < 2) { box.innerHTML = '<p class="muted">启用成员不足 2 人，暂无竞赛。</p>'; return; }
+  if (!r.hasAny) { box.innerHTML = '<p class="muted">该区间内暂无体重记录，换个区间试试。</p>'; return; }
+  var sub = '<p class="muted" style="font-size:12px;margin:0 0 10px;">实际统计 ' + r.hitLo + ' 至 ' + r.hitHi +
+    ' · 积分=三维名次等权相加，区间内独立统计，与页面曲线筛选无关</p>';
+  if (!r.P) {
+    box.innerHTML = sub + '<p class="muted">该区间内所有人的记录都不足 2 条，暂无法排名，换个更长的区间试试。</p>' + raceInsufficientHtml(r);
+    return;
+  }
+  // 我的名次卡
+  var mine = r.selfM ? r.qualified.filter(function(x){ return x.m.id === r.selfM.id; })[0] : null;
+  var hero = '';
+  if (r.selfM) {
+    if (mine) {
+      var cvTxt = mine.cv != null ? '波动 ' + (Math.round(mine.cv*10)/10) + '%' : '波动 —';
+      hero = '<div style="background:var(--hover-brand);border-radius:12px;padding:12px 14px;margin-bottom:12px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">' +
+        '<b style="color:var(--brand-text);">' + esc(mdName(mine.m)) + '</b>' +
+        '<span style="font-size:20px;font-weight:800;color:var(--brand-text);white-space:nowrap;">第 ' + mine.pos + ' / ' + r.P + ' 名</span></div>' +
+        '<div style="font-size:12px;color:var(--brand-text);margin-top:4px;">打卡 ' + mine.days + ' 天 · 减重 ' + raceDeltaHtml(mine.delta) +
+        ' · <span style="color:var(--brand-text);">' + cvTxt + '</span> · 总分 ' + mine.score + '</div></div>';
+    } else {
+      hero = '<div style="background:var(--surface-2);border-radius:12px;padding:12px 14px;margin-bottom:12px;">' +
+        '<b>' + esc(mdName(r.selfM)) + '</b> <span class="muted" style="font-size:12px;">区间内记录不足 2 条，本次未入榜</span></div>';
+    }
+  }
+  // 前三
+  var medals = ['🥇', '🥈', '🥉'];
+  var top3 = '<div style="display:flex;gap:8px;margin-bottom:12px;">' + r.qualified.slice(0,3).map(function(x, i){
+    return '<div style="flex:1;min-width:0;text-align:center;background:var(--surface-2);border-radius:10px;padding:8px 4px;">' +
+      '<div style="font-size:18px;">' + medals[i] + '</div>' +
+      '<div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(mdName(x.m)) + '</div>' +
+      '<div style="font-size:12px;margin-top:2px;">' + raceDeltaHtml(x.delta) + '</div></div>';
+  }).join('') + '</div>';
+  // 完整榜单
+  var head = '<div style="display:grid;grid-template-columns:24px 1fr auto auto;gap:0 10px;align-items:center;' +
+    'padding:0 6px 4px;font-size:11px;color:var(--muted);"><span>名次</span><span>成员</span><span>减重</span><span>总分</span></div>';
+  var rows = r.qualified.map(function(x){
+    var isMe = r.selfM && x.m.id === r.selfM.id;
+    var cvTxt = x.cv != null ? (Math.round(x.cv*10)/10) + '%' : '—';
+    return '<div style="display:grid;grid-template-columns:24px 1fr auto auto;gap:0 10px;align-items:center;' +
+      'padding:7px 6px;border-bottom:1px solid var(--border);' + (isMe ? 'background:var(--hover-brand);border-radius:8px;' : '') + '">' +
+      '<b style="color:var(--brand-text);">' + x.pos + '</b>' +
+      '<div style="min-width:0;"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(mdName(x.m)) + '</div>' +
+      '<div class="muted" style="font-size:11px;">打卡 ' + x.days + ' 天 · 波动 ' + cvTxt + '</div></div>' +
+      '<div style="font-size:13px;white-space:nowrap;">' + raceDeltaHtml(x.delta) + '</div>' +
+      '<div style="font-weight:800;color:var(--brand-text);text-align:center;min-width:24px;">' + x.score + '</div></div>';
+  }).join('');
+  box.innerHTML = sub + hero + top3 + head + rows + raceInsufficientHtml(r);
+}
+// 数据不足区（区间内 0-1 条记录，不入榜）
+function raceInsufficientHtml(r) {
+  if (!r.insufficient.length) return '';
+  var names = r.insufficient.map(function(x){
+    return esc(mdName(x.m)) + '（' + x.n + ' 条）';
+  }).join('、');
+  return '<h3 style="font-size:13px;margin:14px 0 4px;">数据不足</h3>' +
+    '<p class="muted" style="font-size:12px;line-height:1.6;margin:0;">' + names + '：区间内记录少于 2 条，未计入排名。</p>';
+}
+function raceCtlHtml() {
+  return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">' +
+    '<select id="rcRange" class="btn sm gray" style="width:auto;padding:4px 8px;">' +
+    '<option value="month">本月</option><option value="d30">近30天</option><option value="d60">近60天</option>' +
+    '<option value="year">本年</option><option value="custom">自定义</option></select>' +
+    '<span id="rcCustom" style="display:none;align-items:center;gap:6px;font-size:12px;">' +
+    '<input type="date" id="rcStart" style="padding:4px 6px;"> 至 <input type="date" id="rcEnd" style="padding:4px 6px;"></span></div>';
+}
+function openRaceModal() {
+  openModal('🏆 减肥竞赛', raceCtlHtml() + '<div id="rcBody"></div>');
+  var sel = document.getElementById('rcRange');
+  if (sel) {
+    sel.value = raceRange;
+    sel.addEventListener('change', function(){
+      raceRange = this.value;
+      var cs = document.getElementById('rcCustom');
+      if (cs) cs.style.display = raceRange === 'custom' ? 'inline-flex' : 'none';
+      renderRaceBody();
+    });
+  }
+  var cs = document.getElementById('rcCustom');
+  if (cs) cs.style.display = raceRange === 'custom' ? 'inline-flex' : 'none';
+  var rs = document.getElementById('rcStart');
+  var re = document.getElementById('rcEnd');
+  if (rs) rs.addEventListener('change', renderRaceBody);
+  if (re) re.addEventListener('change', renderRaceBody);
+  renderRaceBody();
+}
+var wRaceBtnEl = document.getElementById('wRaceBtn');
+if (wRaceBtnEl) wRaceBtnEl.addEventListener('click', openRaceModal);
 
 // 超管对比
 async function initCompare() {

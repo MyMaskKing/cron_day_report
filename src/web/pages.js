@@ -800,7 +800,9 @@ function weightPage(user) {
     </div>
 
     <div class="card">
-      <h2>体重曲线</h2>
+      <h2>体重曲线
+        <button class="btn sm" id="wRaceBtn" style="float:right;display:none;">🏆 竞赛结果</button>
+      </h2>
       <div class="row">
         <div><label>时间区间</label>
           <select id="rangePreset"><option value="month">本月</option><option value="year">本年</option></select>
