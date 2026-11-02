@@ -2128,7 +2128,7 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .jn-chart-legend i.avg { border-top: 2px dashed #f97316; }
 .jn-chart-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-/* ===== 减肥竞赛弹窗（体重页 🏆 竞赛结果 · 运动 PK 风）===== */
+/* ===== 减肥竞赛弹窗（体重页 🏆 竞赛结果 · 名次卡/单项冠军/领奖台/胖行榜）===== */
 .rc-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .rc-controls .rc-spacer { flex: 1 1 auto; }
 .rc-help { width: 26px; height: 26px; flex: none; display: inline-flex; align-items: center; justify-content: center;
@@ -2148,50 +2148,55 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .rc-down { color: var(--ok-text); }
 .rc-up { color: var(--danger); }
 .rc-flat { color: var(--muted); font-weight: 700; }
-/* VS 卡：冠军 vs 我 */
-.rc-vs { display: flex; align-items: center; gap: 8px; background: var(--surface-2);
-  border-radius: var(--r-lg); padding: 14px 16px; margin-bottom: 12px; }
-.rc-vs__side { flex: 1; min-width: 0; text-align: center; }
-.rc-vs__ava { width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 5px; position: relative;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; font-weight: 800; background: var(--surface-3); color: var(--muted); }
-.rc-vs__ava.champ { background: var(--gold-bg); color: var(--gold); border: 2px solid var(--gold); }
-.rc-vs__ava.me { background: var(--hover-brand); color: var(--brand-text); border: 2px solid var(--brand-text); }
-.rc-vs__crown { position: absolute; top: -11px; left: 50%; transform: translateX(-50%); font-size: 13px; }
-.rc-vs__name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rc-vs__sub { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 1px; }
-.rc-vs__mid { flex: none; text-align: center; }
-.rc-vs__mark { width: 34px; height: 34px; border-radius: 50%; background: var(--brand-strong); color: #fff;
-  font-weight: 850; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; }
-.rc-vs__gap { font-size: 10.5px; color: var(--brand-text); font-weight: 700; margin-top: 4px; white-space: nowrap; }
-.rc-vs--solo { flex-direction: column; gap: 2px; padding: 18px 16px; }
-.rc-vs--solo .rc-vs__ava { margin-bottom: 6px; }
-.rc-vs__solo-t { font-size: 14px; font-weight: 850; color: var(--brand-text); }
-.rc-vs__solo-s { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
-/* 三维环形得分 */
-.rc-rings { display: flex; gap: 8px; margin-bottom: 12px; }
-.rc-ring { flex: 1; min-width: 0; background: var(--surface-2); border-radius: var(--r-md); padding: 10px 4px 8px; text-align: center; }
-.rc-ring svg { display: block; margin: 0 auto; }
-.rc-ring__track { stroke: var(--surface-3); }
-.rc-ring__prog { stroke: var(--brand-strong); }
-.rc-ring__v { font-size: 12.5px; font-weight: 850; fill: var(--text-strong); }
-.rc-ring__tot { font-size: 8.5px; fill: var(--muted); }
-.rc-ring__l { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.rc-ring__rank { font-size: 10.5px; font-weight: 700; color: var(--brand-text); margin-top: 1px; }
-/* 前三色卡 */
-.rc-top3 { display: flex; gap: 8px; margin-bottom: 14px; }
-.rc-tcard { flex: 1; min-width: 0; border-radius: var(--r-md); padding: 10px 6px 9px; text-align: center; }
-.rc-tcard--1 { background: var(--gold-bg); }
-.rc-tcard--2 { background: var(--silver-bg); }
-.rc-tcard--3 { background: var(--bronze-bg); }
-.rc-tcard__medal { font-size: 19px; line-height: 1.1; }
-.rc-tcard__name { font-size: 12.5px; font-weight: 800; margin-top: 2px;
+/* 我的名次卡（大数字名次 + 总分进度条 + 总分/打卡/效果三格） */
+.rc-me { display: flex; gap: 14px; align-items: center; border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 14px 16px; margin-bottom: 14px; }
+.rc-me__rank { font-size: 42px; font-weight: 850; color: var(--brand-text); line-height: .95; }
+.rc-me__rank small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.rc-me__mid { flex: 1; min-width: 0; }
+.rc-me__label { font-size: 10.5px; letter-spacing: .1em; color: var(--muted); font-weight: 700; }
+.rc-me__name { font-size: 15px; font-weight: 700; color: var(--text-strong); margin: 1px 0 6px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rc-tcard--1 .rc-tcard__name { color: var(--gold); }
-.rc-tcard--2 .rc-tcard__name { color: var(--silver); }
-.rc-tcard--3 .rc-tcard__name { color: var(--bronze); }
-.rc-tcard__delta { font-size: 12.5px; font-weight: 850; margin-top: 1px; font-variant-numeric: tabular-nums; }
-.rc-tcard__days { font-size: 10px; color: var(--muted); }
+.rc-me__bar { height: 3px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.rc-me__bar i { display: block; height: 100%; background: var(--brand-strong); border-radius: 99px; }
+.rc-me__hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.rc-me__stats { display: flex; gap: 14px; flex: none; }
+.rc-me__stats .v { font-size: 17px; font-weight: 800; color: var(--text-strong); line-height: 1.1; }
+.rc-me__stats .l { font-size: 10.5px; color: var(--muted); }
+.rc-me.is-off .rc-me__rank { color: var(--faint); }
+/* 单项冠军三卡：标签 → 粗体金色成绩（减重带方向箭头）→ 夺冠成员名 */
+.rc-sec { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; color: var(--muted); margin: 0 2px 6px; }
+.rc-wins { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.rc-win { background: var(--surface-2); border-radius: var(--r-md); padding: 10px 6px 9px; text-align: center; min-width: 0; }
+.rc-win__l { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.rc-win__v { font-size: 19px; font-weight: 850; color: var(--gold); margin: 7px 0 3px; line-height: 1.1;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rc-win__v small { font-size: 11px; font-weight: 700; margin-left: 1px; }
+.rc-win__n { font-size: 12.5px; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
+.rc-win--off .rc-win__v { color: var(--faint); font-size: 14px; font-weight: 700; }
+.rc-win--off .rc-win__n { color: var(--faint); font-weight: 600; }
+/* 总榜前三领奖台：列固定 亚军/冠军/季军，冠军恒在中间且突出 */
+.rc-podium { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 6px; }
+.rc-pcol { flex: 1; min-width: 0; text-align: center; border-radius: var(--r-md); padding: 10px 4px; }
+.rc-pcol--2 { background: var(--silver-bg); }
+.rc-pcol--1 { background: var(--gold-bg); padding: 14px 4px 12px; outline: 2px solid var(--gold); outline-offset: -2px; }
+.rc-pcol--3 { background: var(--bronze-bg); }
+.rc-pcol__crown { font-size: 12px; line-height: 1; margin-bottom: 1px; }
+.rc-pcol__medal { font-size: 18px; line-height: 1.1; }
+.rc-pcol--1 .rc-pcol__medal { font-size: 23px; }
+.rc-pcol__name { font-size: 12.5px; font-weight: 800; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
+.rc-pcol--2 .rc-pcol__name { color: var(--silver); }
+.rc-pcol--1 .rc-pcol__name { font-size: 14px; color: var(--gold); }
+.rc-pcol--3 .rc-pcol__name { color: var(--bronze); }
+.rc-pcol__delta { font-size: 12.5px; font-weight: 850; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.rc-pcol__days { font-size: 10px; color: var(--muted); }
+.rc-podium-note { font-size: 11px; color: var(--muted); text-align: center; margin: 0 0 14px; }
+@media (max-width: 420px) {
+  .rc-me { flex-wrap: wrap; gap: 10px; }
+  .rc-me__stats { width: 100%; justify-content: space-between; }
+}
 /* 完整榜单胖行 */
 .rc-row { position: relative; display: flex; align-items: center; gap: 10px;
   background: var(--surface-2); border-radius: var(--r-md); padding: 10px 12px; margin-bottom: 7px; overflow: hidden; }

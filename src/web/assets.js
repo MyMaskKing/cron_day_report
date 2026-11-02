@@ -6415,70 +6415,90 @@ function renderRaceBody() {
     box.innerHTML = '<div class="rc-empty">该区间内所有人的记录都不足 2 条<br>暂无法排名，换个更长的区间试试</div>' + raceInsufficientHtml(r);
     return;
   }
-  // 自我成员在榜中才有 VS 卡与个人环形得分；未入榜（数据不足）时只看前三与总榜
-  var mine = r.selfM ? r.qualified.filter(function(x){ return x.m.id === r.selfM.id; })[0] : null;
+  // 我的名次卡（B 风，未入榜显灰态）→ 单项冠军 → 银金铜领奖台 → 胖行总榜 → 数据不足
   box.innerHTML =
-    (mine ? raceVsHtml(r, mine) : '') +
-    (mine ? raceRingsHtml(r, mine) : '') +
-    raceTop3Html(r) + raceListHtml(r) + raceInsufficientHtml(r);
+    raceMeHtml(r) + raceWinsHtml(r) + racePodiumHtml(r) +
+    '<div class="rc-sec" style="margin-top:12px;">完整榜单</div>' + raceListHtml(r) + raceInsufficientHtml(r);
 }
-// VS 卡：自己非榜首=冠军 VS 我（差 X 分）；自己榜首=我 VS 第二名（领先 X 分）；P=1 单人冠军
-function raceVsSide(x, cls, crown) {
-  return '<div class="rc-vs__side"><div class="rc-vs__ava ' + cls + '">' +
-    (crown ? '<span class="rc-vs__crown">👑</span>' : '') + esc(mdName(x.m).slice(0, 1)) + '</div>' +
-    '<div class="rc-vs__name">' + esc(mdName(x.m)) + '</div>' +
-    '<div class="rc-vs__sub">' + raceDeltaHtml(x.delta) + ' · ' + x.score + '分</div></div>';
-}
-function raceVsHtml(r, mine) {
-  if (r.P === 1) {
-    return '<div class="rc-vs rc-vs--solo"><div class="rc-vs__ava champ"><span class="rc-vs__crown">👑</span>' +
-      esc(mdName(mine.m).slice(0, 1)) + '</div>' +
-      '<div class="rc-vs__name">' + esc(mdName(mine.m)) + '</div>' +
-      '<div class="rc-vs__solo-t">本期冠军</div>' +
-      '<div class="rc-vs__solo-s">暂无对手，邀请好友一起 PK</div></div>';
+// 我的名次卡：大数字名次 + 总分进度条 + 总分/打卡/效果三格；未入榜灰态
+function raceMeHtml(r) {
+  if (!r.selfM) return '';
+  var x = null;
+  for (var i = 0; i < r.qualified.length; i++) {
+    if (r.qualified[i].m.id === r.selfM.id) { x = r.qualified[i]; break; }
   }
-  var champ = r.qualified[0], runner = r.qualified[1], left, right, gapTxt;
-  if (mine.pos === 1) {
-    left = raceVsSide(mine, 'champ', true);
-    right = raceVsSide(runner, '', false);
-    gapTxt = '领先 ' + (mine.score - runner.score) + ' 分';
-  } else {
-    left = raceVsSide(champ, 'champ', true);
-    right = raceVsSide(mine, 'me', false);
-    gapTxt = '差 ' + (champ.score - mine.score) + ' 分';
+  if (!x) {
+    var z = r.insufficient.filter(function(q){ return q.m.id === r.selfM.id; })[0];
+    return '<div class="rc-me is-off"><div class="rc-me__rank">—</div>' +
+      '<div class="rc-me__mid"><div class="rc-me__label">我的名次</div>' +
+      '<div class="rc-me__name">' + esc(mdName(r.selfM)) + '</div>' +
+      '<div class="rc-me__hint">本区间仅 ' + (z ? z.n : 0) + ' 条记录，满 2 条才计入排名</div></div></div>';
   }
-  return '<div class="rc-vs">' + left +
-    '<div class="rc-vs__mid"><div class="rc-vs__mark">VS</div><div class="rc-vs__gap">' + gapTxt + '</div></div>' +
-    right + '</div>';
+  var maxScore = r.qualified[0].score;
+  var hint = x.pos === 1 ? '当前榜首，守擂中' : '距榜首还差 ' + (maxScore - x.score) + ' 分';
+  return '<div class="rc-me"><div class="rc-me__rank">' + x.pos + '<small> / ' + r.P + '</small></div>' +
+    '<div class="rc-me__mid"><div class="rc-me__label">我的名次</div>' +
+    '<div class="rc-me__name">' + esc(mdName(x.m)) + '</div>' +
+    '<div class="rc-me__bar"><i style="width:' + Math.round(x.score / maxScore * 100) + '%"></i></div>' +
+    '<div class="rc-me__hint">' + hint + '</div></div>' +
+    '<div class="rc-me__stats">' +
+      '<div><div class="v">' + x.score + '</div><div class="l">总分</div></div>' +
+      '<div><div class="v">' + x.days + '天</div><div class="l">打卡</div></div>' +
+      '<div><div class="v">' + raceDeltaHtml(x.delta) + '</div><div class="l">效果</div></div>' +
+    '</div></div>';
 }
-// 三维环形得分：环心=该维度单项得分/P（SVG 描边色走 class，presentation 属性不解析 CSS 变量）
-function raceRing(score, max, label, rankTxt) {
-  var R = 20, C = 2 * Math.PI * R, pct = Math.max(0.06, score / max);
-  return '<div class="rc-ring"><svg width="52" height="52" viewBox="0 0 52 52">' +
-    '<circle class="rc-ring__track" cx="26" cy="26" r="' + R + '" fill="none" stroke-width="5"/>' +
-    '<circle class="rc-ring__prog" cx="26" cy="26" r="' + R + '" fill="none" stroke-width="5" stroke-linecap="round" ' +
-    'stroke-dasharray="' + (C * pct) + ' ' + (C * (1 - pct)) + '" transform="rotate(-90 26 26)"/>' +
-    '<text x="26" y="25" text-anchor="middle" class="rc-ring__v">' + score + '</text>' +
-    '<text x="26" y="34" text-anchor="middle" class="rc-ring__tot">/' + max + '</text></svg>' +
-    '<div class="rc-ring__l">' + label + '</div><div class="rc-ring__rank">' + rankTxt + '</div></div>';
-}
-function raceRingsHtml(r, mine) {
-  function rankTxt(ri) { return ri === 1 ? '第 1 名 🥇' : '第 ' + ri + ' 名'; }
-  return '<div class="rc-rings">' +
-    raceRing(r.P - mine.rDays + 1, r.P, '坚持', rankTxt(mine.rDays)) +
-    raceRing(r.P - mine.rDelta + 1, r.P, '减重', rankTxt(mine.rDelta)) +
-    raceRing(r.P - mine.rCv + 1, r.P, '稳定', mine.cv == null ? '数据少' : rankTxt(mine.rCv)) +
+// 单项冠军：坚持王（打卡天数）/减重王（首末差，带方向箭头）/稳定王（变异系数，全员 n<3 则数据不足）
+function raceWinsHtml(r) {
+  function best(key, bigger) {
+    return r.qualified.slice().sort(function(a, b){
+      if (a[key] === b[key]) return a.m.id - b.m.id;
+      return bigger ? (a[key] > b[key] ? -1 : 1) : (a[key] < b[key] ? -1 : 1);
+    })[0];
+  }
+  var daysBest = best('days', true);
+  var deltaBest = best('delta', false);
+  var cvList = r.qualified.filter(function(x){ return x.cv != null; });
+  var cvBest = cvList.length
+    ? cvList.slice().sort(function(a, b){
+        return a.cv === b.cv ? a.m.id - b.m.id : (a.cv < b.cv ? -1 : 1);
+      })[0]
+    : null;
+  function card(label, x, v, u, arrow) {
+    if (!x) return '<div class="rc-win rc-win--off"><div class="rc-win__l">' + label + '</div>' +
+      '<div class="rc-win__v">—</div><div class="rc-win__n">数据不足</div></div>';
+    return '<div class="rc-win"><div class="rc-win__l">' + label + '</div>' +
+      '<div class="rc-win__v">' + (arrow || '') + v + '<small>' + u + '</small></div>' +
+      '<div class="rc-win__n">' + esc(mdName(x.m)) + '</div></div>';
+  }
+  var dArrow = deltaBest.delta < 0 ? '↓' : (deltaBest.delta > 0 ? '↑' : '');
+  return '<div class="rc-sec">单项冠军</div><div class="rc-wins">' +
+    card('📅 坚持王', daysBest, daysBest.days, '天', '') +
+    card('⬇️ 减重王', deltaBest, (Math.round(Math.abs(toDisplay(deltaBest.delta)) * 10) / 10), unitLabel(), dArrow) +
+    card('📊 稳定王', cvBest, cvBest ? (Math.round(cvBest.cv * 10) / 10) : null, '%', '') +
     '</div>';
 }
-// 前三色卡：金/银/铜淡色底（并列时按 pos 取奖牌，P=2 只出两张）
-function raceTop3Html(r) {
-  var medals = ['🥇', '🥈', '🥉'];
-  return '<div class="rc-top3">' + r.qualified.slice(0, 3).map(function(x){
-    return '<div class="rc-tcard rc-tcard--' + x.pos + '"><div class="rc-tcard__medal">' + medals[x.pos - 1] + '</div>' +
-      '<div class="rc-tcard__name">' + esc(mdName(x.m)) + '</div>' +
-      '<div class="rc-tcard__delta">' + raceDeltaHtml(x.delta) + '</div>' +
-      '<div class="rc-tcard__days">打卡 ' + x.days + ' 天</div></div>';
-  }).join('') + '</div>';
+// 总榜前三领奖台：列固定 亚军/冠军/季军，冠军恒在中间且突出；P=2/1 时缺位留空列保持居中
+function racePodiumHtml(r) {
+  // 中柱恒为排序首位冠军；并列第一时左列留空（另一冠军在完整榜中同样挂🥇）
+  var first = r.qualified[0];
+  var second = r.qualified[1] && r.qualified[1].pos === 2 ? r.qualified[1] : null;
+  var third = null;
+  for (var i = 0; i < r.qualified.length; i++) {
+    if (r.qualified[i].pos === 3) { third = r.qualified[i]; break; }
+  }
+  var medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
+  function col(x, pos) {
+    if (!x) return '<div class="rc-pcol" style="background:transparent;"></div>';
+    var crown = pos === 1 ? '<div class="rc-pcol__crown">👑</div>' : '';
+    return '<div class="rc-pcol rc-pcol--' + pos + '">' + crown +
+      '<div class="rc-pcol__medal">' + medals[pos] + '</div>' +
+      '<div class="rc-pcol__name">' + esc(mdName(x.m)) + '</div>' +
+      '<div class="rc-pcol__delta">' + raceDeltaHtml(x.delta) + '</div>' +
+      '<div class="rc-pcol__days">打卡 ' + x.days + ' 天</div></div>';
+  }
+  return '<div class="rc-sec">总榜前三</div><div class="rc-podium">' +
+    col(second, 2) + col(first, 1) + col(third, 3) + '</div>' +
+    '<div class="rc-podium-note">' + r.hitLo + ' ~ ' + r.hitHi + '</div>';
 }
 // 完整榜单胖行：奖牌/名次、头像、名+好友/共享标签、打卡·波动、减重、总分、行底胖进度条
 function raceListHtml(r) {
@@ -6522,6 +6542,8 @@ function raceRulesHtml() {
     '<h3>积分与排名</h3>' +
     '<p>每个维度按名次单独计分：P 人参赛时第 1 名得 P 分、第 2 名得 P−1 分，依次递减；成绩相同则<b>并列同名次、同分</b>，下一名次顺延（如两人并列第 1，下一人是第 3）。三个维度得分相加为<b>总分</b>，总分高者排前。</p>' +
     '<p>总分相同时，依次比较：减肥效果 → 坚持天数 → 稳定性，仍相同则并列。</p>' +
+    '<h3>怎么看榜单</h3>' +
+    '<p>「单项冠军」是三个维度各自的第一名；「总榜前三」按总分排名颁奖；下方完整榜单可查每个人的三维成绩与总分。</p>' +
     '<h3>统计区间</h3>' +
     '<p>区间在弹窗内独立选择，与体重曲线页的时间筛选互不影响。</p>' +
     '<h3>隐私</h3>' +
