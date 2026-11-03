@@ -1125,22 +1125,22 @@ function assetPage(user) {
           <div><label>结束</label><input id="afEnd" type="month"></div>
         </div>
         <div class="asset-legend">
-          <span><i class="asset-dot" style="background:var(--ok);"></i>月增量</span>
-          <span><i class="asset-dot" style="background:#f97316;"></i>近 6 月均线</span>
-          <span><i class="asset-dot" style="background:var(--danger);"></i>负增长</span>
+          <span><i class="asset-dot" style="background:var(--ok);"></i>每月增加</span>
+          <span><i class="asset-dot" style="background:#f97316;"></i>近6个月平均</span>
+          <span><i class="asset-dot" style="background:var(--danger);"></i>比上月减少</span>
         </div>
         <canvas id="consumeChart" class="asset-chart"></canvas>
       </section>
       <section class="card">
-        <h2 class="asset-title">本月判断<button class="btn sm asset-title__btn" id="aaEntry" type="button">📝 异常分析</button></h2>
-        <p class="asset-desc">和近 6 个月平均月增量对比。</p>
+        <h2 class="asset-title">智能分析<button class="btn sm asset-title__btn" id="aaEntry" type="button">📝 月度复盘</button></h2>
+        <p class="asset-desc">看看这个月比平时攒得多还是少。</p>
         <div id="aiVs6" class="asset-status-number" data-base-class="asset-status-number">—</div>
         <div class="asset-status-text" id="aiNote">—</div>
         <div class="asset-metric-list">
-          <div class="asset-metric"><span>近 6 月平均月增</span><b id="aiAvg6" data-base-class="asset-metric__value">—</b></div>
-          <div class="asset-metric"><span>近 12 月平均月增</span><b id="aiAvg12" data-base-class="asset-metric__value">—</b></div>
-          <div class="asset-metric"><span>近 12 月累计增加</span><b id="aiTotal12" data-base-class="asset-metric__value">—</b></div>
-          <div class="asset-metric"><span>最低增长月</span><b id="aiLowest" data-base-class="asset-metric__value">—</b></div>
+          <div class="asset-metric"><span>近6个月平均每月</span><b id="aiAvg6" data-base-class="asset-metric__value">—</b></div>
+          <div class="asset-metric"><span>近12个月平均每月</span><b id="aiAvg12" data-base-class="asset-metric__value">—</b></div>
+          <div class="asset-metric"><span>近12个月共增加</span><b id="aiTotal12" data-base-class="asset-metric__value">—</b></div>
+          <div class="asset-metric"><span>增加最少的月份</span><b id="aiLowest" data-base-class="asset-metric__value">—</b></div>
         </div>
       </section>
     </div>
@@ -1151,7 +1151,7 @@ function assetPage(user) {
         <canvas id="netChart" class="asset-chart"></canvas>
       </section>
       <section class="card">
-        <h2 class="asset-title">最新月资产构成</h2>
+        <h2 class="asset-title" id="compTitle">最新月资产构成</h2>
         <p class="asset-desc">按钱包类型汇总，信用支付单独作为负债展示。</p>
         <div class="asset-composition">
           <div id="typeDonut" class="asset-donut"></div>

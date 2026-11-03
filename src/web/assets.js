@@ -7469,17 +7469,17 @@ function renderSummary(report, goal, year) {
   if (note) {
     var msg = '—';
     if (latestChange == null) {
-      msg = '至少连续录入两个月钱包余额后，才能判断本月变化。';
+      msg = '至少连续录入两个月的钱包余额，才能看出本月变化。';
     } else if (latestChange < 0) {
-      msg = '本月净资产负增长，需要重点确认原因。';
+      msg = '本月净资产比上月少了，建议看看是哪里花多了，还是有钱包漏录了。';
     } else if (avg6 == null) {
-      msg = '连续录入更多月份后，可对比近 6 个月平均水平。';
+      msg = '再录几个月，就能和近 6 个月的平均水平对比了。';
     } else if (latestChange === 0) {
-      msg = '本月净资产与上月持平。';
+      msg = '本月净资产和上月一样多。';
     } else if (diff6 >= 0) {
-      msg = '本月增加额高于近 6 个月平均水平。';
+      msg = '这个月增加的比近 6 个月的平均水平多，攒得不错！';
     } else {
-      msg = '本月增加额低于近 6 个月平均水平。';
+      msg = '这个月增加的比近 6 个月的平均水平少。';
     }
     note.textContent = msg;
     note.className = 'asset-status-text';
@@ -7516,6 +7516,10 @@ function renderComposition(report, list) {
   var donut = document.getElementById('typeDonut');
   var legend = document.getElementById('typeLegend');
   if (!donut || !legend) return;
+  // 标题随最新数据月份动态显示（首屏静态「最新月资产构成」兜底）
+  var compTitle = document.getElementById('compTitle');
+  var monthLabel = report.latestMonth ? (+report.latestMonth.slice(5, 7)) + '月' : '';
+  if (compTitle && monthLabel) compTitle.textContent = monthLabel + '资产构成';
   var balanceMap = {};
   list.forEach(function(t){ balanceMap[t.type] = t.balance; });
   var positive = TYPE_ORDER.filter(function(type){ return type !== 'credit'; });
@@ -7529,7 +7533,7 @@ function renderComposition(report, list) {
   if (compChart) { compChart.destroy(); compChart = null; }
   donut.style.background = data.length ? 'transparent' : 'var(--surface-2)';
   donut.innerHTML =
-    '<canvas id="typeDonutChart" role="img" aria-label="最新月资产构成饼图"></canvas>' +
+    '<canvas id="typeDonutChart" role="img" aria-label="' + (monthLabel || '最新月') + '资产构成饼图"></canvas>' +
     '<div class="asset-donut__center"><div>资产构成<br><strong>' + assetMoney(assets) + '</strong></div></div>';
   if (data.length) {
     var centerCover = donut.querySelector('.asset-donut__center');
@@ -7620,9 +7624,9 @@ function drawCharts(report) {
   csChart = new Chart(document.getElementById('consumeChart'), {
     type:'bar',
     data:{ labels: report.months, datasets:[
-      { label:'净资产变化', data: report.savingSeries, maxBarThickness:38, borderRadius:6,
+      { label:'每月变化', data: report.savingSeries, maxBarThickness:38, borderRadius:6,
         backgroundColor: function(c){ return c.raw < 0 ? dangerColor : okColor; } },
-      { type:'line', label:'近 6 月均线', data:avgData, borderColor:avgColor, backgroundColor:avgColor,
+      { type:'line', label:'近6个月平均', data:avgData, borderColor:avgColor, backgroundColor:avgColor,
         borderDash:[6,6], pointRadius:0, pointHoverRadius:0, pointHitRadius:12, fill:false, tension:0, order:1 }
     ] },
     options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ display:false } } }
@@ -7902,7 +7906,7 @@ if (aPushSend) aPushSend.addEventListener('click', async function(){
   finally { btn.disabled = false; btn.textContent = '立即推送'; }
 });
 
-// ============ 月度异常分析（Markdown 复盘，不参与统计） ============
+// ============ 月度复盘（Markdown 手动记录，不参与统计） ============
 var aaMde = null, aaMonth = '', aaDirty = false, aaMaxMb = 5;
 api('/api/public/attach-max-mb').then(function(d){ if (d && d.max_mb) aaMaxMb = d.max_mb; }).catch(function(){});
 function aaDefaultMonth(){ return (fullReport && fullReport.latestMonth) || curMonth(); }
@@ -7910,7 +7914,7 @@ function aaDefaultMonth(){ return (fullReport && fullReport.latestMonth) || curM
 window.openAnalysisEditor = function(month){
   aaMonth = month || aaDefaultMonth();
   aaDirty = false;
-  openModal('月度异常分析',
+  openModal('写月度复盘',
     '<div class="row"><div><label>月份</label><input id="aaMonth" type="month"></div></div>' +
     '<textarea id="aaContent"></textarea>' +
     '<div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
@@ -7989,12 +7993,12 @@ function renderAaHistory() {
   var rows = _aaYear === 'all' ? all : all.filter(function(r){ return r.month.slice(0, 4) === _aaYear; });
   var html =
     '<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
-      '<button class="btn sm" id="aaWrite" type="button">✏️ 写本月分析</button>' +
+      '<button class="btn sm" id="aaWrite" type="button">✏️ 写本月复盘</button>' +
       // 年份下拉必须用普通 select（class 带 btn 会被全站日期选择器接管，'all' 值被重置成当年）
       '<label style="font-size:13px;color:var(--muted);">年份 <select id="aaYear" style="padding:5px 8px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface);color:var(--text);font-family:inherit;">' + yearOpts + '</select></label>' +
     '</div>';
   if (!rows.length) {
-    html += '<p class="muted" style="text-align:center;padding:36px 0;">' + (_aaYear === 'all' ? '还没有月度异常分析记录' : _aaYear + ' 年还没有月度异常分析记录') + '</p>';
+    html += '<p class="muted" style="text-align:center;padding:36px 0;">' + (_aaYear === 'all' ? '还没有月度复盘记录' : _aaYear + ' 年还没有月度复盘记录') + '</p>';
   } else {
     html += '<div class="aa-wall">' + rows.map(function(r){
       return '<div class="aa-card" data-month="' + r.month + '" role="button" tabindex="0">' +
@@ -8004,7 +8008,7 @@ function renderAaHistory() {
     }).join('') + '</div>';
   }
   // 大弹窗：PC 上卡片墙横排多列（aa-wall auto-fill 200px），手机仍单列
-  openModal('月度异常分析 · 历史记录', html, 'modal-mask--lg');
+  openModal('月度复盘 · 历史记录', html, 'modal-mask--lg');
   Array.prototype.forEach.call(document.querySelectorAll('.aa-card-b'), function(b){ mdTaskToBoxes(b); });
   var writeBtn = document.getElementById('aaWrite');
   if (writeBtn) writeBtn.addEventListener('click', function(){ openAnalysisEditor(); });
@@ -8024,9 +8028,9 @@ function aaConfirmDelete(month){
   var mask = document.createElement('div');
   mask.className = 'modal-mask show';
   mask.innerHTML = '<div class="modal-box">' +
-    '<div class="modal-head"><span>删除月度分析</span><span class="aa-del-x" style="cursor:pointer;color:var(--muted);font-size:22px;line-height:1;">&times;</span></div>' +
+    '<div class="modal-head"><span>删除月度复盘</span><span class="aa-del-x" style="cursor:pointer;color:var(--muted);font-size:22px;line-height:1;">&times;</span></div>' +
     '<div class="modal-body">' +
-      '<p style="line-height:1.6;word-break:break-all;white-space:pre-line;">确定删除 ' + esc(month) + ' 的异常分析吗？删除后不可恢复。</p>' +
+      '<p style="line-height:1.6;word-break:break-all;white-space:pre-line;">确定删除 ' + esc(month) + ' 的月度复盘吗？删除后不可恢复。</p>' +
       '<div style="text-align:right;margin-top:18px;"><button type="button" class="btn gray aa-del-cancel">取消</button> <button type="button" class="btn danger aa-del-ok">确认</button></div>' +
     '</div></div>';
   function close(){ mask.remove(); unlockBodyScroll(); }
@@ -8050,7 +8054,7 @@ function aaConfirmDelete(month){
 function openAnalysisDetail(month, rows){
   var row = rows.filter(function(r){ return r.month === month; })[0];
   if (!row) return;
-  var mask = openMarkdownViewer(month + ' 月度异常分析', row.content, {
+  var mask = openMarkdownViewer(month + ' 月度复盘', row.content, {
     actionsHtml: '<button class="btn sm gray" id="aaVEdit" type="button">编辑此月</button>' +
                  '<button class="btn sm danger" id="aaVDel" type="button">删除</button>'
   });

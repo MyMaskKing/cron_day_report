@@ -2014,7 +2014,7 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .md-fs-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }
 .md-fs-mask.md-fs--full { padding: 0; background: var(--surface); }
 .md-fs-mask.md-fs--full .md-fs-box { max-width: none; max-height: none; height: 100%; border-radius: 0; }
-/* 资产月度异常分析：历史卡片墙（固定宽高、底部渐隐，点卡片进全屏详情） */
+/* 资产月度复盘：历史卡片墙（固定宽高、底部渐隐，点卡片进全屏详情） */
 .aa-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .aa-card { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; cursor: pointer; }
 .aa-card:hover:not(:active), .aa-card:focus-visible { border-color: var(--brand-border); box-shadow: 0 6px 18px rgba(80,90,130,.12); outline: none; }
