@@ -6981,9 +6981,11 @@ var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f
     var unit = d.weight_unit || 'jin';
     var uLabel = unit === 'kg' ? '公斤' : '斤';
     var disp = function(kg){ return unit === 'jin' ? Math.round(kg*2*10)/10 : kg; };
-    // 默认只显示本月记录（本月无数据则回退全部）
-    var curMonth = new Date(Date.now() + 8*3600*1000).toISOString().slice(0,7);
-    var recs = d.records.filter(function(r){ return (r.record_date||'').slice(0,7) === curMonth; });
+    // 默认只显示近30天记录（含今日共30天，与登录态体重曲线一致；近30天无数据则回退全部）
+    var nowCN = Date.now() + 8*3600*1000;
+    var rptTo = new Date(nowCN).toISOString().slice(0,10);
+    var rptFrom = new Date(nowCN - 29*86400000).toISOString().slice(0,10);
+    var recs = d.records.filter(function(r){ var dt = r.record_date||''; return dt >= rptFrom && dt <= rptTo; });
     if (!recs.length) recs = d.records;
     var byMember = {};
     d.members.forEach(function(m){ byMember[m.id] = {}; });
@@ -6996,7 +6998,7 @@ var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f
     });
     new Chart(document.getElementById('rptChart'), { type:'line', data:{ labels: labels, datasets: datasets },
       options:{ plugins:{ legend:{ position:'top' } }, scales:{ y:{ title:{ display:true, text:'体重('+uLabel+')' } } } } });
-    renderRptHist(d.members, d.records, disp, uLabel);
+    renderRptHist(d.members, recs, disp, uLabel);
     document.getElementById('content').style.display = 'block';
   } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
 })();
