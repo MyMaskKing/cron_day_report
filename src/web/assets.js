@@ -1868,8 +1868,8 @@ if (document.readyState === 'loading') {
   function report() {
     var atTop = (window.scrollY || window.pageYOffset || 0) <= 4;
     if (atTop) {
-      // 弹窗/图表全屏/多选面板打开期间禁用(遮罩盖住页面, 下拉只应作用于弹窗内部)
-      if (document.querySelector('.modal-mask.show, .chart-fs-mask, .mp-menu.show')) atTop = false;
+      // 弹窗/图表全屏/多选面板/投资策略浮层面板打开期间禁用(浮层盖住页面, 下拉只应作用于浮层内部)
+      if (document.querySelector('.modal-mask.show, .chart-fs-mask, .mp-menu.show, body.strat-panel-on')) atTop = false;
     }
     if (atTop) {
       // 内部滚动容器不在顶部时禁用(待办全屏主区/弹窗遮罩/长表格/抽屉目录)
@@ -5409,6 +5409,10 @@ function _stratOpen(){
   var panel = document.getElementById('stratPanel');
   if (!panel) return;
   panel.style.display = 'flex';
+  // App 壳: 浮层打开期间禁用原生下拉刷新(内部 .strat-body 滚动时 body 不滚, 原生会误判在顶部),
+  // 立即上报一次, 不等 500ms 兜底
+  document.body.classList.add('strat-panel-on');
+  if (typeof window._appShellReport === 'function') window._appShellReport();
   // 恢复上次位置 + 尺寸(仅桌面; 手机走 CSS 贴底浮层)
   if (!_stratIsMobile()) {
     try {
@@ -5431,6 +5435,9 @@ function _stratOpen(){
 function _stratClose(){
   var panel = document.getElementById('stratPanel');
   if (panel) panel.style.display = 'none';
+  // 恢复 App 壳原生下拉刷新并立即重算（避免关面板后刷新被卡住禁用）
+  document.body.classList.remove('strat-panel-on');
+  if (typeof window._appShellReport === 'function') window._appShellReport();
 }
 function _stratShowView(content){
   var view = document.getElementById('stratView');
