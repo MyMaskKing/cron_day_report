@@ -645,14 +645,14 @@ function fundPage(user) {
           <option value="all">全部</option>
         </select>
       </h2>
-      <div id="profitEmpty" class="muted" style="display:none;text-align:center;padding:40px;">暂无每日收益数据，次日 15:00 后自动生成首条快照</div>
+      <div id="profitEmpty" class="muted" style="display:none;text-align:center;padding:40px;">暂无每日收益数据，次日 15:00 后自动生成第一条收益记录</div>
       <div class="jn-chart-legend" id="profitLegend" style="max-width:720px;margin:14px auto 0;display:none;">
         <span class="lg"><i></i>当日总收益(元)</span>
-        <span class="lg"><i class="avg"></i>区间均值 <b id="profitAvgLg">–</b></span>
+        <span class="lg"><i class="avg"></i>这段时间平均 <b id="profitAvgLg">–</b></span>
       </div>
       <div id="profitChartWrap" style="max-width:720px;margin:12px auto 0;"><canvas id="profitChart"></canvas></div>
       <div id="profitInsight"></div>
-      <h3 style="margin:24px 0 8px;font-size:16px;">每日明细</h3>
+      <h3 style="margin:24px 0 8px;font-size:16px;">每日收益明细</h3>
       <div class="scroll-box">
         <table><thead><tr style="background:var(--surface-2);"><th>日期</th><th>总收益(元)</th><th>较前一天增长(元)</th></tr></thead><tbody id="profitTbody"></tbody></table>
       </div>
@@ -1286,7 +1286,7 @@ function fundReportPage(showQuickLogin = true) {
     <div class="card" id="profitBox" style="display:none;">
       <h2>📈 近30天总收益曲线</h2>
       <canvas id="profitChart" style="max-height:300px;"></canvas>
-      <h3 style="margin:20px 0 8px;font-size:16px;">每日明细</h3>
+      <h3 style="margin:20px 0 8px;font-size:16px;">每日收益明细</h3>
       <div class="scroll-box">
         <table><thead><tr style="background:var(--surface-2);"><th>日期</th><th>总收益(元)</th><th>较前一天增长(元)</th></tr></thead><tbody id="profitTbody"></tbody></table>
       </div>
@@ -1341,7 +1341,7 @@ function todoPage(user) {
 
     <div class="card">
       <div class="todo-chart-head">
-        <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:max-content;white-space:nowrap;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
+        <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:max-content;white-space:nowrap;">每日完成情况 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新图表" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
         <div class="todo-range" id="chartRange">
           <button data-range="month" class="active">当月</button>
           <button data-range="7d">近7天</button>
@@ -1464,7 +1464,7 @@ function publicTodoPage(prefs = {}) {
           <div id="todoTree" class="todo-tree"></div>
         </div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="float:right;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
+          <h2 style="font-size:15px;margin-bottom:12px;">近7天完成情况 <button type="button" class="btn sm todo-chart-refresh" title="刷新图表" style="float:right;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
       </div>
@@ -1515,7 +1515,7 @@ function todoReportPage(prefs = {}) {
       </div>
       <div class="card">
         <div class="todo-chart-head">
-          <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:max-content;white-space:nowrap;">任务趋势 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
+          <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:max-content;white-space:nowrap;">每日完成情况 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新图表" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
           <div class="todo-range" id="chartRange">
             <button data-range="month" class="active">当月</button>
             <button data-range="7d">近7天</button>
@@ -1570,7 +1570,7 @@ function todoCollabPage(prefs = {}) {
           <div id="todoTree" class="todo-tree"></div>
         </div>
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-          <h2 style="font-size:15px;margin-bottom:12px;">近7天趋势 <button type="button" class="btn sm todo-chart-refresh" title="刷新趋势图" style="float:right;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
+          <h2 style="font-size:15px;margin-bottom:12px;">近7天完成情况 <button type="button" class="btn sm todo-chart-refresh" title="刷新图表" style="float:right;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
           <canvas id="todoChart" style="max-height:240px;"></canvas>
         </div>
       </div>

@@ -4913,7 +4913,7 @@ function applyProfitFilter() {
       data:{labels:labels, datasets:[
         { label:'总收益', data:vals, borderColor:'#667eea', backgroundColor:'rgba(102,126,234,.10)',
           tension:.3, borderWidth:2, pointRadius:0, pointHoverRadius:4, pointHitRadius:14, fill:false },
-        { label:'区间均值', data:vals.map(function(){ return avg; }), borderColor:'#f97316',
+        { label:'平均', data:vals.map(function(){ return avg; }), borderColor:'#f97316',
           borderDash:[5,4], borderWidth:1.8, pointRadius:0, fill:false },
         // 封存/解封事件：隐形散点（视觉由 arcMarkerPlugin 画竖线），仅用于 mode:index 时在 tooltip 给出口径说明
         { label:'口径变化', data:evByIndex.map(function(evs){ return evs ? evAnchor : null; }),
@@ -4935,7 +4935,7 @@ function applyProfitFilter() {
               afterLabel:function(it){
                 if (it.datasetIndex !== 0) return;
                 var d = Math.round((winRows[it.dataIndex].profit - avg) * 100) / 100;
-                return '距区间日均 ' + (d > 0 ? '+' : '') + d + ' 元';
+                return d === 0 ? '和平时平均差不多' : '比平均' + (d > 0 ? '多赚 ' + d : '少赚 ' + Math.abs(d)) + ' 元';
               }
             } } },
         scales:{ x:{ ticks:{ maxTicksLimit:10, font:{ size:10 } } },
@@ -4964,7 +4964,7 @@ function applyProfitFilter() {
 function profitMean(a){ return a.length ? Math.round(a.reduce(function(s,v){return s+v;},0) / a.length * 100) / 100 : 0; }
 
 /**
- * 区间判断（报告视图）：今日收益 vs 区间日均 + 周/月环比 + 区间基准。
+ * 智能分析（报告视图）：今日收益 vs 区间日均 + 周/月环比 + 区间基准。
  * 周/月环比固定取全量快照末尾 7/30 天，不受所选区间长短影响（7 天窗口也能对比）。
  * @param {Array<{date:string,profit:number}>} winRows - 当前区间快照（升序）
  */
@@ -4994,14 +4994,16 @@ function renderProfitInsight(winRows) {
   var flat = Math.abs(hero) < 3;
   var tone = flat ? 'flat' : (hero > 0 ? 'good' : 'bad');
 
-  var msg = '今日 ' + sign(today.profit) + ' 元，' +
-    (flat ? '与区间日均基本持平（' : (hero > 0 ? '高于' : '低于') + '区间日均（') + sign(avg) + ' 元）。';
+  var msg = '今天收益 ' + sign(today.profit) + ' 元，' +
+    (flat
+      ? '和平时平均（' + sign(avg) + ' 元）差不多。'
+      : '比平时平均（' + sign(avg) + ' 元）' + (hero > 0 ? '多赚 ' + hero : '少赚 ' + (-hero)) + ' 元。');
   if (m7 != null && mp7 != null) {
     var mo = r2(m7 - mp7);
-    msg += '近 7 天日均 ' + sign(m7) + ' 元，较前一周（' + sign(mp7) + ' 元）' +
-      (Math.abs(mo) < 5 ? '基本持平' : mo > 0 ? '走强' : '走弱') + '；';
+    msg += '近 7 天平均每天 ' + sign(m7) + ' 元，比前一周（平均 ' + sign(mp7) + ' 元）' +
+      (Math.abs(mo) < 5 ? '差不多' : mo > 0 ? '赚得多了一些' : '赚得少了一些') + '。';
   }
-  msg += '所选区间内 ' + posDays + '/' + vals.length + ' 天收正。';
+  msg += '这段时间 ' + vals.length + ' 天里有 ' + posDays + ' 天在赚钱。';
 
   function metric(label, value, isBase) {
     return '<div class="jn-metric' + (isBase ? ' jn-metric--base' : '') + '"><span>' + label + '</span><b>' + value + '</b></div>';
@@ -5017,7 +5019,7 @@ function renderProfitInsight(winRows) {
     return '<div class="jn-delta is-off"><div class="jn-delta__l">' + label + '</div>' +
       '<div class="jn-delta__v">数据不足</div><div class="jn-delta__s">' + sub + '</div></div>';
   }
-  var d1 = moneyCell('较昨日（今日）', today.profit, yest ? '昨日 ' + sign(yest.profit) + ' 元' : '更早无快照');
+  var d1 = moneyCell('较昨日（今日）', today.profit, yest ? '昨日 ' + sign(yest.profit) + ' 元' : '更早无数据');
   var d2 = (last7 && prev7) ? moneyCell('较上周（7日累计）', sum(last7) - sum(prev7),
     '本周 ' + sign(r2(sum(last7))) + ' · 上周 ' + sign(r2(sum(prev7)))) : offCell('较上周（7日累计）', '累计满 14 天后可见');
   var d3 = (last30 && prev30) ? moneyCell('较上月（30日累计）', sum(last30) - sum(prev30),
@@ -5025,17 +5027,17 @@ function renderProfitInsight(winRows) {
 
   var bi = vals.indexOf(Math.max.apply(null, vals)), si = vals.indexOf(Math.min.apply(null, vals));
   box.innerHTML =
-    '<div class="jn"><div class="jn-head"><div><h3>区间判断</h3>' +
-      '<div class="jn-sub">今日表现 vs 当前区间日均，并与上一周期对比</div></div></div>' +
+    '<div class="jn"><div class="jn-head"><div><h3>智能分析</h3>' +
+      '<div class="jn-sub">看看今天赚的比平时多还是少，再和上周、上月比一比</div></div></div>' +
       '<div class="jn-hero"><div class="jn-hero__num" style="color:' + colorOf(hero) + '">' + sign(hero) + ' 元</div>' +
-      '<div class="jn-hero__calc">今日 ' + sign(today.profit) + ' 元 · 区间日均 ' + sign(avg) + ' 元</div></div>' +
+      '<div class="jn-hero__calc">今天 ' + sign(today.profit) + ' 元 · 平时平均 ' + sign(avg) + ' 元</div></div>' +
       '<div class="jn-note ' + tone + '">' + esc(msg) + '</div>' +
       '<div class="jn-deltas">' + d1 + d2 + d3 + '</div>' +
       '<div class="jn-metrics">' +
-        metric('区间日均（基准线）', sign(avg) + ' 元', true) +
-        metric('最好日', sign(vals[bi]) + ' 元 · ' + md(winRows[bi].date)) +
-        metric('最差日', sign(vals[si]) + ' 元 · ' + md(winRows[si].date)) +
-        metric('正收益天数', posDays + ' / ' + vals.length + ' 天') +
+        metric('平时平均每天', sign(avg) + ' 元', true) +
+        metric('赚最多的一天', sign(vals[bi]) + ' 元 · ' + md(winRows[bi].date)) +
+        metric('亏最多的一天', sign(vals[si]) + ' 元 · ' + md(winRows[si].date)) +
+        metric('赚钱天数', posDays + ' / ' + vals.length + ' 天') +
       '</div></div>';
 }
 
@@ -5077,7 +5079,7 @@ window.viewNavHistory = async function(btn){
   var html =
     '<p class="muted">近 30 个交易日单位净值走势（数据源：天天基金 F10 历史接口）。</p>' +
     '<div id="navChartWrap" style="max-width:640px;margin:0 auto;"><canvas id="navChart"></canvas></div>' +
-    '<h3 style="margin:16px 0 8px;font-size:15px;">每日明细</h3>' +
+    '<h3 style="margin:16px 0 8px;font-size:15px;">每日净值明细</h3>' +
     '<div class="scroll-box"><table><thead><tr style="background:var(--surface-2);"><th>日期</th><th>单位净值</th><th>较前一日</th></tr></thead><tbody id="navTbody"></tbody></table></div>';
   openModal('近30净值 · ' + name + ' (' + code + ')', html);
   try {
@@ -5385,7 +5387,7 @@ document.getElementById('scRun').addEventListener('click', async function(){
   // 手动刷新净值: 拉最新估算 + 覆盖今日 fund_profit_daily 快照(修 -本金 类污染)
   // 只刷数据不推送; 如需重发日报, 另点"立即发送日报"按钮
   bindClickBusy(document.getElementById('fRefresh'), async function(){
-    var r = await api('/api/fund/refresh', { method:'POST', loadingText:'正在刷新净值并覆盖今日快照…' });
+    var r = await api('/api/fund/refresh', { method:'POST', loadingText:'正在刷新净值并更新今天的收益…' });
     await loadReport();
     var tip = '刷新完成: 成功 ' + r.refreshed + ' 只' +
       (r.fallback ? '; 缓存兜底 ' + r.fallback + ' 只' : '') +
@@ -5805,12 +5807,12 @@ function applyFilter() {
   });
   // 曲线/记录表只统计启用成员（停用成员历史数据保留但不展示）
   var active = members.filter(function(m){ return !m.disabled; });
-  // 本人成员（is_self，兜底自己拥有的第一个）：默认/点「自己」时区间判断与历史记录的对象
+  // 本人成员（is_self，兜底自己拥有的第一个）：默认/点「自己」时智能分析与历史记录的对象
   var selfM = active.filter(function(m){ return m.is_self && !m.friend && !m.shared; })[0]
     || active.filter(function(m){ return !m.friend && !m.shared; })[0]
     || active[0] || null;
   var selfId = selfM ? selfM.id : null;
-  // 区间判断/历史记录选择失效（停用/删除/好友停用）→ 回本人；曲线聚焦失效 → 回全部对比
+  // 智能分析/历史记录选择失效（停用/删除/好友停用）→ 回本人；曲线聚焦失效 → 回全部对比
   if (wInsightMid != null && !active.some(function(m){ return m.id === wInsightMid; })) wInsightMid = selfId;
   if (wInsightMid == null) wInsightMid = selfId;
   if (wChartFocus != null && !active.some(function(m){ return m.id === wChartFocus; })) wChartFocus = null;
@@ -5819,7 +5821,7 @@ function applyFilter() {
   renderRecordTable(active, filtered, wChartFocus);
   renderWeightInsight(active, filtered, wInsightMid, selfId);
 }
-// chip 选择后统一重绘三处（曲线/区间判断/历史记录）
+// chip 选择后统一重绘三处（曲线/智能分析/历史记录）
 function redrawWeightViews() {
   var f = document.getElementById('fStart').value;
   var e = document.getElementById('fEnd').value;
@@ -5936,11 +5938,11 @@ function drawChart(mlist, records, selectedMid) {
     } });
 }
 
-// wInsightMid：区间判断/历史记录当前成员（默认本人 is_self，永不为 null——无成员时空态）
+// wInsightMid：智能分析/历史记录当前成员（默认本人 is_self，永不为 null——无成员时空态）
 // wChartFocus：曲线聚焦成员；null=全部成员对比（点「自己」时的状态：曲线全部、判断/记录看本人）
 var wInsightMid = null, wChartFocus = null, _wCtx = null;
 /**
- * 体重区间判断：最新体重 vs 区间均值 + 较昨日/上周/上月 + 区间基准。
+ * 体重智能分析：最新体重 vs 区间均值 + 较昨日/上周/上月 + 区间基准。
  * 体重方向不做好坏评判，差值用中性色 + ↑/↓ 箭头；周/月对比取全量记录就近基准日。
  * @param {Array} mlist - 启用成员
  * @param {Array} filtered - 当前区间内记录
@@ -5969,8 +5971,8 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
   var defTag = (wChartFocus == null && mid === selfId && mlist.length > 1) ? '（默认）' : '';
   // 选中成员在当前区间无记录：渲染空态卡（保留成员切换）
   if (!recsOf(filtered, mid).length) {
-    box.innerHTML = '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(mdName(m)) + defTag + '</h3>' +
-      '<div class="jn-sub">当前区间内暂无该成员的体重记录</div></div>' + chipsHtml() + '</div></div>';
+    box.innerHTML = '<div class="jn"><div class="jn-head"><div><h3>智能分析 · ' + esc(mdName(m)) + defTag + '</h3>' +
+      '<div class="jn-sub">这段时间还没有 TA 的体重记录</div></div>' + chipsHtml() + '</div></div>';
     bindWeightChips(box, mlist, filtered);
     return;
   }
@@ -6003,11 +6005,11 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
   var refMonth = nearestBefore(dateShift(t, 30));
 
   var flat = Math.abs(hero) < 0.3;
-  var msg = '最新 ' + latestV + U() + '，' + (flat ? '与区间均值基本持平' : (hero > 0 ? '高于' : '低于') + '区间均值 ' + Math.abs(hero) + U()) + '。';
+  var msg = '最新 ' + latestV + U() + '，' + (flat ? '和这段时间的平均差不多' : '比这段时间的平均' + (hero > 0 ? '重 ' : '轻 ') + Math.abs(hero) + U()) + '。';
   if (m7 != null && mp7 != null) {
     var tr = round1(m7 - mp7);
-    msg += '近 7 天均值 ' + m7 + U() + '，' +
-      (Math.abs(tr) < 0.3 ? '与前一周基本持平。' : '较前一周（' + mp7 + U() + '）' + (tr < 0 ? '下降' : '上升') + ' ' + Math.abs(tr) + U() + '。');
+    msg += '近 7 天平均 ' + m7 + U() + '，' +
+      (Math.abs(tr) < 0.3 ? '和前一周差不多。' : '比前一周（' + mp7 + U() + '）' + (tr < 0 ? '轻了 ' : '重了 ') + Math.abs(tr) + U() + '。');
   }
 
   function metric(label, value, isBase) {
@@ -6028,14 +6030,14 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
   var allDates = filtered.map(function(r){ return r.record_date; }).sort();
   var rangeText = allDates.length ? md(allDates[0]) + ' – ' + md(allDates[allDates.length - 1]) : '';
   var sub = (wChartFocus == null)
-    ? rangeText + '（跟随上方时间区间）· 曲线为全部成员对比；点成员名聚焦，点「全部」返回'
-    : rangeText + '（跟随上方时间区间）· 图中橙色虚线=「' + esc(mdName(m)) + '」的区间平均体重';
+    ? rangeText + '（按上面选的时间统计）· 曲线图对比所有成员；点名字只看 TA，点「全部」看所有人'
+    : rangeText + '（按上面选的时间统计）· 图中橙色虚线是「' + esc(mdName(m)) + '」这段时间的平均体重';
 
   box.innerHTML =
-    '<div class="jn"><div class="jn-head"><div><h3>区间判断 · ' + esc(mdName(m)) + defTag + '</h3>' +
+    '<div class="jn"><div class="jn-head"><div><h3>智能分析 · ' + esc(mdName(m)) + defTag + '</h3>' +
       '<div class="jn-sub">' + sub + '</div></div>' + chips + '</div>' +
       '<div class="jn-hero"><div class="jn-hero__num">' + sign1(hero) + U() + '</div>' +
-      '<div class="jn-hero__calc">最新 ' + latestV + U() + '（' + md(latest.record_date) + '）· 区间均值 ' + avg + U() + '</div></div>' +
+      '<div class="jn-hero__calc">最新 ' + latestV + U() + '（' + md(latest.record_date) + '）· 这段时间平均 ' + avg + U() + '</div></div>' +
       '<div class="jn-note flat">' + esc(msg) + '</div>' +
       '<div class="jn-deltas">' +
         cell('较昨日', latestV, prev) +
@@ -6043,9 +6045,9 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
         cell('较上月', latestV, refMonth) +
       '</div>' +
       '<div class="jn-metrics">' +
-        metric('区间均值（基准线）', avg + U(), true) +
-        metric('区间最高', vals[hi] + U() + ' · ' + md(recs[hi].record_date)) +
-        metric('区间最低', vals[lo] + U() + ' · ' + md(recs[lo].record_date)) +
+        metric('这段时间平均', avg + U(), true) +
+        metric('这段时间最高', vals[hi] + U() + ' · ' + md(recs[hi].record_date)) +
+        metric('这段时间最低', vals[lo] + U() + ' · ' + md(recs[lo].record_date)) +
         metric('记录天数', recs.length + ' 天') +
       '</div></div>';
 
@@ -13399,7 +13401,7 @@ function todoShowChartDetail(series, index) {
   var total = d.done.length + d.open.length;
   var body = total
     ? group('✅ ' + doneWord, d.done, 'done') + group('⏳ ' + openWord, d.open, 'open')
-    : '<p class="muted" style="line-height:1.7;">该' + (isMonth ? '月' : '天') + '没有计入曲线的任务。<br>未来到期的任务在到期/完成前不计入任何一格。</p>';
+    : '<p class="muted" style="line-height:1.7;">这' + (isMonth ? '个月' : '天') + '没有到期的任务。<br>还没到期的任务，在到期或做完之前不会出现在这里。</p>';
   openModal(title, body);
   // 「层级」按钮: 在所属任务下方展开/收起祖先链(弹窗 innerHTML 每次重建, 直接绑新元素)
   Array.prototype.forEach.call(document.querySelectorAll('#modalBody .todo-dtl-lv'), function(btn){
@@ -13444,10 +13446,10 @@ function bindTodoChartRefresh(fn) {
 // 指标卡「?」说明：纯白话，每个都带例子
 function taExplain(key) {
   var T = {
-    streak: { t: '连续达标是什么', h:
+    streak: { t: '连续按时做完是什么', h:
       '从昨天开始往前数，连续多少天「当天到期的任务都按时做完了」。\\n\\n' +
       '• 当天没有到期任务：空一天，不打断连续；\\n' +
-      '• 当天有任务过了当天还没做完：连续中断；\\n' +
+      '• 当天有任务过了当天还没做完：连续天数就断了；\\n' +
       '• 今天还没过完，不计入。\\n\\n' +
       '卡片下方的小字是历史上最长的一次连续天数。' },
     win: { t: '最终做完比例是什么', h:
@@ -13457,7 +13459,7 @@ function taExplain(key) {
     ontime: { t: '按时做完比例是什么', h:
       '在截止日当天或之前就做完的任务，占到期任务的比例。\\n\\n' +
       '过期后才补做的不算按时；提前把主任务勾完成、连带收掉的未到期子任务算按时。\\n\\n' +
-      '和「最终做完比例」的差别：补做的任务进前者的分子，不进这个的分子。' },
+      '和「最终做完比例」的差别：补做的任务会算进「最终做完比例」，但不算「按时做完比例」。' },
     over: { t: '逾期比例是什么', h:
       '任务到了截止日当天结束时还没做完，就算一次逾期。这个比例 = 逾期任务数 ÷ 到期任务数。\\n\\n' +
       '之后补做了也仍然算逾期（日历上那天还是红色）。\\n\\n' +
@@ -13466,7 +13468,7 @@ function taExplain(key) {
       '每个方块代表一天，颜色看当天到期任务的完成情况：\\n\\n' +
       '🟩 绿色：当天到期的任务全部按时做完；\\n' +
       '🟥 红色：有任务到当天结束还没做完（后来补做也仍标红）；\\n' +
-      '⬜ 灰色：当天没有到期任务，这种日子不打断连续达标；\\n' +
+      '⬜ 灰色：当天没有到期任务，不会打断连续天数；\\n' +
       '🔲 紫色虚线方框：今天，还没过完，暂时不评定。\\n\\n' +
       '手机上点一下方块（电脑上鼠标悬停）能看到当天到期几件、完成几件。' }
   };
@@ -13487,22 +13489,22 @@ function taExplain(key) {
   mask.querySelector('.ta-explain-ok').addEventListener('click', close);
   mask.addEventListener('click', function(e){ if (e.target === mask) close(); });
 }
-// 任务分析弹窗：核心指标 + 区间判断（报告视图）+ 7列达标日历热力图
+// 任务分析弹窗：关键数据 + 智能分析（报告视图）+ 7列达标日历热力图
 // buildUrl(days) 由调用页提供：登录态 /api/todo/analyze，公开页 /api/public/todo-analyze/:token
 var _taDays = 30;
 function openTodoAnalysis(buildUrl) {
   _taDays = 30;
   var body =
-    '<h3 class="ta-h ta-h-first">核心指标</h3>' +
+    '<h3 class="ta-h ta-h-first">关键数据</h3>' +
     '<div class="ta-stats">' +
-      '<div class="ta-stat" id="taStreakCard"><div class="n"><span id="taStreak">-</span><small>天</small></div><div class="l">连续达标 <button type="button" class="ta-help" data-help="streak">?</button></div><div class="s" id="taBest"></div></div>' +
+      '<div class="ta-stat" id="taStreakCard"><div class="n"><span id="taStreak">-</span><small>天</small></div><div class="l">连续按时做完 <button type="button" class="ta-help" data-help="streak">?</button></div><div class="s" id="taBest"></div></div>' +
       '<div class="ta-stat good"><div class="n" id="taWinRate">-</div><div class="l">最终做完比例 <button type="button" class="ta-help" data-help="win">?</button></div><div class="s">过期补做也算</div></div>' +
       '<div class="ta-stat good"><div class="n" id="taOnTimeRate">-</div><div class="l">按时做完比例 <button type="button" class="ta-help" data-help="ontime">?</button></div><div class="s">补做的不算</div></div>' +
       '<div class="ta-stat" id="taOverCard"><div class="n" id="taOverRate">-</div><div class="l">逾期比例 <button type="button" class="ta-help" data-help="over">?</button></div><div class="s">不含今天</div></div>' +
     '</div>' +
     '<div class="jn">' +
-      '<div class="jn-head"><div><h3>区间判断</h3>' +
-        '<div class="jn-sub">近 7 天表现 vs 当前区间基准，并与上一周期对比</div></div>' +
+      '<div class="jn-head"><div><h3>智能分析</h3>' +
+        '<div class="jn-sub">看看最近 7 天比平时做得好还是差，再和上周、上月比一比</div></div>' +
         '<div class="todo-range" id="taRange"><button data-days="30" class="active">近30天</button><button data-days="60">近60天</button></div>' +
       '</div>' +
       '<div class="jn-hero"><div class="jn-hero__num" id="taHero">–</div>' +
@@ -13531,31 +13533,31 @@ function openTodoAnalysis(buildUrl) {
   function mdShort(s) { return s ? s.slice(5).replace('-', '/') : ''; }
   function signPp(n) { return (n > 0 ? '+' : '') + n; }
 
-  // 区间判断卡：近7天按时率 vs 区间均值 + 周/月环比 + 基准统计（数据来自 buildAnalysis.insight）
+  // 智能分析卡：近7天按时率 vs 区间均值 + 周/月环比 + 基准统计（数据来自 buildAnalysis.insight）
   function renderTodoInsight(a) {
     var x = a.insight || {};
     var hero = document.getElementById('taHero');
     if (x.heroPp == null) { hero.textContent = '—'; hero.style.color = ''; }
     else {
-      hero.textContent = signPp(x.heroPp) + ' 个百分点';
+      hero.textContent = (x.heroPp > 0 ? '高 ' : '低 ') + Math.abs(x.heroPp) + '%';
       hero.style.color = x.tone === 'bad' ? 'var(--danger)' : x.tone === 'good' ? 'var(--ok)' : '';
     }
     document.getElementById('taHeroCalc').textContent =
-      '近7天 ' + pct(x.rate7) + ' − 区间平均 ' + pct(x.rateRange);
+      '近7天 ' + pct(x.rate7) + ' · 这段时间平均 ' + pct(x.rateRange);
 
     var note = document.getElementById('taNote');
     var msg;
     if (x.heroPp == null) {
-      msg = '到期任务数据不足，使用几天后即可生成区间判断。';
+      msg = '再用几天、攒一些到期任务后，这里会自动给出分析。';
     } else if (x.tone === 'bad') {
-      msg = '近 7 天按时完成率 ' + pct(x.rate7) + '，低于近' + a.days + '天平均（' + pct(x.rateRange) + '）' +
-        Math.abs(x.heroPp) + ' 个百分点。';
-      if (x.lastFailDate) msg += '最近一次红码日在 ' + mdShort(x.lastFailDate) + '，建议优先清理当天遗留任务。';
+      msg = '近 7 天有 ' + pct(x.rate7) + ' 的任务按时做完，比近' + a.days + '天的平均（' + pct(x.rateRange) + '）低 ' +
+        Math.abs(x.heroPp) + '%。';
+      if (x.lastFailDate) msg += '最近一次没按时做完是 ' + mdShort(x.lastFailDate) + '，建议先把那几天落下的任务清掉。';
     } else if (x.tone === 'good') {
-      msg = '近 7 天按时完成率 ' + pct(x.rate7) + '，高于区间平均（' + pct(x.rateRange) + '）' +
-        x.heroPp + ' 个百分点；连续达标 ' + a.currentStreak + ' 天，节奏在线。';
+      msg = '近 7 天有 ' + pct(x.rate7) + ' 的任务按时做完，比这段时间的平均（' + pct(x.rateRange) + '）高 ' +
+        x.heroPp + '%；已经连续 ' + a.currentStreak + ' 天全部按时做完，保持得不错！';
     } else {
-      msg = '近 7 天按时完成率 ' + pct(x.rate7) + '，与区间平均（' + pct(x.rateRange) + '）基本持平。';
+      msg = '近 7 天有 ' + pct(x.rate7) + ' 的任务按时做完，和这段时间的平均（' + pct(x.rateRange) + '）差不多。';
     }
     note.textContent = msg;
     note.className = 'jn-note ' + (x.tone || 'flat');
@@ -13568,7 +13570,7 @@ function openTodoAnalysis(buildUrl) {
     function ppCell(label, n, sub) {
       if (n == null) return cell(label, '数据不足', sub, '', true);
       var ar = n > 0 ? '↑' : n < 0 ? '↓' : '';
-      return cell(label, '<span class="ar">' + ar + '</span>' + Math.abs(n) + ' 个百分点', sub, n >= 0 ? 'is-up' : 'is-down');
+      return cell(label, '<span class="ar">' + ar + '</span>' + Math.abs(n) + '%', sub, n >= 0 ? 'is-up' : 'is-down');
     }
     // 较昨日：当天到期几件/完成几件；无到期任务为中性
     var y = x.yesterday, b = x.beforeYesterday;
@@ -13583,8 +13585,8 @@ function openTodoAnalysis(buildUrl) {
     var d2 = ppCell('较上周（按时率）', x.wowPp, '本周 ' + pct(x.rate7) + ' · 上周 ' + pct(x.ratePrev7));
     // 30 天窗口没有上一个 30 天周期：置灰引导切换
     var d3 = x.momPp == null
-      ? cell('较上月（按时率）', '切到近60天可见', '需两个 30 天窗口', '', true)
-      : ppCell('较上月（按时率）', x.momPp, '近30天 vs 前30天');
+      ? cell('较上月（按时率）', '切到「近60天」就能看', '攒满 60 天数据后可见', '', true)
+      : ppCell('较上月（按时率）', x.momPp, '近30天和前30天对比');
     document.getElementById('taDeltas').innerHTML = d1 + d2 + d3;
 
     function metric(label, value, isBase) {
@@ -13592,10 +13594,10 @@ function openTodoAnalysis(buildUrl) {
     }
     var failText = x.failCount + ' 天' + (x.lastFailDate ? '，最近 ' + mdShort(x.lastFailDate) : '');
     document.getElementById('taMetrics').innerHTML =
-      metric('区间日均到期（有任务日）', x.avgDue == null ? '—' : x.avgDue + ' 件', true) +
-      metric('区间日均完成', x.avgDone == null ? '—' : x.avgDone + ' 件') +
-      metric('红码日（有逾期）', failText) +
-      metric('区间最长连续达标', a.longestStreak + ' 天');
+      metric('平均每天到期（只算有任务的日子）', x.avgDue == null ? '—' : x.avgDue + ' 件', true) +
+      metric('平均每天做完（只算有任务的日子）', x.avgDone == null ? '—' : x.avgDone + ' 件') +
+      metric('没按时做完的日子', failText) +
+      metric('最长连续按时做完', a.longestStreak + ' 天');
   }
 
   function render(a) {
@@ -13618,14 +13620,14 @@ function openTodoAnalysis(buildUrl) {
       c.className = 'ta-cell ' + item.mark;
       var label = item.date.slice(5).replace('-', '/');
       if (item.mark === 'idle') c.title = label + ' 无到期任务';
-      else if (item.mark === 'pending') c.title = label + ' 今天未收官：到期 ' + item.planned + ' / 已完成 ' + item.done;
-      else c.title = label + ' 到期 ' + item.planned + ' / 完成 ' + item.done + ' / 新增逾期 ' + item.overdue;
+      else if (item.mark === 'pending') c.title = label + ' 今天还没过完：到期 ' + item.planned + ' / 已完成 ' + item.done;
+      else c.title = label + ' 到期 ' + item.planned + ' / 完成 ' + item.done + ' / 当天没做完 ' + item.overdue;
       // 有任务日 / 今天格内显示日期（日），无任务日留空
       if (item.mark !== 'idle') c.textContent = item.date.slice(8);
       heat.appendChild(c);
     });
 
-    // 报告视图（区间判断）：替代原「每日完成走势」混合图，解读由文字报告承担
+    // 报告视图（智能分析）：替代原「每日完成走势」混合图，解读由文字报告承担
     renderTodoInsight(a);
     document.getElementById('taCalSub').textContent = '近 ' + a.days + ' 天';
   }
@@ -15091,7 +15093,7 @@ document.getElementById('todoFilter').addEventListener('click', function(e){
   drawTree();
 });
 
-// 任务趋势图（含子任务），默认当月
+// 每日完成情况图（含子任务），默认当月
 var _curRange = 'month';
 async function loadChart() {
   try {

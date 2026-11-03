@@ -2103,8 +2103,8 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
   .ta-heat-wrap { max-width: none; }
 }
 
-/* ============ 区间判断（报告视图：待办分析/基金/体重共用） ============ */
-/* 图多解读少：各模块曲线图下方统一的「当前值 vs 区间均值」判断卡，基准=当前所选区间的平均值 */
+/* ============ 智能分析（报告视图：待办分析/基金/体重共用） ============ */
+/* 图多解读少：各模块曲线图下方统一的「当前值 vs 所选区间平均值」分析卡，基准=当前所选区间的平均值 */
 .jn { margin-top: 20px; padding-top: 18px; border-top: 1px dashed var(--border); }
 .jn-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .jn-head h3 { font-size: 15px; font-weight: 700; color: var(--text-strong); }

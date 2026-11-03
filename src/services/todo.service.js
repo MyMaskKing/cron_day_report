@@ -664,7 +664,7 @@ function buildAnalysis(raw, days, today) {
 }
 
 /**
- * 区间判断（报告视图）：近 7 天按时率 vs 区间均值、周/月环比、区间基准统计。纯计算。
+ * 智能分析（报告视图）：近 7 天按时率 vs 区间均值、周/月环比、区间基准统计。纯计算。
  * 切片口径：daily 升序、末项为 today(pending)；近 N 个「已收官日」= 排除 today 的最近 N 天。
  *   一笔到期任务只可能是 按时完成 / 逾期补做 / 至今未完成，故某日按时数 = planned - overdue。
  * @param {Array} daily - buildAnalysis 的逐日明细（含 today）
