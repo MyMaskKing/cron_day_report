@@ -1086,6 +1086,21 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .stat .lbl { font-size: 13px; color: var(--label); margin-top: 4px; }
 .asset-title { font-size: 19px; margin-bottom: 6px; }
 .asset-small { font-size: 12px; color: var(--muted); font-weight: 400; }
+/* 标题年度角标：紧贴标题右上方悬浮的小徽章（如「2026年度」），空内容不占位 */
+.asset-title-year {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 0 8px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.7;
+  vertical-align: 0.32em;
+  color: var(--brand-text);
+  background: var(--hover-brand);
+  white-space: nowrap;
+}
+.asset-title-year:empty { display: none; }
 .asset-title__btn { float: right; margin-top: 2px; }
 .asset-desc { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
 .asset-summary-stats { grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
