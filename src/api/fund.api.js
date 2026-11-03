@@ -39,21 +39,50 @@ async function listFunds({ request, env }) {
   return json({ success: true, funds });
 }
 
-/** POST /api/fund  新增持仓（自动补全名称） */
+/** POST /api/fund  新增持仓（自动补全名称）
+ * mode='shares'（默认）：份额 + 成本净值；mode='amount'：投入金额 + 买入净值(缺省取今日估值)折算首笔 */
 async function createFund({ request, env }) {
   const auth = await requireAuth(request, env);
   if (auth instanceof Response) return auth;
   const body = await request.json().catch(() => ({}));
-  const invalid = validateFund(body);
-  if (invalid) return error(invalid);
 
   const storage = getStorage(env);
   const dc = await requireDataContext(storage, auth, 'fund', request);
   if (dc instanceof Response) return dc;
+
+  const code = String(body.code || '').trim();
+
+  // 按金额建仓：份额 = 金额 ÷ 买入净值，成本净值取买入净值（4 位，与 applyBuy 首笔口径一致）
+  if (body.mode === 'amount') {
+    if (!/^\d{6}$/.test(code)) return error('请填写 6 位基金代码');
+    const amount = parseFloat(body.amount);
+    if (isNaN(amount) || amount <= 0) return error('请填写有效的买入金额');
+    let buyNav = parseFloat(body.buyNav);
+    if (isNaN(buyNav) || buyNav <= 0) {
+      const r = await resolveBuyNavByDate(storage, code, undefined);
+      if (r.err) return error(r.err);
+      buyNav = r.nav;
+    }
+    const shares = round2(amount / buyNav);
+    if (!(shares > 0)) return error('折算份额为 0，请检查金额与买入净值');
+    const costNav = Math.round((buyNav + Number.EPSILON) * 10000) / 10000;
+    const nav = await fetchFundNav(code);
+    const id = await storage.fund.create(dc.uid, {
+      code,
+      name: body.name || (nav && nav.name) || '',
+      shares,
+      cost_nav: costNav
+    });
+    if (nav) await storage.fund.upsertNav(nav.code, nav);
+    return json({ success: true, message: '持仓已添加', id, shares, cost_nav: costNav });
+  }
+
+  const invalid = validateFund(body);
+  if (invalid) return error(invalid);
   // 拉一次净值补全名称
-  const nav = await fetchFundNav(body.code);
+  const nav = await fetchFundNav(code);
   const payload = {
-    code: body.code,
+    code,
     name: body.name || (nav && nav.name) || '',
     shares: parseFloat(body.shares),
     cost_nav: parseFloat(body.cost_nav)

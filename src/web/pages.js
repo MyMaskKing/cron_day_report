@@ -1066,7 +1066,7 @@ function settingsPage(user) {
       <!-- 共享：免密 Token / 重置链接 / 家庭数据共享 -->
       <div class="adm-pane" data-pane="share">
         <h2 style="font-size:15px;">免密 Token</h2>
-        <p class="muted" style="font-size:12px;">每个模块一个 report_token，用于公开报告页链接与 Android 桌面小组件；点「复制」即可取用。从未生成过的会在打开本页时自动创建。</p>
+        <p class="muted" style="font-size:12px;">每个模块一条免密分享链接，家人打开无需登录即可查看对应报告；点卡片上的「复制链接」直接分享。原始 token 收在各卡片「高级」里，供 Android 桌面小组件等用途。从未生成过的会在打开本页时自动创建。</p>
         <div id="shareTokenBox" style="margin-top:8px;"><p class="muted" style="font-size:12px;">加载中…</p></div>
         <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
         <h2 style="font-size:15px;">重置免密链接</h2>

@@ -7,6 +7,8 @@ import { json, error } from '../router.js';
 import { getStorage } from '../storage/adapter.js';
 import { requireAuth } from '../auth/middleware.js';
 import { getMailGateway, isValidEmail } from '../services/mail-gateway.service.js';
+import { sendNotification } from '../services/notify.service.js';
+import { parseOffset, fmtDateTime } from '../services/time.service.js';
 
 // sys_email=官方邮件（走超管配置的系统邮件网关，无需用户填 URL）；email=用户自备邮件 webhook
 const VALID_TYPES = ['wechat', 'webhook', 'email', 'sys_email'];
@@ -131,6 +133,36 @@ async function setChannelStatus({ request, env, params }) {
   return json({ success: true, message: enabled ? '渠道已启用' : '渠道已停用', enabled });
 }
 
+/** POST /api/notify/channels/test  发送测试消息（不落库，直接测请求体里的表单现值） */
+async function testChannel({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const invalid = validateChannel(body);
+  if (invalid) return error(invalid);
+
+  const storage = getStorage(env);
+  let gateway = null;
+  let channel;
+  if (body.type === 'sys_email') {
+    gateway = await getMailGateway(storage);
+    if (!gateway.url) return error('官方邮件未配置，请联系管理员配置');
+    channel = normalizeSysEmail(body);
+  } else {
+    channel = { ...body };
+  }
+  const tzOffset = parseOffset(await storage.settings.get('tz_offset'));
+  const subject = '通知渠道测试';
+  const message =
+    '🔔 通知渠道测试\n' +
+    '渠道：' + (body.name || '未命名') + '\n' +
+    '时间：' + fmtDateTime(Date.now(), tzOffset) + '\n' +
+    '收到此消息说明该渠道配置可用。';
+  const r = await sendNotification(message, channel, 'text', subject, gateway);
+  if (!r.success) return error(r.message, 400);
+  return json({ success: true, message: r.message });
+}
+
 /** DELETE /api/notify/channels/:id  删除渠道 */
 async function removeChannel({ request, env, params }) {
   const auth = await requireAuth(request, env);
@@ -144,4 +176,4 @@ async function removeChannel({ request, env, params }) {
   return json({ success: true, message: '渠道已删除' });
 }
 
-export { listChannels, gatewayStatus, createChannel, updateChannel, setChannelStatus, removeChannel };
+export { listChannels, gatewayStatus, createChannel, updateChannel, setChannelStatus, removeChannel, testChannel };

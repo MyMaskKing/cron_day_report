@@ -27,7 +27,7 @@ import {
   getAnnouncementPublic, markAnnouncementRead, getAnnouncement, setAnnouncement,
   setAppDownload
 } from './api/users.api.js';
-import { listChannels, gatewayStatus, createChannel, updateChannel, setChannelStatus, removeChannel } from './api/notify.api.js';
+import { listChannels, gatewayStatus, createChannel, updateChannel, setChannelStatus, removeChannel, testChannel } from './api/notify.api.js';
 import { listTasks, createTask, updateTask, removeTask, listTaskLogs } from './api/monitor.api.js';
 import {
   listFunds, createFund, updateFund, removeFund,
@@ -201,6 +201,7 @@ router.post('/api/monitor/run', runMyMonitors);
 router.get('/api/notify/channels', listChannels);
 router.get('/api/notify/gateway-status', gatewayStatus);
 router.post('/api/notify/channels', createChannel);
+router.post('/api/notify/channels/test', testChannel);
 router.put('/api/notify/channels/:id', updateChannel);
 router.put('/api/notify/channels/:id/status', setChannelStatus);
 router.delete('/api/notify/channels/:id', removeChannel);

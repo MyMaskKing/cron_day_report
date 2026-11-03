@@ -2899,10 +2899,10 @@ document.getElementById('resetViewBtn').addEventListener('click', async function
 });
 // 免密 Token：加载并渲染各模块 report_token + 一键复制
 var SHARE_META = {
-  fund:   { name:'基金持仓', path:'/fr/' },
-  weight: { name:'体重',     path:'/wr/' },
-  asset:  { name:'资产',     path:'/ar/' },
-  todo:   { name:'待办',     path:'/tr/' }
+  fund:   { name:'基金持仓', path:'/fr/', desc:'家人打开即可免登录查看持仓分布与收益曲线' },
+  weight: { name:'体重',     path:'/wr/', desc:'家人打开即可免登录查看体重曲线与历史' },
+  asset:  { name:'资产',     path:'/ar/', desc:'家人打开即可免登录查看资产趋势月报' },
+  todo:   { name:'待办',     path:'/tr/', desc:'家人打开即可免登录查看今日与逾期待办' }
 };
 window.copyInput = function(id){
   var el = document.getElementById(id);
@@ -2920,18 +2920,24 @@ async function loadShareTokens(){
     box.innerHTML = Object.keys(SHARE_META).map(function(m){
       var t = (d.tokens[m] && d.tokens[m].token) || '';
       var meta = SHARE_META[m];
-      var inputId = 'st_' + m;
       var linkId = 'sl_' + m;
-      return '<div style="margin-bottom:12px;padding:10px;background:var(--surface-2);border-radius:6px;">'
-        + '<label style="font-weight:600;margin-bottom:4px;display:block;">' + meta.name + ' report_token</label>'
-        + '<div class="row" style="align-items:center;">'
-        + '<input id="' + inputId + '" readonly value="' + t + '" style="flex:1;font-family:monospace;font-size:12px;">'
-        + '<button class="btn sm" type="button" onclick="copyInput(\\'' + inputId + '\\')">复制token</button>'
+      var inputId = 'st_' + m;
+      var link = origin + meta.path + t;
+      // 完整链接为主卡面; 裸 token 折进「高级」折叠区（Android 小组件等用途）
+      return '<div class="share-link-card">'
+        + '<div class="share-link-card__name">' + meta.name + '</div>'
+        + '<div class="muted share-link-card__desc">' + meta.desc + '</div>'
+        + '<div class="share-link-card__row">'
+        + '<input id="' + linkId + '" readonly value="' + link + '" aria-label="' + meta.name + '分享链接">'
+        + '<button class="btn sm" type="button" onclick="copyInput(\\'' + linkId + '\\')">复制链接</button>'
         + '</div>'
-        + '<div class="row" style="align-items:center;margin-top:6px;">'
-        + '<input id="' + linkId + '" readonly value="' + origin + meta.path + t + '" style="flex:1;font-size:12px;">'
-        + '<button class="btn sm gray" type="button" onclick="copyInput(\\'' + linkId + '\\')">复制链接</button>'
-        + '</div></div>';
+        + '<details class="share-link-card__adv"><summary>高级：report_token</summary>'
+        + '<p class="muted" style="font-size:12px;margin:6px 0 4px;">原始 token，供 Android 小组件等高级用途；分享给家人请直接用上方完整链接。</p>'
+        + '<div class="share-link-card__row">'
+        + '<input id="' + inputId + '" readonly value="' + t + '" style="font-family:monospace;" aria-label="' + meta.name + ' report_token">'
+        + '<button class="btn sm gray" type="button" onclick="copyInput(\\'' + inputId + '\\')">复制 token</button>'
+        + '</div>'
+        + '</details></div>';
     }).join('');
   } catch(e){ box.innerHTML = '<p class="muted" style="font-size:12px;color:var(--danger);">加载失败：' + (e.message||'') + '</p>'; }
 }
@@ -4618,7 +4624,7 @@ function chModal(c) {
       '<label>Body 模板（可选，含 {{content}}）</label><textarea id="chBody" rows="2">' + esc(c.body_template||'') + '</textarea>' +
     '</div>' +
     '<label><input type="checkbox" id="chEnabled" style="width:auto;"' + (c.enabled!==0&&c.enabled!==false?' checked':'') + '> 启用</label>' +
-    '<div style="margin-top:12px;"><button class="btn" id="chSave">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
+    '<div style="margin-top:12px;"><button class="btn" id="chSave">保存</button> <button class="btn gray" id="chTest" type="button">发送测试</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('chType').value = c.type || 'wechat';
   document.getElementById('chMethod').value = c.method || 'POST';
   var renderHelp = function(){ document.getElementById('chHelp').innerHTML = CH_HELP[document.getElementById('chType').value] || ''; };
@@ -4629,7 +4635,12 @@ function chModal(c) {
     document.getElementById('chSysBox').style.display = sys ? 'block' : 'none';
     document.getElementById('chCommonBox').style.display = sys ? 'none' : 'block';
     document.getElementById('chHelp').style.display = sys ? 'none' : 'block';
-    if (!sys) { renderHelp(); return; }
+    if (!sys) {
+      // 切回普通类型时恢复可用（官方邮件未配置时两个按钮被置灰，切走需复位）
+      document.getElementById('chSave').disabled = false;
+      document.getElementById('chTest').disabled = false;
+      renderHelp(); return;
+    }
     var st = document.getElementById('chSysStatus');
     st.innerHTML = '<span class="muted" style="font-size:12px;">正在检查官方邮件配置…</span>';
     api('/api/notify/gateway-status').then(function(d){
@@ -4638,37 +4649,53 @@ function chModal(c) {
         ? '<span class="tag ok">官方邮件已配置</span>'
         : '<span style="color:var(--danger);font-size:12px;">官方邮件未配置，请联系管理员配置</span>';
       document.getElementById('chSave').disabled = !ok;
+      document.getElementById('chTest').disabled = !ok;
     }).catch(function(e){
       st.innerHTML = '<span style="color:var(--danger);font-size:12px;">' + esc(e.message) + '</span>';
       document.getElementById('chSave').disabled = true;
+      document.getElementById('chTest').disabled = true;
     });
   }
-  document.getElementById('chType').addEventListener('change', applyType); applyType();
-  document.getElementById('chSave').addEventListener('click', async function(){
-    var id = document.getElementById('chId').value;
+  // 组装当前表单为渠道 payload（保存与发送测试共用，保证测的就是表单现值）
+  function collectChPayload() {
     var type = document.getElementById('chType').value;
-    var payload;
     if (type === 'sys_email') {
-      payload = {
+      return {
         name: document.getElementById('chName').value, type: type,
         emails: document.getElementById('chEmails').value,
         url: '', method: 'POST', headers_json: null, body_template: null,
         enabled: document.getElementById('chEnabled').checked
       };
-    } else {
-      payload = {
-        name: document.getElementById('chName').value, type: type,
-        url: document.getElementById('chUrl').value, method: document.getElementById('chMethod').value,
-        headers_json: document.getElementById('chHeaders').value || null,
-        body_template: document.getElementById('chBody').value || null,
-        enabled: document.getElementById('chEnabled').checked
-      };
     }
+    return {
+      name: document.getElementById('chName').value, type: type,
+      url: document.getElementById('chUrl').value, method: document.getElementById('chMethod').value,
+      headers_json: document.getElementById('chHeaders').value || null,
+      body_template: document.getElementById('chBody').value || null,
+      enabled: document.getElementById('chEnabled').checked
+    };
+  }
+  document.getElementById('chType').addEventListener('change', applyType); applyType();
+  document.getElementById('chSave').addEventListener('click', async function(){
+    var id = document.getElementById('chId').value;
+    var payload = collectChPayload();
     try {
       if (id) await api('/api/notify/channels/' + id, { method:'PUT', body: payload });
       else await api('/api/notify/channels', { method:'POST', body: payload });
       closeModal(); await loadChannels();
     } catch(e){ alertModal(e.message, {ok:false}); }
+  });
+  // 发送测试：不落库，直接把表单现值提交到 /test；成功/失败都弹窗明示（失败需看到完整原因）
+  document.getElementById('chTest').addEventListener('click', async function(){
+    var btn = this, oldText = btn.textContent;
+    btn.disabled = true; btn.textContent = '发送中...';
+    try {
+      var r = await api('/api/notify/channels/test', {
+        method: 'POST', body: collectChPayload(), loadingText: '正在发送测试消息…'
+      });
+      alertModal('测试消息已发送：' + (r.message || '成功'));
+    } catch(e){ alertModal('测试发送失败：' + e.message, {ok:false}); }
+    finally { btn.disabled = false; btn.textContent = oldText; }
   });
 }
 window.editCh = function(id){ chModal((window._channels||[]).filter(function(x){return x.id===id;})[0]); };
@@ -5093,22 +5120,59 @@ window.viewNavHistory = async function(btn){
 function fundForm(f) {
   f = f || {};
   var id = f.id || '';
-  var html =
-    '<label>基金代码（6位数字）</label><input id="fCode" placeholder="如 000001" value="' + esc(f.code||'') + '">' +
-    '<div class="row">' +
+  // 仅新建弹窗提供「按份额 / 按金额」分段；编辑态维持份额直填
+  var seg = id ? '' :
+    '<div class="fund-mode-seg">' +
+      '<button type="button" class="fund-mode-btn is-on" data-mode="shares">按份额建仓</button>' +
+      '<button type="button" class="fund-mode-btn" data-mode="amount">按金额买入</button>' +
+    '</div>';
+  var sharesPane =
+    '<div class="fund-mode-pane is-on" data-pane="shares"><div class="row">' +
       '<div><label>持有份额</label><input id="fShares" type="number" step="0.01" placeholder="如 1000" value="' + (f.shares != null ? f.shares : '') + '"></div>' +
       '<div><label>成本净值（买入时单位净值）</label><input id="fCostNav" type="number" step="0.0001" placeholder="如 1.2345" value="' + (f.cost_nav != null ? f.cost_nav : '') + '"></div>' +
-    '</div>' +
+    '</div></div>';
+  var amountPane = id ? '' :
+    '<div class="fund-mode-pane" data-pane="amount">' +
+      '<label>投入金额（元）</label><input id="fAmount" type="number" step="0.01" placeholder="如 10000">' +
+      '<label>买入净值（选填）</label><input id="fBuyNav" type="number" step="0.0001" placeholder="留空=按今日实时估值净值">' +
+      '<p class="muted" style="font-size:12px;margin-top:2px;">首笔按金额建仓：份额 = 金额 ÷ 买入净值，成本净值取买入净值。</p>' +
+    '</div>';
+  var html =
+    '<label>基金代码（6位数字）</label><input id="fCode" placeholder="如 000001" value="' + esc(f.code||'') + '">' +
+    seg + sharesPane + amountPane +
     (id ? '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;"><input type="checkbox" id="fArchived" style="width:auto;"' + (f.archived ? ' checked' : '') + '> 已封存（不进入统计与日报，仍可加仓）</label>' : '') +
     '<div style="margin-top:12px;"><button class="btn" id="fSave">保存</button> ' +
     '<button class="btn gray" onclick="closeModal()">取消</button></div>';
   openModal(id ? '修改持仓' : '添加持仓', html, null, true);
+  // 分段切换：两个面板显隐互换（.is-on 挂上即重播淡入横移动画）
+  var curMode = 'shares';
+  Array.prototype.forEach.call(document.querySelectorAll('.fund-mode-btn'), function(btn){
+    btn.addEventListener('click', function(){
+      curMode = btn.dataset.mode;
+      Array.prototype.forEach.call(document.querySelectorAll('.fund-mode-btn'), function(b){
+        b.classList.toggle('is-on', b === btn);
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('.fund-mode-pane'), function(p){
+        p.classList.toggle('is-on', p.dataset.pane === curMode);
+      });
+    });
+  });
   document.getElementById('fSave').addEventListener('click', async function(){
-    var payload = {
-      code: document.getElementById('fCode').value.trim(),
-      shares: document.getElementById('fShares').value,
-      cost_nav: document.getElementById('fCostNav').value
-    };
+    var code = document.getElementById('fCode').value.trim();
+    var payload;
+    if (!id && curMode === 'amount') {
+      payload = {
+        code: code, mode: 'amount',
+        amount: document.getElementById('fAmount').value,
+        buyNav: document.getElementById('fBuyNav').value || undefined
+      };
+    } else {
+      payload = {
+        code: code,
+        shares: document.getElementById('fShares').value,
+        cost_nav: document.getElementById('fCostNav').value
+      };
+    }
     var arcEl = document.getElementById('fArchived');
     if (arcEl) payload.archived = arcEl.checked;
     try {

@@ -1360,7 +1360,42 @@ input[type="date"], input[type="month"] { cursor: pointer; }
     max-height: calc(100vh - 92px - var(--kb-inset, 0px));
   }
   #stratSetup { right: 12px !important; left: 12px !important; bottom: 16px !important; width: auto; }
+  /* 浏览器(有底部 Tab)与 .strat-fab/.strat-panel 同口径抬到 Tab 之上, 避免 CTA 被遮挡; App 壳保持 16px */
+  body:has(.m-tabbar) #stratSetup { bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important; }
 }
+
+/* ============ 基金建仓：按份额 / 按金额 分段切换（仅新建弹窗） ============ */
+.fund-mode-seg {
+  display: flex; gap: 4px; padding: 3px; margin: 0 0 12px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+}
+.fund-mode-btn {
+  flex: 1; min-width: 0; padding: 7px 8px; border: none; border-radius: 8px;
+  background: transparent; color: var(--muted);
+  font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.fund-mode-btn:hover:not(:active) { color: var(--text); }
+.fund-mode-btn.is-on {
+  background: var(--surface); color: var(--brand-text);
+  box-shadow: 0 1px 2px rgba(15,23,42,.12), 0 1px 3px rgba(15,23,42,.08);
+}
+/* 面板切换：display 切换会重播一次淡入+短横移动画 */
+.fund-mode-pane { display: none; }
+.fund-mode-pane.is-on { display: block; animation: fundPaneIn .18s ease; }
+@keyframes fundPaneIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .fund-mode-pane.is-on { animation: none; } }
+
+/* 设置→共享：免密链接卡（完整链接为主，裸 report_token 折进「高级」） */
+.share-link-card { margin-bottom: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.share-link-card__name { font-weight: 600; font-size: 14px; }
+.share-link-card__desc { font-size: 12px; margin: 2px 0 8px; }
+.share-link-card__row { display: flex; gap: 8px; align-items: center; }
+.share-link-card__row input { flex: 1; min-width: 0; margin: 0; font-size: 12px; }
+.share-link-card__row .btn { flex: none; }
+.share-link-card__adv { margin-top: 8px; }
+.share-link-card__adv summary { font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+
 .multi-pick { position: relative; display: inline-block; width: 100%; }
 /* 已选值显示按钮: 允许多行, 长文本自动换行 */
 .mp-btn {
