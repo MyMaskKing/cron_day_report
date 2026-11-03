@@ -5849,7 +5849,15 @@ function drawChart(mlist, records, selectedMid) {
   if (wChart) wChart.destroy();
   var el = document.getElementById('weightChart');
   wChart = new Chart(el, { type: 'line', data: { labels: labels, datasets: datasets },
-    options: { plugins: { legend: { position: 'top', filter: function(item){ return (item.text || '').indexOf(' 均值') === -1; } } }, scales: { y: { title: { display: true, text: '体重(' + unitLabel() + ')' } } } } });
+    options: {
+      // index：同一日期的所有成员一起进 tooltip（nearest 只出单点，成员点重叠/悬在线段上时会被点密的线抢走）
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', filter: function(item){ return (item.text || '').indexOf(' 均值') === -1; } },
+        tooltip: { filter: function(item){ return !item.dataset._avg; } }
+      },
+      scales: { y: { title: { display: true, text: '体重(' + unitLabel() + ')' } } }
+    } });
 }
 
 // wInsightMid：区间判断/历史记录当前成员（默认本人 is_self，永不为 null——无成员时空态）
