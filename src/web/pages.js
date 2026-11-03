@@ -449,7 +449,7 @@ function adminPage(user) {
             <option value="monitor">监控</option>
           </select>
         </div>
-        <div><label>用户 ID（可选）</label><input id="plUserId" type="number" min="1" placeholder="留空=全部"></div>
+        <div><label>账号（可选）</label><input id="plUsername" type="text" placeholder="留空=全部，支持片段"></div>
         <div><label>状态</label>
           <select id="plSuccess">
             <option value="">全部</option>
@@ -844,6 +844,7 @@ function weightPage(user) {
       <p class="muted" style="margin-top:-4px;">把其他账号的成员引用到自己名下，双方共用同一份数据（改名/记录实时同步）。移除引用不影响原账号。</p>
       <div class="row">
         <div style="flex:1;"><label>选择要引用的成员</label>
+          <input id="shareMemberSearch" type="search" placeholder="搜索昵称 / 账号 / 成员名" style="margin-bottom:6px;">
           <select id="shareMemberSel"><option value="">加载中…</option></select>
         </div>
         <div><label>&nbsp;</label><button class="btn" id="shareRun" style="display:block;">引用到我的成员</button></div>
@@ -854,7 +855,7 @@ function weightPage(user) {
       <h2>多用户对比（超管）</h2>
       <div id="cmpUsers" style="margin-bottom:10px;"></div>
       <button class="btn" id="cmpRun">生成对比曲线</button>
-      <canvas id="compareChart" style="max-height:340px;margin-top:14px;"></canvas>
+      <canvas id="compareChart" data-fs-skip="1" style="max-height:340px;margin-top:14px;"></canvas>
     </div>
   </div>`;
   return renderPage({ title: '体重曲线', body, scripts: ['page-weight.js'], theme: user.theme });

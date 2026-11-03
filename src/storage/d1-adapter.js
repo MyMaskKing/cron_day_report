@@ -1685,15 +1685,20 @@ function createD1Adapter(env) {
         ).run();
       },
       /**
-       * 分页读取; 支持按 module / user_id / success 过滤; 列表带 username 便于展示
-       * @param {Object} opts - { module?, userId?, success?, limit=100, offset=0 }
+       * 分页读取; 支持按 module / username(账号模糊) / success 过滤; 列表带 username 便于展示
+       * @param {Object} opts - { module?, username?, success?, limit=100, offset=0 }
        * @returns {Promise<{ rows, total }>}
        */
       async list(opts = {}) {
         const where = [];
         const args = [];
         if (opts.module) { where.push('l.module = ?'); args.push(opts.module); }
-        if (opts.userId) { where.push('l.user_id = ?'); args.push(opts.userId); }
+        if (opts.username) {
+          // 转义 LIKE 通配符 / 下划线，按账号片段模糊匹配
+          const kw = String(opts.username).replace(/[/%_]/g, ch => '/' + ch);
+          where.push("l.user_id IN (SELECT id FROM users WHERE username LIKE ? ESCAPE '/')");
+          args.push('%' + kw + '%');
+        }
         if (opts.success != null && opts.success !== '') {
           where.push('l.success = ?');
           args.push(opts.success == 1 || opts.success === true ? 1 : 0);

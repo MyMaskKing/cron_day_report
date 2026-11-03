@@ -1717,7 +1717,7 @@ window._appShellBack = function () { return consumeAppBackLayer(); };
 function initChartFullscreen() {
   var canvases = document.querySelectorAll('canvas');
   Array.prototype.forEach.call(canvases, function(cv){
-    if (cv.getAttribute('data-fs-ready')) return;
+    if (cv.getAttribute('data-fs-ready') || cv.hasAttribute('data-fs-skip')) return;
     cv.setAttribute('data-fs-ready', '1');
     // 用一层紧贴图表的相对定位容器包住 canvas，按钮定位其内右上角（避免落到整张卡片右上撞标题）
     var wrap = document.createElement('div');
@@ -4015,10 +4015,10 @@ function plLocalToUtc(v) {
 async function loadPushLogs() {
   var q = new URLSearchParams();
   var m = document.getElementById('plModule').value;
-  var uid = document.getElementById('plUserId').value.trim();
+  var uname = document.getElementById('plUsername').value.trim();
   var suc = document.getElementById('plSuccess').value;
   if (m) q.set('module', m);
-  if (uid) q.set('user_id', uid);
+  if (uname) q.set('username', uname);
   if (suc !== '') q.set('success', suc);
   q.set('limit', plState.limit);
   q.set('offset', plState.offset);
@@ -4046,10 +4046,15 @@ async function loadPushLogs() {
 }
 
 var plModuleEl = document.getElementById('plModule');
-var plUserIdEl = document.getElementById('plUserId');
+var plUsernameEl = document.getElementById('plUsername');
 var plSuccessEl = document.getElementById('plSuccess');
 if (plModuleEl) plModuleEl.addEventListener('change', function(){ plState.offset = 0; loadPushLogs(); });
-if (plUserIdEl) plUserIdEl.addEventListener('change', function(){ plState.offset = 0; loadPushLogs(); });
+if (plUsernameEl) {
+  plUsernameEl.addEventListener('change', function(){ plState.offset = 0; loadPushLogs(); });
+  plUsernameEl.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') { plState.offset = 0; loadPushLogs(); }
+  });
+}
 if (plSuccessEl) plSuccessEl.addEventListener('change', function(){ plState.offset = 0; loadPushLogs(); });
 var plRefreshBtn = document.getElementById('plRefresh');
 if (plRefreshBtn) plRefreshBtn.addEventListener('click', function(){ loadPushLogs(); });
@@ -6715,32 +6720,52 @@ var wRaceBtnEl = document.getElementById('wRaceBtn');
 if (wRaceBtnEl) wRaceBtnEl.addEventListener('click', openRaceModal);
 
 // 超管对比
+var cmpUserMap = {};
+// 用户显示名：昵称（账号）；昵称缺失或与账号相同时仅显示账号
+function cmpUserLabel(u) {
+  return (u.nickname && u.nickname !== u.username) ? (u.nickname + '（' + u.username + '）') : u.username;
+}
 async function initCompare() {
   var wrap = document.getElementById('compareCard');
   if (!wrap) return;
   try {
     var d = await api('/api/admin/users');
+    cmpUserMap = {};
+    d.users.forEach(function(u){ cmpUserMap[u.id] = u; });
     var box = document.getElementById('cmpUsers');
     box.innerHTML = d.users.map(function(u){
-      return '<label style="display:inline-block;margin:2px 8px;font-weight:normal;"><input type="checkbox" value="' + u.id + '" style="width:auto;"> ' + esc(u.username) + '</label>';
+      return '<label style="display:inline-block;margin:2px 8px;font-weight:normal;"><input type="checkbox" value="' + u.id + '" style="width:auto;"> ' + esc(cmpUserLabel(u)) + '</label>';
     }).join('');
     wrap.style.display = 'block';
   } catch(e){ /* 非超管忽略 */ }
 }
 // 超管：引用其他账号的成员到自己名下
+var allShareMembers = [];
+function renderShareOptions(kw) {
+  var sel = document.getElementById('shareMemberSel');
+  var k = (kw || '').trim().toLowerCase();
+  var list = allShareMembers.filter(function(m){
+    if (!k) return true;
+    return [m.name, m.owner_nick, m.owner_name].some(function(v){
+      return v && String(v).toLowerCase().indexOf(k) >= 0;
+    });
+  });
+  sel.innerHTML = list.map(function(m){
+    return '<option value="' + m.id + '">' + esc(m.name) + ' · ' + esc(m.owner_nick || m.owner_name) + '</option>';
+  }).join('') || '<option value="">暂无可引用的成员</option>';
+}
 async function initShare() {
   var wrap = document.getElementById('shareCard');
   if (!wrap) return;
   try {
     var d = await api('/api/admin/weight/all-members');
-    var sel = document.getElementById('shareMemberSel');
     // 排除已在我名下的成员（自己拥有的 + 已引用的）
     var ownedIds = {};
     members.forEach(function(m){ ownedIds[m.id] = 1; });
-    var opts = d.members.filter(function(m){ return !ownedIds[m.id]; }).map(function(m){
-      return '<option value="' + m.id + '">' + esc(m.name) + ' · ' + esc(m.owner_nick || m.owner_name) + '</option>';
-    }).join('');
-    sel.innerHTML = opts || '<option value="">暂无可引用的成员</option>';
+    allShareMembers = d.members.filter(function(m){ return !ownedIds[m.id]; });
+    var search = document.getElementById('shareMemberSearch');
+    if (search) search.value = '';
+    renderShareOptions('');
     wrap.style.display = 'block';
   } catch(e){ /* 非超管忽略 */ }
 }
@@ -6760,23 +6785,34 @@ async function runCompare() {
   var byKey = {}; var dates = {};
   d.records.forEach(function(r){
     var key = r.owner_id + '-' + r.member_name;
-    if (!byKey[key]) byKey[key] = {};
-    byKey[key][r.record_date] = toDisplay(r.weight); dates[r.record_date] = 1;
+    if (!byKey[key]) byKey[key] = { ownerId: r.owner_id, memberName: r.member_name, pts: {} };
+    byKey[key].pts[r.record_date] = toDisplay(r.weight); dates[r.record_date] = 1;
   });
   var labels = Object.keys(dates).sort();
   var keys = Object.keys(byKey);
   var datasets = keys.map(function(k, i){
-    return { label: k, data: labels.map(function(dt){ return byKey[k][dt] != null ? byKey[k][dt] : null; }),
+    var g = byKey[k];
+    var u = cmpUserMap[g.ownerId];
+    var label = ((u && (u.nickname || u.username)) || ('#' + g.ownerId)) + ' · ' + g.memberName;
+    return { label: label, data: labels.map(function(dt){ return g.pts[dt] != null ? g.pts[dt] : null; }),
       borderColor: COLORS[i % COLORS.length], backgroundColor: COLORS[i % COLORS.length], spanGaps: true, tension: .3 };
   });
   if (cmpChart) cmpChart.destroy();
   cmpChart = new Chart(document.getElementById('compareChart'), { type: 'line', data: { labels: labels, datasets: datasets },
     options: { plugins: { legend: { position: 'top' } } } });
+  // 有对比数据后才允许放大查看（空图不挂按钮）
+  var cv = document.getElementById('compareChart');
+  if (datasets.length && cv.hasAttribute('data-fs-skip')) {
+    cv.removeAttribute('data-fs-skip');
+    initChartFullscreen();
+  }
 }
 var cmpBtn = document.getElementById('cmpRun');
 if (cmpBtn) cmpBtn.addEventListener('click', runCompare);
 var shareBtn = document.getElementById('shareRun');
 if (shareBtn) shareBtn.addEventListener('click', runShare);
+var shareSearchEl = document.getElementById('shareMemberSearch');
+if (shareSearchEl) shareSearchEl.addEventListener('input', function(){ renderShareOptions(this.value); });
 
 // 时间筛选
 function initFilter() {

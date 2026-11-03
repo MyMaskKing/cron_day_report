@@ -21,20 +21,20 @@ function normalizeUtc(v) {
   return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6] || '00'}`;
 }
 
-/** GET /api/admin/push-log?module=&user_id=&success=&limit=&offset= */
+/** GET /api/admin/push-log?module=&username=&success=&limit=&offset= */
 async function listPushLogs({ request, env }) {
   const auth = await requireAdmin(request, env);
   if (auth instanceof Response) return auth;
   const url = new URL(request.url);
   const module = url.searchParams.get('module') || null;
-  const userId = url.searchParams.get('user_id');
+  const username = url.searchParams.get('username');
   const success = url.searchParams.get('success');
   const limit = parseInt(url.searchParams.get('limit'), 10);
   const offset = parseInt(url.searchParams.get('offset'), 10);
   const storage = getStorage(env);
   const { rows, total } = await storage.pushLog.list({
     module,
-    userId: userId ? parseInt(userId, 10) : null,
+    username: username || null,
     success: success == null || success === '' ? null : success,
     limit: isNaN(limit) ? 100 : limit,
     offset: isNaN(offset) ? 0 : offset
