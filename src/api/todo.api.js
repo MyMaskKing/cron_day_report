@@ -298,6 +298,15 @@ async function updateTodo({ request, env, params }) {
       parentRow = np;
     }
   }
+  // 共享分类整树内的子任务随整支归属, 禁止单独分类/摘除: 非换父的普通编辑若归属变化即拦截。
+  // 必须早于 storage.todo.update, 否则标题等字段先落库再返回 400 形成部分写入; 换父跨边界由上方 move 块统一处理
+  if (!isRoot && !move && Object.prototype.hasOwnProperty.call(body, 'shared_cat_id')) {
+    const _wantCat = body.shared_cat_id ? parseInt(body.shared_cat_id, 10) : null;
+    const _curCat = t.shared_cat_id != null ? t.shared_cat_id : null;
+    if (_wantCat !== _curCat && parentRow && parentRow.shared_cat_id != null) {
+      return error('共享分类内的子任务随整支归属，不能单独分类');
+    }
+  }
   // 逐级门控: 顶层恒允许; 子任务须其【直接父】（换父后为新父）勾选 child_due 才能自设日期/切换自身开关
   const allowsDate = parentAllowsDate(parentRow);
 
@@ -437,10 +446,6 @@ async function updateTodo({ request, env, params }) {
         await storage.todo.setSharedCatForRows([id, ...descIds], wantCatId);
       } else {
         // 共享 → 个人（摘除）或换挂：仅行主人；子树内若混入别的分类先拦截
-        // 共享分类整树内的子任务(直接父带共享标签)随整支归属, 禁止单独摘除/换挂(与上方个人→共享方向同口径)
-        if (parentRow && parentRow.shared_cat_id != null) {
-          return error('共享分类内的子任务随整支归属，不能单独分类');
-        }
         if (t.user_id !== dc.uid) return error('仅任务主人可变更共享分类归属', 403);
         const stray = (await storage.todo.findSharedCatsAmong(descIds))
           .filter(c => c !== curCatId);
