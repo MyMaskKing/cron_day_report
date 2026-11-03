@@ -12608,6 +12608,11 @@ function todoEditFormHtml(t, isChild, fopts) {
   var categoryFields = '<div class="tfedit-cat"><label>分类（可选）</label>' +
       '<select id="tfCatSel"><option value="">（无分类）</option><option value="__new__">➕ 新建分类…</option></select>' +
       '<input id="tfCatNew" placeholder="输入新分类名称" style="display:none;"></div>';
+  // 跟随态子任务/各自截止壳不开放分类编辑, 但仍渲染隐藏 select 作值载体并回显当前共享归属:
+  // 缺失会让 todoFormRead 把 shared_cat_id 读成 null, 保存共享任务时误判"移出共享分类"甚至真摘除
+  var catCarrierFields = '<select id="tfCatSel" style="display:none;">' +
+      (t.shared_cat_id != null ? '<option value="sc:' + t.shared_cat_id + '" selected></option>' : '') +
+      '</select>';
   var noteField = '<label>备注（可选）</label>' +
       '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…" style="resize:vertical;">' + esc(t.note || '') + '</textarea>';
   // 归属级联（仅子任务；openTodoEdit 传 canMove；协作页 lockMode 与自身勾选各自截止的任务不渲染）。
@@ -12624,6 +12629,7 @@ function todoEditFormHtml(t, isChild, fopts) {
     moreBody = categoryFields + noteField;
   } else {
     if (priCatAvailable) { moreParts.push('优先级', '分类'); moreBody += priorityField + categoryFields; }
+    else { moreBody += catCarrierFields; }
     if (parentField) { moreParts.push('归属'); moreBody += parentField; }
     moreParts.push('备注');
     moreBody += noteField;

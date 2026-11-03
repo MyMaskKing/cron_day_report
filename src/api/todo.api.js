@@ -437,6 +437,10 @@ async function updateTodo({ request, env, params }) {
         await storage.todo.setSharedCatForRows([id, ...descIds], wantCatId);
       } else {
         // 共享 → 个人（摘除）或换挂：仅行主人；子树内若混入别的分类先拦截
+        // 共享分类整树内的子任务(直接父带共享标签)随整支归属, 禁止单独摘除/换挂(与上方个人→共享方向同口径)
+        if (parentRow && parentRow.shared_cat_id != null) {
+          return error('共享分类内的子任务随整支归属，不能单独分类');
+        }
         if (t.user_id !== dc.uid) return error('仅任务主人可变更共享分类归属', 403);
         const stray = (await storage.todo.findSharedCatsAmong(descIds))
           .filter(c => c !== curCatId);
