@@ -1151,7 +1151,7 @@ function assetPage(user) {
         <canvas id="netChart" class="asset-chart"></canvas>
       </section>
       <section class="card">
-        <h2 class="asset-title" id="compTitle">最新月资产构成</h2>
+        <h2 class="asset-title"><span id="compTitle">最新月资产构成</span><span class="asset-small" id="compYear" style="float:right;margin-top:4px;"></span></h2>
         <p class="asset-desc">按钱包类型汇总，信用支付单独作为负债展示。</p>
         <div class="asset-composition">
           <div id="typeDonut" class="asset-donut"></div>

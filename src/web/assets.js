@@ -7520,6 +7520,9 @@ function renderComposition(report, list) {
   var compTitle = document.getElementById('compTitle');
   var monthLabel = report.latestMonth ? (+report.latestMonth.slice(5, 7)) + '月' : '';
   if (compTitle && monthLabel) compTitle.textContent = monthLabel + '资产构成';
+  // 右上角年份小标签，与月份标题配套（无数据时留空，保持静态兜底文案）
+  var compYear = document.getElementById('compYear');
+  if (compYear) compYear.textContent = report.latestMonth ? report.latestMonth.slice(0, 4) + ' 年' : '';
   var balanceMap = {};
   list.forEach(function(t){ balanceMap[t.type] = t.balance; });
   var positive = TYPE_ORDER.filter(function(type){ return type !== 'credit'; });
