@@ -805,7 +805,7 @@ function weightPage(user) {
       </h2>
       <div class="row">
         <div><label>时间区间</label>
-          <select id="rangePreset"><option value="month">本月</option><option value="year">本年</option></select>
+          <select id="rangePreset"><option value="d7">近7天</option><option value="d30" selected>近30天</option><option value="d60">近60天</option><option value="month">本月</option><option value="year">本年</option></select>
         </div>
         <div><label>开始</label><input id="fStart" type="date"></div>
         <div><label>结束</label><input id="fEnd" type="date"></div>

@@ -1287,12 +1287,19 @@ document.addEventListener('click', function(e){
   }
 });
 window.toggleDropdown = toggleDropdown;
-// 时间区间：根据预设(month/year)生成 [start,end] YYYY-MM-DD
+// 时间区间：根据预设(d7/d30/d60/month/year)生成 [start,end] YYYY-MM-DD
+// 近 N 天含今日共 N 天（与 todoRangeWindow、体重竞赛弹窗口径一致）
 function rangeByPreset(preset) {
   var d = new Date(Date.now() + 8*3600*1000);
   var y = d.getUTCFullYear(), m = d.getUTCMonth();
   function fmt(dt){ return dt.toISOString().slice(0,10); }
   if (preset === 'year') return [y + '-01-01', y + '-12-31'];
+  var nDays = preset === 'd7' ? 7 : preset === 'd30' ? 30 : preset === 'd60' ? 60 : 0;
+  if (nDays) {
+    var hi = new Date(Date.UTC(y, m, d.getUTCDate()));
+    var lo = new Date(hi.getTime() - (nDays - 1) * 86400000);
+    return [fmt(lo), fmt(hi)];
+  }
   // month
   var first = new Date(Date.UTC(y, m, 1));
   var last = new Date(Date.UTC(y, m + 1, 0));

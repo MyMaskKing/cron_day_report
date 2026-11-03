@@ -82,6 +82,7 @@ docker compose logs -f
 - `requireAuth(request, env)` 返回 session 对象或 401 `Response`；`requireAdmin` 额外校验 `role==='admin'`。
 - 首个超管由 `POST /api/auth/bootstrap` + `ADMIN_BOOTSTRAP_TOKEN`（secret）创建。
 - **Impersonate**：超管改写同一 KV session token，保留 `admin_id` 用于恢复，`impersonating` 标志控制顶栏黄条。
+- **删除用户**：`DELETE /api/admin/users/:id` 硬删除（2026-11 起，旧决策只有禁用）；防删自己/最后超管，`storage.users.deleteCascade` 单事务级联全部业务表（双向共享关系摘除），文件本体在 API 层先删、别人名下 TA 上传的文件保留只置空 uploader_uid；KV 会话不踢线（自然过期）。改级联顺序时严格遵守子表先于父表。
 - **开放注册**：`POST /api/auth/register`，受 `app_settings` 的 `register_limit`（人数上限）/ `register_limit_msg` 控制，`GET /api/auth/register-status` 公开查询是否已满。
 - **免密页快速登录**：`POST /api/public/quick-login/:kind/:token` 凭免密 token 反查所属用户直接签发正式会话（kind 含 fund/weight/asset/todo 及各 *-report）；用户偏好 `restrict_quicklogin`（默认 1）把该会话限制为仅能访问对应模块页。
 - 用户级偏好都在 `users` 表：`theme`（light/dark/eye）、`weight_unit`（jin/kg，库内统一存 kg）、`nickname`、`investment_strategy`（Markdown）、`todo_auto_parent`（子任务全完成后父任务自动完成），经 `/api/auth/profile`、`/api/auth/theme` 等端点修改。
