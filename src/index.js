@@ -43,6 +43,7 @@ import {
   weightChart, addRecord, updateRecord, removeRecord,
   publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers, adminShareMember,
   friendInvite, listFriends, acceptFriend, removeFriend,
+  createOrResetTeam, getMyTeam, joinTeam,
   getUnit, setUnit
 } from './api/weight.api.js';
 import {
@@ -259,6 +260,9 @@ router.post('/api/weight/friend-invite', friendInvite);
 router.get('/api/weight/friends', listFriends);
 router.post('/api/weight/friends/accept', acceptFriend);
 router.delete('/api/weight/friends/:uid', removeFriend);
+router.post('/api/weight/team/join', joinTeam);
+router.post('/api/weight/team', createOrResetTeam);
+router.get('/api/weight/team', getMyTeam);
 router.get('/api/public/weight/:token', publicMemberInfo);
 router.post('/api/public/weight/:token', publicSubmitWeight);
 router.get('/api/public/weight-report/:token', publicWeightReport);
@@ -513,7 +517,7 @@ async function handlePages(request, env) {
     const token = getTokenFromRequest(request);
     const session = await getSession(env, token);
     if (!session) {
-      // 带回跳地址（如 /weight?wlink=xxx 邀请链接），登录页校验为同站相对路径后跳回
+      // 带回跳地址（如 /weight?wlink=xxx 好友邀请、?tlink=xxx 组队链接），登录页校验为同站相对路径后跳回
       const next = url.pathname + url.search;
       return new Response(null, {
         status: 302,

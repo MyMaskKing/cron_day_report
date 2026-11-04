@@ -243,6 +243,24 @@ CREATE TABLE IF NOT EXISTS weight_friends (
 );
 CREATE INDEX IF NOT EXISTS idx_weight_friends_b ON weight_friends(user_b);
 
+-- 体重组队：一人可创建一个组队，凭 token 链接加入；加入时两两补 weight_friends 好友边
+CREATE TABLE IF NOT EXISTS weight_teams (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner_user_id INTEGER NOT NULL UNIQUE,
+  token         TEXT NOT NULL UNIQUE,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (owner_user_id) REFERENCES users(id)
+);
+CREATE TABLE IF NOT EXISTS weight_team_members (
+  team_id   INTEGER NOT NULL,
+  user_id   INTEGER NOT NULL,
+  joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (team_id, user_id),
+  FOREIGN KEY (team_id) REFERENCES weight_teams(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_weight_team_members_user ON weight_team_members(user_id);
+
 -- ==================== 资产钱包 ====================
 -- type: bank(银行卡) | alipay(支付宝) | wechat(微信) | investment(投资) | credit(信用支付, 负债) | cash(现金)
 -- share_token: 免密录入链接 token

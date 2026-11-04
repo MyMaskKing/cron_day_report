@@ -482,10 +482,90 @@ async function removeFriend({ request, env, params }) {
   return json({ success: true, message: '已解除好友关系' });
 }
 
+// ==================== 体重组队（一个链接，进来的人两两成为好友）====================
+
+/** 拼组队落地链接（/weight?tlink=token，未登录访问会被页面鉴权拦去登录） */
+async function teamInviteLink(storage, env, url, token) {
+  const base = await resolveBaseUrl(storage, env, url);
+  return `${base || ''}/weight?tlink=${token}`;
+}
+
+/** 组装我的组队响应体（无队返回 null） */
+async function teamPayload(storage, env, url, team) {
+  if (!team) return null;
+  const rows = await storage.weight.listTeamMembers(team.id);
+  return {
+    token: team.token,
+    link: await teamInviteLink(storage, env, url, team.token),
+    members: rows.map(m => ({
+      uid: m.uid, username: m.username, nickname: m.nickname || m.username,
+      joined_at: m.joined_at, is_owner: !!m.is_owner
+    }))
+  };
+}
+
+/** POST /api/weight/team  生成我的组队链接（首次）/ 重置 token  body: { reset? } */
+async function createOrResetTeam({ request, env, url }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const storage = getStorage(env);
+  let team = await storage.weight.findTeamByOwner(auth.user_id);
+  if (!team || body.reset) {
+    const token = generateToken();
+    const teamId = await storage.weight.upsertTeam(auth.user_id, token);
+    team = { id: teamId, owner_user_id: auth.user_id, token };
+  }
+  return json({ success: true, team: await teamPayload(storage, env, url, team) });
+}
+
+/** GET /api/weight/team  我的组队（仅自己创建的；加入的他人队不返回） */
+async function getMyTeam({ request, env, url }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const team = await storage.weight.findTeamByOwner(auth.user_id);
+  return json({ success: true, team: await teamPayload(storage, env, url, team) });
+}
+
+/** POST /api/weight/team/join  凭组队链接加入：与队内现有成员两两成为体重好友  body: { token } */
+async function joinTeam({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => ({}));
+  const token = (body.token || '').trim();
+  if (!token) return error('请提供组队链接');
+  const storage = getStorage(env);
+  const team = await storage.weight.findTeamByToken(token);
+  if (!team) return error('组队链接无效或已失效');
+  if (team.owner_user_id === auth.user_id) return error('这是你创建的组队，无需加入');
+  if (await storage.weight.isTeamMember(team.id, auth.user_id)) {
+    return json({ success: true, message: '你已在该组队中，无需重复加入' });
+  }
+  // 先取加入前的队员名单，再把自己写入；与每个老队员补双向好友边（INSERT OR IGNORE 幂等）
+  const oldMembers = await storage.weight.listTeamMembers(team.id);
+  await storage.weight.addTeamMember(team.id, auth.user_id);
+  for (const m of oldMembers) {
+    await storage.weight.addFriendPair(auth.user_id, m.uid);
+  }
+  // 加入即默认互见本人成员（幂等；已手动开放过则尊重原选择）
+  await storage.weight.ensureSelfMemberVisible(auth.user_id);
+  for (const m of oldMembers) {
+    await storage.weight.ensureSelfMemberVisible(m.uid);
+  }
+  const owner = await storage.users.findById(team.owner_user_id);
+  const ownerName = owner ? (owner.nickname || owner.username) : '';
+  return json({
+    success: true,
+    message: `已加入「${ownerName}」的组队，与队内 ${oldMembers.length} 名成员两两成为体重好友，默认互见本人成员曲线（仅可读）。其他成员默认隐藏，可在「成员 → 👥 好友 → 谁对好友可见」调整。`
+  });
+}
+
 export {
   listMembers, createMember, updateMember, reorderMembers, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
   publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers, adminShareMember,
   friendInvite, listFriends, acceptFriend, removeFriend,
+  createOrResetTeam, getMyTeam, joinTeam,
   getUnit, setUnit
 };

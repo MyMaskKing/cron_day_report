@@ -6373,7 +6373,7 @@ if (weightSharingSource()) {
 
 // 「👥 好友」面板：邀请链接管理 + 我的成员开放开关 + 好友列表
 async function openFriendPanel() {
-  var d = await api('/api/weight/friends');
+  var [d, td] = await Promise.all([api('/api/weight/friends'), api('/api/weight/team')]);
   var inviteHtml;
   if (d.invite) {
     inviteHtml =
@@ -6386,6 +6386,27 @@ async function openFriendPanel() {
     inviteHtml =
       '<button class="btn" id="fGenInvite" style="width:100%;">生成我的邀请链接</button>' +
       '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">好友之间可在体重页互看曲线（仅可读，不能替对方录入），适合家人朋友一起打卡 PK。</p>';
+  }
+  // 组队打卡区块：一个链接，进来的所有人两两成为好友
+  var teamHtml;
+  if (td.team) {
+    var tRows = td.team.members.map(function(m){
+      return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);">' +
+        '<span>' + esc(m.nickname) + ' <span class="muted" style="font-size:12px;">@' + esc(m.username) + '</span></span>' +
+        (m.is_owner ? '<span class="tag" style="padding:0 6px;border-radius:8px;font-size:11px;background:var(--hover-brand);color:var(--brand-text);">队长</span>' : '') +
+        '</div>';
+    }).join('');
+    teamHtml =
+      '<label>组队打卡链接（发给家人朋友，所有通过链接加入的人两两互见）</label>' +
+      '<input id="fTeamUrl" value="' + esc(td.team.link) + '" readonly style="margin-bottom:8px;">' +
+      '<button class="btn" onclick="fCopyTeam()">复制链接</button> ' +
+      '<button class="btn gray" onclick="fResetTeam()">重置链接</button>' +
+      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">重置后旧链接立即失效，队内成员与互见关系保留。当前队中 ' + td.team.members.length + ' 人。</p>' +
+      '<div style="margin-top:6px;">' + tRows + '</div>';
+  } else {
+    teamHtml =
+      '<button class="btn" id="fGenTeam" style="width:100%;">生成组队链接</button>' +
+      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">把链接发给家人朋友，所有打开链接并加入的人两两成为体重好友、互见本人曲线（仅可读），适合一群人一起打卡。不想被某人看到时，在下方「我的好友」里单独解除即可。</p>';
   }
   // 我的成员对好友可见开关：默认全部关闭，由本人显式开放代表自己的成员
   var myMembers = members.filter(function(m){ return !m.shared && !m.friend && !m.archived; });
@@ -6412,6 +6433,8 @@ async function openFriendPanel() {
   }).join('') || '<p class="muted" style="margin:8px 0 0;">还没有好友，生成邀请链接发给家人朋友吧。</p>';
   openModal('体重好友',
     '<div style="margin-bottom:16px;">' + inviteHtml + '</div>' +
+    '<div style="margin-bottom:16px;padding-top:14px;border-top:1px dashed var(--border);">' +
+      '<h3 style="font-size:14px;margin:0 0 6px;">组队打卡</h3>' + teamHtml + '</div>' +
     '<div style="background:var(--hover-brand);color:var(--brand-text);border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.6;margin-bottom:14px;">💡 体重页「体重曲线」旁的「🏆 竞赛结果」会把你、家庭成员和好友开放的成员放进同一张排行榜，按打卡天数、减重幅度、稳定性综合排名。</div>' +
     '<h3 style="font-size:14px;margin:0 0 4px;">谁对好友可见</h3>' +
     '<p class="muted" style="font-size:12px;line-height:1.6;margin:0 0 6px;">成为好友时已自动开放你最早创建的成员（通常即本人）；其他家庭成员默认隐藏，在这里手动开放才会被好友看到，也可关闭本人成员的开放。当前已开放 ' + visibleCount + ' 个。</p>' +
@@ -6420,6 +6443,11 @@ async function openFriendPanel() {
   var gen = document.getElementById('fGenInvite');
   if (gen) gen.addEventListener('click', async function(){
     try { await api('/api/weight/friend-invite', { method:'POST' }); closeModal(); await openFriendPanel(); }
+    catch(e){ alertModal(e.message, {ok:false}); }
+  });
+  var genTeam = document.getElementById('fGenTeam');
+  if (genTeam) genTeam.addEventListener('click', async function(){
+    try { await api('/api/weight/team', { method:'POST' }); closeModal(); await openFriendPanel(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
 }
@@ -6432,6 +6460,18 @@ window.fCopyInvite = function(){
 window.fResetInvite = function(){
   confirmModal('重置邀请链接', '重置后旧链接立即失效（已添加的好友保留），确认？', async function(){
     try { await api('/api/weight/friend-invite', { method:'POST', body:{ reset:true } }); closeModal(); await openFriendPanel(); }
+    catch(e){ alertModal(e.message, {ok:false}); }
+  });
+};
+window.fCopyTeam = function(){
+  var el = document.getElementById('fTeamUrl');
+  if (!el) return;
+  el.select();
+  try { document.execCommand('copy'); alertModal('已复制'); } catch(e){ alertModal('请手动复制', {ok:false}); }
+};
+window.fResetTeam = function(){
+  confirmModal('重置组队链接', '重置后旧链接立即失效（队内成员与互见关系保留），确认？', async function(){
+    try { await api('/api/weight/team', { method:'POST', body:{ reset:true } }); closeModal(); await openFriendPanel(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
@@ -6460,6 +6500,23 @@ if (fFriendBtn) fFriendBtn.addEventListener('click', function(){
     async function(){
       try {
         var r = await api('/api/weight/friends/accept', { method:'POST', body:{ token: token } });
+        alertModal(r.message);
+        location.reload();
+      } catch(e){ alertModal(e.message, {ok:false}); }
+    });
+})();
+
+// ?tlink=<token>：组队链接落地，确认后加入，与队内所有人两两成为好友并刷新
+(function handleWeightTeamLink(){
+  if (weightSharingSource()) return;
+  var token = new URLSearchParams(location.search).get('tlink');
+  if (!token) return;
+  try { history.replaceState(null, '', location.pathname); } catch(e){}
+  confirmModal('加入体重组队',
+    '加入后，你将与同一组队链接里的所有人成为体重好友，默认互见各自本人成员（最早创建的那个）的体重曲线，仅可读、不能替对方录入；其他家庭成员默认隐藏，之后都可在「成员 → 👥 好友 → 谁对好友可见」里调整，也可在「我的好友」里单独解除与某人的关系。',
+    async function(){
+      try {
+        var r = await api('/api/weight/team/join', { method:'POST', body:{ token: token } });
         alertModal(r.message);
         location.reload();
       } catch(e){ alertModal(e.message, {ok:false}); }

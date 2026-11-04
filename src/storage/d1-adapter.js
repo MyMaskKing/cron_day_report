@@ -166,6 +166,10 @@ function createD1Adapter(env) {
           db.prepare('DELETE FROM weight_member_shares WHERE user_id = ? OR member_id IN (SELECT id FROM weight_members WHERE user_id = ?)').bind(uid, uid),
           db.prepare('DELETE FROM weight_friends WHERE user_a = ? OR user_b = ?').bind(uid, uid),
           db.prepare('DELETE FROM weight_friend_invites WHERE owner_user_id = ?').bind(uid),
+          // 组队：先摘我在各队的成员行，再解散我创建的队（含其他队员的成员行），最后删队（子表先于父表）
+          db.prepare('DELETE FROM weight_team_members WHERE user_id = ?').bind(uid),
+          db.prepare('DELETE FROM weight_team_members WHERE team_id IN (SELECT id FROM weight_teams WHERE owner_user_id = ?)').bind(uid),
+          db.prepare('DELETE FROM weight_teams WHERE owner_user_id = ?').bind(uid),
           db.prepare('DELETE FROM weight_members WHERE user_id = ?').bind(uid),
           // 资产
           db.prepare('DELETE FROM wallet_records WHERE wallet_id IN (SELECT id FROM wallets WHERE user_id = ?)').bind(uid),
@@ -704,6 +708,60 @@ function createD1Adapter(env) {
            ) ORDER BY record_date`
         ).bind(userId, userId, ...friendIds, userId).all();
         return results || [];
+      },
+
+      // ==================== 体重组队（凭链接互加好友）====================
+
+      async findTeamByOwner(userId) {
+        return await db.prepare('SELECT * FROM weight_teams WHERE owner_user_id = ?')
+          .bind(userId).first();
+      },
+      async findTeamByToken(token) {
+        return await db.prepare('SELECT * FROM weight_teams WHERE token = ?')
+          .bind(token).first();
+      },
+      // 一人一队：无则建队并把队长写入成员；有则只换新 token，返回 team_id
+      async upsertTeam(userId, token) {
+        const existing = await db.prepare(
+          'SELECT id FROM weight_teams WHERE owner_user_id = ?'
+        ).bind(userId).first();
+        if (existing) {
+          await db.prepare('UPDATE weight_teams SET token=? WHERE id=?')
+            .bind(token, existing.id).run();
+          return existing.id;
+        }
+        const res = await db.prepare(
+          'INSERT INTO weight_teams (owner_user_id, token) VALUES (?, ?)'
+        ).bind(userId, token).run();
+        const teamId = res.meta.last_row_id;
+        await db.prepare(
+          'INSERT OR IGNORE INTO weight_team_members (team_id, user_id) VALUES (?, ?)'
+        ).bind(teamId, userId).run();
+        return teamId;
+      },
+      // 队员名单（JOIN users 取昵称，is_owner 标记队长），按加入时间、uid
+      async listTeamMembers(teamId) {
+        const { results } = await db.prepare(
+          `SELECT u.id AS uid, u.username, u.nickname, m.joined_at,
+                  CASE WHEN t.owner_user_id = u.id THEN 1 ELSE 0 END AS is_owner
+             FROM weight_team_members m
+             JOIN users u ON u.id = m.user_id
+             JOIN weight_teams t ON t.id = m.team_id
+            WHERE m.team_id = ?
+            ORDER BY m.joined_at, u.id`
+        ).bind(teamId).all();
+        return results || [];
+      },
+      async addTeamMember(teamId, userId) {
+        await db.prepare(
+          'INSERT OR IGNORE INTO weight_team_members (team_id, user_id) VALUES (?, ?)'
+        ).bind(teamId, userId).run();
+      },
+      async isTeamMember(teamId, userId) {
+        const row = await db.prepare(
+          'SELECT 1 FROM weight_team_members WHERE team_id = ? AND user_id = ?'
+        ).bind(teamId, userId).first();
+        return !!row;
       },
     },
 
