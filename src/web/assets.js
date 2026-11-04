@@ -6227,7 +6227,7 @@ window.fToggleVisible = async function(id, show){
 };
 // 解除好友（双向，不影响双方已有数据）
 window.fRemove = async function(ownerId){
-  confirmModal('解除好友', '解除后双方体重页都不再出现对方成员，已有数据不受影响。确认解除？', async function(){
+  confirmModal('解除好友', '解除后双方体重页都不再出现对方成员，并自动退出你们共同的组队（之后有新人加入也不会自动恢复关系，需重新打开组队链接才能加回）；与队内其他人的关系、已有数据不受影响。确认解除？', async function(){
     try { await api('/api/weight/friends/' + ownerId, { method:'DELETE' }); await loadAll(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });

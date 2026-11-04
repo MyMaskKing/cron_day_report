@@ -37,6 +37,7 @@ import sql0021 from '../../migrations/0021_weight_friends.sql';
 import sql0022 from '../../migrations/0022_weight_friend_visible_default_off.sql';
 import sql0023 from '../../migrations/0023_weight_member_self.sql';
 import sql0024 from '../../migrations/0024_weight_team.sql';
+import sql0025 from '../../migrations/0025_weight_team_resign_cleanup.sql';
 
 // 显式迁移登记表：[文件名, SQL 文本]，数组顺序即执行顺序（新增 000N 时在此追加）
 const MIGRATIONS = [
@@ -63,7 +64,8 @@ const MIGRATIONS = [
   ['0021_weight_friends.sql', sql0021],
   ['0022_weight_friend_visible_default_off.sql', sql0022],
   ['0023_weight_member_self.sql', sql0023],
-  ['0024_weight_team.sql', sql0024]
+  ['0024_weight_team.sql', sql0024],
+  ['0025_weight_team_resign_cleanup.sql', sql0025]
 ];
 
 const MIGRATIONS_TABLE_SQL = `

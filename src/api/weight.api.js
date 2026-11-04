@@ -479,7 +479,7 @@ async function removeFriend({ request, env, params }) {
   const friendIds = await storage.weight.friendIdSet(auth.user_id);
   if (!friendIds.includes(uid)) return error('对方不是你的体重好友', 404);
   await storage.weight.removeFriendPair(auth.user_id, uid);
-  return json({ success: true, message: '已解除好友关系' });
+  return json({ success: true, message: '已解除好友关系，双方自动退出共同组队（重新打开组队链接可再次加入）' });
 }
 
 // ==================== 体重组队（一个链接，进来的人两两成为好友）====================

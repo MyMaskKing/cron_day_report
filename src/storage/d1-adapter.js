@@ -633,6 +633,21 @@ function createD1Adapter(env) {
           .bind(ua, ub).run();
       },
       async removeFriendPair(a, b) {
+        // 解除好友即退出两人共同的组队，避免新成员入队时把已解除的关系自动加回：
+        // 我创建的队 → 把对方移出；别人创建、我俩同在的队 → 我自己退出。
+        // 与队内其他成员的好友边不受影响，本人重新打开链接可再次加入。
+        await db.prepare(
+          `DELETE FROM weight_team_members
+            WHERE user_id = ?
+              AND team_id IN (SELECT id FROM weight_teams WHERE owner_user_id = ?)
+              AND team_id IN (SELECT team_id FROM weight_team_members WHERE user_id = ?)`
+        ).bind(b, a, b).run();
+        await db.prepare(
+          `DELETE FROM weight_team_members
+            WHERE user_id = ?
+              AND team_id IN (SELECT team_id FROM weight_team_members WHERE user_id = ?)
+              AND team_id NOT IN (SELECT id FROM weight_teams WHERE owner_user_id = ?)`
+        ).bind(a, b, a).run();
         const ua = Math.min(a, b), ub = Math.max(a, b);
         await db.prepare('DELETE FROM weight_friends WHERE user_a=? AND user_b=?')
           .bind(ua, ub).run();
