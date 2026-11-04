@@ -1472,14 +1472,40 @@ function createD1Adapter(env) {
         return q.results || [];
       },
       // 超管文件列表（倒序分页），LEFT JOIN users 带归属用户名
-      async listForAdmin({ limit = 50, offset = 0 } = {}) {
+      // filters：owner=归属用户名片段（纯数字额外按 uid 精确，覆盖用户已删的遗留行）、
+      // kind=image|file（is_image）、name=文件名片段；多条件 AND，空值不过滤
+      async listForAdmin({ limit = 50, offset = 0, owner = '', kind = '', name = '' } = {}) {
         const cols = 'f.id, f.owner_uid, f.source, f.todo_id, f.uploader_uid, f.file_token, f.origin_name, f.mime, f.size, f.is_image, f.access_count, f.last_access_at, f.created_at';
+        // LIKE 片段转义 % _ / 并走 ESCAPE '/'，与 pushLog 域模糊查询同惯例；值全部参数化
+        const escLike = s => String(s).replace(/[/%_]/g, ch => '/' + ch);
+        const where = [];
+        const args = [];
+        if (name) {
+          where.push("f.origin_name LIKE ? ESCAPE '/'");
+          args.push('%' + escLike(name) + '%');
+        }
+        if (owner) {
+          if (/^\d+$/.test(owner)) {
+            where.push("(u.username LIKE ? ESCAPE '/' OR f.owner_uid = ?)");
+            args.push('%' + escLike(owner) + '%', parseInt(owner, 10));
+          } else {
+            where.push("u.username LIKE ? ESCAPE '/'");
+            args.push('%' + escLike(owner) + '%');
+          }
+        }
+        if (kind === 'image' || kind === 'file') {
+          where.push('f.is_image = ?');
+          args.push(kind === 'image' ? 1 : 0);
+        }
+        const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
         const rowsQ = await db.prepare(
           `SELECT ${cols}, u.username AS owner_name
-           FROM files f LEFT JOIN users u ON u.id = f.owner_uid
+           FROM files f LEFT JOIN users u ON u.id = f.owner_uid${whereSql}
            ORDER BY f.id DESC LIMIT ? OFFSET ?`
-        ).bind(limit, offset).all();
-        const totalQ = await db.prepare(`SELECT COUNT(*) AS c FROM files`).first();
+        ).bind(...args, limit, offset).all();
+        const totalQ = await db.prepare(
+          `SELECT COUNT(*) AS c FROM files f LEFT JOIN users u ON u.id = f.owner_uid${whereSql}`
+        ).bind(...args).first();
         return { rows: rowsQ.results || [], total: totalQ ? totalQ.c : 0 };
       },
       // 按归属用户+编辑框标记取文件（source='user' 附件自动清理候选行）

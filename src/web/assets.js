@@ -2450,10 +2450,12 @@ window.bindEmailCodeBtn(document.getElementById('regSendCode'), {
 });
 regForm.addEventListener('submit', async function(e) {
   e.preventDefault();
+  var pwd = document.getElementById('rp').value;
+  if (pwd !== document.getElementById('rp2').value) { showMsg(msg, '两次输入的新密码不一致', false); return; }
   var body = {
     username: document.getElementById('ru').value,
     nickname: document.getElementById('rn').value || undefined,
-    password: document.getElementById('rp').value
+    password: pwd
   };
   var emailVal = regEmail.value.trim();
   if (emailVal) {
@@ -3126,13 +3128,15 @@ if (mottoInput) {
 }
 document.getElementById('pwdForm').addEventListener('submit', async function(e){
   e.preventDefault();
+  var np = document.getElementById('pwNew').value;
+  if (np !== document.getElementById('pwNew2').value) { showMsg(msg, '两次输入的新密码不一致', false); return; }
   try {
     await api('/api/auth/password', { method:'PUT', body:{
       oldPassword: document.getElementById('pwOld').value,
-      newPassword: document.getElementById('pwNew').value
+      newPassword: np
     }});
     showMsg(msg, '密码已修改', true);
-    document.getElementById('pwOld').value = ''; document.getElementById('pwNew').value = '';
+    document.getElementById('pwOld').value = ''; document.getElementById('pwNew').value = ''; document.getElementById('pwNew2').value = '';
   } catch(err){ showMsg(msg, err.message, false); }
 });
 // ===== 家庭数据共享 =====
@@ -3312,6 +3316,8 @@ bindModal();
 var tbody = document.getElementById('userTbody');
 var detail = document.getElementById('detail');
 var _adminMeId = null;
+var allUsers = [];
+var userKeyword = '';
 api('/api/auth/me').then(function(m){ _adminMeId = m.user ? m.user.id : m.id; }).catch(function(){});
 
 // DB 时间(datetime('now') 存 UTC)统一按配置时区显示: 复用 COMMON_JS 的 fmtDbTime(与顶栏时钟同口径); 空值显示破折号
@@ -3327,7 +3333,30 @@ async function loadUsers() {
       try { var me = await api('/api/auth/me'); _adminMeId = me.user ? me.user.id : me.id; } catch(e) {}
     }
     var data = await api('/api/admin/users');
-    tbody.innerHTML = data.users.map(function(u) {
+    allUsers = data.users || [];
+    renderUsers();
+  } catch (err) { alertModal(err.message, {ok:false}); if (err.message.indexOf('权限') >= 0 || err.message.indexOf('登录') >= 0) navTo('/login'); }
+}
+// 用户检索：纯前端按 ID/用户名/昵称/邮箱小写子串过滤，件数显示「n / 共 m」；用户量小且列表本就全量返回
+function renderUsers() {
+  var kw = userKeyword.trim().toLowerCase();
+  var list = allUsers;
+  if (kw) {
+    list = allUsers.filter(function(u) {
+      return String(u.id).indexOf(kw) >= 0 ||
+        (u.username || '').toLowerCase().indexOf(kw) >= 0 ||
+        (u.nickname || '').toLowerCase().indexOf(kw) >= 0 ||
+        (u.email || '').toLowerCase().indexOf(kw) >= 0;
+    });
+  }
+  document.getElementById('userCount').textContent = kw
+    ? (list.length + ' / 共 ' + allUsers.length)
+    : ('共 ' + allUsers.length + ' 人');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="muted cell-empty" style="text-align:center;padding:30px;">没有匹配的用户</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(function(u) {
       return '<tr>' +
         '<td data-label="ID">' + u.id + '</td>' +
         '<td data-label="用户名">' + esc(u.username) + '</td>' +
@@ -3350,8 +3379,7 @@ async function loadUsers() {
             (u.id === _adminMeId ? '' : '<button class="danger" onclick="deleteUserRow(' + u.id + ",'" + esc(u.nickname||u.username).replace(/'/g,'') + "'" + ')">删除用户</button>') +
           '</div>' +
         '</div></td></tr>';
-    }).join('');
-  } catch (err) { alertModal(err.message, {ok:false}); if (err.message.indexOf('权限') >= 0 || err.message.indexOf('登录') >= 0) navTo('/login'); }
+  }).join('');
 }
 async function viewUser(id) {
   try {
@@ -3993,6 +4021,11 @@ if (wbSave) {
   wbLoad();
 }
 
+document.getElementById('userSearch').addEventListener('input', function() {
+  userKeyword = this.value;
+  renderUsers();
+});
+
 loadUsers();
 
 // ============ 推送日志管理 ============
@@ -4119,7 +4152,7 @@ function fmFmtSize(n) {
   return (n / 1073741824).toFixed(2) + ' GB';
 }
 
-var fmState = { limit: 50, offset: 0, total: 0, rows: [] };
+var fmState = { limit: 50, offset: 0, total: 0, rows: [], filters: { owner: '', kind: '', name: '' } };
 var opState = { orphans: [] };
 
 async function loadFmStats() {
@@ -4139,6 +4172,9 @@ async function loadFmFiles() {
   var q = new URLSearchParams();
   q.set('limit', fmState.limit);
   q.set('offset', fmState.offset);
+  if (fmState.filters.owner) q.set('owner', fmState.filters.owner);
+  if (fmState.filters.kind) q.set('kind', fmState.filters.kind);
+  if (fmState.filters.name) q.set('name', fmState.filters.name);
   try {
     var d = await api('/api/admin/files?' + q.toString());
     fmState.total = d.total || 0;
@@ -4149,6 +4185,8 @@ async function loadFmFiles() {
     document.getElementById('fmPage').textContent = from + '~' + to + ' / 共 ' + fmState.total;
     document.getElementById('fmPrev').disabled = fmState.offset === 0;
     document.getElementById('fmNext').disabled = fmState.offset + fmState.limit >= fmState.total;
+    var filtered = !!(fmState.filters.owner || fmState.filters.kind || fmState.filters.name);
+    document.getElementById('fmCount').textContent = (filtered ? '匹配 ' : '共 ') + fmState.total + ' 件';
   } catch (err) { alertModal(err.message, { ok: false }); }
 }
 
@@ -4300,6 +4338,26 @@ document.getElementById('fmTbody').addEventListener('change', function(e) {
   });
 });
 document.getElementById('fmRefresh').addEventListener('click', function() { loadFmStats(); loadFmFiles(); });
+// 归属/类型/文件名检索：查询或回车生效并回到第 1 页；重置清空条件。翻页/刷新/删改重载都带当前条件
+function fmApplyFilters(reset) {
+  if (reset) {
+    document.getElementById('fmQOwner').value = '';
+    document.getElementById('fmQKind').value = '';
+    document.getElementById('fmQName').value = '';
+  }
+  fmState.filters.owner = document.getElementById('fmQOwner').value.trim();
+  fmState.filters.kind = document.getElementById('fmQKind').value;
+  fmState.filters.name = document.getElementById('fmQName').value.trim();
+  fmState.offset = 0;
+  loadFmFiles();
+}
+document.getElementById('fmSearch').addEventListener('click', function() { fmApplyFilters(false); });
+document.getElementById('fmReset').addEventListener('click', function() { fmApplyFilters(true); });
+['fmQOwner', 'fmQName'].forEach(function(id) {
+  document.getElementById(id).addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') fmApplyFilters(false);
+  });
+});
 document.getElementById('fmPrev').addEventListener('click', function() {
   if (fmState.offset === 0) return;
   fmState.offset = Math.max(0, fmState.offset - fmState.limit);

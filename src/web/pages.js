@@ -158,7 +158,9 @@ function loginPage() {
         </div>
       </div>
       <label>密码 (至少6位)</label>
-      <input id="rp" type="password" required>
+      <input id="rp" type="password" autocomplete="new-password" required>
+      <label>确认密码</label>
+      <input id="rp2" type="password" autocomplete="new-password" required>
       <button class="btn" style="width:100%;" type="submit">注册</button>
     </form>
   </div>`;
@@ -428,6 +430,10 @@ function adminPage(user) {
       <h2>全部用户
         <button class="btn sm" id="newUserBtn" style="float:right;">+ 新建用户</button>
       </h2>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <input type="search" id="userSearch" placeholder="搜索用户名 / 昵称 / 邮箱 / ID" style="flex:1;min-width:220px;">
+        <span class="muted" id="userCount" style="font-size:13px;white-space:nowrap;"></span>
+      </div>
       <table>
         <thead><tr><th>ID</th><th>用户名</th><th>昵称</th><th>邮箱</th><th>角色</th><th>状态</th><th>创建时间</th><th>最后登录</th><th>最后免密</th><th>操作</th></tr></thead>
         <tbody id="userTbody"></tbody>
@@ -522,6 +528,18 @@ function storageAdminPage(user) {
       </h2>
       <input type="file" id="fmUploadInput" style="display:none;">
       <div id="fmMsg" class="msg"></div>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <input type="text" id="fmQOwner" placeholder="归属：用户名/UID" style="flex:1;min-width:150px;max-width:200px;">
+        <select id="fmQKind" style="max-width:110px;">
+          <option value="">全部类型</option>
+          <option value="image">图片</option>
+          <option value="file">文件</option>
+        </select>
+        <input type="text" id="fmQName" placeholder="文件名" style="flex:1;min-width:150px;max-width:220px;">
+        <button class="btn sm" id="fmSearch">查询</button>
+        <button class="btn sm gray" id="fmReset">重置</button>
+        <span class="muted" id="fmCount" style="margin-left:auto;font-size:13px;white-space:nowrap;"></span>
+      </div>
       <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <label class="fm-mobile-sel"><input type="checkbox" id="fmCheckAllM" style="width:auto;margin:0;flex:none;">全选本页</label>
         <button class="btn sm danger" id="fmBatchDel" disabled>批量删除所选</button>
@@ -961,6 +979,8 @@ function settingsPage(user) {
             <input id="pwOld" type="password" autocomplete="current-password">
             <label>新密码（至少6位）</label>
             <input id="pwNew" type="password" autocomplete="new-password">
+            <label>确认新密码</label>
+            <input id="pwNew2" type="password" autocomplete="new-password">
             <button class="btn" type="submit">修改密码</button>
           </form>
         </details>

@@ -1,7 +1,7 @@
 /**
  * 超管「附件存储管理」API（双运行时：R2 / Docker 磁盘）
  *   GET  /api/admin/files/stats           占用统计（按 source 分组 + 单文件上限）
- *   GET  /api/admin/files?limit=&offset=  文件列表（倒序分页，带归属用户名）
+ *   GET  /api/admin/files?limit=&offset=&owner=&kind=&name=  文件列表（倒序分页+筛选，带归属用户名）
  *   POST /api/admin/files/delete          批量删除已登记文件（对象 + DB 行）
  *   GET  /api/admin/files/orphans         扫描孤儿对象（对象有、files 表无记录）
  *   POST /api/admin/files/orphans/delete  批量清理孤儿对象（只删对象，不碰 DB）
@@ -76,7 +76,13 @@ async function listAdminFiles({ request, env, url }) {
   if (limit > 200) limit = 200;
   if (!Number.isFinite(offset) || offset < 0) offset = 0;
 
-  const { rows, total } = await getStorage(env).file.listForAdmin({ limit, offset });
+  // 检索条件：owner=归属（用户名片段/纯数字 UID）、kind=image|file、name=文件名片段；空串或非法值等价不过滤
+  const owner = (url.searchParams.get('owner') || '').trim().slice(0, 64);
+  const kindRaw = (url.searchParams.get('kind') || '').trim();
+  const kind = kindRaw === 'image' || kindRaw === 'file' ? kindRaw : '';
+  const name = (url.searchParams.get('name') || '').trim().slice(0, 128);
+
+  const { rows, total } = await getStorage(env).file.listForAdmin({ limit, offset, owner, kind, name });
   return json({ success: true, rows: rows.map(fileRowJson), total });
 }
 
