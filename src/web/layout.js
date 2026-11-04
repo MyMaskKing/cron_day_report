@@ -931,11 +931,13 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .lg-chip.glow { color: #38f0d4; border-color: rgba(56, 240, 212, .35); }
 @keyframes lgDriftL { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @keyframes lgDriftR { from { transform: translateX(-50%); } to { transform: translateX(0); } }
-.lg-brand { position: absolute; left: clamp(20px, 7vw, 120px); top: 50%; transform: translateY(-50%); z-index: 2; max-width: 46vw; }
+.lg-brand { position: absolute; left: clamp(20px, 7vw, 120px); top: 50%; transform: translateY(-50%); z-index: 2; max-width: 50vw; }
 .lg-logo { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; letter-spacing: .5px; color: #c7d0ff; background: rgba(146, 160, 255, .12); border: 1px solid rgba(146, 160, 255, .22); margin-bottom: 22px; }
 .lg-title { font-size: clamp(30px, 4.6vw, 60px); font-weight: 800; line-height: 1.08; letter-spacing: -1.5px; background: linear-gradient(118deg, #a5b4fc 0%, #e0aaff 48%, #7dd3fc 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .lg-title em { font-style: normal; background: linear-gradient(120deg, #38f0d4, #7dd3fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.lg-sub { margin-top: 18px; font-size: clamp(14px, 1.4vw, 17px); line-height: 1.6; color: rgba(214, 220, 255, .68); max-width: 30ch; }
+/* 两句主 slogan 之间留出明显段距，避免多行大标题粘连 */
+.lg-title + .lg-title { margin-top: clamp(14px, 2.4vh, 26px); }
+.lg-sub { margin-top: 18px; font-size: clamp(14px, 1.4vw, 17px); line-height: 1.6; color: rgba(214, 220, 255, .68); max-width: 40ch; }
 .lg-panel { position: relative; z-index: 3; width: 384px; max-width: 92vw; background: rgba(255, 255, 255, .94); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); border: 1px solid rgba(255, 255, 255, .55); border-radius: 20px; padding: 32px 30px; box-shadow: 0 30px 90px rgba(4, 7, 30, .55); }
 .lg-panel h2 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
 .lg-panel .lg-hint { font-size: 13px; color: var(--muted-2); margin-bottom: 18px; }
@@ -968,6 +970,8 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
   background-color: #ffffff;
   box-shadow: 0 2px 10px rgba(79,99,232,.20);
 }
+/* 861-1180px：第二句标题最长行 11 个全角字，常规号会折行并压到登录卡片，此区间收字号 */
+@media (min-width: 861px) and (max-width: 1180px) { .lg-title { font-size: clamp(27px, 3.6vw, 33px); } }
 @media (max-width: 860px) { .lg-fs { justify-content: center; padding: 0 16px; } .lg-brand { display: none; } .lg-field { opacity: .4; } }
 @media (prefers-reduced-motion: reduce) { .lg-row { animation: none; } }
 .msg { padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; display: none; }

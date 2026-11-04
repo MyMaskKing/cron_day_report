@@ -120,9 +120,10 @@ function loginPage() {
   </div>`;
 
   const brand = `<div class="lg-brand">
-    <span class="lg-logo">🚀 生活面板 · 定时推送</span>
+    <span class="lg-logo">🚀 生活 · 协作 · 定时推送</span>
     <div class="lg-title">你的数据<br>到点<em>自动送达</em></div>
-    <p class="lg-sub">网站监控、基金、体重、资产，一处管理，按你设定的时间推送到微信、Webhook 与邮件。</p>
+    <div class="lg-title">和<br>家人，朋友<em>协作管理生活</em></div>
+    <p class="lg-sub">网站监控、基金、体重、资产，一处管理，和家人,朋友一起协作，不用担心忘记，我会按你设定的时间推送到微信、Webhook 与邮件。</p>
   </div>`;
 
   const panel = `<div class="lg-panel">
