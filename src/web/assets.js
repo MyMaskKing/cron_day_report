@@ -13480,15 +13480,17 @@ function taExplain(key) {
       '手机上点一下方块（电脑上鼠标悬停）能看到当天到期几件、完成几件。' }
   };
   var x = T[key];
-  if (!x) return;
-  // 独立浮层(同 alertModal 模式): 不替换 #modalMask 内容, 关掉说明后分析弹窗仍在
+  if (x) taInfoModal(x.t, x.h);
+}
+// 分析弹窗通用说明浮层(同 alertModal 模式): 不替换 #modalMask 内容, 关掉后分析弹窗仍在；text 支持 \n 换行
+function taInfoModal(title, text) {
   var mask = document.createElement('div');
   mask.className = 'modal-mask show';
   mask.style.zIndex = '10001';
   mask.innerHTML =
-    '<div class="modal-box"><div class="modal-head"><span>' + esc(x.t) + '</span></div>' +
+    '<div class="modal-box"><div class="modal-head"><span>' + esc(title) + '</span></div>' +
     '<div class="modal-body">' +
-      '<p style="line-height:1.9;white-space:pre-line;word-break:break-all;margin:0;">' + esc(x.h) + '</p>' +
+      '<p style="line-height:1.9;white-space:pre-line;word-break:break-all;margin:0;">' + esc(text) + '</p>' +
       '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn ta-explain-ok">知道了</button></div>' +
     '</div></div>';
   document.body.appendChild(mask);
@@ -13607,6 +13609,19 @@ function openTodoAnalysis(buildUrl) {
       metric('最长连续按时做完', a.longestStreak + ' 天');
   }
 
+  // 点击日历方块展示当日明细（与方块 title 同口径；手机端无 hover，点击是主要查看方式）
+  function showDayDetail(item) {
+    var weekNames = '一二三四五六日';
+    var head = (item.mark === 'pending' ? '今天 · ' : '') +
+      parseInt(item.date.slice(5, 7), 10) + '月' + parseInt(item.date.slice(8, 10), 10) +
+      '日 周' + weekNames[weekdayMon(item.date)];
+    var text;
+    if (item.mark === 'idle') text = '当天没有到期任务。';
+    else if (item.mark === 'pending') text = '今天还没过完，暂时不评定。\\n到期 ' + item.planned + ' 件 · 已完成 ' + item.done + ' 件';
+    else text = '到期 ' + item.planned + ' 件\\n最终做完 ' + item.done + ' 件（含过期补做）\\n当天没做完 ' + item.overdue + ' 件（后来补做也仍计逾期）';
+    taInfoModal(head, text);
+  }
+
   function render(a) {
     document.getElementById('taStreak').textContent = a.currentStreak;
     document.getElementById('taBest').textContent = a.longestStreak ? '最长 ' + a.longestStreak + ' 天' : '';
@@ -13631,6 +13646,7 @@ function openTodoAnalysis(buildUrl) {
       else c.title = label + ' 到期 ' + item.planned + ' / 完成 ' + item.done + ' / 当天没做完 ' + item.overdue;
       // 有任务日 / 今天格内显示日期（日），无任务日留空
       if (item.mark !== 'idle') c.textContent = item.date.slice(8);
+      c.addEventListener('click', function(){ showDayDetail(item); });
       heat.appendChild(c);
     });
 

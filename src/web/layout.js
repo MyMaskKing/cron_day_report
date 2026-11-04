@@ -2094,7 +2094,7 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .ta-dow, .ta-heat { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
 .ta-dow { margin-bottom: 5px; }
 .ta-dow span { font-size: 11px; color: var(--muted); text-align: center; line-height: 16px; }
-.ta-cell { aspect-ratio: 1; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-2); box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; cursor: default; transition: transform .12s; }
+.ta-cell { aspect-ratio: 1; border-radius: 5px; border: 1px solid var(--border); background: var(--surface-2); box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; cursor: pointer; transition: transform .12s; }
 .ta-cell:hover:not(:active) { transform: scale(1.12); position: relative; z-index: 1; }
 .ta-cell.win { background: var(--ok); border-color: transparent; color: #fff; }
 .ta-cell.fail { background: var(--danger); border-color: transparent; color: #fff; }
