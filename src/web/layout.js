@@ -2103,6 +2103,24 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 /* 暗色主题下绿/红底变亮，日期字改用深色保对比 */
 [data-theme="dark"] .ta-cell.win { color: #10230f; }
 [data-theme="dark"] .ta-cell.fail { color: #2c0d0d; }
+/* 日历方块当日明细浮层：摘要下默认折叠的任务列表 */
+.ta-day-details { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.ta-day-details summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--brand-text); list-style: none; }
+.ta-day-details summary::-webkit-details-marker { display: none; }
+.ta-day-details summary::after { content: '▸'; float: right; color: var(--muted); font-size: 11px; transition: transform .15s; }
+.ta-day-details[open] summary::after { transform: rotate(90deg); }
+.ta-day-details ul { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ta-day-details li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.5; }
+.ta-day-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--muted); }
+.ta-day-title { flex: 1; min-width: 0; word-break: break-word; }
+.ta-day-path { color: var(--muted); font-size: 12px; }
+.ta-day-state { flex: none; font-size: 12px; color: var(--muted); }
+.ta-day-details li.is-ok .ta-day-dot { background: var(--ok); }
+.ta-day-details li.is-ok .ta-day-state { color: var(--ok); }
+.ta-day-details li.is-late .ta-day-dot { background: var(--danger); }
+.ta-day-details li.is-late .ta-day-state { color: var(--danger); }
+.ta-day-details li.is-open .ta-day-dot { background: var(--danger); }
+.ta-day-details li.is-open .ta-day-state { color: var(--danger); }
 .ta-legend { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
 .ta-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--border); box-sizing: border-box; }
 .ta-legend .lg-win { background: var(--ok); border-color: transparent; }

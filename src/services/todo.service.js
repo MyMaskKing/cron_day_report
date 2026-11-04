@@ -584,7 +584,10 @@ function buildChartSeries(raw, range, today) {
  * @param {string} today - 北京时区当天 YYYY-MM-DD（区间末点）
  * @returns {Object} { days, currentStreak, longestStreak, winRate, onTimeRate, overdueRate, daily[] }
  *   winRate/overdueRate 为 0..1 比率（无分母时 null）；
- *   daily: [{ date:'YYYY-MM-DD', planned, done, overdue, rate: 0..1|null, mark: win|fail|idle|pending }]
+ *   daily: [{ date:'YYYY-MM-DD', planned, done, overdue, rate: 0..1|null, mark: win|fail|idle|pending,
+ *            tasks: [{ title, path:[祖先标题], adopted:0|1, done:0|1, day:'YYYY-MM-DD'|null }] }]
+ *   tasks 与上方计数同口径（当天到期的末端叶子）：done=最终完成否、day=最终完成日（null=缺完成日的历史完成，按按时）、
+ *   adopted=被已完成祖先收编（自身未勾选）
  */
 function buildAnalysis(raw, days, today) {
   // 仅末端叶子 + 有效截止日，与 buildChartSeries / countStats 同口径
@@ -596,7 +599,19 @@ function buildAnalysis(raw, days, today) {
   // 按到期日聚合：dueCnt=到期数；doneFinalCnt=最终完成数（含逾期补做、缺 done10 的历史完成、
   // 被完成主任务收编的子任务）；overCnt=日终仍未完成（新增逾期；收编但收编日晚于到期日算逾期补做）；
   // onTimeCnt=按时完成数（最终完成且完成日<=到期日；缺完成日的历史完成按"早已完成"视为按时，与逾期口径对称）
-  const dueCnt = {}, doneFinalCnt = {}, overCnt = {}, onTimeCnt = {};
+  const dueCnt = {}, doneFinalCnt = {}, overCnt = {}, onTimeCnt = {}, tasksByDue = {};
+  // 当日明细的祖先标题路径（根在前、不含自身），口径与 buildChartSeries 的钻取明细一致
+  const treeById = new Map();
+  (raw.tree || []).forEach(r => { if (r && r.id != null) treeById.set(r.id, r); });
+  const pathOf = (t) => {
+    const path = [];
+    let cur = t, guard = 0;
+    while (cur.parent_id != null && treeById.has(cur.parent_id) && guard++ < 20) {
+      cur = treeById.get(cur.parent_id);
+      path.unshift(cur.title || '');
+    }
+    return path;
+  };
   let minMs = null;
   for (const t of tasks) {
     const e = effDone(t);
@@ -607,6 +622,10 @@ function buildAnalysis(raw, days, today) {
     }
     const unfinishedAtEnd = !e.done || (!!e.day && e.day > t.due);
     if (unfinishedAtEnd) overCnt[t.due] = (overCnt[t.due] || 0) + 1;
+    (tasksByDue[t.due] || (tasksByDue[t.due] = [])).push({
+      title: t.title || '', path: pathOf(t), adopted: (e.done && t.done !== 1) ? 1 : 0,
+      done: e.done ? 1 : 0, day: e.day
+    });
     const ms = dayMs(t.due);
     if (minMs === null || ms < minMs) minMs = ms;
   }
@@ -645,7 +664,7 @@ function buildAnalysis(raw, days, today) {
     const planned = dueCnt[d] || 0;
     const doneN = doneFinalCnt[d] || 0;
     const overdue = overCnt[d] || 0;
-    daily.push({ date: d, planned, done: doneN, overdue, rate: planned ? doneN / planned : null, mark: markAt(d, isToday) });
+    daily.push({ date: d, planned, done: doneN, overdue, rate: planned ? doneN / planned : null, mark: markAt(d, isToday), tasks: tasksByDue[d] || [] });
     winDue += planned; winDone += doneN; winOnTime += (onTimeCnt[d] || 0);
     if (!isToday) { pastDue += planned; pastOver += overdue; }
   }

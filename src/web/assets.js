@@ -13483,7 +13483,8 @@ function taExplain(key) {
   if (x) taInfoModal(x.t, x.h);
 }
 // 分析弹窗通用说明浮层(同 alertModal 模式): 不替换 #modalMask 内容, 关掉后分析弹窗仍在；text 支持 \n 换行
-function taInfoModal(title, text) {
+// extraHtml 追加在摘要文本之后（调用方须自行转义其中的用户内容）
+function taInfoModal(title, text, extraHtml) {
   var mask = document.createElement('div');
   mask.className = 'modal-mask show';
   mask.style.zIndex = '10001';
@@ -13491,6 +13492,7 @@ function taInfoModal(title, text) {
     '<div class="modal-box"><div class="modal-head"><span>' + esc(title) + '</span></div>' +
     '<div class="modal-body">' +
       '<p style="line-height:1.9;white-space:pre-line;word-break:break-all;margin:0;">' + esc(text) + '</p>' +
+      (extraHtml || '') +
       '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn ta-explain-ok">知道了</button></div>' +
     '</div></div>';
   document.body.appendChild(mask);
@@ -13619,7 +13621,32 @@ function openTodoAnalysis(buildUrl) {
     if (item.mark === 'idle') text = '当天没有到期任务。';
     else if (item.mark === 'pending') text = '今天还没过完，暂时不评定。\\n到期 ' + item.planned + ' 件 · 已完成 ' + item.done + ' 件';
     else text = '到期 ' + item.planned + ' 件\\n最终做完 ' + item.done + ' 件（含过期补做）\\n当天没做完 ' + item.overdue + ' 件（后来补做也仍计逾期）';
-    taInfoModal(head, text);
+    var extra = '';
+    if (item.tasks && item.tasks.length) {
+      var rows = item.tasks.map(function(t){
+        var prefix = (t.path && t.path.length)
+          ? '<span class="ta-day-path">' + t.path.map(esc).join(' / ') + ' / </span>'
+          : '';
+        var cls, note;
+        if (!t.done) {
+          cls = item.mark === 'pending' ? 'is-pending' : 'is-open';
+          note = item.mark === 'pending' ? '未完成' : '当天没做完';
+        } else if (!t.day || t.day <= item.date) {
+          cls = 'is-ok';
+          note = t.adopted ? '随主任务完成' : '按时做完';
+        } else {
+          cls = 'is-late';
+          note = mdShort(t.day) + ' 补做';
+        }
+        return '<li class="' + cls + '"><i class="ta-day-dot"></i>' +
+          '<span class="ta-day-title">' + prefix + esc(t.title) + '</span>' +
+          '<span class="ta-day-state">' + note + '</span></li>';
+      }).join('');
+      // 默认折叠：摘要先给件数，展开才看逐任务列表
+      extra = '<details class="ta-day-details"><summary>当日明细（' + item.tasks.length + ' 件）</summary>' +
+        '<ul>' + rows + '</ul></details>';
+    }
+    taInfoModal(head, text, extra);
   }
 
   function render(a) {
