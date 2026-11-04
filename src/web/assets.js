@@ -2417,6 +2417,7 @@ function loginNext() {
 }
 // 登录提交：表单底部"登录"按钮与顶部"登录"标签（已在登录页时）共用
 async function doLogin() {
+  clearMsg();
   try {
     var r = await api('/api/auth/login', { method: 'POST', body: {
       username: document.getElementById('lu').value,
@@ -2427,16 +2428,24 @@ async function doLogin() {
   } catch (err) { showMsg(msg, err.message, false); }
 }
 loginForm.addEventListener('submit', function(e) { e.preventDefault(); doLogin(); });
-// 顶部"登录"标签：已在登录页时点击直接提交登录；在注册页时点击仅切回登录表单
-tabLogin.addEventListener('click', function() {
-  if (loginForm.style.display !== 'none') { doLogin(); return; }
+// 清空共用提示条（登录/注册两个表单共用 #msg，切 tab 或重新提交时清掉旧错误）
+function clearMsg(){ msg.textContent = ''; msg.className = 'msg'; }
+function switchToLogin(clear) {
   tabLogin.className = 'btn'; tabReg.className = 'btn gray';
   loginForm.style.display = 'block'; regForm.style.display = 'none';
-});
-tabReg.addEventListener('click', function() {
+  if (clear) clearMsg();
+}
+function switchToReg() {
   tabReg.className = 'btn'; tabLogin.className = 'btn gray';
   regForm.style.display = 'block'; loginForm.style.display = 'none';
+  clearMsg();
+}
+// 顶部"登录"标签：已在登录页时点击直接提交登录；在注册页时点击切回登录表单并清空旧提示
+tabLogin.addEventListener('click', function() {
+  if (loginForm.style.display !== 'none') { doLogin(); return; }
+  switchToLogin(true);
 });
+tabReg.addEventListener('click', switchToReg);
 // 注册邮箱（选填）：非空才显示验证码行
 var regEmail = document.getElementById('rem');
 var regCodeBox = document.getElementById('regCodeBox');
@@ -2450,6 +2459,7 @@ window.bindEmailCodeBtn(document.getElementById('regSendCode'), {
 });
 regForm.addEventListener('submit', async function(e) {
   e.preventDefault();
+  clearMsg();
   var pwd = document.getElementById('rp').value;
   if (pwd !== document.getElementById('rp2').value) { showMsg(msg, '两次输入的新密码不一致', false); return; }
   var body = {
@@ -2465,7 +2475,7 @@ regForm.addEventListener('submit', async function(e) {
   try {
     await api('/api/auth/register', { method: 'POST', body: body });
     showMsg(msg, '注册成功，请登录', true);
-    tabLogin.click();
+    switchToLogin(false);
   } catch (err) {
     showMsg(msg, err.message, false);
     // 竞态兜底：加载页时未满员、提交时已满员 → 重新拉取状态并关闭注册入口
@@ -2478,7 +2488,7 @@ async function applyRegLimit() {
     var st = await api('/api/auth/register-status');
     if (st && st.limited) {
       tabReg.style.display = 'none';
-      if (regForm.style.display !== 'none') tabLogin.click();
+      if (regForm.style.display !== 'none') switchToLogin(false);
       var box = document.getElementById('regLimitMsg');
       if (box) { box.innerHTML = renderMd(st.msg || '注册人数已满'); box.style.display = 'block'; }
     }
