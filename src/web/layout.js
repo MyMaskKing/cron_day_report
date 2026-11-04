@@ -1086,22 +1086,15 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .stat .lbl { font-size: 13px; color: var(--label); margin-top: 4px; }
 .asset-title { font-size: 19px; margin-bottom: 6px; }
 .asset-small { font-size: 12px; color: var(--muted); font-weight: 400; }
-/* 标题年度角标：贴在标题右上角的补充小标签（如「2026年度」），刻意弱化、不抢标题 */
+/* 标题年份补充：跟在标题后的淡灰小字「· 2026」，纯文字最轻量、不抢月份主体；空内容不占位 */
 .asset-title-year {
-  display: inline-block;
-  margin-left: 5px;
-  padding: 0 6px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--surface-2);
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1.6;
-  letter-spacing: .2px;
-  vertical-align: .45em;
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--faint);
   white-space: nowrap;
 }
+.asset-title-year::before { content: '·'; margin-right: 5px; }
 .asset-title-year:empty { display: none; }
 .asset-title__btn { float: right; margin-top: 2px; }
 .asset-desc { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
