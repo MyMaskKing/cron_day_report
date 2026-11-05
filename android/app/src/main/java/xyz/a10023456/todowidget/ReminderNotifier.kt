@@ -35,6 +35,10 @@ object ReminderNotifier {
     // InboxStyle 展开后系统可见行数上限（各 ROM 约 5~6 行，超出部分系统直接截断）
     private const val MAX_INBOX_LINES = 6
 
+    // 逾期徽章文字色：与 WidgetUi 的 W(dark).overdue 同源，跟随系统深浅色
+    private const val OVERDUE_RED_LIGHT = 0xFFCF1322.toInt()
+    private const val OVERDUE_RED_DARK = 0xFFFF6B6B.toInt()
+
     fun check(context: Context, refreshedIds: List<Int>) {
         if (refreshedIds.isEmpty() || !hasNotificationPermission(context)) return
         // 本次跳过且不标记已发，等下一次刷新（15 分钟周期或打开 App）自动补发
@@ -48,13 +52,13 @@ object ReminderNotifier {
             now >= morningStart && now.isBefore(eveningStart) -> {
                 val text = morningText(snapshot.todayCount, snapshot.overdueCount) ?: return
                 show(context, TYPE_MORNING, NOTIFICATION_MORNING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, true, snapshot.todayCount > 0,
-                    inboxLines = reminderLines(snapshot.morningGroups))
+                    inboxLines = reminderLines(context, snapshot.morningGroups))
             }
             now >= eveningStart -> {
                 val text = eveningText(snapshot.tomorrowCount, snapshot.overdueCount) ?: return
                 // 逾期组在前、明日组在后；6 行截断时自然先截明日组尾部，逾期优先保留
                 show(context, TYPE_EVENING, NOTIFICATION_EVENING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, snapshot.overdueCount > 0, false,
-                    inboxLines = reminderLines(snapshot.eveningGroups + snapshot.tomorrowGroups))
+                    inboxLines = reminderLines(context, snapshot.eveningGroups + snapshot.tomorrowGroups))
             }
         }
     }
@@ -126,7 +130,11 @@ object ReminderNotifier {
         )
     }
 
-    fun showTest(context: Context) {
+    /**
+     * 模拟一次提醒通知。forceEvening=null 按当前真实时间判档；
+     * 「我的」页测试弹窗显式传 true/false，白天也能预览晚档（含明日组）效果。
+     */
+    fun showTest(context: Context, forceEvening: Boolean? = null) {
         if (!hasNotificationPermission(context)) return
         android.widget.Toast.makeText(context, "正在拉取最新待办…", android.widget.Toast.LENGTH_SHORT).show()
 
@@ -142,21 +150,23 @@ object ReminderNotifier {
             ids.forEach { id ->
                 if (WidgetRepo.refresh(appContext, id, maxAttempts = 2)) refreshedIds.add(id)
             }
-            showTestSnapshot(appContext, ids, refreshedIds)
+            showTestSnapshot(appContext, ids, refreshedIds, forceEvening)
         }
     }
 
     private fun showTestSnapshot(
         context: Context,
         ids: List<Int>,
-        refreshedIds: List<Int>
+        refreshedIds: List<Int>,
+        forceEvening: Boolean? = null
     ) {
         val snapshot = reminderSnapshot(context, refreshedIds)
-        val isEvening = LocalTime.now() >= reminderTime(
+        val realEvening = LocalTime.now() >= reminderTime(
             context,
             R.integer.reminder_evening_hour,
             R.integer.reminder_evening_minute
         )
+        val isEvening = forceEvening ?: realEvening
         val type = if (isEvening) TYPE_EVENING else TYPE_MORNING
         val text = when {
             ids.isEmpty() -> "请先添加桌面小组件后再模拟待办提醒"
@@ -187,6 +197,7 @@ object ReminderNotifier {
             enablePostpone = enablePostpone,
             markSent = false,
             inboxLines = reminderLines(
+                context,
                 if (isEvening) snapshot.eveningGroups + snapshot.tomorrowGroups
                 else snapshot.morningGroups
             )
@@ -270,35 +281,71 @@ object ReminderNotifier {
     /**
      * 拍平树状分组为 InboxStyle 行：主任务标题行加粗并只带自身绑定日期的徽章，
      * 叶子以 ├/└ 悬挂、仅自身绑定日期的带徽章（继承日期不重复展示）；solo 组单行。
-     * 多账号时标题行加 [昵称] 前缀，叶子行不加。
+     * 多账号时标题行加 [昵称] 前缀，叶子行不加；逾期徽章（文案含「逾期」）整段染红。
      */
-    private fun reminderLines(groups: List<ReminderGroup>): List<CharSequence> {
+    private fun reminderLines(context: Context, groups: List<ReminderGroup>): List<CharSequence> {
         if (groups.isEmpty()) return emptyList()
         val multiAccount = groups.map { it.owner }.distinct().size > 1
         val lines = mutableListOf<CharSequence>()
         for (group in groups) {
             val ownerPrefix = if (multiAccount) "[${group.owner}] " else ""
             if (group.solo) {
-                lines.add("$ownerPrefix${group.title}${labelSuffix(group.ownDueLabel)}")
+                lines.add(styledLine(context, ownerPrefix, group.title, group.ownDueLabel, bold = false))
                 continue
             }
-            val titleLine = "$ownerPrefix${group.title}${labelSuffix(group.ownDueLabel)}"
-            // 显式 receiver 构建 Spannable，不用 apply 嵌套（隐式 this 在嵌套 lambda 内编译解析失败）
-            val spannable = android.text.SpannableString(titleLine)
+            lines.add(styledLine(context, ownerPrefix, group.title, group.ownDueLabel, bold = true))
+            val lastIndex = group.leaves.lastIndex
+            group.leaves.forEachIndexed { index, leaf ->
+                val twig = if (index == lastIndex) "└ " else "├ "
+                lines.add(styledLine(context, twig, leaf.title, leaf.ownDueLabel, bold = false))
+            }
+        }
+        return lines
+    }
+
+    /**
+     * 构建一行通知文本：bold 控制整行加粗（主任务标题行）；label 为自身绑定日期徽章，
+     * 非空时拼在行尾，逾期徽章（服务端文案固定含「逾期」）整段加红色 ForegroundColorSpan。
+     * 无 Span 需求时直接返回 String，避免无谓包装。
+     */
+    private fun styledLine(
+        context: Context,
+        prefix: String,
+        title: String,
+        label: String,
+        bold: Boolean
+    ): CharSequence {
+        val full = "$prefix$title${labelSuffix(label)}"
+        val overdue = label.contains("逾期")
+        if (!bold && !overdue) return full
+        // 显式 receiver 构建 Spannable，不用 apply 嵌套（隐式 this 在嵌套 lambda 内编译解析失败）
+        val spannable = android.text.SpannableString(full)
+        if (bold) {
             spannable.setSpan(
                 // StyleSpan 在 android.text.style 子包；SpannableString/Spannable 才在 android.text
                 android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
                 0, spannable.length,
                 android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
-            lines.add(spannable)
-            val lastIndex = group.leaves.lastIndex
-            group.leaves.forEachIndexed { index, leaf ->
-                val twig = if (index == lastIndex) "└ " else "├ "
-                lines.add("$twig${leaf.title}${labelSuffix(leaf.ownDueLabel)}")
-            }
         }
-        return lines
+        if (overdue) {
+            val red = if (isSystemDark(context)) OVERDUE_RED_DARK else OVERDUE_RED_LIGHT
+            // label 是行尾后缀（labelSuffix 前带一个空格），起始位 = 全长 - label 长，空格不染色
+            val start = full.length - label.length
+            spannable.setSpan(
+                android.text.style.ForegroundColorSpan(red),
+                start, spannable.length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        return spannable
+    }
+
+    /** 系统是否处于深色模式（通知由 SystemUI 渲染，跟随系统配色而非 App 内主题）。 */
+    private fun isSystemDark(context: Context): Boolean {
+        val mode = context.resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        return mode == android.content.res.Configuration.UI_MODE_NIGHT_YES
     }
 
     /** 徽章非空时前置一个空格拼接，空串不占位。 */

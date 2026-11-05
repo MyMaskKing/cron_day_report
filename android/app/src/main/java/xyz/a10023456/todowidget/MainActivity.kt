@@ -93,7 +93,8 @@ import kotlinx.coroutines.withContext
  */
 class MainActivity : ComponentActivity() {
 
-    private var pendingTestNotification = false
+    // 待权限授予后补发的测试通知时段：null=无待补发；true=晚档 false=早档（用户在测试弹窗里的选择）
+    private var pendingTestEvening: Boolean? = null
 
     // 音频读取权限：App 自己的 MediaPlayer 播放用户选择的自定义铃声需要
     private val audioPermissionLauncher =
@@ -101,10 +102,10 @@ class MainActivity : ComponentActivity() {
 
     private val notificationPermissionLauncher =
         registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
-            val shouldShowTest = pendingTestNotification
-            pendingTestNotification = false
-            if (granted && shouldShowTest) ReminderNotifier.showTest(this)
-            if (!granted && shouldShowTest) {
+            val pendingEvening = pendingTestEvening
+            pendingTestEvening = null
+            if (granted && pendingEvening != null) ReminderNotifier.showTest(this, pendingEvening)
+            if (!granted && pendingEvening != null) {
                 android.widget.Toast.makeText(
                     this,
                     "请在系统设置中允许通知",
@@ -151,7 +152,7 @@ class MainActivity : ComponentActivity() {
                         savedWebState = savedWebState,
                         onWebView = { webViewRef = it },
                         onThemeSelected = { appTheme = it },
-                        onTestNotification = { testNotification() }
+                        onTestNotification = { forceEvening -> testNotification(forceEvening) }
                     )
                 }
             }
@@ -179,11 +180,12 @@ class MainActivity : ComponentActivity() {
         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    private fun testNotification() {
+    private fun testNotification(forceEvening: Boolean) {
         if (ReminderNotifier.hasNotificationPermission(this)) {
-            ReminderNotifier.showTest(this)
+            ReminderNotifier.showTest(this, forceEvening)
         } else {
-            pendingTestNotification = true
+            // 记住用户选择的时段，权限授予后按同一时段补发
+            pendingTestEvening = forceEvening
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
@@ -301,7 +303,7 @@ private fun AppShell(
     savedWebState: Bundle? = null,
     onWebView: ((WebView?) -> Unit)? = null,
     onThemeSelected: (String) -> Unit = {},
-    onTestNotification: () -> Unit = {}
+    onTestNotification: (forceEvening: Boolean) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var baseUrl by remember { mutableStateOf(AppConfig.getBaseUrl(context)) }

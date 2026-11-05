@@ -50,10 +50,11 @@ fun MeScreen(
     onChangeBaseUrl: (String) -> Unit,
     onOpenInBrowser: () -> Unit,
     onThemeClick: () -> Unit,
-    onTestNotification: () -> Unit,
+    onTestNotification: (forceEvening: Boolean) -> Unit,
     onLogout: () -> Unit
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
+    var showTestDialog by remember { mutableStateOf(false) }
     var pendingUrl by remember { mutableStateOf(baseUrl) }
     val appContext = LocalContext.current.applicationContext
     var showAlarmManager by remember { mutableStateOf(false) }
@@ -102,7 +103,7 @@ fun MeScreen(
                 showUrlDialog = true
             }
             if (isAdmin) {
-                MeItem(R.drawable.ic_chip_today, "测试通知", "拉取真实待办数据并发送提醒") { onTestNotification() }
+                MeItem(R.drawable.ic_chip_today, "测试通知", "拉取真实待办数据并发送提醒") { showTestDialog = true }
             }
         }
 
@@ -144,6 +145,41 @@ fun MeScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showUrlDialog = false }) { Text("取消") }
+            }
+        )
+    }
+
+    if (showTestDialog) {
+        AlertDialog(
+            onDismissRequest = { showTestDialog = false },
+            title = { Text("模拟待办提醒") },
+            text = {
+                Column {
+                    Text(
+                        "选择要预览的推送时段：",
+                        fontSize = 13.sp,
+                        color = scheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = {
+                            showTestDialog = false
+                            onTestNotification(false)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("早档 · 今日到期 + 逾期") }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            showTestDialog = false
+                            onTestNotification(true)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("晚档 · 逾期 + 明日待办") }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTestDialog = false }) { Text("取消") }
             }
         )
     }
