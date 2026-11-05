@@ -14075,7 +14075,7 @@ async function openTodoDetail(node, opts) {
   var comerName = node.done_by_name || '';
   var timeRows = [];
   if (created) timeRows.push('<span>🕒 创建：' + esc(created) + (creatorName ? ' · ' + esc(creatorName) : '') + '</span>');
-  if (node.done && node.done_at) timeRows.push('<span>✅ 完成：' + esc(node.done_at) + (comerName ? ' · ' + esc(comerName) : '') + '</span>');
+  if (node.done && node.done_at) timeRows.push('<span>☑ 完成：' + esc(node.done_at) + (comerName ? ' · ' + esc(comerName) : '') + '</span>');
   var timesHtml = timeRows.length ? '<div class="td-times">' + timeRows.join('') + '</div>' : '';
   var body =
     '<div class="td-title">' + (node._ghost === 1 ? '🔒 ' : '') + esc(node.title) + '</div>' +
