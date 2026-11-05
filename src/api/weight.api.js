@@ -465,7 +465,7 @@ async function acceptFriend({ request, env }) {
   const owner = await storage.users.findById(inv.owner_user_id);
   return json({
     success: true,
-    message: `已与「${owner ? (owner.nickname || owner.username) : ''}」成为体重好友，双方默认互见本人成员曲线（仅可读）。其他成员默认隐藏，可在「成员 → 👥 好友 → 谁对好友可见」调整`
+    message: `已经和「${owner ? (owner.nickname || owner.username) : ''}」加为好友啦！你们能互相看到本人那条体重曲线（只能看）。不想让对方看的话，去「👥 好友 → 谁对好友可见」关掉就行`
   });
 }
 
@@ -479,7 +479,7 @@ async function removeFriend({ request, env, params }) {
   const friendIds = await storage.weight.friendIdSet(auth.user_id);
   if (!friendIds.includes(uid)) return error('对方不是你的体重好友', 404);
   await storage.weight.removeFriendPair(auth.user_id, uid);
-  return json({ success: true, message: '已解除好友关系。若你在某组队中与队内所有人都解除了关系，才会自动退出该组队；仍有其他好友则留在队中' });
+  return json({ success: true, message: '已解除好友。如果你在某个组队里跟全队都解除了好友，才会自动退出那个队；队里还有其他好友的话，你会继续留在队里' });
 }
 
 // ==================== 体重组队（一个链接，进来的人两两成为好友）====================
@@ -559,7 +559,7 @@ async function joinTeam({ request, env }) {
   const ownerName = owner ? (owner.nickname || owner.username) : '';
   return json({
     success: true,
-    message: `已加入「${ownerName}」的组队，与队内 ${oldMembers.length} 名成员两两成为体重好友，默认互见本人成员曲线（仅可读）。其他成员默认隐藏，可在「成员 → 👥 好友 → 谁对好友可见」调整。`
+    message: `已加入「${ownerName}」的组队！你和队里 ${oldMembers.length} 个人自动互相加了好友，能互相看到本人那条体重曲线（只能看）。其他家人的档案默认藏着，想调整去「👥 好友 → 谁对好友可见」。`
   });
 }
 
@@ -579,7 +579,7 @@ async function kickFromTeam({ request, env, params }) {
   const name = target ? (target.nickname || target.username) : '';
   return json({
     success: true,
-    message: `已将「${name}」移出组队，并解除其与队内所有人的好友关系。对方重新打开组队链接可再次加入。`
+    message: `已把「${name}」移出组队，他和队里所有人的好友关系也一起解除了。以后他重新打开组队链接还能再加回来。`
   });
 }
 
@@ -593,7 +593,7 @@ async function dissolveMyTeam({ request, env }) {
   await storage.weight.dissolveTeam(team.id);
   return json({
     success: true,
-    message: '组队已解散，链接立即失效，队内好友关系已全部解除（队员在其他组队的关系不受影响）。'
+    message: '组队已解散，链接作废，队里的好友关系全部解除。大家在其他组队里的关系不受影响。'
   });
 }
 

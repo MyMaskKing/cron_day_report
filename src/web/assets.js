@@ -6227,7 +6227,7 @@ window.fToggleVisible = async function(id, show){
 };
 // 解除好友（双向，不影响双方已有数据）
 window.fRemove = async function(ownerId){
-  confirmModal('解除好友', '解除后双方体重页都不再出现对方成员。组队身份保留：只要你在该队里还有其他好友就仍在队中；与队内所有人都解除后才会自动退出。已有数据不受影响。确认解除？', async function(){
+  confirmModal('解除好友', '解除后，你们俩的体重页里都看不到对方了，之前记的数据不会丢。\\n如果你们还在同一个组队：队里还有别的好友，你就还在队里；跟队里所有人都解除了，才会自动退队。\\n确认解除吗？', async function(){
     try { await api('/api/weight/friends/' + ownerId, { method:'DELETE' }); await loadAll(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
@@ -6377,15 +6377,15 @@ async function openFriendPanel() {
   var inviteHtml;
   if (d.invite) {
     inviteHtml =
-      '<label>我的邀请链接（发给家人朋友，对方登录后打开即成为双向好友）</label>' +
+      '<label>我的邀请链接（发给家人朋友，对方登录后打开，你们就互相加好友了）</label>' +
       '<input id="fInviteUrl" value="' + esc(d.invite.link) + '" readonly style="margin-bottom:8px;">' +
       '<button class="btn" onclick="fCopyInvite()">复制链接</button> ' +
       '<button class="btn gray" onclick="fResetInvite()">重置链接</button>' +
-      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">重置后旧链接立即失效，已添加的好友保留。</p>';
+      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">重置后旧链接马上作废，已经加上的好友不受影响。</p>';
   } else {
     inviteHtml =
       '<button class="btn" id="fGenInvite" style="width:100%;">生成我的邀请链接</button>' +
-      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">好友之间可在体重页互看曲线（仅可读，不能替对方录入），适合家人朋友一起打卡 PK。</p>';
+      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">加了好友就能在体重页互相看曲线，只能看、不能帮对方记体重，适合家人朋友一起打卡 PK。</p>';
   }
   // 组队打卡区块：一个链接，进来的所有人两两成为好友
   var teamHtml;
@@ -6396,7 +6396,7 @@ async function openFriendPanel() {
         right = '<span class="tag" style="padding:0 6px;border-radius:8px;font-size:11px;background:var(--hover-brand);color:var(--brand-text);">队长</span>';
       } else {
         // 能打开此面板即本人是队长：非队长成员显示互见状态与踢出入口
-        right = (m.mutual ? '' : '<span class="tag" title="你已解除与其好友关系，曲线互见已关闭；其仍在队中，新人入队仍会与其互加好友" style="padding:0 6px;border-radius:8px;font-size:11px;background:var(--hover-bg);color:var(--muted);">未互见</span>') +
+        right = (m.mutual ? '' : '<span class="tag" title="你已经和他解除好友，互相看不到曲线了；他还在队里，以后有新人入队仍会自动和他加好友" style="padding:0 6px;border-radius:8px;font-size:11px;background:var(--hover-bg);color:var(--muted);">未互见</span>') +
           '<button class="btn sm danger" onclick="fKick(' + m.uid + ')">踢出</button>';
       }
       return '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);">' +
@@ -6404,17 +6404,17 @@ async function openFriendPanel() {
         '<span style="display:flex;align-items:center;gap:6px;">' + right + '</span></div>';
     }).join('');
     teamHtml =
-      '<label>组队打卡链接（发给家人朋友，所有通过链接加入的人两两互见）</label>' +
+      '<label>组队打卡链接（发给家人朋友，谁打开链接加入，大家就自动互相加好友、互相看曲线）</label>' +
       '<input id="fTeamUrl" value="' + esc(td.team.link) + '" readonly style="margin-bottom:8px;">' +
       '<button class="btn" onclick="fCopyTeam()">复制链接</button> ' +
       '<button class="btn gray" onclick="fResetTeam()">重置链接</button>' +
-      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">重置后旧链接立即失效，队内成员与互见关系保留。当前队中 ' + td.team.members.length + ' 人。</p>' +
+      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">重置后旧链接马上作废，队里的人和互相可见的关系都保留。当前队里 ' + td.team.members.length + ' 人。</p>' +
       '<div style="margin-top:6px;">' + tRows + '</div>' +
       '<button class="btn danger" style="width:100%;margin-top:10px;" onclick="fDissolve()">解散队伍</button>';
   } else {
     teamHtml =
       '<button class="btn" id="fGenTeam" style="width:100%;">生成组队链接</button>' +
-      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">把链接发给家人朋友，所有打开链接并加入的人两两成为体重好友、互见本人曲线（仅可读），适合一群人一起打卡。不想被某人看到时，在下方「我的好友」里单独解除即可。</p>';
+      '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">把链接发给家人朋友：打开链接加入的人会自动互相加好友、互相看到本人那条体重曲线（只能看），适合一群人一起打卡。不想让某人看？在下面「我的好友」里单独跟他解除就行。</p>';
   }
   // 我的成员对好友可见开关：默认全部关闭，由本人显式开放代表自己的成员
   var myMembers = members.filter(function(m){ return !m.shared && !m.friend && !m.archived; });
@@ -6443,9 +6443,9 @@ async function openFriendPanel() {
     '<div style="margin-bottom:16px;">' + inviteHtml + '</div>' +
     '<div style="margin-bottom:16px;padding-top:14px;border-top:1px dashed var(--border);">' +
       '<h3 style="font-size:14px;margin:0 0 6px;">组队打卡</h3>' + teamHtml + '</div>' +
-    '<div style="background:var(--hover-brand);color:var(--brand-text);border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.6;margin-bottom:14px;">💡 体重页「体重曲线」旁的「🏆 竞赛结果」会把你、家庭成员和好友开放的成员放进同一张排行榜，按打卡天数、减重幅度、稳定性综合排名。</div>' +
+    '<div style="background:var(--hover-brand);color:var(--brand-text);border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.6;margin-bottom:14px;">💡 在体重页「体重曲线」旁边点「🏆 竞赛结果」，能看到一张排行榜：你、你的家人、还有好友开放的成员都在上面，按打卡天数、减了多少、稳不稳定来排名。</div>' +
     '<h3 style="font-size:14px;margin:0 0 4px;">谁对好友可见</h3>' +
-    '<p class="muted" style="font-size:12px;line-height:1.6;margin:0 0 6px;">成为好友时已自动开放你最早创建的成员（通常即本人）；其他家庭成员默认隐藏，在这里手动开放才会被好友看到，也可关闭本人成员的开放。当前已开放 ' + visibleCount + ' 个。</p>' +
+    '<p class="muted" style="font-size:12px;line-height:1.6;margin:0 0 6px;">加好友时，系统已自动把你最早建的那条档案（一般就是你本人）开放给好友看了；其他家人的档案默认藏着，在这里手动打开后好友才能看到，也可以把本人的关掉。当前开放了 ' + visibleCount + ' 条。</p>' +
     memHtml +
     '<h3 style="font-size:14px;margin:14px 0 6px;">我的好友</h3>' + flist);
   var gen = document.getElementById('fGenInvite');
@@ -6466,7 +6466,7 @@ window.fCopyInvite = function(){
   try { document.execCommand('copy'); alertModal('已复制'); } catch(e){ alertModal('请手动复制', {ok:false}); }
 };
 window.fResetInvite = function(){
-  confirmModal('重置邀请链接', '重置后旧链接立即失效（已添加的好友保留），确认？', async function(){
+  confirmModal('重置邀请链接', '重置后旧链接马上作废，已经加上的好友不受影响。确认重置？', async function(){
     try { await api('/api/weight/friend-invite', { method:'POST', body:{ reset:true } }); closeModal(); await openFriendPanel(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
@@ -6478,21 +6478,21 @@ window.fCopyTeam = function(){
   try { document.execCommand('copy'); alertModal('已复制'); } catch(e){ alertModal('请手动复制', {ok:false}); }
 };
 window.fResetTeam = function(){
-  confirmModal('重置组队链接', '重置后旧链接立即失效（队内成员与互见关系保留），确认？', async function(){
+  confirmModal('重置组队链接', '重置后旧链接马上作废，队里的人和互相可见的关系都保留。确认重置？', async function(){
     try { await api('/api/weight/team', { method:'POST', body:{ reset:true } }); closeModal(); await openFriendPanel(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
 // 队长踢人：移出队伍并解除其与队内所有人的好友关系
 window.fKick = function(uid){
-  confirmModal('踢出队员', '踢出后对方立即移出本队，并解除其与队内所有人的好友关系（曲线互见消失）；其在其他组队的关系不受影响，重新打开本队链接可再次加入。确认踢出？', async function(){
+  confirmModal('踢出队员', '踢出后，对方立刻退出本队，和队里所有人的好友关系也一起解除（互相看不到曲线了）。他在别的组队里的关系不受影响，以后重新打开本队链接还能再加回来。确认踢出？', async function(){
     try { await api('/api/weight/team/members/' + uid, { method:'DELETE' }); closeModal(); await openFriendPanel(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
 // 队长解散：删队、链接失效、队内两两好友关系全部解除
 window.fDissolve = function(){
-  confirmModal('解散队伍', '解散后组队链接立即失效，队内全部好友关系都会解除、彼此不再互见；队员在其他组队的关系不受影响。确认解散？', async function(){
+  confirmModal('解散队伍', '解散后，组队链接马上作废，队里所有人的好友关系全部解除、彼此再也看不到曲线。大家在其他组队里的关系不受影响。确认解散？', async function(){
     try { await api('/api/weight/team', { method:'DELETE' }); closeModal(); await openFriendPanel(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
@@ -6517,8 +6517,8 @@ if (fFriendBtn) fFriendBtn.addEventListener('click', function(){
   var token = new URLSearchParams(location.search).get('wlink');
   if (!token) return;
   try { history.replaceState(null, '', location.pathname); } catch(e){}
-  confirmModal('接受体重好友邀请',
-    '接受后，你和邀请人成为体重好友，双方默认互见各自本人成员（最早创建的那个）的体重曲线，仅可读、不能替对方录入；其他家庭成员默认隐藏，之后都可在「成员 → 👥 好友 → 谁对好友可见」里调整。',
+  confirmModal('接受好友邀请',
+    '加上好友后，你们俩就能互相看到对方的体重曲线——只能看，不能帮对方记体重。\\n默认只开放代表你自己的那条档案（一般就是你本人），家里其他人的档案对方看不到。\\n想改谁能看：点「👥 好友」→「谁对好友可见」。',
     async function(){
       try {
         var r = await api('/api/weight/friends/accept', { method:'POST', body:{ token: token } });
@@ -6534,8 +6534,8 @@ if (fFriendBtn) fFriendBtn.addEventListener('click', function(){
   var token = new URLSearchParams(location.search).get('tlink');
   if (!token) return;
   try { history.replaceState(null, '', location.pathname); } catch(e){}
-  confirmModal('加入体重组队',
-    '加入后，你将与同一组队链接里的所有人成为体重好友，默认互见各自本人成员（最早创建的那个）的体重曲线，仅可读、不能替对方录入；其他家庭成员默认隐藏，之后都可在「成员 → 👥 好友 → 谁对好友可见」里调整，也可在「我的好友」里单独解除与某人的关系。',
+  confirmModal('加入组队',
+    '加入后，凡是用这个链接进来的人，都会自动互相加好友、互相看到体重曲线——只能看，不能帮别人记体重。\\n每个人默认只开放代表自己的那条档案（一般就是本人），其他家人默认藏着。\\n不想让某人看？之后在「👥 好友」里单独跟他解除好友就行。',
     async function(){
       try {
         var r = await api('/api/weight/team/join', { method:'POST', body:{ token: token } });
