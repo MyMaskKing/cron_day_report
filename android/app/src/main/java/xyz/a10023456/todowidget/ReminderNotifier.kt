@@ -32,6 +32,9 @@ object ReminderNotifier {
     // 任务闹钟刚响后的避让窗口：窗口内不发每日提醒，避免与闹钟铃声/抬头通知互相打断
     private const val FIRE_GUARD_MS = 5 * 60 * 1000L
 
+    // InboxStyle 展开后系统可见行数上限（各 ROM 约 5~6 行，超出部分系统直接截断）
+    private const val MAX_INBOX_LINES = 6
+
     fun check(context: Context, refreshedIds: List<Int>) {
         if (refreshedIds.isEmpty() || !hasNotificationPermission(context)) return
         // 本次跳过且不标记已发，等下一次刷新（15 分钟周期或打开 App）自动补发
@@ -44,11 +47,13 @@ object ReminderNotifier {
         when {
             now >= morningStart && now.isBefore(eveningStart) -> {
                 val text = morningText(snapshot.todayCount, snapshot.overdueCount) ?: return
-                show(context, TYPE_MORNING, NOTIFICATION_MORNING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, true, snapshot.todayCount > 0)
+                show(context, TYPE_MORNING, NOTIFICATION_MORNING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, true, snapshot.todayCount > 0,
+                    inboxLines = reminderLines(snapshot.items, evening = false))
             }
             now >= eveningStart -> {
                 val text = eveningText(snapshot.tomorrowCount, snapshot.overdueCount) ?: return
-                show(context, TYPE_EVENING, NOTIFICATION_EVENING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, snapshot.overdueCount > 0, false)
+                show(context, TYPE_EVENING, NOTIFICATION_EVENING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, snapshot.overdueCount > 0, false,
+                    inboxLines = reminderLines(snapshot.items, evening = true))
             }
         }
     }
@@ -58,7 +63,16 @@ object ReminderNotifier {
         val todayCount: Int,
         val overdueCount: Int,
         val tomorrowCount: Int,
-        val accountWidgetIds: List<Int>
+        val accountWidgetIds: List<Int>,
+        val items: List<ReminderItem>
+    )
+
+    /** 通知展开明细行的原始素材：来自小组件缓存 groups 内的叶子任务。 */
+    private data class ReminderItem(
+        val title: String,
+        val dueLabel: String,
+        val overdue: Boolean,
+        val owner: String
     )
 
     private fun reminderSnapshot(context: Context, refreshedIds: List<Int>): ReminderSnapshot {
@@ -68,6 +82,7 @@ object ReminderNotifier {
         var tomorrowCount = 0
         val seenAccounts = HashSet<String>()
         val accountWidgetIds = mutableListOf<Int>()
+        val items = mutableListOf<ReminderItem>()
 
         for (id in refreshedIds) {
             val data = WidgetRepo.cached(context, id) ?: continue
@@ -81,9 +96,16 @@ object ReminderNotifier {
             todayCount += data.stats.today
             overdueCount += data.stats.overdue
             tomorrowCount += data.stats.tomorrow
+
+            // 明细与计数同账号去重口径；groups 受小组件 scope 过滤，渲染时再按通知口径筛
+            for (group in data.groups) {
+                for (item in group.children) {
+                    items.add(ReminderItem(item.title, item.due_label, item.overdue, owner))
+                }
+            }
         }
 
-        return ReminderSnapshot(today, todayCount, overdueCount, tomorrowCount, accountWidgetIds)
+        return ReminderSnapshot(today, todayCount, overdueCount, tomorrowCount, accountWidgetIds, items)
     }
 
     fun showTest(context: Context) {
@@ -145,7 +167,8 @@ object ReminderNotifier {
             snapshot.accountWidgetIds,
             enableComplete = enableComplete,
             enablePostpone = enablePostpone,
-            markSent = false
+            markSent = false,
+            inboxLines = reminderLines(snapshot.items, isEvening)
         )
     }
 
@@ -195,6 +218,27 @@ object ReminderNotifier {
         else -> null
     }
 
+    /**
+     * 组装通知展开后的明细行：逾期项在前（⚠️ 前缀），今日项在后；晚档只保留逾期项
+     * （widget 缓存不含明日任务明细）。groups 受小组件 scope 影响——all 口径会混入未来/
+     * 无日期任务，故今日项用 overdue 布尔取反 + due_label 含「今天」双重过滤，
+     * 与计数句（stats 全量口径）保持一致；多账号时行首加 [昵称] 前缀。
+     */
+    private fun reminderLines(items: List<ReminderItem>, evening: Boolean): List<String> {
+        val multiAccount = items.map { it.owner }.distinct().size > 1
+        val overdueItems = items.filter { it.overdue }
+        val todayItems = if (evening) {
+            emptyList()
+        } else {
+            items.filter { !it.overdue && it.dueLabel.contains("今天") }
+        }
+        return (overdueItems + todayItems).map {
+            val ownerPrefix = if (multiAccount) "[${it.owner}] " else ""
+            val overduePrefix = if (it.overdue) "⚠️ " else ""
+            "$overduePrefix$ownerPrefix${it.title}"
+        }
+    }
+
     private fun show(
         context: Context,
         type: String,
@@ -205,11 +249,12 @@ object ReminderNotifier {
         accountWidgetIds: List<Int>,
         enableComplete: Boolean,
         enablePostpone: Boolean,
-        markSent: Boolean = true
+        markSent: Boolean = true,
+        inboxLines: List<String> = emptyList()
     ) {
         if (!hasNotificationPermission(context) || (markSent && Prefs.getReminderSentDate(context, type) == date)) return
         createChannel(context)
-        val builder = buildNotification(context, notificationId, title, text)
+        val builder = buildNotification(context, notificationId, title, text, inboxLines)
         if (enableComplete && accountWidgetIds.isNotEmpty()) {
             builder.addAction(
                 R.drawable.ic_notification,
@@ -232,7 +277,8 @@ object ReminderNotifier {
         context: Context,
         notificationId: Int,
         title: String,
-        text: String
+        text: String,
+        inboxLines: List<String> = emptyList()
     ): NotificationCompat.Builder {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -246,12 +292,22 @@ object ReminderNotifier {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        // 有明细行时挂 InboxStyle：折叠态仍显示 contentText 计数句，展开逐条列任务；
+        // 无明细（晚档纯明日预告/操作结果通知）维持原 BigTextStyle
+        val style = if (inboxLines.isEmpty()) {
+            NotificationCompat.BigTextStyle().bigText(text)
+        } else {
+            NotificationCompat.InboxStyle().apply {
+                inboxLines.take(MAX_INBOX_LINES).forEach { addLine(it) }
+                setSummaryText(text)
+            }
+        }
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(0xFFC026D3.toInt())
             .setContentTitle(title)
             .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setStyle(style)
             .apply { if (pendingIntent != null) setContentIntent(pendingIntent) }
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
