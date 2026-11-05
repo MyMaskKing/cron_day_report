@@ -436,6 +436,7 @@ var ICONS = {
   warn: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   // 完成对勾 (圆圈+勾): 用于 done-at chip
   check_circle: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
   // 完成 (纯对勾): 用于按钮 label
   check: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>',
   // 撤销/回退箭头
@@ -14074,8 +14075,8 @@ async function openTodoDetail(node, opts) {
   var creatorName = node.created_by_name || '';
   var comerName = node.done_by_name || '';
   var timeRows = [];
-  if (created) timeRows.push('<span>🕒 创建：' + esc(created) + (creatorName ? ' · ' + esc(creatorName) : '') + '</span>');
-  if (node.done && node.done_at) timeRows.push('<span> ☑ 完成：' + esc(node.done_at) + (comerName ? ' · ' + esc(comerName) : '') + '</span>');
+  if (created) timeRows.push('<span>' + ICONS.clock + '创建：' + esc(created) + (creatorName ? ' · ' + esc(creatorName) : '') + '</span>');
+  if (node.done && node.done_at) timeRows.push('<span>' + ICONS.check_circle + '完成：' + esc(node.done_at) + (comerName ? ' · ' + esc(comerName) : '') + '</span>');
   var timesHtml = timeRows.length ? '<div class="td-times">' + timeRows.join('') + '</div>' : '';
   var body =
     '<div class="td-title">' + (node._ghost === 1 ? '🔒 ' : '') + esc(node.title) + '</div>' +
