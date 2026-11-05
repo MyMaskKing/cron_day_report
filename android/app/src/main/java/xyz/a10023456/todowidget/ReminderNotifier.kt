@@ -304,7 +304,7 @@ object ReminderNotifier {
 
     /**
      * 拍平为任务行（由 buildNotification 用 \n 拼进 BigTextStyle，长内容自动折行不省略）：
-     * 先按状态聚拢（逾期→今日→明日，sortedBy 稳定保同态原序），每条叶子渲染一行；
+     * 先按状态聚拢（逾期→今日→明日，sortedBy 稳定保同态原序），每条叶子渲染一行，行首按状态挂 🔴/🔵/🟢；
      * 超 [MAX_INBOX_LINES] 时前 N-1 行放任务、末行放引导；多账号行内带 [昵称]。
      */
     private fun reminderLines(context: Context, groups: List<ReminderGroup>): List<CharSequence> {
@@ -317,13 +317,14 @@ object ReminderNotifier {
         val lines = rows.map { (owner, leaf) -> buildLine(context, leaf, owner) }
         if (lines.size <= MAX_INBOX_LINES) return lines
         val hidden = lines.size - (MAX_INBOX_LINES - 1)
-        return lines.take(MAX_INBOX_LINES - 1) + buildHintLine("还有 $hidden 件，点击查看全部 ›")
+        return lines.take(MAX_INBOX_LINES - 1) + buildHintLine("还有 $hidden 件，点击查看全部 ➡️")
     }
 
     /**
-     * 单任务行结构：状态色点 → [昵称]? → 叶子标题（加粗）→ 日期纯文字（状态色）→ › 灰色直接父级。
+     * 单任务行结构：状态色点（🔴逾期/🔵今日/🟢明日）→ [昵称]? → 叶子标题（加粗）
+     * → 日期标签【】（逾期前缀 ⚠️，整段状态色）→ ➡️ 灰色直接父级。
      * 逻辑上一条一行，BigTextStyle 承载时过长自动折行；日期剥离服务端徽章的 emoji 前缀
-     * （取首个空格之后），无日期/无父级的段整体不占位。
+     * （取首个空格之后）再包全角括号，无日期/无父级的段整体不占位。
      */
     private fun buildLine(context: Context, leaf: ReminderLeaf, owner: String?): CharSequence {
         val dark = isSystemDark(context)
@@ -345,11 +346,13 @@ object ReminderNotifier {
             android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         if (leaf.dueLabel.isNotEmpty()) {
-            // 服务端徽章形如「⚠️ 逾期 昨天」「📅 明天」，取首个空格之后即纯文字日期
+            // 服务端徽章形如「⚠️ 逾期 昨天」「📅 明天」，取首个空格之后即纯文字日期；
+            // 全角【】包成标签，逾期在标签前再加 ⚠️，整段统一染状态色
             val plainDate = leaf.dueLabel.substringAfter(' ', leaf.dueLabel)
             val start = builder.length
             builder.append(' ')
-            builder.append(plainDate)
+            if (leaf.status == LeafStatus.OVERDUE) builder.append("⚠️")
+            builder.append("[$plainDate]")
             val dateColor = when (leaf.status) {
                 LeafStatus.OVERDUE -> if (dark) OVERDUE_RED_DARK else OVERDUE_RED_LIGHT
                 LeafStatus.TODAY -> if (dark) TODAY_BLUE_DARK else TODAY_BLUE_LIGHT
@@ -363,7 +366,7 @@ object ReminderNotifier {
         }
         if (leaf.parent.isNotEmpty()) {
             val start = builder.length
-            builder.append(" › ")
+            builder.append(" ➡️ ")
             builder.append(leaf.parent)
             builder.setSpan(
                 android.text.style.ForegroundColorSpan(if (dark) META_GRAY_DARK else META_GRAY_LIGHT),
