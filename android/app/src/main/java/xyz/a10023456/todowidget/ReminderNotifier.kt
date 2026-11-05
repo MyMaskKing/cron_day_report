@@ -32,7 +32,7 @@ object ReminderNotifier {
     // 任务闹钟刚响后的避让窗口：窗口内不发每日提醒，避免与闹钟铃声/抬头通知互相打断
     private const val FIRE_GUARD_MS = 5 * 60 * 1000L
 
-    // InboxStyle 单行上限：各 ROM 约 5~6 行，超出部分系统直接截断；超限时前 N-1 行放任务、末行放引导
+    // 通知内任务条数上限（BigTextStyle 按逻辑条计，每条物理上可折成多行）；超限前 N-1 条放任务、末行放引导
     private const val MAX_INBOX_LINES = 6
 
     // 状态文字色：与 WidgetUi 的 W(dark).overdue/today 同源；绿色为明日态新增，跟随系统深浅色
@@ -303,8 +303,9 @@ object ReminderNotifier {
     }
 
     /**
-     * 拍平为 InboxStyle 单行：先按状态聚拢（逾期→今日→明日，sortedBy 稳定保同态原序），
-     * 每条叶子渲染一行；超 [MAX_INBOX_LINES] 时前 N-1 行放任务、末行放引导；多账号行内带 [昵称]。
+     * 拍平为任务行（由 buildNotification 用 \n 拼进 BigTextStyle，长内容自动折行不省略）：
+     * 先按状态聚拢（逾期→今日→明日，sortedBy 稳定保同态原序），每条叶子渲染一行；
+     * 超 [MAX_INBOX_LINES] 时前 N-1 行放任务、末行放引导；多账号行内带 [昵称]。
      */
     private fun reminderLines(context: Context, groups: List<ReminderGroup>): List<CharSequence> {
         if (groups.isEmpty()) return emptyList()
@@ -320,8 +321,9 @@ object ReminderNotifier {
     }
 
     /**
-     * 单行结构：状态色点 → [昵称]? → 叶子标题（加粗）→ 日期纯文字（状态色）→ › 灰色直接父级。
-     * 日期剥离服务端徽章的 emoji 前缀（取首个空格之后），无日期/无父级的段整体不占位。
+     * 单任务行结构：状态色点 → [昵称]? → 叶子标题（加粗）→ 日期纯文字（状态色）→ › 灰色直接父级。
+     * 逻辑上一条一行，BigTextStyle 承载时过长自动折行；日期剥离服务端徽章的 emoji 前缀
+     * （取首个空格之后），无日期/无父级的段整体不占位。
      */
     private fun buildLine(context: Context, leaf: ReminderLeaf, owner: String?): CharSequence {
         val dark = isSystemDark(context)
@@ -443,15 +445,21 @@ object ReminderNotifier {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        // 有明细行时挂 InboxStyle：每条任务严格一行（超长系统省略号），行内 Span（加粗/状态色/灰父级）生效；
-        // 折叠态仍显示 contentText 计数句，summary 放同句兜底。无明细（操作结果通知等）退化为纯文本 BigTextStyle。
+        // 明细统一挂 BigTextStyle：各任务行用 \n 拼接（append CharSequence 保留每行 Span），
+        // 长标题/父级自动折行完整显示，不做 InboxStyle 的单行省略号；
+        // 折叠态仍显示 contentText 计数句，summary 放同句兜底。
         // 显式声明 Style 统一两分支类型；显式 receiver 构建，不用 apply 嵌套（隐式 this 编译解析失败）
         val style: NotificationCompat.Style = if (inboxLines.isEmpty()) {
             NotificationCompat.BigTextStyle().bigText(text)
         } else {
-            val inboxStyle = NotificationCompat.InboxStyle()
-            inboxLines.forEach { line -> inboxStyle.addLine(line) }
-            inboxStyle.setSummaryText(text)
+            val bigText = android.text.SpannableStringBuilder()
+            inboxLines.forEachIndexed { index, line ->
+                if (index > 0) bigText.append("\n")
+                bigText.append(line)
+            }
+            NotificationCompat.BigTextStyle()
+                .bigText(bigText)
+                .setSummaryText(text)
         }
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
