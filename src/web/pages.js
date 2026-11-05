@@ -1341,7 +1341,7 @@ function todoPage(user) {
           </span>
         </span>
         <input type="checkbox" id="hideDone" checked hidden>
-      <button class="btn sm gray" id="displayOpts">${ICO_SLIDERS}显示 ▾</button>
+      <button class="btn sm gray" id="displayOpts" title="显示选项">${ICO_SLIDERS}<span class="todo-display-btn__txt">显示 ▾</span></button>
       </h2>
       <div class="todo-range todo-filter" id="todoFilter">
         <button data-filter="all">全部</button>

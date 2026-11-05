@@ -3133,6 +3133,9 @@ body { padding-bottom: var(--kb-inset, 0px); }
   }
   .todo-card-head__bar-scroll::-webkit-scrollbar { display: none; }
   .todo-card-head__bar-scroll > * { flex-shrink: 0; }
+  /* 「显示」按钮窄屏只留图标, 避免文字挤占横向滑动区; SVG 的 margin-right 是内联样式, 需 !important 覆盖 */
+  #displayOpts .todo-display-btn__txt { display: none; }
+  #displayOpts svg { margin-right: 0 !important; }
 }
 
 /* ============ 侧边抽屉（分类目录） ============ */
