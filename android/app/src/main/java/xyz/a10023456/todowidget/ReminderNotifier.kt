@@ -32,12 +32,17 @@ object ReminderNotifier {
     // 任务闹钟刚响后的避让窗口：窗口内不发每日提醒，避免与闹钟铃声/抬头通知互相打断
     private const val FIRE_GUARD_MS = 5 * 60 * 1000L
 
-    // InboxStyle 展开后系统可见行数上限（各 ROM 约 5~6 行，超出部分系统直接截断）
-    private const val MAX_INBOX_LINES = 6
+    // BigTextStyle 展开后最多展示的任务块数（每块标题行+可选 meta 行，占 1~2 物理行）；
+    // 超出的任务折进末行引导提示，避免通知展开高度被系统截断
+    private const val MAX_DETAIL_BLOCKS = 5
 
     // 逾期徽章文字色：与 WidgetUi 的 W(dark).overdue 同源，跟随系统深浅色
     private const val OVERDUE_RED_LIGHT = 0xFFCF1322.toInt()
     private const val OVERDUE_RED_DARK = 0xFFFF6B6B.toInt()
+
+    // 父级等次要信息灰色：通知正文的弱化色，跟随系统深浅色
+    private const val META_GRAY_LIGHT = 0xFF8A8F99.toInt()
+    private const val META_GRAY_DARK = 0xFFA9ADB6.toInt()
 
     // 超限引导行颜色：与通知 accent（setColor）同品牌紫
     private const val HINT_PURPLE = 0xFFC026D3.toInt()
@@ -55,13 +60,13 @@ object ReminderNotifier {
             now >= morningStart && now.isBefore(eveningStart) -> {
                 val text = morningText(snapshot.todayCount, snapshot.overdueCount) ?: return
                 show(context, TYPE_MORNING, NOTIFICATION_MORNING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, true, snapshot.todayCount > 0,
-                    inboxLines = reminderLines(context, snapshot.morningGroups))
+                    detailBlocks = reminderBlocks(context, snapshot.morningGroups))
             }
             now >= eveningStart -> {
                 val text = eveningText(snapshot.tomorrowCount, snapshot.overdueCount) ?: return
-                // 逾期组在前、明日组在后；6 行截断时自然先截明日组尾部，逾期优先保留
+                // 逾期组在前、明日组在后；超块数截断时自然先截明日组尾部，逾期优先保留
                 show(context, TYPE_EVENING, NOTIFICATION_EVENING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, snapshot.overdueCount > 0, false,
-                    inboxLines = reminderLines(context, snapshot.eveningGroups + snapshot.tomorrowGroups))
+                    detailBlocks = reminderBlocks(context, snapshot.eveningGroups + snapshot.tomorrowGroups))
             }
         }
     }
@@ -77,19 +82,20 @@ object ReminderNotifier {
         val tomorrowGroups: List<ReminderGroup>
     )
 
-    /** 通知树状分组：solo=true 时 leaves 为空，标题行即任务本身（无子任务的独立任务）。 */
+    /** 通知分组：仅携带账号 owner 与其下通过口径过滤的叶子，渲染时拍平为任务块。 */
     private data class ReminderGroup(
-        val title: String,
-        val ownDueLabel: String,
-        val solo: Boolean,
         val owner: String,
         val leaves: List<ReminderLeaf>
     )
 
-    /** 组内叶子：ownDueLabel 仅在叶子自身绑定日期时非空，继承日期为空串。 */
+    /**
+     * 叶子渲染素材：dueLabel 为有效日期徽章（自身优先否则继承，保证主任务逾期时叶子也能看到日期）；
+     * parent 只取直接上一级（path 末级，为空时回退组标题），solo 独立任务为空串表示无父级行。
+     */
     private data class ReminderLeaf(
         val title: String,
-        val ownDueLabel: String
+        val dueLabel: String,
+        val parent: String
     )
 
     private fun reminderSnapshot(context: Context, refreshedIds: List<Int>): ReminderSnapshot {
@@ -199,7 +205,7 @@ object ReminderNotifier {
             enableComplete = enableComplete,
             enablePostpone = enablePostpone,
             markSent = false,
-            inboxLines = reminderLines(
+            detailBlocks = reminderBlocks(
                 context,
                 if (isEvening) snapshot.eveningGroups + snapshot.tomorrowGroups
                 else snapshot.morningGroups
@@ -256,16 +262,18 @@ object ReminderNotifier {
     /** 普通 groups 的通知口径过滤：早档收逾期或今日叶子，晚档仅收逾期叶子；组内无候选则整组隐藏。 */
     private fun filterGroup(group: WidgetGroup, owner: String, evening: Boolean): ReminderGroup? {
         if (!group.collapsible) {
-            // solo 组（无子任务的独立任务，服务端回退根自身一行）：按该行有效日期过滤
+            // solo 组（无子任务的独立任务，服务端回退根自身一行）：按该行有效日期过滤，parent 留空不渲染父级
             val item = group.children.firstOrNull() ?: return null
             if (!reminderLeafPass(item, evening)) return null
-            return ReminderGroup(group.title, group.own_due_label, solo = true, owner = owner, leaves = emptyList())
+            return ReminderGroup(owner, listOf(ReminderLeaf(item.title, item.due_label, parent = "")))
         }
         val leaves = group.children.mapNotNull { item ->
-            if (reminderLeafPass(item, evening)) ReminderLeaf(item.title, item.own_due_label) else null
+            if (!reminderLeafPass(item, evening)) return@mapNotNull null
+            // 只显示直接上一级：path 末级；root 直属叶子（path 为空）回退组标题
+            ReminderLeaf(item.title, item.due_label, item.path.lastOrNull() ?: group.title)
         }
         if (leaves.isEmpty()) return null
-        return ReminderGroup(group.title, group.own_due_label, solo = false, owner = owner, leaves = leaves)
+        return ReminderGroup(owner, leaves)
     }
 
     /** 晚档只看逾期；早档看逾期或今日（due_label 含「今天」，规避 all scope 混入的未来/无日期项）。 */
@@ -275,100 +283,84 @@ object ReminderNotifier {
     /** 明日组：服务端已把叶子有效日期限定为明天，端上不再过滤，整组转换。 */
     private fun tomorrowGroup(group: WidgetGroup, owner: String): ReminderGroup {
         if (!group.collapsible) {
-            return ReminderGroup(group.title, group.own_due_label, solo = true, owner = owner, leaves = emptyList())
+            val item = group.children.firstOrNull() ?: return ReminderGroup(owner, emptyList())
+            return ReminderGroup(owner, listOf(ReminderLeaf(item.title, item.due_label, parent = "")))
         }
-        val leaves = group.children.map { ReminderLeaf(it.title, it.own_due_label) }
-        return ReminderGroup(group.title, group.own_due_label, solo = false, owner = owner, leaves = leaves)
+        val leaves = group.children.map {
+            ReminderLeaf(it.title, it.due_label, it.path.lastOrNull() ?: group.title)
+        }
+        return ReminderGroup(owner, leaves)
     }
 
-    /** 通知行内一个文本片段：bold 加粗、overdue 染红、hint 品牌紫引导色（互斥时只取其一）。 */
-    private data class LineSegment(
-        val text: String,
-        val bold: Boolean = false,
-        val overdue: Boolean = false,
-        val hint: Boolean = false
-    )
-
     /**
-     * 方案 B 扁平面包屑拍平：每个叶子一行「主任务名 ｜ 叶子标题」，主任务名片段加粗；
-     * 主任务/叶子各自绑定的日期徽章跟在各自名称后（继承日期为空串不展示），逾期徽章染红；
-     * solo 组（无子任务的独立任务）单行、标题加粗。多账号时每行带 [昵称] 前缀。
-     * 总行数超 [MAX_INBOX_LINES] 时末行替换为引导提示（点击通知由 contentIntent 打开 App）。
+     * 拍平为 BigTextStyle 任务块：每个叶子一块（标题行 + 可选 meta 行），
+     * 超 [MAX_DETAIL_BLOCKS] 时末块替换为引导提示；多账号在标题行前加 [昵称]。
      */
-    private fun reminderLines(context: Context, groups: List<ReminderGroup>): List<CharSequence> {
+    private fun reminderBlocks(context: Context, groups: List<ReminderGroup>): List<CharSequence> {
         if (groups.isEmpty()) return emptyList()
         val multiAccount = groups.map { it.owner }.distinct().size > 1
-        val all = mutableListOf<CharSequence>()
-        for (group in groups) {
-            val ownerSeg = if (multiAccount) LineSegment("[${group.owner}] ") else null
-            if (group.solo) {
-                val segs = mutableListOf<LineSegment>()
-                ownerSeg?.let { segs.add(it) }
-                segs.add(LineSegment(group.title, bold = true))
-                labelSegment(group.ownDueLabel)?.let { segs.add(it) }
-                all.add(buildLine(context, segs))
-                continue
-            }
-            for (leaf in group.leaves) {
-                val segs = mutableListOf<LineSegment>()
-                ownerSeg?.let { segs.add(it) }
-                segs.add(LineSegment(group.title, bold = true))
-                labelSegment(group.ownDueLabel)?.let { segs.add(it) }
-                segs.add(LineSegment(" ｜ "))
-                segs.add(LineSegment(leaf.title))
-                labelSegment(leaf.ownDueLabel)?.let { segs.add(it) }
-                all.add(buildLine(context, segs))
-            }
+        val blocks = groups.flatMap { group ->
+            val owner = if (multiAccount) group.owner else null
+            group.leaves.map { leaf -> buildBlock(context, leaf, owner) }
         }
-        if (all.size <= MAX_INBOX_LINES) return all
-        // 前 N-1 行放任务，最后一行固定为引导；N 为被隐藏的任务行数
-        val hidden = all.size - (MAX_INBOX_LINES - 1)
-        val hint = buildLine(
-            context,
-            listOf(LineSegment("还有 $hidden 件，点击查看全部 ›", hint = true))
-        )
-        return all.take(MAX_INBOX_LINES - 1) + hint
+        if (blocks.size <= MAX_DETAIL_BLOCKS) return blocks
+        val hidden = blocks.size - MAX_DETAIL_BLOCKS
+        return blocks.take(MAX_DETAIL_BLOCKS) + buildHintBlock("还有 $hidden 件，点击查看全部 ›")
     }
 
-    /** 徽章转片段：空串返回 null 不占段；含「逾期」的片段渲染时染红。 */
-    private fun labelSegment(label: String): LineSegment? =
-        if (label.isEmpty()) null else LineSegment(labelSuffix(label), overdue = label.contains("逾期"))
-
     /**
-     * 按片段拼接一行通知文本并施加 Span：bold 段加粗、overdue 段染红、hint 段品牌紫。
-     * 全普通片段时直接返回 String，避免无谓包装；显式 receiver 构建，不用 apply 嵌套。
+     * 单个任务块：第一行 [昵称]? + 叶子标题（整行加粗，长标题由 BigTextStyle 自动折行不截断）；
+     * 第二行 meta：日期徽章（逾期染红）+ 灰色「上一级：父级」，两者皆空则不出第二行。
      */
-    private fun buildLine(context: Context, segments: List<LineSegment>): CharSequence {
-        val needSpan = segments.any { it.bold || it.overdue || it.hint }
-        if (!needSpan) return segments.joinToString("") { it.text }
-        val red = if (isSystemDark(context)) OVERDUE_RED_DARK else OVERDUE_RED_LIGHT
+    private fun buildBlock(context: Context, leaf: ReminderLeaf, owner: String?): CharSequence {
         val builder = android.text.SpannableStringBuilder()
-        for (seg in segments) {
+        val titleStart = builder.length
+        if (owner != null) builder.append("[$owner] ")
+        builder.append(leaf.title)
+        builder.setSpan(
+            // StyleSpan/ForegroundColorSpan 在 android.text.style 子包；Builder 才在 android.text
+            android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
+            titleStart, builder.length,
+            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        if (leaf.dueLabel.isEmpty() && leaf.parent.isEmpty()) return builder
+
+        builder.append("\n")
+        val dark = isSystemDark(context)
+        if (leaf.dueLabel.isNotEmpty()) {
             val start = builder.length
-            builder.append(seg.text)
-            val end = builder.length
-            if (seg.bold) {
-                // StyleSpan/ForegroundColorSpan 在 android.text.style 子包；Builder 才在 android.text
+            builder.append(leaf.dueLabel)
+            if (leaf.dueLabel.contains("逾期")) {
+                val red = if (dark) OVERDUE_RED_DARK else OVERDUE_RED_LIGHT
                 builder.setSpan(
-                    android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
-                    start, end,
+                    android.text.style.ForegroundColorSpan(red),
+                    start, builder.length,
                     android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
             }
-            val color = when {
-                seg.overdue -> red
-                seg.hint -> HINT_PURPLE
-                else -> 0
-            }
-            if (color != 0) {
-                builder.setSpan(
-                    android.text.style.ForegroundColorSpan(color),
-                    start, end,
-                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
+            if (leaf.parent.isNotEmpty()) builder.append("  ")
+        }
+        if (leaf.parent.isNotEmpty()) {
+            val start = builder.length
+            builder.append("上一级：${leaf.parent}")
+            builder.setSpan(
+                android.text.style.ForegroundColorSpan(if (dark) META_GRAY_DARK else META_GRAY_LIGHT),
+                start, builder.length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
         }
         return builder
+    }
+
+    /** 超限引导块：品牌紫单行，点击行为复用通知 contentIntent（打开 App /todo），无需新 PendingIntent。 */
+    private fun buildHintBlock(text: String): CharSequence {
+        val spannable = android.text.SpannableString(text)
+        spannable.setSpan(
+            android.text.style.ForegroundColorSpan(HINT_PURPLE),
+            0, spannable.length,
+            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        return spannable
     }
 
     /** 系统是否处于深色模式（通知由 SystemUI 渲染，跟随系统配色而非 App 内主题）。 */
@@ -377,9 +369,6 @@ object ReminderNotifier {
             android.content.res.Configuration.UI_MODE_NIGHT_MASK
         return mode == android.content.res.Configuration.UI_MODE_NIGHT_YES
     }
-
-    /** 徽章非空时前置一个空格拼接，空串不占位。 */
-    private fun labelSuffix(label: String): String = if (label.isNotEmpty()) " $label" else ""
 
     private fun show(
         context: Context,
@@ -392,11 +381,11 @@ object ReminderNotifier {
         enableComplete: Boolean,
         enablePostpone: Boolean,
         markSent: Boolean = true,
-        inboxLines: List<CharSequence> = emptyList()
+        detailBlocks: List<CharSequence> = emptyList()
     ) {
         if (!hasNotificationPermission(context) || (markSent && Prefs.getReminderSentDate(context, type) == date)) return
         createChannel(context)
-        val builder = buildNotification(context, notificationId, title, text, inboxLines)
+        val builder = buildNotification(context, notificationId, title, text, detailBlocks)
         if (enableComplete && accountWidgetIds.isNotEmpty()) {
             builder.addAction(
                 R.drawable.ic_notification,
@@ -420,7 +409,7 @@ object ReminderNotifier {
         notificationId: Int,
         title: String,
         text: String,
-        inboxLines: List<CharSequence> = emptyList()
+        detailBlocks: List<CharSequence> = emptyList()
     ): NotificationCompat.Builder {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -434,16 +423,21 @@ object ReminderNotifier {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        // 有明细行时挂 InboxStyle：折叠态仍显示 contentText 计数句，展开逐条列任务；
-        // 无明细（晚档纯明日预告/操作结果通知）维持原 BigTextStyle。
-        // 用显式局部变量 + 显式 receiver 调用，不在 apply 嵌套 lambda 里靠隐式 this 调
-        // addLine/setSummaryText（该结构编译器解析失败）；显式声明 Style 统一两分支类型
-        val style: NotificationCompat.Style = if (inboxLines.isEmpty()) {
+        // 有任务块时挂 BigTextStyle：块间换行拼接（append CharSequence 会保留各自 Span），
+        // 长标题自动折行完整显示；折叠态仍显示 contentText 计数句，summary 放同句兜底。
+        // 无明细（操作结果通知等）退化为纯文本 BigTextStyle。
+        // 显式声明 Style 统一两分支类型；显式 receiver 构建，不用 apply 嵌套（隐式 this 编译解析失败）
+        val style: NotificationCompat.Style = if (detailBlocks.isEmpty()) {
             NotificationCompat.BigTextStyle().bigText(text)
         } else {
-            val inboxStyle = NotificationCompat.InboxStyle()
-            inboxLines.take(MAX_INBOX_LINES).forEach { line -> inboxStyle.addLine(line) }
-            inboxStyle.setSummaryText(text)
+            val bigText = android.text.SpannableStringBuilder()
+            detailBlocks.forEachIndexed { index, block ->
+                if (index > 0) bigText.append("\n")
+                bigText.append(block)
+            }
+            NotificationCompat.BigTextStyle()
+                .bigText(bigText)
+                .setSummaryText(text)
         }
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
