@@ -348,7 +348,7 @@ object ReminderNotifier {
             val plainDate = leaf.dueLabel.substringAfter(' ', leaf.dueLabel)
                 .let { if (leaf.status == LeafStatus.OVERDUE) it.removePrefix("逾期 ") else it }
             val blockStart = builder.length
-            builder.append(' ▷ ')
+            builder.append(" ▷ ")
             builder.append(if (leaf.status == LeafStatus.OVERDUE) "❄" else "☼")
             builder.append(plainDate)
             if (leaf.parent.isNotEmpty()) {
