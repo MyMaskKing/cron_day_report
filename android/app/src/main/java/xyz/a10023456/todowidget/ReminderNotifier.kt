@@ -293,14 +293,15 @@ object ReminderNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         // 有明细行时挂 InboxStyle：折叠态仍显示 contentText 计数句，展开逐条列任务；
-        // 无明细（晚档纯明日预告/操作结果通知）维持原 BigTextStyle
-        val style = if (inboxLines.isEmpty()) {
+        // 无明细（晚档纯明日预告/操作结果通知）维持原 BigTextStyle。
+        // 用显式局部变量 + 显式 receiver 调用，不在 apply 嵌套 lambda 里靠隐式 this 调
+        // addLine/setSummaryText（该结构编译器解析失败）；显式声明 Style 统一两分支类型
+        val style: NotificationCompat.Style = if (inboxLines.isEmpty()) {
             NotificationCompat.BigTextStyle().bigText(text)
         } else {
-            NotificationCompat.InboxStyle().apply {
-                inboxLines.take(MAX_INBOX_LINES).forEach { addLine(it) }
-                setSummaryText(text)
-            }
+            val inboxStyle = NotificationCompat.InboxStyle()
+            inboxLines.take(MAX_INBOX_LINES).forEach { line -> inboxStyle.addLine(line) }
+            inboxStyle.setSummaryText(text)
         }
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
