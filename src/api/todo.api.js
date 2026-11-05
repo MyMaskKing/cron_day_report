@@ -1011,7 +1011,9 @@ async function buildWidgetPayload(storage, userId, url, touchLastPublic, scopePe
     owner_name: owner ? (owner.nickname || owner.username) : '',
     today,
     stats: countStats(rows, today),
-    groups: buildWidgetGroups(rows, today, scope, limit)
+    groups: buildWidgetGroups(rows, today, scope, limit),
+    // 明日到期明细独立于小组件 scope：同 rows 二次纯计算，供安卓晚档提醒展开，口径同 stats.tomorrow
+    tomorrow_groups: buildWidgetGroups(rows, today, 'tomorrow', limit)
   };
 }
 

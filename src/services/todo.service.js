@@ -251,13 +251,21 @@ function reminderActionTargets(rows, today) {
  * 叶子有效日期自身优先、否则继承最近祖先（child_due 新模式下子任务可各自带日期）
  * @param {Array} rows - storage.todo.listByUser 的扁平行
  * @param {string} today - YYYY-MM-DD（北京时区）
- * @param {'cur'|'today'|'overdue'|'all'} scope - 顶层过滤口径
+ * @param {'cur'|'today'|'overdue'|'all'|'tomorrow'} scope - 顶层过滤口径；tomorrow=有效日期恰为明天的叶子（晚档提醒明细，与 countStats.tomorrow 同口径）
  * @param {number} limit - 返回顶层分组数量上限
- * @returns {Array<{id:number,title:string,due_label:string,overdue:boolean,recurring:boolean,collapsible:boolean,children:Array<{id:number,title:string,path:Array<string>,due_label:string,overdue:boolean}>}>}
+ * @returns {Array<{id:number,title:string,due_label:string,own_due_label:string,overdue:boolean,recurring:boolean,collapsible:boolean,children:Array<{id:number,title:string,path:Array<string>,due_label:string,own_due_label:string,overdue:boolean}>}>}
+ *   due_label 为有效日期（自身优先否则继承）徽章；own_due_label 仅在任务自身绑定 due_date 时非空，继承日期为空串
  */
 function buildWidgetGroups(rows, today, scope, limit) {
   const trees = buildTree(rows);
   const pending = flattenPending(trees); // 仅保留仍有未完成叶子的顶层子树（已完成祖先整棵剔除）
+  // tomorrow 口径的明天日期：与 countStats 同公式（UTC 日历加一天）
+  let tomorrow = '';
+  if (today && scope === 'tomorrow') {
+    const d = new Date(today + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 1);
+    tomorrow = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  }
 
   // 收集某顶层子树下全部未完成叶子（flattenPending 已剪掉完成枝，保留下来的叶子均未完成），
   // 中间层级父任务不单列成行，只通过叶子的 path 小文字面包屑体现层级；根节点除外（根由分组标题承载）。
@@ -273,6 +281,7 @@ function buildWidgetGroups(rows, today, scope, limit) {
     if (scope === 'today') return ownDue === today;
     if (scope === 'cur') return !!(ownDue && today && ownDue <= today);
     if (scope === 'overdue') return !!(ownDue && today && ownDue < today);
+    if (scope === 'tomorrow') return ownDue === tomorrow;
     return true; // all
   };
   const itemsOf = (node) => {
@@ -284,9 +293,12 @@ function buildWidgetGroups(rows, today, scope, limit) {
       // child_due 空壳(任意层级)是分组容器, 不作为可勾选叶子下发
       if (!isRoot && n.children.length === 0 && !n.child_due && leafPass(ownDue)) {
         const over = !!(today && ownDue && ownDue < today);
+        const ownOver = !!(today && n.due_date && n.due_date < today);
         out.push({
           id: n.id, title: n.title, path: ancestors,
           due_label: ownDue ? todoDateBadge(ownDue, today, over) : '',
+          // 仅自身绑定 due_date 时给徽章；继承日期为空串，通知靠它做到「日期谁绑定显示在谁」
+          own_due_label: n.due_date ? todoDateBadge(n.due_date, today, ownOver) : '',
           overdue: over
         });
       }
@@ -299,9 +311,12 @@ function buildWidgetGroups(rows, today, scope, limit) {
       // 无符合叶子时回退根自身(旧模式主任务自身=叶子); child_due 空容器 node.due_date 为 null,
       // cur/overdue/today 下 leafPass(null)=false 不回退 → 组因 items 为空被跳过
       const over = !!(today && node.due_date && node.due_date < today);
+      // 回退行即根自身，自身 due_date 就是有效日期，own_due_label 与 due_label 同值
+      const rootLabel = node.due_date ? todoDateBadge(node.due_date, today, over) : '';
       out.push({
         id: node.id, title: node.title, path: [],
-        due_label: node.due_date ? todoDateBadge(node.due_date, today, over) : '',
+        due_label: rootLabel,
+        own_due_label: rootLabel,
         overdue: over
       });
       if (node.recurrence) hasRecur = true;
@@ -322,10 +337,13 @@ function buildWidgetGroups(rows, today, scope, limit) {
     // 待其添加子任务后 items 变为子任务叶子(首项 id ≠ root.id)自然出现。
     // 普通无日期主任务(备忘录) child_due 为假, 不受影响, 仍照常显示。
     if (root.child_due && items.length === 1 && items[0].id === root.id) continue;
+    const rootOwnOver = !!(today && root.due_date && root.due_date < today);
     groups.push({
       id: root.id,
       title: root.title,
       due_label: due ? todoDateBadge(due, today, overdue) : '',
+      // 主任务自身绑定日期才给徽章；空壳/备忘录主任务为空串，通知不在标题行显示日期
+      own_due_label: root.due_date ? todoDateBadge(root.due_date, today, rootOwnOver) : '',
       overdue,
       recurring: !!root.recurrence || hasRecur,
       // 共享分类任务(shared_cat_id 非空)标记; groups 结构其余不变, Android 旧版本自动忽略该字段

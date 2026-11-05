@@ -9,7 +9,9 @@ data class WidgetResponse(
     val owner_name: String? = null,
     val today: String? = null,
     val stats: WidgetStats = WidgetStats(),
-    val groups: List<WidgetGroup> = emptyList()
+    val groups: List<WidgetGroup> = emptyList(),
+    /** 明日到期分组（晚档提醒明细，独立于小组件 scope；旧后端不下发时为空列表） */
+    val tomorrow_groups: List<WidgetGroup> = emptyList()
 )
 
 @Serializable
@@ -35,6 +37,8 @@ data class WidgetGroup(
     val collapsible: Boolean = false,
     /** 投影祖先壳（别人个人树的主任务）：只读，标题加 🔒、不显示添子＋ */
     val ghost: Boolean = false,
+    /** 主任务自身绑定日期的徽章；自身未绑定时为空串（区别于 due_label 的聚合/继承口径）。 */
+    val own_due_label: String = "",
     val children: List<WidgetItem> = emptyList()
 )
 
@@ -46,6 +50,8 @@ data class WidgetItem(
     val path: List<String> = emptyList(),
     /** 有效截止日期标签（新模式子任务为自身日期；旧后端不下发时为空串，旧版 App 忽略不崩）。 */
     val due_label: String = "",
+    /** 自身绑定日期的徽章；日期继承自祖先时为空串，通知靠它避免日期重复展示。 */
+    val own_due_label: String = "",
     /** 是否逾期（未完成且过期），控制日期徽章颜色。 */
     val overdue: Boolean = false
 )

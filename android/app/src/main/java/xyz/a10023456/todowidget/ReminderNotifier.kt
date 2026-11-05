@@ -48,12 +48,13 @@ object ReminderNotifier {
             now >= morningStart && now.isBefore(eveningStart) -> {
                 val text = morningText(snapshot.todayCount, snapshot.overdueCount) ?: return
                 show(context, TYPE_MORNING, NOTIFICATION_MORNING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, true, snapshot.todayCount > 0,
-                    inboxLines = reminderLines(snapshot.items, evening = false))
+                    inboxLines = reminderLines(snapshot.morningGroups))
             }
             now >= eveningStart -> {
                 val text = eveningText(snapshot.tomorrowCount, snapshot.overdueCount) ?: return
+                // 逾期组在前、明日组在后；6 行截断时自然先截明日组尾部，逾期优先保留
                 show(context, TYPE_EVENING, NOTIFICATION_EVENING, snapshot.date, "待办提醒", text, snapshot.accountWidgetIds, snapshot.overdueCount > 0, false,
-                    inboxLines = reminderLines(snapshot.items, evening = true))
+                    inboxLines = reminderLines(snapshot.eveningGroups + snapshot.tomorrowGroups))
             }
         }
     }
@@ -64,15 +65,24 @@ object ReminderNotifier {
         val overdueCount: Int,
         val tomorrowCount: Int,
         val accountWidgetIds: List<Int>,
-        val items: List<ReminderItem>
+        val morningGroups: List<ReminderGroup>,
+        val eveningGroups: List<ReminderGroup>,
+        val tomorrowGroups: List<ReminderGroup>
     )
 
-    /** 通知展开明细行的原始素材：来自小组件缓存 groups 内的叶子任务。 */
-    private data class ReminderItem(
+    /** 通知树状分组：solo=true 时 leaves 为空，标题行即任务本身（无子任务的独立任务）。 */
+    private data class ReminderGroup(
         val title: String,
-        val dueLabel: String,
-        val overdue: Boolean,
-        val owner: String
+        val ownDueLabel: String,
+        val solo: Boolean,
+        val owner: String,
+        val leaves: List<ReminderLeaf>
+    )
+
+    /** 组内叶子：ownDueLabel 仅在叶子自身绑定日期时非空，继承日期为空串。 */
+    private data class ReminderLeaf(
+        val title: String,
+        val ownDueLabel: String
     )
 
     private fun reminderSnapshot(context: Context, refreshedIds: List<Int>): ReminderSnapshot {
@@ -82,7 +92,9 @@ object ReminderNotifier {
         var tomorrowCount = 0
         val seenAccounts = HashSet<String>()
         val accountWidgetIds = mutableListOf<Int>()
-        val items = mutableListOf<ReminderItem>()
+        val morningGroups = mutableListOf<ReminderGroup>()
+        val eveningGroups = mutableListOf<ReminderGroup>()
+        val tomorrowGroups = mutableListOf<ReminderGroup>()
 
         for (id in refreshedIds) {
             val data = WidgetRepo.cached(context, id) ?: continue
@@ -97,15 +109,21 @@ object ReminderNotifier {
             overdueCount += data.stats.overdue
             tomorrowCount += data.stats.tomorrow
 
-            // 明细与计数同账号去重口径；groups 受小组件 scope 过滤，渲染时再按通知口径筛
+            // 明细与计数同账号去重口径；普通 groups 受小组件 scope 过滤，按早/晚通知口径各筛一份；
+            // tomorrow_groups 服务端已限定有效日期=明天，端上整组收且不受 scope 影响
             for (group in data.groups) {
-                for (item in group.children) {
-                    items.add(ReminderItem(item.title, item.due_label, item.overdue, owner))
-                }
+                filterGroup(group, owner, evening = false)?.let { morningGroups.add(it) }
+                filterGroup(group, owner, evening = true)?.let { eveningGroups.add(it) }
+            }
+            for (group in data.tomorrow_groups) {
+                tomorrowGroups.add(tomorrowGroup(group, owner))
             }
         }
 
-        return ReminderSnapshot(today, todayCount, overdueCount, tomorrowCount, accountWidgetIds, items)
+        return ReminderSnapshot(
+            today, todayCount, overdueCount, tomorrowCount, accountWidgetIds,
+            morningGroups, eveningGroups, tomorrowGroups
+        )
     }
 
     fun showTest(context: Context) {
@@ -168,7 +186,10 @@ object ReminderNotifier {
             enableComplete = enableComplete,
             enablePostpone = enablePostpone,
             markSent = false,
-            inboxLines = reminderLines(snapshot.items, isEvening)
+            inboxLines = reminderLines(
+                if (isEvening) snapshot.eveningGroups + snapshot.tomorrowGroups
+                else snapshot.morningGroups
+            )
         )
     }
 
@@ -218,26 +239,69 @@ object ReminderNotifier {
         else -> null
     }
 
-    /**
-     * 组装通知展开后的明细行：逾期项在前（⚠️ 前缀），今日项在后；晚档只保留逾期项
-     * （widget 缓存不含明日任务明细）。groups 受小组件 scope 影响——all 口径会混入未来/
-     * 无日期任务，故今日项用 overdue 布尔取反 + due_label 含「今天」双重过滤，
-     * 与计数句（stats 全量口径）保持一致；多账号时行首加 [昵称] 前缀。
-     */
-    private fun reminderLines(items: List<ReminderItem>, evening: Boolean): List<String> {
-        val multiAccount = items.map { it.owner }.distinct().size > 1
-        val overdueItems = items.filter { it.overdue }
-        val todayItems = if (evening) {
-            emptyList()
-        } else {
-            items.filter { !it.overdue && it.dueLabel.contains("今天") }
+    /** 普通 groups 的通知口径过滤：早档收逾期或今日叶子，晚档仅收逾期叶子；组内无候选则整组隐藏。 */
+    private fun filterGroup(group: WidgetGroup, owner: String, evening: Boolean): ReminderGroup? {
+        if (!group.collapsible) {
+            // solo 组（无子任务的独立任务，服务端回退根自身一行）：按该行有效日期过滤
+            val item = group.children.firstOrNull() ?: return null
+            if (!reminderLeafPass(item, evening)) return null
+            return ReminderGroup(group.title, group.own_due_label, solo = true, owner = owner, leaves = emptyList())
         }
-        return (overdueItems + todayItems).map {
-            val ownerPrefix = if (multiAccount) "[${it.owner}] " else ""
-            val overduePrefix = if (it.overdue) "⚠️ " else ""
-            "$overduePrefix$ownerPrefix${it.title}"
+        val leaves = group.children.mapNotNull { item ->
+            if (reminderLeafPass(item, evening)) ReminderLeaf(item.title, item.own_due_label) else null
         }
+        if (leaves.isEmpty()) return null
+        return ReminderGroup(group.title, group.own_due_label, solo = false, owner = owner, leaves = leaves)
     }
+
+    /** 晚档只看逾期；早档看逾期或今日（due_label 含「今天」，规避 all scope 混入的未来/无日期项）。 */
+    private fun reminderLeafPass(item: WidgetItem, evening: Boolean): Boolean =
+        if (evening) item.overdue else (item.overdue || item.due_label.contains("今天"))
+
+    /** 明日组：服务端已把叶子有效日期限定为明天，端上不再过滤，整组转换。 */
+    private fun tomorrowGroup(group: WidgetGroup, owner: String): ReminderGroup {
+        if (!group.collapsible) {
+            return ReminderGroup(group.title, group.own_due_label, solo = true, owner = owner, leaves = emptyList())
+        }
+        val leaves = group.children.map { ReminderLeaf(it.title, it.own_due_label) }
+        return ReminderGroup(group.title, group.own_due_label, solo = false, owner = owner, leaves = leaves)
+    }
+
+    /**
+     * 拍平树状分组为 InboxStyle 行：主任务标题行加粗并只带自身绑定日期的徽章，
+     * 叶子以 ├/└ 悬挂、仅自身绑定日期的带徽章（继承日期不重复展示）；solo 组单行。
+     * 多账号时标题行加 [昵称] 前缀，叶子行不加。
+     */
+    private fun reminderLines(groups: List<ReminderGroup>): List<CharSequence> {
+        if (groups.isEmpty()) return emptyList()
+        val multiAccount = groups.map { it.owner }.distinct().size > 1
+        val lines = mutableListOf<CharSequence>()
+        for (group in groups) {
+            val ownerPrefix = if (multiAccount) "[${group.owner}] " else ""
+            if (group.solo) {
+                lines.add("$ownerPrefix${group.title}${labelSuffix(group.ownDueLabel)}")
+                continue
+            }
+            val titleLine = "$ownerPrefix${group.title}${labelSuffix(group.ownDueLabel)}"
+            // 显式 receiver 构建 Spannable，不用 apply 嵌套（隐式 this 在嵌套 lambda 内编译解析失败）
+            val spannable = android.text.SpannableString(titleLine)
+            spannable.setSpan(
+                android.text.StyleSpan(android.graphics.Typeface.BOLD),
+                0, spannable.length,
+                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            lines.add(spannable)
+            val lastIndex = group.leaves.lastIndex
+            group.leaves.forEachIndexed { index, leaf ->
+                val twig = if (index == lastIndex) "└ " else "├ "
+                lines.add("$twig${leaf.title}${labelSuffix(leaf.ownDueLabel)}")
+            }
+        }
+        return lines
+    }
+
+    /** 徽章非空时前置一个空格拼接，空串不占位。 */
+    private fun labelSuffix(label: String): String = if (label.isNotEmpty()) " $label" else ""
 
     private fun show(
         context: Context,
@@ -250,7 +314,7 @@ object ReminderNotifier {
         enableComplete: Boolean,
         enablePostpone: Boolean,
         markSent: Boolean = true,
-        inboxLines: List<String> = emptyList()
+        inboxLines: List<CharSequence> = emptyList()
     ) {
         if (!hasNotificationPermission(context) || (markSent && Prefs.getReminderSentDate(context, type) == date)) return
         createChannel(context)
@@ -278,7 +342,7 @@ object ReminderNotifier {
         notificationId: Int,
         title: String,
         text: String,
-        inboxLines: List<String> = emptyList()
+        inboxLines: List<CharSequence> = emptyList()
     ): NotificationCompat.Builder {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
