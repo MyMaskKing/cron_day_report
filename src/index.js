@@ -43,7 +43,7 @@ import {
   weightChart, addRecord, updateRecord, removeRecord,
   publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers, adminShareMember,
   friendInvite, listFriends, acceptFriend, removeFriend,
-  createOrResetTeam, getMyTeam, joinTeam,
+  createOrResetTeam, getMyTeam, joinTeam, kickFromTeam, dissolveMyTeam,
   getUnit, setUnit
 } from './api/weight.api.js';
 import {
@@ -263,6 +263,8 @@ router.delete('/api/weight/friends/:uid', removeFriend);
 router.post('/api/weight/team/join', joinTeam);
 router.post('/api/weight/team', createOrResetTeam);
 router.get('/api/weight/team', getMyTeam);
+router.delete('/api/weight/team/members/:uid', kickFromTeam);
+router.delete('/api/weight/team', dissolveMyTeam);
 router.get('/api/public/weight/:token', publicMemberInfo);
 router.post('/api/public/weight/:token', publicSubmitWeight);
 router.get('/api/public/weight-report/:token', publicWeightReport);

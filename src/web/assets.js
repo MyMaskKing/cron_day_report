@@ -6227,7 +6227,7 @@ window.fToggleVisible = async function(id, show){
 };
 // 解除好友（双向，不影响双方已有数据）
 window.fRemove = async function(ownerId){
-  confirmModal('解除好友', '解除后双方体重页都不再出现对方成员，并自动退出你们共同的组队（之后有新人加入也不会自动恢复关系，需重新打开组队链接才能加回）；与队内其他人的关系、已有数据不受影响。确认解除？', async function(){
+  confirmModal('解除好友', '解除后双方体重页都不再出现对方成员。组队身份保留：只要你在该队里还有其他好友就仍在队中；与队内所有人都解除后才会自动退出。已有数据不受影响。确认解除？', async function(){
     try { await api('/api/weight/friends/' + ownerId, { method:'DELETE' }); await loadAll(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
@@ -6391,10 +6391,17 @@ async function openFriendPanel() {
   var teamHtml;
   if (td.team) {
     var tRows = td.team.members.map(function(m){
-      return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);">' +
+      var right;
+      if (m.is_owner) {
+        right = '<span class="tag" style="padding:0 6px;border-radius:8px;font-size:11px;background:var(--hover-brand);color:var(--brand-text);">队长</span>';
+      } else {
+        // 能打开此面板即本人是队长：非队长成员显示互见状态与踢出入口
+        right = (m.mutual ? '' : '<span class="tag" title="你已解除与其好友关系，曲线互见已关闭；其仍在队中，新人入队仍会与其互加好友" style="padding:0 6px;border-radius:8px;font-size:11px;background:var(--hover-bg);color:var(--muted);">未互见</span>') +
+          '<button class="btn sm danger" onclick="fKick(' + m.uid + ')">踢出</button>';
+      }
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);">' +
         '<span>' + esc(m.nickname) + ' <span class="muted" style="font-size:12px;">@' + esc(m.username) + '</span></span>' +
-        (m.is_owner ? '<span class="tag" style="padding:0 6px;border-radius:8px;font-size:11px;background:var(--hover-brand);color:var(--brand-text);">队长</span>' : '') +
-        '</div>';
+        '<span style="display:flex;align-items:center;gap:6px;">' + right + '</span></div>';
     }).join('');
     teamHtml =
       '<label>组队打卡链接（发给家人朋友，所有通过链接加入的人两两互见）</label>' +
@@ -6402,7 +6409,8 @@ async function openFriendPanel() {
       '<button class="btn" onclick="fCopyTeam()">复制链接</button> ' +
       '<button class="btn gray" onclick="fResetTeam()">重置链接</button>' +
       '<p class="muted" style="font-size:12px;line-height:1.6;margin:6px 0 0;">重置后旧链接立即失效，队内成员与互见关系保留。当前队中 ' + td.team.members.length + ' 人。</p>' +
-      '<div style="margin-top:6px;">' + tRows + '</div>';
+      '<div style="margin-top:6px;">' + tRows + '</div>' +
+      '<button class="btn danger" style="width:100%;margin-top:10px;" onclick="fDissolve()">解散队伍</button>';
   } else {
     teamHtml =
       '<button class="btn" id="fGenTeam" style="width:100%;">生成组队链接</button>' +
@@ -6472,6 +6480,20 @@ window.fCopyTeam = function(){
 window.fResetTeam = function(){
   confirmModal('重置组队链接', '重置后旧链接立即失效（队内成员与互见关系保留），确认？', async function(){
     try { await api('/api/weight/team', { method:'POST', body:{ reset:true } }); closeModal(); await openFriendPanel(); }
+    catch(e){ alertModal(e.message, {ok:false}); }
+  });
+};
+// 队长踢人：移出队伍并解除其与队内所有人的好友关系
+window.fKick = function(uid){
+  confirmModal('踢出队员', '踢出后对方立即移出本队，并解除其与队内所有人的好友关系（曲线互见消失）；其在其他组队的关系不受影响，重新打开本队链接可再次加入。确认踢出？', async function(){
+    try { await api('/api/weight/team/members/' + uid, { method:'DELETE' }); closeModal(); await openFriendPanel(); }
+    catch(e){ alertModal(e.message, {ok:false}); }
+  });
+};
+// 队长解散：删队、链接失效、队内两两好友关系全部解除
+window.fDissolve = function(){
+  confirmModal('解散队伍', '解散后组队链接立即失效，队内全部好友关系都会解除、彼此不再互见；队员在其他组队的关系不受影响。确认解散？', async function(){
+    try { await api('/api/weight/team', { method:'DELETE' }); closeModal(); await openFriendPanel(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
 };

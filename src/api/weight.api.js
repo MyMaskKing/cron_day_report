@@ -479,7 +479,7 @@ async function removeFriend({ request, env, params }) {
   const friendIds = await storage.weight.friendIdSet(auth.user_id);
   if (!friendIds.includes(uid)) return error('对方不是你的体重好友', 404);
   await storage.weight.removeFriendPair(auth.user_id, uid);
-  return json({ success: true, message: '已解除好友关系，双方自动退出共同组队（重新打开组队链接可再次加入）' });
+  return json({ success: true, message: '已解除好友关系。若你在某组队中与队内所有人都解除了关系，才会自动退出该组队；仍有其他好友则留在队中' });
 }
 
 // ==================== 体重组队（一个链接，进来的人两两成为好友）====================
@@ -490,16 +490,18 @@ async function teamInviteLink(storage, env, url, token) {
   return `${base || ''}/weight?tlink=${token}`;
 }
 
-/** 组装我的组队响应体（无队返回 null） */
+/** 组装我的组队响应体（无队返回 null）；mutual=队长与该成员当前是否仍有好友边 */
 async function teamPayload(storage, env, url, team) {
   if (!team) return null;
   const rows = await storage.weight.listTeamMembers(team.id);
+  const friendIds = await storage.weight.friendIdSet(team.owner_user_id);
   return {
     token: team.token,
     link: await teamInviteLink(storage, env, url, team.token),
     members: rows.map(m => ({
       uid: m.uid, username: m.username, nickname: m.nickname || m.username,
-      joined_at: m.joined_at, is_owner: !!m.is_owner
+      joined_at: m.joined_at, is_owner: !!m.is_owner,
+      mutual: !!m.is_owner || friendIds.includes(m.uid)
     }))
   };
 }
@@ -561,11 +563,45 @@ async function joinTeam({ request, env }) {
   });
 }
 
+/** DELETE /api/weight/team/members/:uid  队长踢人：移出队伍并解除其与队内所有人的好友关系 */
+async function kickFromTeam({ request, env, params }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const uid = parseInt(params.uid, 10);
+  if (isNaN(uid)) return error('参数错误');
+  const storage = getStorage(env);
+  const team = await storage.weight.findTeamByOwner(auth.user_id);
+  if (!team) return error('你还没有创建组队');
+  if (uid === auth.user_id) return error('队长不能踢自己，如需终结请解散队伍');
+  if (!(await storage.weight.isTeamMember(team.id, uid))) return error('该成员不在你的组队中', 404);
+  const target = await storage.users.findById(uid);
+  await storage.weight.kickTeamMember(team.id, uid);
+  const name = target ? (target.nickname || target.username) : '';
+  return json({
+    success: true,
+    message: `已将「${name}」移出组队，并解除其与队内所有人的好友关系。对方重新打开组队链接可再次加入。`
+  });
+}
+
+/** DELETE /api/weight/team  队长解散：删队（链接失效）并解除队内全部两两好友关系 */
+async function dissolveMyTeam({ request, env }) {
+  const auth = await requireAuth(request, env);
+  if (auth instanceof Response) return auth;
+  const storage = getStorage(env);
+  const team = await storage.weight.findTeamByOwner(auth.user_id);
+  if (!team) return error('你还没有创建组队');
+  await storage.weight.dissolveTeam(team.id);
+  return json({
+    success: true,
+    message: '组队已解散，链接立即失效，队内好友关系已全部解除（队员在其他组队的关系不受影响）。'
+  });
+}
+
 export {
   listMembers, createMember, updateMember, reorderMembers, removeMember, getMemberShareLink,
   weightChart, addRecord, updateRecord, removeRecord,
   publicMemberInfo, publicSubmitWeight, publicWeightReport, adminCompare, adminAllMembers, adminShareMember,
   friendInvite, listFriends, acceptFriend, removeFriend,
-  createOrResetTeam, getMyTeam, joinTeam,
+  createOrResetTeam, getMyTeam, joinTeam, kickFromTeam, dissolveMyTeam,
   getUnit, setUnit
 };

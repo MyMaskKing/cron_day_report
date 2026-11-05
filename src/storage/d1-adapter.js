@@ -51,6 +51,20 @@ function createD1Adapter(env) {
   const db = env.DB;
   if (!db) throw new Error('D1 数据库未绑定 (env.DB)');
 
+  // 组队孤立成员清理：非本人创建的队里，与队内所有成员都没有好友边即自动退队。
+  // 内层同表必须起别名 x，裸 weight_team_members.team_id 才能正确解析到外层 DELETE 行。
+  const PRUNE_TEAM_SQL = `
+    DELETE FROM weight_team_members
+     WHERE user_id = ?
+       AND team_id NOT IN (SELECT id FROM weight_teams WHERE owner_user_id = ?)
+       AND NOT EXISTS (
+         SELECT 1 FROM weight_friends f
+          WHERE (f.user_a = ? AND f.user_b IN
+                   (SELECT x.user_id FROM weight_team_members x WHERE x.team_id = weight_team_members.team_id))
+             OR (f.user_b = ? AND f.user_a IN
+                   (SELECT x.user_id FROM weight_team_members x WHERE x.team_id = weight_team_members.team_id))
+       )`;
+
   return {
     // ==================== 用户 ====================
     users: {
@@ -633,24 +647,12 @@ function createD1Adapter(env) {
           .bind(ua, ub).run();
       },
       async removeFriendPair(a, b) {
-        // 解除好友即退出两人共同的组队，避免新成员入队时把已解除的关系自动加回：
-        // 我创建的队 → 把对方移出；别人创建、我俩同在的队 → 我自己退出。
-        // 与队内其他成员的好友边不受影响，本人重新打开链接可再次加入。
-        await db.prepare(
-          `DELETE FROM weight_team_members
-            WHERE user_id = ?
-              AND team_id IN (SELECT id FROM weight_teams WHERE owner_user_id = ?)
-              AND team_id IN (SELECT team_id FROM weight_team_members WHERE user_id = ?)`
-        ).bind(b, a, b).run();
-        await db.prepare(
-          `DELETE FROM weight_team_members
-            WHERE user_id = ?
-              AND team_id IN (SELECT team_id FROM weight_team_members WHERE user_id = ?)
-              AND team_id NOT IN (SELECT id FROM weight_teams WHERE owner_user_id = ?)`
-        ).bind(a, b, a).run();
         const ua = Math.min(a, b), ub = Math.max(a, b);
         await db.prepare('DELETE FROM weight_friends WHERE user_a=? AND user_b=?')
           .bind(ua, ub).run();
+        // 解除好友不立即退队：双方在某队里还剩任意一个好友就留队，与全队都无边才自动退出
+        // （队长豁免自己创建的队，终结队伍走解散）
+        await this.pruneIsolatedTeamMembers([a, b]);
       },
       async findFriendInviteByOwner(userId) {
         return await db.prepare('SELECT * FROM weight_friend_invites WHERE owner_user_id = ?')
@@ -777,6 +779,52 @@ function createD1Adapter(env) {
           'SELECT 1 FROM weight_team_members WHERE team_id = ? AND user_id = ?'
         ).bind(teamId, userId).first();
         return !!row;
+      },
+      // 摘除给定用户在各队中的孤立挂名（非队长且队内已无任何好友）。
+      // removeFriendPair / kickTeamMember / dissolveTeam 共用，退队口径唯一
+      async pruneIsolatedTeamMembers(userIds) {
+        if (!Array.isArray(userIds) || userIds.length === 0) return;
+        for (const uid of userIds) {
+          await db.prepare(PRUNE_TEAM_SQL).bind(uid, uid, uid, uid).run();
+        }
+      },
+      // 队长踢人：解除目标与队内所有人的好友边、移出队伍；
+      // 连锁删边可能让相关人在其他队变孤立，同批 prune。单 batch 事务
+      async kickTeamMember(teamId, targetUid) {
+        const { results: memberRows } = await db.prepare(
+          'SELECT user_id AS uid FROM weight_team_members WHERE team_id = ?'
+        ).bind(teamId).all();
+        const stmts = [];
+        for (const r of memberRows) {
+          if (r.uid === targetUid) continue;
+          const ua = Math.min(targetUid, r.uid), ub = Math.max(targetUid, r.uid);
+          stmts.push(db.prepare('DELETE FROM weight_friends WHERE user_a=? AND user_b=?').bind(ua, ub));
+        }
+        stmts.push(
+          db.prepare('DELETE FROM weight_team_members WHERE team_id=? AND user_id=?').bind(teamId, targetUid)
+        );
+        const pruneIds = [targetUid, ...memberRows.map(r => r.uid).filter(id => id !== targetUid)];
+        for (const uid of pruneIds) stmts.push(db.prepare(PRUNE_TEAM_SQL).bind(uid, uid, uid, uid));
+        await db.batch(stmts);
+      },
+      // 队长解散：解除队内全部两两好友边，再删成员行与队伍（子表先于父表）；
+      // 前成员在其他队可能因边被删而孤立，同批 prune。单 batch 事务
+      async dissolveTeam(teamId) {
+        const { results: memberRows } = await db.prepare(
+          'SELECT user_id AS uid FROM weight_team_members WHERE team_id = ?'
+        ).bind(teamId).all();
+        const uids = memberRows.map(r => r.uid);
+        const stmts = [];
+        for (let i = 0; i < uids.length; i++) {
+          for (let j = i + 1; j < uids.length; j++) {
+            const ua = Math.min(uids[i], uids[j]), ub = Math.max(uids[i], uids[j]);
+            stmts.push(db.prepare('DELETE FROM weight_friends WHERE user_a=? AND user_b=?').bind(ua, ub));
+          }
+        }
+        stmts.push(db.prepare('DELETE FROM weight_team_members WHERE team_id=?').bind(teamId));
+        stmts.push(db.prepare('DELETE FROM weight_teams WHERE id=?').bind(teamId));
+        for (const uid of uids) stmts.push(db.prepare(PRUNE_TEAM_SQL).bind(uid, uid, uid, uid));
+        await db.batch(stmts);
       },
     },
 
