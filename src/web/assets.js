@@ -14073,10 +14073,17 @@ async function openTodoDetail(node, opts) {
   // 底部弱化脚注: 创建(UTC→北京)+创建人 / 完成(北京日期)+完成人; 人名为空(个人/匿名)只显示时间
   var created = todoFmtCreated(node.created_at);
   var creatorName = node.created_by_name || '';
-  var comerName = node.done_by_name || '';
+  // 生效完成节点: 自身勾选优先, 否则取最近的已完成祖先(祖先完成则整枝随之完成, 口径同 todoEffDone/todoEachLeaf)
+  var doneNode = null;
+  for (var dn = node; dn; dn = dn._parent) { if (dn.done) { doneNode = dn; break; } }
   var timeRows = [];
   if (created) timeRows.push('<span>' + ICONS.clock + '创建：' + esc(created) + (creatorName ? ' · ' + esc(creatorName) : '') + '</span>');
-  if (node.done && node.done_at) timeRows.push('<span>' + ICONS.check_circle + '完成：' + esc(node.done_at) + (comerName ? ' · ' + esc(comerName) : '') + '</span>');
+  if (doneNode && doneNode.done_at) {
+    var doneName = doneNode.done_by_name || '';
+    timeRows.push('<span>' + ICONS.check_circle + '完成：' + esc(doneNode.done_at)
+      + (doneName ? ' · ' + esc(doneName) : '')
+      + (doneNode !== node ? '（随上级完成）' : '') + '</span>');
+  }
   var timesHtml = timeRows.length ? '<div class="td-times">' + timeRows.join('') + '</div>' : '';
   var body =
     '<div class="td-title">' + (node._ghost === 1 ? '🔒 ' : '') + esc(node.title) + '</div>' +
