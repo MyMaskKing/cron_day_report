@@ -43,10 +43,6 @@ object ReminderNotifier {
     private const val TOMORROW_GREEN_LIGHT = 0xFF16A34A.toInt()
     private const val TOMORROW_GREEN_DARK = 0xFF7CE39F.toInt()
 
-    // 父级等次要信息灰色：通知正文的弱化色，跟随系统深浅色
-    private const val META_GRAY_LIGHT = 0xFF8A8F99.toInt()
-    private const val META_GRAY_DARK = 0xFFA9ADB6.toInt()
-
     // 超限引导行颜色：与通知 accent（setColor）同品牌紫
     private const val HINT_PURPLE = 0xFFC026D3.toInt()
 
@@ -321,19 +317,20 @@ object ReminderNotifier {
     }
 
     /**
-     * 单任务行结构：状态色点（🔴逾期/🔵今日/🟢明日）→ [昵称]? → 叶子标题（加粗）
-     * → 日期标签【】（逾期前缀 ⚠️，整段状态色）→ ➡️ 灰色直接父级。
-     * 逻辑上一条一行，BigTextStyle 承载时过长自动折行；日期剥离服务端徽章的 emoji 前缀
-     * （取首个空格之后）再包全角括号，无日期/无父级的段整体不占位。
+     * 单任务行结构（用户指定样式）：状态色点紧贴标题（🔴逾期/🔵今日/🟢明日），[昵称]? 在前；
+     * 日期与直接父级收进同一个 [] 复合块：[状态emoji 日期 ➽ 父级]，整块染状态色。
+     * 逾期块内用 ⚠️ + 纯相对日期（剥掉服务端文案的「逾期 」前缀），今日/明日用 📅；
+     * solo 任务无 ➽ 父级段；BigTextStyle 承载时过长自动折行。
      */
     private fun buildLine(context: Context, leaf: ReminderLeaf, owner: String?): CharSequence {
         val dark = isSystemDark(context)
         val builder = android.text.SpannableStringBuilder()
+        // 色点紧贴标题（用户指定样式，无尾随空格）：🔴逾期 / 🔵今日 / 🟢明日
         builder.append(
             when (leaf.status) {
-                LeafStatus.OVERDUE -> "🔴 "
-                LeafStatus.TODAY -> "🔵 "
-                LeafStatus.TOMORROW -> "🟢 "
+                LeafStatus.OVERDUE -> "🔴"
+                LeafStatus.TODAY -> "🔵"
+                LeafStatus.TOMORROW -> "🟢"
             }
         )
         if (owner != null) builder.append("[$owner] ")
@@ -346,13 +343,19 @@ object ReminderNotifier {
             android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
         if (leaf.dueLabel.isNotEmpty()) {
-            // 服务端徽章形如「⚠️ 逾期 昨天」「📅 明天」，取首个空格之后即纯文字日期；
-            // 全角【】包成标签，逾期在标签前再加 ⚠️，整段统一染状态色
+            // 服务端徽章形如「⚠️ 逾期 昨天」「📅 明天」：取首个空格之后，逾期再剥「逾期 」前缀
+            // （块内 ⚠️ 已表义）；日期与直接父级收进同一个 [] 块、➽ 连接，整块统一染状态色
             val plainDate = leaf.dueLabel.substringAfter(' ', leaf.dueLabel)
-            val start = builder.length
-            builder.append(' ')
-            if (leaf.status == LeafStatus.OVERDUE) builder.append("⚠️")
-            builder.append("[$plainDate]")
+                .let { if (leaf.status == LeafStatus.OVERDUE) it.removePrefix("逾期 ") else it }
+            val blockStart = builder.length
+            builder.append('[')
+            builder.append(if (leaf.status == LeafStatus.OVERDUE) "⚠️" else "📅")
+            builder.append(plainDate)
+            if (leaf.parent.isNotEmpty()) {
+                builder.append("➽")
+                builder.append(leaf.parent)
+            }
+            builder.append(']')
             val dateColor = when (leaf.status) {
                 LeafStatus.OVERDUE -> if (dark) OVERDUE_RED_DARK else OVERDUE_RED_LIGHT
                 LeafStatus.TODAY -> if (dark) TODAY_BLUE_DARK else TODAY_BLUE_LIGHT
@@ -360,17 +363,7 @@ object ReminderNotifier {
             }
             builder.setSpan(
                 android.text.style.ForegroundColorSpan(dateColor),
-                start, builder.length,
-                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-        if (leaf.parent.isNotEmpty()) {
-            val start = builder.length
-            builder.append(" ➡️ ")
-            builder.append(leaf.parent)
-            builder.setSpan(
-                android.text.style.ForegroundColorSpan(if (dark) META_GRAY_DARK else META_GRAY_LIGHT),
-                start, builder.length,
+                blockStart, builder.length,
                 android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
         }
