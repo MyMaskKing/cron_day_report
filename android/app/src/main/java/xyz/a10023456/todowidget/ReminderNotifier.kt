@@ -286,7 +286,8 @@ object ReminderNotifier {
             // 显式 receiver 构建 Spannable，不用 apply 嵌套（隐式 this 在嵌套 lambda 内编译解析失败）
             val spannable = android.text.SpannableString(titleLine)
             spannable.setSpan(
-                android.text.StyleSpan(android.graphics.Typeface.BOLD),
+                // StyleSpan 在 android.text.style 子包；SpannableString/Spannable 才在 android.text
+                android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
                 0, spannable.length,
                 android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
             )
