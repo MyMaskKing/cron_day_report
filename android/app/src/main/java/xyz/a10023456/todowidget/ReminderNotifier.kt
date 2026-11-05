@@ -39,6 +39,9 @@ object ReminderNotifier {
     private const val OVERDUE_RED_LIGHT = 0xFFCF1322.toInt()
     private const val OVERDUE_RED_DARK = 0xFFFF6B6B.toInt()
 
+    // 超限引导行颜色：与通知 accent（setColor）同品牌紫
+    private const val HINT_PURPLE = 0xFFC026D3.toInt()
+
     fun check(context: Context, refreshedIds: List<Int>) {
         if (refreshedIds.isEmpty() || !hasNotificationPermission(context)) return
         // 本次跳过且不标记已发，等下一次刷新（15 分钟周期或打开 App）自动补发
@@ -278,67 +281,94 @@ object ReminderNotifier {
         return ReminderGroup(group.title, group.own_due_label, solo = false, owner = owner, leaves = leaves)
     }
 
+    /** 通知行内一个文本片段：bold 加粗、overdue 染红、hint 品牌紫引导色（互斥时只取其一）。 */
+    private data class LineSegment(
+        val text: String,
+        val bold: Boolean = false,
+        val overdue: Boolean = false,
+        val hint: Boolean = false
+    )
+
     /**
-     * 拍平树状分组为 InboxStyle 行：主任务标题行加粗并只带自身绑定日期的徽章，
-     * 叶子以 ├/└ 悬挂、仅自身绑定日期的带徽章（继承日期不重复展示）；solo 组单行。
-     * 多账号时标题行加 [昵称] 前缀，叶子行不加；逾期徽章（文案含「逾期」）整段染红。
+     * 方案 B 扁平面包屑拍平：每个叶子一行「主任务名 ｜ 叶子标题」，主任务名片段加粗；
+     * 主任务/叶子各自绑定的日期徽章跟在各自名称后（继承日期为空串不展示），逾期徽章染红；
+     * solo 组（无子任务的独立任务）单行、标题加粗。多账号时每行带 [昵称] 前缀。
+     * 总行数超 [MAX_INBOX_LINES] 时末行替换为引导提示（点击通知由 contentIntent 打开 App）。
      */
     private fun reminderLines(context: Context, groups: List<ReminderGroup>): List<CharSequence> {
         if (groups.isEmpty()) return emptyList()
         val multiAccount = groups.map { it.owner }.distinct().size > 1
-        val lines = mutableListOf<CharSequence>()
+        val all = mutableListOf<CharSequence>()
         for (group in groups) {
-            val ownerPrefix = if (multiAccount) "[${group.owner}] " else ""
+            val ownerSeg = if (multiAccount) LineSegment("[${group.owner}] ") else null
             if (group.solo) {
-                lines.add(styledLine(context, ownerPrefix, group.title, group.ownDueLabel, bold = false))
+                val segs = mutableListOf<LineSegment>()
+                ownerSeg?.let { segs.add(it) }
+                segs.add(LineSegment(group.title, bold = true))
+                labelSegment(group.ownDueLabel)?.let { segs.add(it) }
+                all.add(buildLine(context, segs))
                 continue
             }
-            lines.add(styledLine(context, ownerPrefix, group.title, group.ownDueLabel, bold = true))
-            val lastIndex = group.leaves.lastIndex
-            group.leaves.forEachIndexed { index, leaf ->
-                val twig = if (index == lastIndex) "└ " else "├ "
-                lines.add(styledLine(context, twig, leaf.title, leaf.ownDueLabel, bold = false))
+            for (leaf in group.leaves) {
+                val segs = mutableListOf<LineSegment>()
+                ownerSeg?.let { segs.add(it) }
+                segs.add(LineSegment(group.title, bold = true))
+                labelSegment(group.ownDueLabel)?.let { segs.add(it) }
+                segs.add(LineSegment(" ｜ "))
+                segs.add(LineSegment(leaf.title))
+                labelSegment(leaf.ownDueLabel)?.let { segs.add(it) }
+                all.add(buildLine(context, segs))
             }
         }
-        return lines
+        if (all.size <= MAX_INBOX_LINES) return all
+        // 前 N-1 行放任务，最后一行固定为引导；N 为被隐藏的任务行数
+        val hidden = all.size - (MAX_INBOX_LINES - 1)
+        val hint = buildLine(
+            context,
+            listOf(LineSegment("还有 $hidden 件，点击查看全部 ›", hint = true))
+        )
+        return all.take(MAX_INBOX_LINES - 1) + hint
     }
 
+    /** 徽章转片段：空串返回 null 不占段；含「逾期」的片段渲染时染红。 */
+    private fun labelSegment(label: String): LineSegment? =
+        if (label.isEmpty()) null else LineSegment(labelSuffix(label), overdue = label.contains("逾期"))
+
     /**
-     * 构建一行通知文本：bold 控制整行加粗（主任务标题行）；label 为自身绑定日期徽章，
-     * 非空时拼在行尾，逾期徽章（服务端文案固定含「逾期」）整段加红色 ForegroundColorSpan。
-     * 无 Span 需求时直接返回 String，避免无谓包装。
+     * 按片段拼接一行通知文本并施加 Span：bold 段加粗、overdue 段染红、hint 段品牌紫。
+     * 全普通片段时直接返回 String，避免无谓包装；显式 receiver 构建，不用 apply 嵌套。
      */
-    private fun styledLine(
-        context: Context,
-        prefix: String,
-        title: String,
-        label: String,
-        bold: Boolean
-    ): CharSequence {
-        val full = "$prefix$title${labelSuffix(label)}"
-        val overdue = label.contains("逾期")
-        if (!bold && !overdue) return full
-        // 显式 receiver 构建 Spannable，不用 apply 嵌套（隐式 this 在嵌套 lambda 内编译解析失败）
-        val spannable = android.text.SpannableString(full)
-        if (bold) {
-            spannable.setSpan(
-                // StyleSpan 在 android.text.style 子包；SpannableString/Spannable 才在 android.text
-                android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
-                0, spannable.length,
-                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
+    private fun buildLine(context: Context, segments: List<LineSegment>): CharSequence {
+        val needSpan = segments.any { it.bold || it.overdue || it.hint }
+        if (!needSpan) return segments.joinToString("") { it.text }
+        val red = if (isSystemDark(context)) OVERDUE_RED_DARK else OVERDUE_RED_LIGHT
+        val builder = android.text.SpannableStringBuilder()
+        for (seg in segments) {
+            val start = builder.length
+            builder.append(seg.text)
+            val end = builder.length
+            if (seg.bold) {
+                // StyleSpan/ForegroundColorSpan 在 android.text.style 子包；Builder 才在 android.text
+                builder.setSpan(
+                    android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
+                    start, end,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            val color = when {
+                seg.overdue -> red
+                seg.hint -> HINT_PURPLE
+                else -> 0
+            }
+            if (color != 0) {
+                builder.setSpan(
+                    android.text.style.ForegroundColorSpan(color),
+                    start, end,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
         }
-        if (overdue) {
-            val red = if (isSystemDark(context)) OVERDUE_RED_DARK else OVERDUE_RED_LIGHT
-            // label 是行尾后缀（labelSuffix 前带一个空格），起始位 = 全长 - label 长，空格不染色
-            val start = full.length - label.length
-            spannable.setSpan(
-                android.text.style.ForegroundColorSpan(red),
-                start, spannable.length,
-                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-        return spannable
+        return builder
     }
 
     /** 系统是否处于深色模式（通知由 SystemUI 渲染，跟随系统配色而非 App 内主题）。 */
