@@ -1015,9 +1015,13 @@ function createD1Adapter(env) {
              WHERE t.parent_id IS NOT NULL
            )
            SELECT t.*,
-                  CASE WHEN v.id IS NOT NULL THEN 0 ELSE 1 END AS _ghost
+                  CASE WHEN v.id IS NOT NULL THEN 0 ELSE 1 END AS _ghost,
+                  COALESCE(NULLIF(cu.nickname, ''), cu.username) AS created_by_name,
+                  COALESCE(NULLIF(du.nickname, ''), du.username) AS done_by_name
            FROM todos t
            LEFT JOIN visible v ON v.id = t.id
+           LEFT JOIN users cu ON cu.id = t.created_by
+           LEFT JOIN users du ON du.id = t.done_by
            WHERE t.id IN (SELECT id FROM visible)
               OR t.id IN (SELECT id FROM ghost)
            ORDER BY t.sort_order, t.id`
@@ -1035,7 +1039,13 @@ function createD1Adapter(env) {
       // 免密报告/汇总页口径：匿名 report_token 等同本人，可见可写本人共享任务但不泄露家人数据。
       async listOwnedByUser(userId) {
         const { results } = await db.prepare(
-          'SELECT * FROM todos WHERE user_id=? ORDER BY sort_order, id'
+          `SELECT t.*,
+                  COALESCE(NULLIF(cu.nickname, ''), cu.username) AS created_by_name,
+                  COALESCE(NULLIF(du.nickname, ''), du.username) AS done_by_name
+             FROM todos t
+             LEFT JOIN users cu ON cu.id = t.created_by
+             LEFT JOIN users du ON du.id = t.done_by
+            WHERE t.user_id=? ORDER BY t.sort_order, t.id`
         ).bind(userId).all();
         return results || [];
       },
@@ -1481,7 +1491,14 @@ function createD1Adapter(env) {
              UNION ALL
              SELECT t.id FROM todos t JOIN sub ON t.parent_id = sub.id
            )
-           SELECT t.* FROM todos t JOIN sub ON t.id = sub.id ORDER BY t.sort_order, t.id`
+           SELECT t.*,
+                  COALESCE(NULLIF(cu.nickname, ''), cu.username) AS created_by_name,
+                  COALESCE(NULLIF(du.nickname, ''), du.username) AS done_by_name
+             FROM todos t
+             JOIN sub ON t.id = sub.id
+             LEFT JOIN users cu ON cu.id = t.created_by
+             LEFT JOIN users du ON du.id = t.done_by
+            ORDER BY t.sort_order, t.id`
         ).bind(rootId).all();
         return results || [];
       },

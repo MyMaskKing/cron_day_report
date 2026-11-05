@@ -1809,7 +1809,7 @@ html[data-theme="dark"] .todo-donezone .flat-crumb,
 .flat-item.done.via-parent .flat-title { text-decoration: none; }
 /* 任务详情弹窗：层级面包屑 + 创建/完成时间 */
 .td-crumb { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
-.td-times { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 0 2px; font-size: 12.5px; color: var(--muted); }
+.td-times { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 16px 0 2px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
 .flat-group__head.op-menu-open { z-index: 210; }
 @media (max-width: 640px) {
   /* 操作组只留「⋯」 */

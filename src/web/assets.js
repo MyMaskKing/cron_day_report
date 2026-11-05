@@ -14069,24 +14069,26 @@ async function openTodoDetail(node, opts) {
       ? '<span class="todo-cd-tag">' + ICONS.branch + '各自截止</span>'
       : '<span class="todo-chip cd-sub">' + ICONS.branch + '各自截止</span>';
   }
-  // 创建(UTC→北京) / 完成(北京日期) 时间行
+  // 底部弱化脚注: 创建(UTC→北京)+创建人 / 完成(北京日期)+完成人; 人名为空(个人/匿名)只显示时间
   var created = todoFmtCreated(node.created_at);
-  var timesHtml = '<div class="td-times">'
-    + (created ? '<span>🕒 创建：' + esc(created) + '</span>' : '')
-    + (node.done && node.done_at ? '<span>✅ 完成：' + esc(node.done_at) + '</span>' : '')
-    + '</div>';
+  var creatorName = node.created_by_name || '';
+  var comerName = node.done_by_name || '';
+  var timeRows = [];
+  if (created) timeRows.push('<span>🕒 创建：' + esc(created) + (creatorName ? ' · ' + esc(creatorName) : '') + '</span>');
+  if (node.done && node.done_at) timeRows.push('<span>✅ 完成：' + esc(node.done_at) + (comerName ? ' · ' + esc(comerName) : '') + '</span>');
+  var timesHtml = timeRows.length ? '<div class="td-times">' + timeRows.join('') + '</div>' : '';
   var body =
     '<div class="td-title">' + (node._ghost === 1 ? '🔒 ' : '') + esc(node.title) + '</div>' +
     '<div class="td-meta">' + cdChip + meta.join('') + '</div>' +
     (crumbPath.length ? '<div class="td-crumb">📂 ' + esc(crumbPath.join(' / ')) + '</div>' : '') +
-    timesHtml +
     subsHtml +
     (node.note
       ? '<div class="md-body" id="tdNote">' + renderMarkdown(node.note) + '</div>'
       : '<p class="muted" style="font-size:13px;margin:4px 0 0;">无备注</p>') +
     (node._ghost === 1 ? '' :
       '<div class="td-att-title">附件 <span id="tdAttCount" class="muted"></span></div>' +
-      '<div class="td-att-list" id="tdAttList"><div class="muted" style="font-size:13px;">加载中…</div></div>');
+      '<div class="td-att-list" id="tdAttList"><div class="muted" style="font-size:13px;">加载中…</div></div>') +
+    timesHtml;
   var headActions = opts.editable
     ? '<button type="button" class="btn sm" id="tdEditBtn">' + ICONS.edit + ' 编辑</button>'
     : '';
