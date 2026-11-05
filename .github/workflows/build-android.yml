@@ -126,6 +126,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # GitHub-hosted runner 每次全新 VM：缓存 wrapper 发行版（~130MB）与 Gradle 依赖，
+      # 并对发行版下载自带重试，规避 services.gradle.org 偶发 read timeout
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
