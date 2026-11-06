@@ -5858,9 +5858,8 @@ function toDisplay(kg){ return unit === 'jin' ? Math.round(kg * 2 * 10) / 10 : k
 function toKg(v){ v = parseFloat(v); return unit === 'jin' ? v / 2 : v; }
 function todayStr(){ var d = new Date(Date.now() + 8*3600*1000); return d.toISOString().slice(0,10); }
 var allRecords = [];
-// 好友成员显示为「好友昵称·成员名」以标明归属；成员名与好友昵称相同（本人成员跟随昵称）时不重复拼接
+// 统一只显示成员名：好友成员也不再拼「属主昵称·」前缀（用户意志，2026-11）
 function mdName(m){
-  if (m.friend) return (m.owner_nick && m.name !== m.owner_nick) ? (m.owner_nick + '·' + m.name) : m.name;
   return m.name;
 }
 // 当前是否在 X-Data-As 共享数据源（好友功能只属于本人身份，共享时隐藏入口）
