@@ -6870,7 +6870,6 @@ var wRaceBtnEl = document.getElementById('wRaceBtn');
 if (wRaceBtnEl) wRaceBtnEl.addEventListener('click', openRaceModal);
 
 // 超管对比
-var cmpUserMap = {};
 // 用户显示名：昵称（账号）；昵称缺失或与账号相同时仅显示账号
 function cmpUserLabel(u) {
   return (u.nickname && u.nickname !== u.username) ? (u.nickname + '（' + u.username + '）') : u.username;
@@ -6880,8 +6879,6 @@ async function initCompare() {
   if (!wrap) return;
   try {
     var d = await api('/api/admin/users');
-    cmpUserMap = {};
-    d.users.forEach(function(u){ cmpUserMap[u.id] = u; });
     var box = document.getElementById('cmpUsers');
     box.innerHTML = d.users.map(function(u){
       return '<label style="display:inline-block;margin:2px 8px;font-weight:normal;"><input type="checkbox" value="' + u.id + '" style="width:auto;"> ' + esc(cmpUserLabel(u)) + '</label>';
@@ -6942,8 +6939,8 @@ async function runCompare() {
   var keys = Object.keys(byKey);
   var datasets = keys.map(function(k, i){
     var g = byKey[k];
-    var u = cmpUserMap[g.ownerId];
-    var label = ((u && (u.nickname || u.username)) || ('#' + g.ownerId)) + ' · ' + g.memberName;
+    // 超管多用户对比同样只显示成员名（用户拍板，2026-11）；跨账号同名成员靠勾选框的用户名区分
+    var label = g.memberName;
     return { label: label, data: labels.map(function(dt){ return g.pts[dt] != null ? g.pts[dt] : null; }),
       borderColor: COLORS[i % COLORS.length], backgroundColor: COLORS[i % COLORS.length], spanGaps: true, tension: .3 };
   });
