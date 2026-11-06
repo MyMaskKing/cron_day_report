@@ -166,6 +166,19 @@ object ReminderNotifier {
         }
     }
 
+    /**
+     * 自定义内容测试通知：不拉取待办数据，直接把用户输入的文案（支持 emoji、换行）按提醒渠道
+     * 样式发出，用于预览文案与排版；不写当日已发标记，也不带「全部完成/放到明天」动作按钮。
+     */
+    fun showCustomTest(context: Context, content: String) {
+        if (!hasNotificationPermission(context)) return
+        createChannel(context)
+        NotificationManagerCompat.from(context).notify(
+            NOTIFICATION_TEST,
+            buildNotification(context, NOTIFICATION_TEST, "待办提醒", content).build()
+        )
+    }
+
     private fun showTestSnapshot(
         context: Context,
         ids: List<Int>,

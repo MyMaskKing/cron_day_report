@@ -51,6 +51,7 @@ fun MeScreen(
     onOpenInBrowser: () -> Unit,
     onThemeClick: () -> Unit,
     onTestNotification: (forceEvening: Boolean) -> Unit,
+    onTestCustomNotification: (content: String) -> Unit,
     onLogout: () -> Unit
 ) {
     var showUrlDialog by remember { mutableStateOf(false) }
@@ -150,11 +151,18 @@ fun MeScreen(
     }
 
     if (showTestDialog) {
+        // 自定义文案仅在弹窗存活期间保留，关闭后重开回到空态
+        var customTestText by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showTestDialog = false },
             title = { Text("模拟待办提醒") },
             text = {
-                Column {
+                // 内容项增多，限高可滚动，避免小屏机型弹窗被截断
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
                     Text(
                         "选择要预览的推送时段：",
                         fontSize = 13.sp,
@@ -176,6 +184,30 @@ fun MeScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("晚档 · 逾期 + 明日待办") }
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "或输入自定义内容，直接预览 emoji 与文案排版：",
+                        fontSize = 13.sp,
+                        color = scheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = customTestText,
+                        onValueChange = { customTestText = it },
+                        label = { Text("自定义通知内容（支持 emoji、换行）") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 96.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        enabled = customTestText.isNotBlank(),
+                        onClick = {
+                            showTestDialog = false
+                            onTestCustomNotification(customTestText.trim())
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("发送自定义内容") }
                 }
             },
             confirmButton = {

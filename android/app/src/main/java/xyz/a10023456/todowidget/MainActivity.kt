@@ -96,6 +96,9 @@ class MainActivity : ComponentActivity() {
     // 待权限授予后补发的测试通知时段：null=无待补发；true=晚档 false=早档（用户在测试弹窗里的选择）
     private var pendingTestEvening: Boolean? = null
 
+    // 待权限授予后补发的自定义测试通知内容；与 pendingTestEvening 互斥，自定义内容优先
+    private var pendingCustomText: String? = null
+
     // 音频读取权限：App 自己的 MediaPlayer 播放用户选择的自定义铃声需要
     private val audioPermissionLauncher =
         registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
@@ -104,8 +107,13 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
             val pendingEvening = pendingTestEvening
             pendingTestEvening = null
-            if (granted && pendingEvening != null) ReminderNotifier.showTest(this, pendingEvening)
-            if (!granted && pendingEvening != null) {
+            val pendingCustom = pendingCustomText
+            pendingCustomText = null
+            if (granted) {
+                if (pendingCustom != null) ReminderNotifier.showCustomTest(this, pendingCustom)
+                if (pendingEvening != null) ReminderNotifier.showTest(this, pendingEvening)
+            }
+            if (!granted && (pendingEvening != null || pendingCustom != null)) {
                 android.widget.Toast.makeText(
                     this,
                     "请在系统设置中允许通知",
@@ -152,7 +160,8 @@ class MainActivity : ComponentActivity() {
                         savedWebState = savedWebState,
                         onWebView = { webViewRef = it },
                         onThemeSelected = { appTheme = it },
-                        onTestNotification = { forceEvening -> testNotification(forceEvening) }
+                        onTestNotification = { forceEvening -> testNotification(forceEvening) },
+                        onTestCustomNotification = { content -> testCustomNotification(content) }
                     )
                 }
             }
@@ -186,6 +195,18 @@ class MainActivity : ComponentActivity() {
         } else {
             // 记住用户选择的时段，权限授予后按同一时段补发
             pendingTestEvening = forceEvening
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun testCustomNotification(content: String) {
+        val text = content.trim()
+        if (text.isEmpty()) return
+        if (ReminderNotifier.hasNotificationPermission(this)) {
+            ReminderNotifier.showCustomTest(this, text)
+        } else {
+            // 记住自定义内容，权限授予后原样补发（与时段补发互斥，回调中自定义优先）
+            pendingCustomText = text
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
@@ -303,7 +324,8 @@ private fun AppShell(
     savedWebState: Bundle? = null,
     onWebView: ((WebView?) -> Unit)? = null,
     onThemeSelected: (String) -> Unit = {},
-    onTestNotification: (forceEvening: Boolean) -> Unit = {}
+    onTestNotification: (forceEvening: Boolean) -> Unit = {},
+    onTestCustomNotification: (content: String) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var baseUrl by remember { mutableStateOf(AppConfig.getBaseUrl(context)) }
@@ -1078,6 +1100,7 @@ private fun AppShell(
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                     },
                     onTestNotification = onTestNotification,
+                    onTestCustomNotification = onTestCustomNotification,
                     onThemeClick = {
                         // 主题三选一：网页 __applyTheme 统一切 data-theme 并 PUT 同步到账号；
                         // 原生 Prefs 仅记录本机最近选择，供对话框勾选

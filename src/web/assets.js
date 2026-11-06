@@ -6001,7 +6001,8 @@ function drawChart(mlist, records, selectedMid) {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { position: 'top', filter: function(item){ return (item.text || '').indexOf(' 均值') === -1; } },
-        tooltip: { filter: function(item){ return !item.dataset._avg; } }
+        // 聚焦某成员时 tooltip 只留该成员实测线（淡化的其他成员不进提示）；全部对比模式仍按日期列出所有成员
+        tooltip: { filter: function(item){ return !item.dataset._avg && (focusMid == null || item.dataset._mid === focusMid); } }
       },
       scales: { y: { title: { display: true, text: '体重(' + unitLabel() + ')' } } }
     } });
