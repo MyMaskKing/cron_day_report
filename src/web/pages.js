@@ -239,43 +239,76 @@ function resetPasswordPage() {
 /** 仪表盘：今日概览（KPI 数据由 page-dashboard.js 聚合现有只读接口） */
 function dashboardPage(user) {
   // 入口图标: 内联 SVG (24x24, currentColor stroke), 避免内置浏览器老旧 emoji 字体缺字
+  // 精简功能入口（主模块由侧栏/底栏承载）；channels 与侧栏 SIDE_ICONS.channels 同路径
   const NAV_ICONS = {
     monitor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>',
-    fund:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>',
-    asset:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>',
-    weight:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21h12l-1.5-13a2 2 0 0 0-2-1.8H9.5a2 2 0 0 0-2 1.8L6 21z"/><circle cx="12" cy="10" r="2.2"/><path d="M9 4.5c0-1.4 1.3-2.5 3-2.5s3 1.1 3 2.5"/></svg>',
-    todo:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/><polyline points="9 14 11 16 15 12"/></svg>',
+    channels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
     download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>',
     admin:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
   };
   const body = renderTopbar(user, 'dashboard') + `<div class="container">
-    <div class="card">
+    <div class="card dash-hero">
       <h2 id="welcome">仪表盘</h2>
       <p class="muted" id="dashDate" style="margin:0;"></p>
     </div>
 
-    <div class="grid-stats">
-      <div class="stat"><div class="num" id="kpiToday">-</div><div class="lbl">今日到期</div></div>
-      <div class="stat"><div class="num" id="kpiOverdue">-</div><div class="lbl">已逾期</div></div>
-      <div class="stat"><div class="num" id="kpiWeight">-</div><div class="lbl">最新体重</div></div>
-      <div class="stat"><div class="num" id="kpiAsset" style="font-size:22px;">-</div><div class="lbl">最新净资产</div></div>
+    <div class="dash-kpis">
+      <div class="dash-kpi">
+        <div class="dash-kpi__label">今日到期</div>
+        <div class="dash-kpi__num" id="kpiToday">-</div>
+        <div class="dash-kpi__sub" id="kpiTodaySub"></div>
+      </div>
+      <div class="dash-kpi dash-kpi--danger">
+        <div class="dash-kpi__label">已逾期</div>
+        <div class="dash-kpi__num" id="kpiOverdue">-</div>
+        <div class="dash-kpi__sub" id="kpiOverdueSub"></div>
+      </div>
+      <div class="dash-kpi">
+        <div class="dash-kpi__label">最新体重</div>
+        <div class="dash-kpi__num" id="kpiWeight">-</div>
+        <div class="dash-kpi__sub" id="kpiWeightSub"></div>
+      </div>
+      <div class="dash-kpi">
+        <div class="dash-kpi__label">最新净资产</div>
+        <div class="dash-kpi__num dash-kpi__num--money" id="kpiAsset">-</div>
+        <div class="dash-kpi__sub" id="kpiAssetSub"></div>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>今日待办 <a href="/todo" style="float:right;font-size:13px;font-weight:500;">查看全部 →</a></h2>
-      <div id="dashTodo" class="dash-todo"><p class="muted" style="margin:0;">加载中…</p></div>
-    </div>
-
-    <div class="card">
-      <h2>功能入口</h2>
-      <div class="grid-stats stat-nav">
-        <a class="stat" data-nav="todo" href="/todo"><div class="num num--icon">${NAV_ICONS.todo}</div><div class="lbl">待办清单</div></a>
-        <a class="stat" data-nav="monitor" href="/monitor"><div class="num num--icon">${NAV_ICONS.monitor}</div><div class="lbl">定时任务</div></a>
-        <a class="stat" data-nav="fund" href="/fund"><div class="num num--icon">${NAV_ICONS.fund}</div><div class="lbl">基金追踪</div></a>
-        <a class="stat" data-nav="asset" href="/asset"><div class="num num--icon">${NAV_ICONS.asset}</div><div class="lbl">资产报表</div></a>
-        <a class="stat" data-nav="weight" href="/weight"><div class="num num--icon">${NAV_ICONS.weight}</div><div class="lbl">体重曲线</div></a>
-        <a class="stat" data-nav="download" href="/download"><div class="num num--icon">${NAV_ICONS.download}</div><div class="lbl">APP下载</div></a>
-        ${user.role === 'admin' ? `<a class="stat" data-nav="admin" href="/admin"><div class="num num--icon">${NAV_ICONS.admin}</div><div class="lbl">用户管理</div></a>` : ''}
+    <div class="dash-layout">
+      <div class="dash-main">
+        <div class="card">
+          <h2>今日待办 <a href="/todo" class="dash-more">查看全部 →</a></h2>
+          <div id="dashTodo" class="dash-todo"><p class="muted" style="margin:0;">加载中…</p></div>
+        </div>
+        <div class="card">
+          <h2>每日总收益曲线 <span class="dash-card-hint">近30天</span></h2>
+          <div id="dashFundEmpty" class="dash-empty" style="display:none;">暂无每日收益数据，次日 15:00 后自动生成第一条收益记录</div>
+          <div class="dash-chart"><canvas id="dashFundChart"></canvas></div>
+        </div>
+      </div>
+      <div class="dash-side">
+        <div class="card">
+          <h2>最新月资产构成</h2>
+          <div id="dashDonutEmpty" class="dash-empty" style="display:none;">暂无资产记录</div>
+          <div class="dash-donut"><canvas id="dashDonut" role="img" aria-label="最新月资产构成"></canvas></div>
+          <div id="dashDonutLegend" class="dash-legend"></div>
+        </div>
+        <div class="card">
+          <h2>体重趋势 <span class="dash-card-hint">近30天</span></h2>
+          <div id="dashWeightEmpty" class="dash-empty" style="display:none;">暂无体重记录</div>
+          <div class="dash-chart dash-chart--sm"><canvas id="dashWeightChart"></canvas></div>
+          <div id="dashWeightDelta" class="dash-side-line"></div>
+        </div>
+        <div class="card dash-entry-card">
+          <h2>功能入口</h2>
+          <div class="dash-entry">
+            <a href="/monitor">${NAV_ICONS.monitor}定时任务</a>
+            <a href="/channels">${NAV_ICONS.channels}通知渠道</a>
+            <a href="/download">${NAV_ICONS.download}APP下载</a>
+            ${user.role === 'admin' ? `<a href="/admin">${NAV_ICONS.admin}用户管理</a>` : ''}
+          </div>
+        </div>
       </div>
     </div>
   </div>`;

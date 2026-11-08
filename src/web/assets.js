@@ -2736,27 +2736,212 @@ bindModal();
     }
   });
 
-  // 体重: 取第一位成员(通常是本人)的最新一条记录, 库内 kg 按用户单位换算
+  // ===== 仪表盘三图表（2026-11 双栏改版）：独立实例、空态、静默失败，配色对齐基金/资产页 =====
+  var dashFundChart = null, dashDonutChart = null, dashWeightChart = null;
+  // 资产类型映射与色板：与 ASSET_JS 的 TYPE_LABEL/TYPE_ORDER/TYPE_COLOR 同口径（脚本常量作用域隔离，此处自带）
+  var DASH_ASSET_LABEL = { bank:'银行卡', alipay:'支付宝', wechat:'微信', investment:'投资', credit:'信用支付', cash:'现金' };
+  var DASH_ASSET_ORDER = ['bank','alipay','wechat','cash','investment'];
+  var DASH_ASSET_COLOR = { bank:'#7C3AED', alipay:'#34b34a', wechat:'#0ea5e9', cash:'#f97316', investment:'#A855F7' };
+  // 库内统一 kg；weight_unit 为 jin 时 ×2 转斤，保留 1 位小数（与体重页 toDisplay 同口径）
+  function dashWeightVal(w, unit){ return unit === 'kg' ? w : Math.round(w * 2 * 10) / 10; }
+  function dashSurfaceColor(){
+    var v = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
+    return v || '#fbfbfd';
+  }
+  // 基金近 30 天每日总收益：蓝紫实测线 + 橙色均值虚线（口径同基金页 profitChart）
+  function renderDashFundChart(series){
+    var el = document.getElementById('dashFundChart');
+    var empty = document.getElementById('dashFundEmpty');
+    if (!el) return;
+    var rows = (series || []).slice(-30);
+    if (dashFundChart) { dashFundChart.destroy(); dashFundChart = null; }
+    if (!rows.length) { el.style.display = 'none'; if (empty) empty.style.display = 'block'; return; }
+    el.style.display = ''; if (empty) empty.style.display = 'none';
+    var labels = rows.map(function(r){ return r.date.slice(5).replace('-', '/'); });
+    var vals = rows.map(function(r){ return r.profit; });
+    var avg = Math.round(vals.reduce(function(s, v){ return s + v; }, 0) / vals.length * 100) / 100;
+    var crossZero = Math.min.apply(null, vals) < 0 && Math.max.apply(null, vals) > 0;
+    dashFundChart = new Chart(el, {
+      type: 'line',
+      data: { labels: labels, datasets: [
+        { label: '当日总收益', data: vals, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,.10)',
+          tension: .3, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 14, fill: false },
+        { label: '平均', data: vals.map(function(){ return avg; }), borderColor: '#f97316',
+          borderDash: [5, 4], borderWidth: 1.6, pointRadius: 0, fill: false }
+      ]},
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: function(it){
+            if (it.datasetIndex === 1) return '区间平均 ' + fmtSign(avg) + ' 元';
+            return '当日收益 ' + fmtSign(vals[it.dataIndex]) + ' 元';
+          } } } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } },
+          y: { ticks: { font: { size: 10 } },
+            grid: crossZero
+              ? { color: function(g){ return g.tick.value === 0 ? '#c3c8d4' : 'rgba(127,127,127,.12)'; },
+                  lineWidth: function(g){ return g.tick.value === 0 ? 1.4 : 1; } }
+              : { color: 'rgba(127,127,127,.12)' } }
+        }
+      }
+    });
+  }
+  // 最新月资产构成环图：只画正资产类型（信用支付为负债不入环），图例自绘
+  function renderDashDonut(report){
+    var el = document.getElementById('dashDonut');
+    var empty = document.getElementById('dashDonutEmpty');
+    var legend = document.getElementById('dashDonutLegend');
+    if (!el) return;
+    var totals = (report && report.byTypeTotal) || [];
+    var balanceMap = {};
+    totals.forEach(function(t){ balanceMap[t.type] = t.balance; });
+    var assets = report && report.latest ? (report.latest.assets || 0) : 0;
+    var labels = [], data = [], colors = [];
+    DASH_ASSET_ORDER.forEach(function(type){
+      var v = balanceMap[type] || 0;
+      if (v > 0) { labels.push(DASH_ASSET_LABEL[type]); data.push(v); colors.push(DASH_ASSET_COLOR[type]); }
+    });
+    if (dashDonutChart) { dashDonutChart.destroy(); dashDonutChart = null; }
+    if (!data.length) {
+      el.style.display = 'none'; if (empty) empty.style.display = 'block';
+      if (legend) legend.innerHTML = '';
+      return;
+    }
+    el.style.display = ''; if (empty) empty.style.display = 'none';
+    dashDonutChart = new Chart(el, {
+      type: 'doughnut',
+      data: { labels: labels, datasets: [{
+        data: data, backgroundColor: colors, hoverOffset: 4,
+        borderColor: dashSurfaceColor(), borderWidth: 1
+      }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '62%',
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: {
+            title: function(){ return ''; },
+            label: function(c){
+              var t = c.parsed || 0;
+              var pct = assets ? (t / assets * 100).toFixed(1) : '0.0';
+              return c.label + '：¥' + fmtMoney(t, { frac: 2 }) + ' · ' + pct + '%';
+            }
+          } } }
+      }
+    });
+    if (legend) {
+      legend.innerHTML = labels.map(function(lb, i){
+        var pct = assets ? (data[i] / assets * 100).toFixed(1) : '0.0';
+        return '<div class="dash-legend-row"><i style="background:' + colors[i] + '"></i><span>' + lb + '</span><b>' + pct + '%</b></div>';
+      }).join('');
+    }
+  }
+  // 本人成员近 30 天体重趋势：品牌紫线 + 橙色均值虚线；底部填近 30 天首末差值
+  function renderDashWeightChart(records, member, unit){
+    var el = document.getElementById('dashWeightChart');
+    var empty = document.getElementById('dashWeightEmpty');
+    var deltaEl = document.getElementById('dashWeightDelta');
+    if (!el) return;
+    var rows = [];
+    if (member) {
+      rows = (records || []).filter(function(r){ return r.member_id === member.id; })
+        .slice().sort(function(a, b){ return a.record_date < b.record_date ? -1 : 1; })
+        .slice(-30);
+    }
+    if (dashWeightChart) { dashWeightChart.destroy(); dashWeightChart = null; }
+    if (!rows.length) {
+      el.style.display = 'none'; if (empty) empty.style.display = 'block';
+      if (deltaEl) deltaEl.innerHTML = '';
+      return;
+    }
+    el.style.display = ''; if (empty) empty.style.display = 'none';
+    var U = unit === 'kg' ? 'kg' : '斤';
+    var labels = rows.map(function(r){ return r.record_date.slice(5).replace('-', '/'); });
+    var vals = rows.map(function(r){ return dashWeightVal(r.weight, unit); });
+    var avg = Math.round(vals.reduce(function(s, v){ return s + v; }, 0) / vals.length * 10) / 10;
+    dashWeightChart = new Chart(el, {
+      type: 'line',
+      data: { labels: labels, datasets: [
+        { label: '体重', data: vals, borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,.10)',
+          tension: .3, borderWidth: 2.2, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 14,
+          fill: false, spanGaps: true },
+        { label: '平均', data: vals.map(function(){ return avg; }), borderColor: '#f97316',
+          borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, fill: false }
+      ]},
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: function(it){
+            if (it.datasetIndex === 1) return '区间平均 ' + avg + ' ' + U;
+            return '体重 ' + vals[it.dataIndex] + ' ' + U;
+          } } } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 6, font: { size: 10 } } },
+          y: { ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+    if (deltaEl) {
+      var diff = Math.round((vals[vals.length - 1] - vals[0]) * 10) / 10;
+      var txt = (diff > 0 ? '+' + diff : String(diff)) + ' ' + U;
+      deltaEl.innerHTML = '<span>近30天变化</span><b>' + txt + '</b>';
+    }
+  }
+
+  // 体重: 取第一位成员(通常是本人)的最新一条记录, 库内 kg 按用户单位换算;
+  // 同一次请求的数据同时驱动 KPI 次级文案(较上次)与近30天趋势图, 不发第二次请求
   api('/api/weight/chart').then(function(d){
     var el = document.getElementById('kpiWeight');
+    var subEl = document.getElementById('kpiWeightSub');
     var members = d.members || [], records = d.records || [];
-    if (!members.length || !records.length) { el.textContent = '—'; el.title = '暂无体重记录'; return; }
-    var m = members[0];
-    var last = null;
-    for (var i = records.length - 1; i >= 0; i--) {
-      if (records[i].member_id === m.id) { last = records[i]; break; }
+    var unit = d.weight_unit;
+    if (!members.length || !records.length) {
+      el.textContent = '—'; el.title = '暂无体重记录';
+      renderDashWeightChart(records, null, unit);
+      return;
     }
-    if (!last) { el.textContent = '—'; return; }
-    var w = d.weight_unit === 'kg' ? last.weight : Math.round(last.weight * 2 * 10) / 10;
-    el.textContent = w + (d.weight_unit === 'kg' ? ' kg' : ' 斤');
+    var m = members[0];
+    var mine = records.filter(function(r){ return r.member_id === m.id; })
+      .slice().sort(function(a, b){ return a.record_date < b.record_date ? -1 : 1; });
+    var last = mine.length ? mine[mine.length - 1] : null;
+    if (!last) {
+      el.textContent = '—';
+      renderDashWeightChart(records, m, unit);
+      return;
+    }
+    var w = dashWeightVal(last.weight, unit);
+    el.textContent = w + (unit === 'kg' ? ' kg' : ' 斤');
+    // 次级文案: 较该成员上一条记录的差值(同单位, 带正负号)
+    if (subEl && mine.length >= 2) {
+      var prev = mine[mine.length - 2];
+      var dw = Math.round((dashWeightVal(last.weight, unit) - dashWeightVal(prev.weight, unit)) * 10) / 10;
+      subEl.textContent = (dw > 0 ? '+' + dw : String(dw)) + ' ' + (unit === 'kg' ? 'kg' : '斤') + ' · 较上次';
+    }
+    renderDashWeightChart(records, m, unit);
   }).catch(function(){});
 
-  // 资产: 最新月度快照净资产
+  // 资产: 最新月度快照净资产; 同一份 report 驱动次级文案(本月变化)与资产构成环图
   api('/api/asset/report').then(function(d){
     var el = document.getElementById('kpiAsset');
-    var nw = d.report && d.report.latest ? d.report.latest.netWorth : 0;
-    if (!(d.records && d.records.length) && !nw) { el.textContent = '—'; el.title = '暂无资产记录'; return; }
+    var subEl = document.getElementById('kpiAssetSub');
+    var r0 = d.report || {};
+    var nw = r0.latest ? r0.latest.netWorth : 0;
+    if (!(d.records && d.records.length) && !nw) {
+      el.textContent = '—'; el.title = '暂无资产记录';
+      renderDashDonut(r0);
+      return;
+    }
     el.textContent = '¥' + fmtMoney(nw);
+    if (subEl && r0.netWorthChange != null) {
+      subEl.textContent = '本月 ' + (r0.netWorthChange > 0 ? '+' : '') + fmtMoney(r0.netWorthChange);
+    }
+    renderDashDonut(r0);
+  }).catch(function(){});
+
+  // 基金: 近30天每日总收益曲线(独立请求, 失败静默为空态, 不影响其他卡片)
+  api('/api/fund/profit-history').then(function(d){
+    renderDashFundChart(d.series || []);
   }).catch(function(){});
 })();
 `;

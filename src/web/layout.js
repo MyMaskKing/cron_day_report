@@ -826,6 +826,71 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .dash-todo .dash-achild { gap: 10px; padding: 6px 2px; }
   .dash-todo .dash-actitle { font-size: 14px; }
 }
+
+/* ============ 仪表盘双栏（2026-11）：KPI 网格 + 左主右辅，颜色/圆角全走变量 ============ */
+.dash-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.dash-kpi {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 14px 16px; min-width: 0;
+}
+.dash-kpi__label { font-size: 12px; color: var(--muted); font-weight: 600; }
+.dash-kpi__num {
+  font-size: 26px; font-weight: 800; color: var(--text-strong);
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dash-kpi--danger .dash-kpi__num { color: var(--danger); }
+.dash-kpi__num--money { font-size: 21px; padding-top: 3px; }
+.dash-kpi__sub { font-size: 11.5px; color: var(--faint); margin-top: 3px; min-height: 15px; font-variant-numeric: tabular-nums; }
+.dash-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.dash-main, .dash-side { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+/* grid/flex 的 gap 统一接管纵向间距，清掉 .card 自带 margin-bottom 避免叠加 */
+.dash-layout .card { margin-bottom: 0; }
+.dash-more { float: right; font-size: 13px; font-weight: 500; }
+.dash-card-hint { float: right; font-size: 12px; color: var(--muted); font-weight: 400; }
+.dash-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 36px 12px; }
+/* Chart.js responsive 画布：外层固定高度 + maintainAspectRatio:false */
+.dash-chart { position: relative; height: 220px; margin-top: 10px; }
+.dash-chart--sm { height: 180px; }
+.dash-donut { position: relative; width: 100%; max-width: 200px; height: 200px; margin: 8px auto 4px; }
+.dash-legend { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+.dash-legend-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--label); }
+.dash-legend-row i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.dash-legend-row b { margin-left: auto; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.dash-side-line {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12.5px; color: var(--muted); margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--th-border);
+}
+.dash-side-line b { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 700; }
+/* 精简功能入口：2 列小卡，主模块不重复（侧栏/底栏已承载） */
+.dash-entry { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dash-entry a {
+  display: flex; align-items: center; gap: 8px; padding: 11px 12px;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  color: var(--text); font-size: 13px; font-weight: 600;
+}
+.dash-entry a svg { width: 17px; height: 17px; color: var(--brand-text); flex: none; }
+.dash-entry a:hover:not(:active) { border-color: var(--brand-border); background: var(--hover-brand); text-decoration: none; }
+/* 中宽屏：右栏收窄 */
+@media (max-width: 1099px) {
+  .dash-layout { grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; }
+  .dash-main, .dash-side { gap: 14px; }
+}
+/* 窄屏塌缩单列，顺序：待办 → 基金 → 资产 → 体重 → 入口 */
+@media (max-width: 860px) {
+  .dash-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .dash-kpi { padding: 12px 13px; }
+  .dash-kpi__num { font-size: 22px; }
+  .dash-kpi__num--money { font-size: 18px; }
+  /* 底栏 5 Tab + 「我的」已覆盖全部入口，手机端不展示入口卡 */
+  .dash-entry-card { display: none; }
+  .dash-chart { height: 200px; }
+}
+
 /* 手机视图：所有滚动条强制透明隐藏（触屏滑动不受影响）。
    !important 必须保留——自定义滚动条全局规则在本文件后段, 同特异性会反覆盖此规则 */
 @media (max-width: 640px) {
