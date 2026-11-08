@@ -896,6 +896,99 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .dash-chart { height: 200px; }
 }
 
+/* ============ 体重看板改版（2026-11）：Hero 大数字 + 紧凑录入 + 双栏布局 ============ */
+.weight-container { max-width: 1200px; margin: 20px auto; }
+.weight-topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; margin-bottom: 14px;
+}
+.weight-topbar__members { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.weight-topbar__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.weight-topbar__actions .btn { display: inline-flex; align-items: center; }
+
+/* Hero 看板 */
+.weight-hero {
+  display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  padding: 18px 22px; margin-bottom: 14px;
+  background: var(--surface); border: 1px solid var(--border); border-left: 5px solid var(--brand-strong);
+  border-radius: var(--r-lg);
+}
+.weight-hero__main { flex: 1; min-width: 0; }
+.weight-hero__meta { font-size: 13px; color: var(--muted); font-weight: 600; }
+.weight-hero__val {
+  font-size: 42px; font-weight: 850; letter-spacing: -.03em; color: var(--text-strong);
+  line-height: 1.12; font-variant-numeric: tabular-nums; margin: 4px 0 8px;
+}
+.weight-hero__val small { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 6px; }
+.weight-hero__deltas { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.weight-delta-pill {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px;
+  border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border);
+  font-size: 12px; font-weight: 600; color: var(--label);
+}
+.weight-delta-pill b { font-variant-numeric: tabular-nums; color: var(--text); }
+.weight-delta-pill.down b { color: var(--ok-text); }
+.weight-delta-pill.up b { color: var(--danger); }
+.weight-hero__spark { flex: 0 0 260px; height: 76px; }
+.weight-hero__spark svg { width: 100%; height: 100%; overflow: visible; }
+
+/* 紧凑快速录入条 */
+.weight-quick-bar { padding: 14px 18px; margin-bottom: 16px; border: 1px solid var(--border); }
+.weight-quick-bar__form { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.weight-qf { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.weight-qf label { font-size: 12px; color: var(--muted); font-weight: 600; }
+.weight-qf input, .weight-qf select {
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 8px 10px; font-size: 13.5px; background: var(--surface); color: var(--text);
+  font-family: inherit; margin: 0;
+}
+.weight-qf--member { flex: 1 1 140px; }
+.weight-qf--val { width: 130px; }
+.weight-qf--date { width: 155px; }
+.weight-qf--btn { flex: 0 0 auto; }
+.weight-qf--btn .btn { height: 37px; padding: 0 20px; font-weight: 700; }
+.weight-quick-bar__tip { font-size: 11.5px; color: var(--faint); margin-top: 6px; }
+
+/* 双栏布局 */
+.weight-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+.weight-main, .weight-side { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.weight-layout .card { margin-bottom: 0; }
+.weight-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.weight-card-head h2 { font-size: 15px; font-weight: 800; color: var(--text-strong); margin: 0; }
+.weight-chart-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.weight-chart-tools select, .weight-chart-tools input {
+  padding: 4px 8px; font-size: 12.5px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--text); font-family: inherit; margin: 0;
+}
+.weight-date-input { width: 130px; }
+.weight-chart-wrap { position: relative; min-height: 240px; }
+.weight-scroll-box { max-height: 380px; }
+
+/* 减肥竞赛小卡 */
+.weight-race-card { background: var(--surface-3); border: 1px dashed var(--border); }
+.weight-race-content { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* 中屏与窄屏响应式 */
+@media (max-width: 1023px) {
+  .weight-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .weight-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .weight-topbar__actions { justify-content: flex-end; }
+  .weight-hero { flex-direction: column; align-items: stretch; gap: 12px; padding: 15px; }
+  .weight-hero__val { font-size: 34px; }
+  .weight-hero__spark { flex: none; width: 100%; height: 60px; }
+  .weight-quick-bar__form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .weight-qf--member { grid-column: span 1; width: 100%; }
+  .weight-qf--val { width: 100%; }
+  .weight-qf--date { grid-column: span 2; width: 100%; }
+  .weight-qf--btn { grid-column: span 2; width: 100%; }
+  .weight-qf--btn .btn { width: 100%; }
+  .weight-qf__ghost-label { display: none; }
+  .weight-chart-tools { width: 100%; justify-content: flex-end; }
+  .weight-date-input { width: 110px; }
+}
+
 /* 手机视图：所有滚动条强制透明隐藏（触屏滑动不受影响）。
    !important 必须保留——自定义滚动条全局规则在本文件后段, 同特异性会反覆盖此规则 */
 @media (max-width: 640px) {

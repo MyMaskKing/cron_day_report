@@ -6050,6 +6050,80 @@ function mdName(m){
 // 当前是否在 X-Data-As 共享数据源（好友功能只属于本人身份，共享时隐藏入口）
 function weightSharingSource(){ return !!dataShareGet('weight'); }
 
+// Hero 体重看板：大字最新体重 + 三枚差值 Pill + SVG Sparkline（跟随 wInsightMid 成员）
+function renderWeightHero(mid, allRecs) {
+  var numEl = document.getElementById('heroNum');
+  var unitEl = document.getElementById('heroUnit');
+  var metaEl = document.getElementById('heroMeta');
+  var deltasEl = document.getElementById('heroDeltas');
+  var sparkEl = document.getElementById('heroSpark');
+  if (!numEl || !unitEl || !metaEl || !deltasEl || !sparkEl) return;
+  unitEl.textContent = unitLabel();
+  var m = mid != null ? members.filter(function(x){ return x.id === mid; })[0] : null;
+  if (!m) {
+    metaEl.textContent = '最新体重';
+    numEl.textContent = '--';
+    deltasEl.innerHTML = '';
+    sparkEl.innerHTML = '';
+    return;
+  }
+  var recs = allRecs.filter(function(r){ return r.member_id === m.id; })
+    .sort(function(a, b){ return a.record_date < b.record_date ? -1 : 1; });
+  if (!recs.length) {
+    metaEl.textContent = mdName(m) + ' · 暂无记录';
+    numEl.textContent = '--';
+    deltasEl.innerHTML = '';
+    sparkEl.innerHTML = '';
+    return;
+  }
+  var latest = recs[recs.length - 1];
+  var latestV = toDisplay(latest.weight);
+  var round1 = function(n){ return Math.round(n * 10) / 10; };
+  metaEl.textContent = mdName(m) + ' · 最新（' + latest.record_date.slice(5).replace('-', '/') + '）';
+  numEl.textContent = String(latestV);
+
+  // 找不晚于指定日期的最近一条记录
+  function nearestBefore(day){ for (var i = recs.length - 1; i >= 0; i--) { if (recs[i].record_date <= day) return recs[i]; } return null; }
+  function shiftDays(baseStr, n){
+    var d = new Date(Date.parse(baseStr + 'T00:00:00'));
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+  }
+  var prev = null;
+  for (var i = recs.length - 1; i >= 0; i--) { if (recs[i].record_date < latest.record_date) { prev = recs[i]; break; } }
+  var refWeek = nearestBefore(shiftDays(latest.record_date, 7));
+  var refMonth = nearestBefore(shiftDays(latest.record_date, 30));
+
+  function pill(label, ref) {
+    if (!ref) return '<span class="weight-delta-pill">' + label + ' <b>数据不足</b></span>';
+    var d = round1(latestV - toDisplay(ref.weight));
+    var cls = d < 0 ? 'down' : d > 0 ? 'up' : '';
+    var arrow = d < 0 ? '↓ ' : d > 0 ? '↑ ' : '';
+    return '<span class="weight-delta-pill ' + cls + '">' + label + ' <b>' + arrow + Math.abs(d) + '</b></span>';
+  }
+  deltasEl.innerHTML = pill('较上次', prev) + pill('较上周', refWeek) + pill('较上月', refMonth);
+
+  // Sparkline：取最近 20 条，归一化到 260×72 视框
+  var pts = recs.slice(-20).map(function(r){ return toDisplay(r.weight); });
+  if (pts.length < 2) { sparkEl.innerHTML = ''; return; }
+  var W = 260, H = 72, pad = 6;
+  var min = Math.min.apply(null, pts), max = Math.max.apply(null, pts);
+  var span = (max - min) || 1;
+  var stepX = (W - pad * 2) / (pts.length - 1);
+  var coords = pts.map(function(v, i){
+    var x = pad + i * stepX;
+    var y = pad + (H - pad * 2) * (1 - (v - min) / span);
+    return [round1(x), round1(y)];
+  });
+  var linePts = coords.map(function(c){ return c[0] + ',' + c[1]; }).join(' ');
+  var lastPt = coords[coords.length - 1];
+  sparkEl.innerHTML =
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+      '<polyline fill="none" stroke="#7C3AED" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="' + linePts + '"/>' +
+      '<circle cx="' + lastPt[0] + '" cy="' + lastPt[1] + '" r="4" fill="#7C3AED"/>' +
+    '</svg>';
+}
+
 function applyFilter() {
   var s = document.getElementById('fStart').value;
   var e = document.getElementById('fEnd').value;
@@ -6073,6 +6147,7 @@ function applyFilter() {
   // 历史记录跟随曲线焦点：null=全部成员，选中成员=只看该成员
   renderRecordTable(active, filtered, wChartFocus);
   renderWeightInsight(active, filtered, wInsightMid, selfId);
+  renderWeightHero(wInsightMid, allRecords);
 }
 // chip 选择后统一重绘三处（曲线/智能分析/历史记录）
 function redrawWeightViews() {
@@ -6090,6 +6165,7 @@ function redrawWeightViews() {
     || active[0] || null;
   renderRecordTable(active, filtered, wChartFocus);
   renderWeightInsight(active, filtered, wInsightMid, selfM ? selfM.id : null);
+  renderWeightHero(wInsightMid, allRecords);
 }
 
 async function loadAll() {
@@ -6109,6 +6185,9 @@ async function loadAll() {
   // 竞赛结果：启用成员（自己/共享/好友）多于 1 人才开赛
   var rb = document.getElementById('wRaceBtn');
   if (rb) rb.style.display = members.filter(function(m){ return !m.disabled; }).length > 1 ? '' : 'none';
+  // 新布局：竞赛卡片整体显隐（按钮仍在卡内，上方 style.display 保持兼容）
+  var rbox = document.getElementById('wRaceBox');
+  if (rbox) rbox.style.display = members.filter(function(m){ return !m.disabled; }).length > 1 ? '' : 'none';
 }
 function updateUnitLabels() {
   var l = document.getElementById('recWeightLabel');

@@ -827,87 +827,129 @@ function publicBuyPage(showQuickLogin = true) {
 
 /** 体重曲线页 */
 function weightPage(user) {
-  const body = renderTopbar(user, 'weight') + `<div class="container">
-    <div class="card">
-      <h2>成员
-        <button class="btn sm" id="mAdd" style="float:right;">+ 新建成员</button>
-        <button class="btn sm gray" id="fFriend" style="float:right;margin-right:8px;">👥 好友</button>
-        <select id="unitSel" class="btn sm gray" style="float:right;width:auto;margin-right:8px;padding:4px 8px;">
+  const body = renderTopbar(user, 'weight') + `<div class="container weight-container">
+    <div class="card weight-topbar">
+      <div class="weight-topbar__members" id="memberList"></div>
+      <div class="weight-topbar__actions">
+        <button class="btn sm" id="mAdd">+ 新建成员</button>
+        <button class="btn sm gray" id="fFriend">👥 好友</button>
+        <select id="unitSel" class="btn sm gray">
           <option value="jin">单位：斤</option>
           <option value="kg">单位：公斤</option>
         </select>
-      </h2>
-      <div id="memberList"></div>
-    </div>
-
-    <div class="card">
-      <h2>录入体重</h2>
-      <div class="row">
-        <div><label>成员</label><select id="recMember"></select></div>
-        <div><label id="recWeightLabel">体重(斤)</label><input id="recWeight" type="number" step="0.1" placeholder="如 130"></div>
-        <div><label>日期</label><input id="recDate" type="date"></div>
       </div>
-      <button class="btn" id="recAdd">保存记录</button>
-      <p class="muted" style="margin-top:6px;">同一成员同一天再次录入将覆盖当天数据。</p>
     </div>
 
-    <div class="card">
-      <h2>体重曲线
-        <button class="btn sm" id="wRaceBtn" style="float:right;display:none;">🏆 竞赛结果</button>
-      </h2>
-      <div class="row">
-        <div><label>时间区间</label>
-          <select id="rangePreset"><option value="d7">近7天</option><option value="d30" selected>近30天</option><option value="d60">近60天</option><option value="month">本月</option><option value="year">本年</option></select>
+    <div class="card weight-hero" id="weightHero">
+      <div class="weight-hero__main">
+        <div class="weight-hero__meta" id="heroMeta">最新体重</div>
+        <div class="weight-hero__val"><span id="heroNum">--</span><small id="heroUnit">斤</small></div>
+        <div class="weight-hero__deltas" id="heroDeltas"></div>
+      </div>
+      <div class="weight-hero__spark" id="heroSpark"></div>
+    </div>
+
+    <div class="card weight-quick-bar">
+      <div class="weight-quick-bar__form">
+        <div class="weight-qf weight-qf--member">
+          <label>成员</label>
+          <select id="recMember"></select>
         </div>
-        <div><label>开始</label><input id="fStart" type="date"></div>
-        <div><label>结束</label><input id="fEnd" type="date"></div>
-      </div>
-      <canvas id="weightChart" style="max-height:340px;"></canvas>
-      <div id="wInsight"></div>
-    </div>
-
-    <details class="card push-card">
-      <summary><span class="push-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>每日推送<svg class="push-card__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-      <div class="push-card__body">
-      <div class="row">
-        <div><label>通知渠道（可多选）</label><div id="pushCh" class="multi-pick"></div></div>
-        <div><label>格式</label>
-          <select id="pushFmt"><option value="text">text</option><option value="html">html</option><option value="markdown">markdown</option></select>
+        <div class="weight-qf weight-qf--val">
+          <label id="recWeightLabel">体重(斤)</label>
+          <input id="recWeight" type="number" step="0.1" placeholder="如 130">
         </div>
-        <div><label>推送时间</label><div id="pushHour" class="multi-pick"></div></div>
-      </div>
-      <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送</label>
-      <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button> <button class="btn gray" id="pushSend">立即推送</button></div>
-      </div>
-    </details>
-
-    <div class="card">
-      <h2>历史记录</h2>
-      <div class="scroll-box">
-        <table>
-          <thead><tr><th>日期</th><th>成员</th><th>体重</th><th>较上次</th><th>操作</th></tr></thead>
-          <tbody id="recTbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card" id="shareCard" style="display:none;">
-      <h2>引用成员（超管）</h2>
-      <p class="muted" style="margin-top:-4px;">把其他账号的成员引用到自己名下，双方共用同一份数据（改名/记录实时同步）。移除引用不影响原账号。</p>
-      <div class="row">
-        <div style="flex:1;"><label>选择要引用的成员</label>
-          <input id="shareMemberSearch" type="search" placeholder="搜索昵称 / 账号 / 成员名" style="margin-bottom:6px;">
-          <select id="shareMemberSel"><option value="">加载中…</option></select>
+        <div class="weight-qf weight-qf--date">
+          <label>日期</label>
+          <input id="recDate" type="date">
         </div>
-        <div><label>&nbsp;</label><button class="btn" id="shareRun" style="display:block;">引用到我的成员</button></div>
+        <div class="weight-qf weight-qf--btn">
+          <label class="weight-qf__ghost-label">&nbsp;</label>
+          <button class="btn" id="recAdd">保存记录</button>
+        </div>
       </div>
+      <div class="weight-quick-bar__tip">同成员同一天再次录入将覆盖当天记录</div>
     </div>
 
-    <div class="card" id="compareCard" style="display:none;">
-      <h2>多用户对比（超管）</h2>
-      <div id="cmpUsers" style="margin-bottom:10px;"></div>
-      <button class="btn" id="cmpRun">生成对比曲线</button>
-      <canvas id="compareChart" data-fs-skip="1" style="max-height:340px;margin-top:14px;"></canvas>
+    <div class="weight-layout">
+      <div class="weight-main">
+        <div class="card">
+          <div class="weight-card-head">
+            <h2>体重曲线</h2>
+            <div class="weight-chart-tools">
+              <select id="rangePreset">
+                <option value="d7">近7天</option>
+                <option value="d30" selected>近30天</option>
+                <option value="d60">近60天</option>
+                <option value="month">本月</option>
+                <option value="year">本年</option>
+              </select>
+              <input id="fStart" type="date" class="weight-date-input">
+              <input id="fEnd" type="date" class="weight-date-input">
+            </div>
+          </div>
+          <div class="weight-chart-wrap">
+            <canvas id="weightChart" style="max-height:340px;"></canvas>
+          </div>
+          <div id="wInsight"></div>
+        </div>
+      </div>
+
+      <div class="weight-side">
+        <div class="card weight-hist-card">
+          <div class="weight-card-head">
+            <h2>历史记录</h2>
+          </div>
+          <div class="scroll-box weight-scroll-box">
+            <table class="weight-table">
+              <thead><tr><th>日期</th><th>成员</th><th>体重</th><th>较上次</th><th>操作</th></tr></thead>
+              <tbody id="recTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card weight-race-card" id="wRaceBox" style="display:none;">
+          <div class="weight-race-content">
+            <div>
+              <h3 style="font-size:14px;font-weight:700;">🏆 减肥竞赛</h3>
+              <p class="muted" style="font-size:12px;margin-top:2px;">基于打卡率与降重积分的健康榜</p>
+            </div>
+            <button class="btn sm" id="wRaceBtn">查看排行</button>
+          </div>
+        </div>
+
+        <details class="card push-card weight-push-card">
+          <summary><span class="push-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>每日推送<svg class="push-card__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
+          <div class="push-card__body">
+            <div class="row">
+              <div><label>通知渠道（可多选）</label><div id="pushCh" class="multi-pick"></div></div>
+              <div><label>格式</label>
+                <select id="pushFmt"><option value="text">text</option><option value="html">html</option><option value="markdown">markdown</option></select>
+              </div>
+              <div><label>推送时间</label><div id="pushHour" class="multi-pick"></div></div>
+            </div>
+            <label><input type="checkbox" id="pushEn" style="width:auto;"> 启用每日自动推送</label>
+            <div style="margin-top:12px;"><button class="btn" id="pushSave">保存推送配置</button> <button class="btn gray" id="pushSend">立即推送</button></div>
+          </div>
+        </details>
+
+        <div class="card" id="shareCard" style="display:none;">
+          <h2>引用成员（超管）</h2>
+          <p class="muted" style="margin-top:-4px;font-size:12px;">把其他账号成员引用到自己名下，双方共用同一份数据。</p>
+          <div style="margin-top:8px;">
+            <input id="shareMemberSearch" type="search" placeholder="搜索昵称 / 账号 / 成员名" style="margin-bottom:6px;">
+            <select id="shareMemberSel" style="margin-bottom:8px;"><option value="">加载中…</option></select>
+            <button class="btn" id="shareRun" style="width:100%;">引用到我的成员</button>
+          </div>
+        </div>
+
+        <div class="card" id="compareCard" style="display:none;">
+          <h2>多用户对比（超管）</h2>
+          <div id="cmpUsers" style="margin-bottom:10px;"></div>
+          <button class="btn" id="cmpRun" style="width:100%;">生成对比曲线</button>
+          <canvas id="compareChart" data-fs-skip="1" style="max-height:260px;margin-top:14px;"></canvas>
+        </div>
+      </div>
     </div>
   </div>`;
   return renderPage({ title: '体重曲线', body, scripts: ['page-weight.js'], theme: user.theme });
