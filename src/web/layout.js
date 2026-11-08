@@ -1022,7 +1022,7 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .weight-qf__ghost-label { display: none; }
   /* 筛选条保持单行：下拉弹性、日期缩窄 */
   .weight-chart-tools { gap: 6px; margin-bottom: 8px; }
-  .weight-date-input { width: 102px; flex: 0 0 102px; }
+  .weight-date-input { width: 96px; flex: 0 0 96px; }
   .weight-chart-wrap { min-height: 200px; }
   /* 收紧双栏间距与智能分析留白 */
   .weight-layout { gap: 10px; }
