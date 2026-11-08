@@ -833,10 +833,6 @@ function weightPage(user) {
       <div class="weight-topbar__actions">
         <button class="btn sm" id="mAdd">+ 新建成员</button>
         <button class="btn sm gray" id="fFriend">👥 好友</button>
-        <select id="unitSel" class="btn sm gray">
-          <option value="jin">单位：斤</option>
-          <option value="kg">单位：公斤</option>
-        </select>
       </div>
     </div>
 
@@ -858,6 +854,13 @@ function weightPage(user) {
         <div class="weight-qf weight-qf--val">
           <label id="recWeightLabel">体重(斤)</label>
           <input id="recWeight" type="number" step="0.1" placeholder="如 130">
+        </div>
+        <div class="weight-qf weight-qf--unit">
+          <label>单位</label>
+          <select id="unitSel">
+            <option value="jin">斤</option>
+            <option value="kg">公斤</option>
+          </select>
         </div>
         <div class="weight-qf weight-qf--date">
           <label>日期</label>
@@ -942,14 +945,14 @@ function weightPage(user) {
             <button class="btn" id="shareRun" style="width:100%;">引用到我的成员</button>
           </div>
         </div>
-
-        <div class="card" id="compareCard" style="display:none;">
-          <h2>多用户对比（超管）</h2>
-          <div id="cmpUsers" style="margin-bottom:10px;"></div>
-          <button class="btn" id="cmpRun" style="width:100%;">生成对比曲线</button>
-          <canvas id="compareChart" data-fs-skip="1" style="max-height:260px;margin-top:14px;"></canvas>
-        </div>
       </div>
+    </div>
+
+    <div class="card" id="compareCard" style="display:none;margin-top:16px;">
+      <h2>多用户对比（超管）</h2>
+      <div id="cmpUsers" style="margin-bottom:10px;"></div>
+      <button class="btn" id="cmpRun">生成对比曲线</button>
+      <canvas id="compareChart" data-fs-skip="1" style="max-height:340px;margin-top:14px;"></canvas>
     </div>
   </div>`;
   return renderPage({ title: '体重曲线', body, scripts: ['page-weight.js'], theme: user.theme });

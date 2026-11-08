@@ -903,8 +903,12 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   padding: 12px 16px; margin-bottom: 14px;
 }
 .weight-topbar__members { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0; }
-.weight-topbar__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.weight-topbar__actions .btn { display: inline-flex; align-items: center; }
+.weight-topbar__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap; }
+.weight-topbar__actions .btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  white-space: nowrap; flex-shrink: 0; height: 32px; padding: 0 12px; margin: 0;
+  line-height: 1;
+}
 
 /* Hero 看板 */
 .weight-hero {
@@ -943,10 +947,11 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   font-family: inherit; margin: 0;
 }
 .weight-qf--member { flex: 1 1 140px; }
-.weight-qf--val { width: 130px; }
+.weight-qf--val { width: 120px; }
+.weight-qf--unit { width: 96px; flex-shrink: 0; }
 .weight-qf--date { width: 155px; }
 .weight-qf--btn { flex: 0 0 auto; }
-.weight-qf--btn .btn { height: 37px; padding: 0 20px; font-weight: 700; }
+.weight-qf--btn .btn { height: 37px; padding: 0 20px; font-weight: 700; white-space: nowrap; }
 .weight-quick-bar__tip { font-size: 11.5px; color: var(--faint); margin-top: 6px; }
 
 /* 双栏布局 */
@@ -979,8 +984,9 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .weight-hero__val { font-size: 34px; }
   .weight-hero__spark { flex: none; width: 100%; height: 60px; }
   .weight-quick-bar__form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .weight-qf--member { grid-column: span 1; width: 100%; }
+  .weight-qf--member { grid-column: span 2; width: 100%; }
   .weight-qf--val { width: 100%; }
+  .weight-qf--unit { width: 100%; }
   .weight-qf--date { grid-column: span 2; width: 100%; }
   .weight-qf--btn { grid-column: span 2; width: 100%; }
   .weight-qf--btn .btn { width: 100%; }
