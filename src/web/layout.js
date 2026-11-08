@@ -1278,6 +1278,9 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .todo-hero__hint { font-size: 12.5px; color: var(--muted-2); font-weight: 600; margin-top: 6px; }
 .todo-hero__hint em { font-style: normal; color: var(--danger); font-weight: 800; }
 .todo-hero__dot { font-style: normal; color: var(--border-strong); margin: 0 6px; }
+/* 副标三段：今天品牌紫、未来灰（回落基础色）、逾期红走 em */
+.todo-hero__seg { color: var(--muted-2); font-weight: 600; }
+.todo-hero__seg--today { color: var(--brand-text); font-weight: 800; }
 .todo-hero__pills { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
 .todo-kpi {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);

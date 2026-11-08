@@ -9517,7 +9517,7 @@ function todoDoneByFilter(rows, filter, today, range) {
 //   memo:    未完成叶子且无有效 due_date
 // trees: 已按当前 _filter 过滤后的顶层数组
 function todoStatsByVisible(trees, today) {
-  var pending = 0, overdue = 0, memo = 0, dueToday = 0;
+  var pending = 0, overdue = 0, memo = 0, dueToday = 0, dueFuture = 0;
   function walk(node, inheritedDue) {
     if (node.done) return;
     var own = node.due_date || inheritedDue;
@@ -9529,9 +9529,10 @@ function todoStatsByVisible(trees, today) {
     pending++;
     if (today && own < today) overdue++;
     if (today && own === today) dueToday++; // 今天到期：与逾期同一次叶子遍历，YYYY-MM-DD 字典序即日期序
+    if (today && own > today) dueFuture++; // 未来到期：三段互斥且之和恒等于 pending
   }
   trees.forEach(function(root){ walk(root, root.due_date); });
-  return { pending: pending, overdue: overdue, memo: memo, today: dueToday };
+  return { pending: pending, overdue: overdue, memo: memo, today: dueToday, future: dueFuture };
 }
 // 前端版 shiftDate: 与后端 services/todo.service.js 的 shiftDate 逻辑一致
 // dueDate: YYYY-MM-DD; recurrence: 'daily'|'weekly'|'monthly'|'yearly'|'monthly_nth_weekday'
@@ -14636,12 +14637,19 @@ function renderPendingStats() {
   document.getElementById('stOverdue').textContent = s.overdue;
   document.getElementById('stMemo').textContent = s.memo;
   // Hero 副标（仅登录态主页有此元素，免密页 getElementById 为 null 静默跳过）
+  // 三段常显且互斥：今天 + 未来 + 逾期 恒等于 pending 大数字，0 也显示以便对账组成
   var hintEl = document.getElementById('todoTodayHint');
   if (hintEl) {
-    var segs = [];
-    if (s.today > 0) segs.push('<span>今天到期 ' + s.today + ' 项</span>');
-    if (s.overdue > 0) segs.push('<em>' + s.overdue + ' 项已逾期</em>');
-    hintEl.innerHTML = segs.length ? segs.join('<i class="todo-hero__dot">·</i>') : '<span>今天没有到期任务</span>';
+    if (s.pending > 0) {
+      hintEl.innerHTML =
+        '<span class="todo-hero__seg todo-hero__seg--today">今天到期 ' + s.today + ' 项</span>' +
+        '<i class="todo-hero__dot">·</i>' +
+        '<span class="todo-hero__seg todo-hero__seg--future">未来 ' + s.future + ' 项</span>' +
+        '<i class="todo-hero__dot">·</i>' +
+        '<em>' + s.overdue + ' 项已逾期</em>';
+    } else {
+      hintEl.innerHTML = '<span>今天没有到期任务</span>';
+    }
   }
   var rootEl = document.getElementById('todoRootCount');
   if (rootEl) rootEl.textContent = trees.length;
