@@ -833,6 +833,14 @@ function weightPage(user) {
       <div class="weight-topbar__actions">
         <button class="btn sm" id="mAdd">+ 新建成员</button>
         <button class="btn sm gray" id="fFriend">👥 好友</button>
+        <div class="w-unit-seg" id="unitSeg">
+          <button type="button" data-v="jin">斤</button>
+          <button type="button" data-v="kg">公斤</button>
+        </div>
+        <select id="unitSel" class="w-unit-native" tabindex="-1" aria-hidden="true">
+          <option value="jin">斤</option>
+          <option value="kg">公斤</option>
+        </select>
       </div>
     </div>
 
@@ -854,17 +862,6 @@ function weightPage(user) {
         <div class="weight-qf weight-qf--val">
           <label id="recWeightLabel">体重(斤)</label>
           <input id="recWeight" type="number" step="0.1" placeholder="如 130">
-        </div>
-        <div class="weight-qf weight-qf--unit">
-          <label>单位</label>
-          <div class="w-unit-seg" id="unitSeg">
-            <button type="button" data-v="jin">斤</button>
-            <button type="button" data-v="kg">公斤</button>
-          </div>
-          <select id="unitSel" class="w-unit-native" tabindex="-1" aria-hidden="true">
-            <option value="jin">斤</option>
-            <option value="kg">公斤</option>
-          </select>
         </div>
         <div class="weight-qf weight-qf--date">
           <label>日期</label>

@@ -6436,19 +6436,22 @@ function renderRecordTable(mlist, records, focusMid) {
       ? '<span class="muted">—</span>'
       : '<button class="btn sm gray" onclick="recEdit(' + r.id + ',' + r.weight + ",'" + r.record_date + "'" + ')">改</button> ' +
         '<button class="btn sm danger" onclick="recDel(' + r.id + ')">删</button>';
-    return '<tr><td data-label="日期">' + esc(r.record_date) + '</td>' +
+    // 侧栏窄表：日期取 MM-DD 短格式（手机卡片模式下 data-label 仍标明「日期」）
+    var shortDate = (r.record_date || '').slice(5);
+    return '<tr><td data-label="日期">' + esc(shortDate) + '</td>' +
       '<td data-label="成员">' + esc(nameOf[r.member_id]||'') + '</td>' +
       '<td data-label="体重">' + toDisplay(r.weight) + ' ' + unitLabel() + '</td>' +
       '<td data-label="较上次">' + deltaCell(deltaOf[r.id]) + '</td>' +
       '<td data-label="操作">' + ops + '</td></tr>';
   }).join('') || '<tr><td colspan="5" class="muted">暂无记录</td></tr>';
 }
-// 增减单元格：增重红色加粗↑, 减重绿色↓, 无上一条显示 —
+// 增减单元格：增重红色↑、减重绿色↓（箭头表方向，不重复 +/- 与单位，窄列容得下），无上一条显示 —
 function deltaCell(deltaKg) {
   if (deltaKg == null) return '<span class="muted">—</span>';
-  var d = toDisplay(Math.abs(deltaKg));
-  if (deltaKg > 0) return '<span style="color:var(--danger);font-weight:700;">↑ +' + d + ' ' + unitLabel() + '</span>';
-  if (deltaKg < 0) return '<span style="color:var(--ok-text);">↓ -' + d + ' ' + unitLabel() + '</span>';
+  // kg 模式直接相减会出现 0.2999… 浮点尾差，统一保留 1 位小数
+  var d = Math.round(toDisplay(Math.abs(deltaKg)) * 10) / 10;
+  if (deltaKg > 0) return '<span style="color:var(--danger);font-weight:700;">↑' + d + '</span>';
+  if (deltaKg < 0) return '<span style="color:var(--ok-text);font-weight:700;">↓' + d + '</span>';
   return '<span class="muted">0</span>';
 }
 
