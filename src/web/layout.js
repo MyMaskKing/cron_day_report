@@ -1031,7 +1031,7 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   /* 筛选条手机端三行堆叠：下拉、开始、结束各占一行整宽 */
   .weight-chart-tools { flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 8px; }
   .weight-chart-tools select, .weight-date-input { width: 100%; flex: none; }
-  .weight-chart-wrap { min-height: 170px; }
+  .weight-chart-wrap { min-height: 180px; }
   /* 收紧双栏间距与智能分析留白 */
   .weight-layout { gap: 10px; }
   .weight-main, .weight-side { gap: 10px; }
