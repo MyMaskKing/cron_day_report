@@ -1202,8 +1202,8 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .as-goal__grid span { color: var(--muted); }
 .as-goal__grid b { display: block; color: var(--text-strong); font-size: 13.5px; margin-top: 1px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-/* 类型合计 pill 条：桌面 6 列，手机 3 列（覆盖旧 .asset-type-pills 固定 6 列）*/
-.as-type-pills { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 14px; }
+/* 类型合计 pill 条：桌面 6 列，手机 3 列（双 class 提特异性覆盖后段旧 .asset-type-pills，否则同特异性被反压）*/
+.as-type-pills.asset-type-pills { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 14px; }
 
 /* 双栏 */
 .as-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; margin-bottom: 18px; }
@@ -1237,7 +1237,7 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .as-hero__num { font-size: 34px; }
   /* 手机端目标区改横分隔上下堆 */
   .as-goal { width: 100%; border-left: 0; border-top: 1px solid var(--brand-border); padding-left: 0; padding-top: 14px; }
-  .as-type-pills { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .as-type-pills.asset-type-pills { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .as-layout { gap: 10px; margin-bottom: 10px; }
   .as-main, .as-side { gap: 10px; }
   .as-chart-tools { flex-direction: column; align-items: stretch; gap: 8px; }
