@@ -699,8 +699,11 @@ function fundPage(user) {
         </div>
       </div>
       <div class="fund-hero__donut">
-        <div class="fund-donut-cap">持仓现值分布</div>
         <div class="fund-donut-wrap"><canvas id="fundChart"></canvas></div>
+        <div class="fund-donut-side">
+          <div class="fund-donut-cap">持仓现值分布</div>
+          <div class="fund-donut-legend" id="fundChartLegend"></div>
+        </div>
       </div>
     </div>
 

@@ -5036,7 +5036,10 @@ async function loadReport() {
   var topSub = document.getElementById('fundTopSub');
   if (topSub) {
     var arcN = items.filter(function(x){ return x.archived; }).length;
-    topSub.textContent = items.length + ' 只持仓' + (arcN ? ' · ' + arcN + ' 只已封存' : '');
+    // 数据时间取当前北京时间整点（report 接口不返回时间字段；与 applyProfitFilter 的 +8 口径一致）
+    var nowCN = new Date(Date.now() + 8 * 3600 * 1000);
+    var stamp = nowCN.toISOString().slice(0, 10) + ' ' + nowCN.toISOString().slice(11, 13) + ':00';
+    topSub.textContent = items.length + ' 只持仓' + (arcN ? ' · ' + arcN + ' 只已封存' : '') + ' · 数据 ' + stamp;
   }
   tb.innerHTML = items.map(function(it){
     var arcTag = it.archived ? ' <span class="tag">已封存</span>' : '';
@@ -5316,6 +5319,8 @@ async function loadProfitHistory() {
   applyProfitFilter();
 }
 
+// Hero 环图品牌紫阶梯配色（chart 扇区与自定义 legend 色点共用，替代旧 10 色渐变调色板）
+var FUND_DONUT_COLORS = ['#7C3AED','#A855F7','#c084fc','#6d28d9','#ddd6fe','#9333ea','#e9d5ff','#5b21b6','#d8b4fe','#8b5cf6'];
 function drawChart(items) {
   var el = document.getElementById('fundChart');
   if (!el) return;
@@ -5324,19 +5329,30 @@ function drawChart(items) {
   var labels = items.map(function(i){ return i.name; });
   var values = items.map(function(i){ return i.value; });
   if (chart) chart.destroy();
-  // Hero 迷你环图：空数据时父容器挂 data-empty 走 CSS 占位，不画空饼
   var wrap = el.closest('.fund-donut-wrap');
-  if (!items.length) { if (wrap) wrap.setAttribute('data-empty', '1'); return; }
+  var legendEl = document.getElementById('fundChartLegend');
+  // Hero 迷你环图：空数据时父容器挂 data-empty 走 CSS 占位，不画空饼，legend 同步清空
+  if (!items.length) {
+    if (wrap) wrap.setAttribute('data-empty', '1');
+    if (legendEl) legendEl.innerHTML = '';
+    return;
+  }
   if (wrap) wrap.removeAttribute('data-empty');
+  var total = values.reduce(function(s, v){ return s + (+v || 0); }, 0);
+  // 自定义 legend：色点 + 名称（超长省略）+ 占比，竖列放环图右侧（PC/手机同构，基金再多也只在自身框内滚动）
+  if (legendEl) {
+    legendEl.innerHTML = items.map(function(it, i){
+      var pct = total ? Math.round((+it.value || 0) / total * 100) : 0;
+      return '<div class="lg-row" title="' + esc(it.name) + '">' +
+        '<span class="lg-dot" style="background:' + FUND_DONUT_COLORS[i % FUND_DONUT_COLORS.length] + '"></span>' +
+        '<span class="lg-name">' + esc(it.name) + '</span>' +
+        '<span class="lg-pct">' + pct + '%</span></div>';
+    }).join('');
+  }
   chart = new Chart(el, {
     type: 'doughnut',
-    data: { labels: labels, datasets: [{ data: values,
-      // 品牌紫阶梯配色（对齐仪表盘/体重看板，替代旧 10 色渐变调色板）
-      backgroundColor: ['#7C3AED','#A855F7','#c084fc','#6d28d9','#ddd6fe','#9333ea','#e9d5ff','#5b21b6','#d8b4fe','#8b5cf6'] }] },
-    options: { plugins: {
-      legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
-      title: { display: false }
-    } }
+    data: { labels: labels, datasets: [{ data: values, backgroundColor: FUND_DONUT_COLORS }] },
+    options: { cutout: '62%', plugins: { legend: { display: false }, title: { display: false } } }
   });
 }
 

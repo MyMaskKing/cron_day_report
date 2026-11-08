@@ -1076,12 +1076,19 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .fund-pill { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 14px; min-width: 120px; }
 .fund-pill__l { font-size: 11.5px; color: var(--muted); }
 .fund-pill__v { font-size: 16px; font-weight: 800; color: var(--text-strong); margin-top: 1px; font-variant-numeric: tabular-nums; }
-.fund-hero__donut { flex: none; width: 230px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.fund-donut-cap { font-size: 12px; color: var(--muted); font-weight: 600; }
-.fund-donut-wrap { width: 200px; height: 170px; position: relative; }
+/* 环图左 + 自定义 legend 右（对齐 demo，避免 Chart bottom legend 在窄容器内竖排挤压、手机被裁）*/
+.fund-hero__donut { flex: none; display: flex; align-items: center; gap: 14px; min-width: 0; }
+.fund-donut-wrap { width: 128px; height: 128px; flex: none; position: relative; }
+.fund-donut-side { min-width: 0; max-width: 190px; }
+.fund-donut-cap { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+.fund-donut-legend { display: flex; flex-direction: column; gap: 5px; font-size: 12px; max-height: 128px; overflow: auto; }
+.fund-donut-legend .lg-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fund-donut-legend .lg-dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.fund-donut-legend .lg-name { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fund-donut-legend .lg-pct { color: var(--muted); margin-left: auto; padding-left: 6px; flex: none; font-variant-numeric: tabular-nums; }
 .fund-donut-wrap[data-empty="1"] { display: flex; align-items: center; justify-content: center; }
 .fund-donut-wrap[data-empty="1"] canvas { display: none; }
-.fund-donut-wrap[data-empty="1"]::after { content: '暂无持仓分布'; color: var(--muted); font-size: 12.5px; }
+.fund-donut-wrap[data-empty="1"]::after { content: '暂无持仓分布'; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
 
 /* 双栏 */
 .fund-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
@@ -1131,8 +1138,8 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .fund-tool-tabs button.is-on { background: var(--surface); color: var(--brand-text); box-shadow: 0 1px 2px rgba(15,23,42,.12); }
 .fund-tool-pane { display: none; }
 .fund-tool-pane.is-on { display: block; }
-/* 窄侧栏内三列表单不被全局 .row 的 140px 最小宽挤换行 */
-.fund-tool-pane .row { gap: 8px; }
+/* 340px 窄侧栏内多列表单必然拥挤，工具卡内 .row 统一纵向：label 在上、输入框整宽，PC/手机同构 */
+.fund-tool-pane .row { flex-direction: column; gap: 10px; }
 .fund-tool-pane .row > * { min-width: 0; }
 
 /* 投资策略入口统一顶栏：旧悬浮 FAB 与首次引导 CTA 隐藏（DOM 与拖拽逻辑保留，不报错）*/
@@ -1146,11 +1153,12 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .fund-topbar__actions { justify-content: flex-end; flex-wrap: wrap; row-gap: 8px; }
   .fund-hero { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px; margin-bottom: 10px; }
   .fund-hero__num { font-size: 34px; }
-  .fund-hero__donut { width: 100%; }
-  .fund-donut-wrap { width: 100%; max-width: 260px; margin: 0 auto; }
+  .fund-hero__donut { width: 100%; justify-content: center; }
+  .fund-donut-side { max-width: 200px; }
   .fund-layout { gap: 10px; }
   .fund-main .card, .fund-side .card { margin-bottom: 10px; }
-  .fund-tool-pane .row { flex-direction: column; }
+  /* 持仓 ⋯ 菜单保持右对齐：全局手机规则 .dropdown-menu{left:0} 会让右侧按钮的菜单向右冲出视口 */
+  .fund-hold .dropdown-menu { left: auto; right: 0; }
 }
 
 /* 手机视图：所有滚动条强制透明隐藏（触屏滑动不受影响）。
