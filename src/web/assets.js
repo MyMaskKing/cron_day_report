@@ -2793,6 +2793,7 @@ bindModal();
     var el = document.getElementById('dashDonut');
     var empty = document.getElementById('dashDonutEmpty');
     var legend = document.getElementById('dashDonutLegend');
+    var center = document.getElementById('dashDonutCenter');
     if (!el) return;
     var totals = (report && report.byTypeTotal) || [];
     var balanceMap = {};
@@ -2807,9 +2808,16 @@ bindModal();
     if (!data.length) {
       el.style.display = 'none'; if (empty) empty.style.display = 'block';
       if (legend) legend.innerHTML = '';
+      if (center) center.style.display = 'none';
       return;
     }
     el.style.display = ''; if (empty) empty.style.display = 'none';
+    if (center) {
+      center.style.display = 'grid';
+      center.style.visibility = '';
+      var totalEl = document.getElementById('dashDonutTotal');
+      if (totalEl) totalEl.textContent = '¥' + fmtMoney(assets, { frac: 2 });
+    }
     dashDonutChart = new Chart(el, {
       type: 'doughnut',
       data: { labels: labels, datasets: [{
@@ -2826,8 +2834,16 @@ bindModal();
               var pct = assets ? (t / assets * 100).toFixed(1) : '0.0';
               return c.label + '：¥' + fmtMoney(t, { frac: 2 }) + ' · ' + pct + '%';
             }
-          } } }
-      }
+          } } },
+        // tooltip 画在 canvas 内部会落进环心被中心圆盖住：悬停/触摸出 tooltip 时联动隐藏中心圆
+        onHover: function(_evt, els){ if (center) center.style.visibility = els.length ? 'hidden' : ''; }
+      },
+      plugins: [{
+        id: 'dashDonutTip',
+        afterDraw: function(c){
+          if (center) center.style.visibility = c.tooltip && c.tooltip._active && c.tooltip._active.length ? 'hidden' : '';
+        }
+      }]
     });
     if (legend) {
       legend.innerHTML = labels.map(function(lb, i){

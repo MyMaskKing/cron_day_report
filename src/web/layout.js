@@ -858,6 +858,8 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 }
 .dash-donut .chart-fs-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .dash-donut canvas { display: block; margin: 0 auto; }
+.dash-donut__center { position: absolute; inset: 36px; z-index: 1; border-radius: 50%; background: var(--surface); display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 12px; box-shadow: 0 0 0 1px var(--th-border); pointer-events: none; }
+.dash-donut__center strong { display: block; color: var(--text-strong); font-size: 14px; margin-top: 2px; font-variant-numeric: tabular-nums; }
 .dash-legend { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
 .dash-legend-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--label); }
 .dash-legend-row i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
