@@ -6436,11 +6436,11 @@ function renderRecordTable(mlist, records, focusMid) {
       ? '<span class="muted">—</span>'
       : '<button class="btn sm gray" onclick="recEdit(' + r.id + ',' + r.weight + ",'" + r.record_date + "'" + ')">改</button> ' +
         '<button class="btn sm danger" onclick="recDel(' + r.id + ')">删</button>';
-    // 侧栏窄表：日期取 MM-DD 短格式（手机卡片模式下 data-label 仍标明「日期」）
-    var shortDate = (r.record_date || '').slice(5);
+    // 侧栏窄表：日期取 YY/MM/DD 短格式（手机卡片模式下 data-label 仍标明「日期」），体重列只显数值不带单位
+    var shortDate = (r.record_date || '').slice(2).replace(/-/g, '/');
     return '<tr><td data-label="日期">' + esc(shortDate) + '</td>' +
       '<td data-label="成员">' + esc(nameOf[r.member_id]||'') + '</td>' +
-      '<td data-label="体重">' + toDisplay(r.weight) + ' ' + unitLabel() + '</td>' +
+      '<td data-label="体重">' + toDisplay(r.weight) + '</td>' +
       '<td data-label="较上次">' + deltaCell(deltaOf[r.id]) + '</td>' +
       '<td data-label="操作">' + ops + '</td></tr>';
   }).join('') || '<tr><td colspan="5" class="muted">暂无记录</td></tr>';

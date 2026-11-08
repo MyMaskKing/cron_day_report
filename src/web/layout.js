@@ -985,15 +985,13 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .weight-chart-wrap { position: relative; min-height: 240px; }
 .weight-scroll-box { max-height: 380px; }
 
-/* 侧栏历史表紧凑化（仅桌面端）：340px 窄栏内 5 列不换行，成员名省略号；手机端走全站 table→卡片规则 */
+/* 侧栏历史表紧凑化（仅桌面端）：自然列宽不截断、不定宽，长成员名自行换行；手机端走全站 table→卡片规则 */
 @media (min-width: 641px) {
-  .weight-table { table-layout: fixed; font-size: 12.5px; }
-  .weight-table th, .weight-table td { padding: 7px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .weight-table th:nth-child(1), .weight-table td:nth-child(1) { width: 44px; }
-  .weight-table th:nth-child(2), .weight-table td:nth-child(2) { width: auto; }
-  .weight-table th:nth-child(3), .weight-table td:nth-child(3) { width: 58px; text-align: right; }
-  .weight-table th:nth-child(4), .weight-table td:nth-child(4) { width: 50px; text-align: center; }
-  .weight-table th:nth-child(5), .weight-table td:nth-child(5) { width: 60px; text-align: center; }
+  .weight-table { font-size: 12.5px; }
+  .weight-table th, .weight-table td { padding: 7px 6px; }
+  .weight-table th:nth-child(3), .weight-table td:nth-child(3) { text-align: right; }
+  .weight-table th:nth-child(4), .weight-table td:nth-child(4) { text-align: center; }
+  .weight-table th:nth-child(5), .weight-table td:nth-child(5) { text-align: center; }
   .weight-table td:nth-child(5) .btn.sm { padding: 2px 7px; font-size: 11px; margin: 0 1px; }
 }
 
@@ -1033,14 +1031,14 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   /* 筛选条手机端三行堆叠：下拉、开始、结束各占一行整宽 */
   .weight-chart-tools { flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 8px; }
   .weight-chart-tools select, .weight-date-input { width: 100%; flex: none; }
-  .weight-chart-wrap { min-height: 200px; }
+  .weight-chart-wrap { min-height: 160px; }
   /* 收紧双栏间距与智能分析留白 */
   .weight-layout { gap: 10px; }
   .weight-main, .weight-side { gap: 10px; }
-  .weight-container .jn { margin-top: 12px; padding-top: 12px; }
-  .weight-container .jn-hero { margin: 8px 0 4px; }
-  .weight-container .jn-deltas { margin-top: 10px; }
-  .weight-container .jn-metrics { margin-top: 10px; }
+  .weight-container .jn { margin-top: 8px; padding-top: 8px; }
+  .weight-container .jn-hero { margin: 6px 0 4px; }
+  .weight-container .jn-deltas { margin-top: 8px; }
+  .weight-container .jn-metrics { margin-top: 8px; }
   /* 侧栏竞赛卡手机隐藏，入口收进智能分析标题行 */
   #wRaceBox { display: none !important; }
   .jn-race-btn { display: inline-flex; align-items: center; }
