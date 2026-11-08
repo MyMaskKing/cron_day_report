@@ -16171,6 +16171,20 @@ function renderPendingStats() {
   var s = todoStatsByVisible(trees, _today);
   document.getElementById('stPending').textContent = s.pending;
   document.getElementById('stOverdue').textContent = s.overdue;
+  // Hero 副标（报告页固定 cur 口径，只有今天/逾期两类，0 也常显以便与大数字对账）
+  var hintEl = document.getElementById('todoTodayHint');
+  if (hintEl) {
+    if (s.pending > 0) {
+      hintEl.innerHTML =
+        '<span class="todo-hero__seg todo-hero__seg--today">今天到期 ' + s.today + ' 项</span>' +
+        '<i class="todo-hero__dot">·</i>' +
+        '<em>' + s.overdue + ' 项已逾期</em>';
+    } else {
+      hintEl.innerHTML = '<span>今天没有到期任务</span>';
+    }
+  }
+  var rootEl = document.getElementById('todoRootCount');
+  if (rootEl) rootEl.textContent = trees.length;
 }
 function drawTree() {
   // 时间筛选 tab: 与登录态 TODO_JS 逻辑一致(顶层显示日期 todoRootDue 口径; done tab 收纳含已完成子任务的容器)

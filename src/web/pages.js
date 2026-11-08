@@ -1662,19 +1662,38 @@ function todoReportPage(prefs = {}) {
   const showQl = prefs.showQuickLogin !== false;
   const body = `${todoOwnerPrefsScript(prefs)}<div class="container" style="max-width:640px;margin:24px auto;">
     <div id="content" style="display:none;">
-      <div class="card">
-        <h2 style="overflow:hidden;">📝 今日 + 逾期待办
-          ${showQl ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}
-        </h2>
-        <div id="statsHint" class="muted" style="font-size:12px;margin:8px 0;clear:both;"></div>
-        <div class="todo-stats" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;">
-          <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
-          <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
-          <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
+      <!-- 顶部标题条：视图/添加/登录 原 id 全保留，交互零改动（复用登录态 todo-topbar 样式）-->
+      <div class="card todo-topbar">
+        <div class="todo-topbar__intro">
+          <div class="todo-topbar__title">今日 + 逾期待办</div>
+          <div class="todo-topbar__sub"><span id="todoRootCount">0</span> 个主任务</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;">
-          <button class="btn sm" id="tAddRoot">+ 添加任务</button>
+        <div class="todo-topbar__actions">
           <button class="btn sm gray" id="viewToggle">${ICO_CARDS}卡片视图</button>
+          <button class="btn sm" id="tAddRoot">+ 添加任务</button>
+          ${showQl ? `<button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button>` : ''}
+        </div>
+      </div>
+
+      <!-- Hero 概览：未完成大数字 + 今天/逾期副标 + 两枚 KPI（报告页 cur 口径无备忘录，复用登录态 todo-hero 样式）-->
+      <div class="card todo-hero">
+        <div class="todo-hero__main">
+          <div class="todo-hero__meta">未完成任务</div>
+          <div class="todo-hero__numline">
+            <div class="todo-hero__num" id="stPending">0</div>
+            <div class="todo-hero__hint" id="todoTodayHint">今天没有到期任务</div>
+          </div>
+        </div>
+        <div class="todo-hero__pills">
+          <div class="todo-kpi"><div class="todo-kpi__l">已逾期</div><div class="todo-kpi__v todo-kpi__v--danger" id="stOverdue">0</div></div>
+          <div class="todo-kpi"><div class="todo-kpi__l">已完成</div><div class="todo-kpi__v todo-kpi__v--ok" id="stDone">0</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="todo-list-card__head">
+          <h2>待办清单</h2>
+          <div id="statsHint" class="muted todo-list-card__hint"></div>
         </div>
         <div id="todoTreeHome">
           <div id="todoCrumb" class="todo-crumb" style="display:none;margin-top:14px;"></div>
