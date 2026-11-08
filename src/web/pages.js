@@ -291,7 +291,7 @@ function dashboardPage(user) {
         <div class="card">
           <h2>最新月资产构成</h2>
           <div id="dashDonutEmpty" class="dash-empty" style="display:none;">暂无资产记录</div>
-          <div class="dash-donut"><canvas id="dashDonut" role="img" aria-label="最新月资产构成"></canvas></div>
+          <div class="dash-donut"><canvas id="dashDonut" data-fs-skip="1" role="img" aria-label="最新月资产构成"></canvas></div>
           <div id="dashDonutLegend" class="dash-legend"></div>
         </div>
         <div class="card">

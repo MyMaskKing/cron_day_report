@@ -852,7 +852,12 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 /* Chart.js responsive 画布：外层固定高度 + maintainAspectRatio:false */
 .dash-chart { position: relative; height: 220px; margin-top: 10px; }
 .dash-chart--sm { height: 180px; }
-.dash-donut { position: relative; width: 100%; max-width: 200px; height: 200px; margin: 8px auto 4px; }
+.dash-donut {
+  position: relative; width: 100%; max-width: 200px; height: 200px; margin: 8px auto 4px;
+  display: flex; align-items: center; justify-content: center;
+}
+.dash-donut .chart-fs-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.dash-donut canvas { display: block; margin: 0 auto; }
 .dash-legend { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
 .dash-legend-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--label); }
 .dash-legend-row i { width: 9px; height: 9px; border-radius: 3px; flex: none; }
