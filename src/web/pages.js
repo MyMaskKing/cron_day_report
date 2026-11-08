@@ -1220,34 +1220,53 @@ function settingsPage(user) {
 
 /** 资产报表页 */
 function assetPage(user) {
-  const body = renderTopbar(user, 'asset') + `<div class="container">
-    <div class="card">
-      <h2 class="asset-title">资产总览 <span class="asset-small">（由 <span id="walletCount">0</span> 个钱包自动汇总）</span></h2>
-      <p class="asset-desc">信用支付钱包按负债处理；普通钱包和投资钱包按资产处理。</p>
-      <div class="grid-stats asset-summary-stats">
-        <div class="stat"><div class="num" id="sAssets">¥0</div><div class="lbl">资产合计</div></div>
-        <div class="stat"><div class="num" id="sDebt">¥0</div><div class="lbl">负债（信用支付）</div></div>
-        <div class="stat"><div class="num" id="sNet">¥0</div><div class="lbl">净资产</div><div class="asset-stat-sub">资产合计 − 负债</div></div>
-        <div class="stat"><div class="num" id="sChange">+¥0</div><div class="lbl">本月净资产变化</div><div class="asset-stat-sub">本月 − 上月</div></div>
+  const body = renderTopbar(user, 'asset') + `<div class="container as-container">
+    <!-- 1. 顶部标题条：新建钱包按钮保留在下方钱包卡标题处（同一 id 不重复放置）-->
+    <div class="card as-topbar">
+      <div class="as-topbar__intro">
+        <div class="as-topbar__title">资产报表</div>
+        <div class="as-topbar__sub">由 <span id="walletCount">0</span> 个钱包自动汇总 · 信用支付按负债处理</div>
       </div>
-      <div id="goalProgress" class="asset-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-        <div id="goalBar" class="asset-progress__fill"></div>
-      </div>
-      <div class="asset-goal-metrics">
-        <div class="asset-metric asset-metric--goal">
-          <span id="goalEdit" class="asset-goal-edit" role="button" tabindex="0" title="点击调整年度目标">年度目标净资产</span><b id="goalTarget">—</b>
-        </div>
-        <div class="asset-metric"><span>进度</span><b id="goalPercent">—</b></div>
-        <div class="asset-metric"><span>距目标还差</span><b id="goalLeft">—</b></div>
-        <div class="asset-metric"><span>最新月份</span><b id="sMonth">—</b></div>
-      </div>
-      <div id="typeTotalBox" class="asset-type-pills"></div>
     </div>
 
-    <div class="asset-grid asset-grid--84">
+    <!-- 2. Hero 净资产看板：净资产大数字 + 资产/负债 Pill + 年度目标（id 全保留，渲染层零改动）-->
+    <div class="card as-hero">
+      <div class="as-hero__main">
+        <div class="as-hero__meta">净资产（元）· 资产合计 − 负债</div>
+        <div class="as-hero__val">
+          <span class="as-hero__num" id="sNet">¥0</span>
+          <span class="as-hero__change"><span id="sChange" data-base-class="as-hero__chg">+¥0</span><span class="as-hero__chg-label">本月</span></span>
+        </div>
+        <div class="as-hero__pills">
+          <div class="as-pill"><div class="as-pill__l">资产合计</div><div class="as-pill__v as-pill__v--assets" id="sAssets">¥0</div></div>
+          <div class="as-pill"><div class="as-pill__l">负债（信用支付）</div><div class="as-pill__v as-pill__v--debt" id="sDebt">¥0</div></div>
+        </div>
+      </div>
+      <div class="as-goal asset-metric--goal">
+        <div class="as-goal__head">
+          <span id="goalEdit" class="as-goal__edit" role="button" tabindex="0" title="点击调整年度目标">年度目标净资产</span>
+          <b class="as-goal__pct" id="goalPercent">—</b>
+        </div>
+        <div id="goalProgress" class="asset-progress as-goal__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="goalBar" class="asset-progress__fill"></div>
+        </div>
+        <div class="as-goal__grid">
+          <div><span>目标</span><b id="goalTarget">—</b></div>
+          <div><span>距目标还差</span><b id="goalLeft">—</b></div>
+          <div><span>最新月份</span><b id="sMonth">—</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 各类型合计：renderTypeTotal 写死 asset-type-pill 内部 class，列数由外层 as-type-pills 响应式接管 -->
+    <div id="typeTotalBox" class="asset-type-pills as-type-pills"></div>
+
+    <div class="as-layout">
+      <div class="as-main">
       <section class="card">
-        <h2 class="asset-title">每月净资产变化 <span class="asset-small">（本月 − 上月，负值为减少）</span></h2>
-        <div class="row">
+        <div class="as-card-head"><h2>每月净资产变化</h2></div>
+        <p class="asset-desc">本月 − 上月，负值为减少。</p>
+        <div class="as-chart-tools">
           <div><label>时间区间</label>
             <select id="afPreset"><option value="12m">最近 12 个月</option><option value="year">本年</option><option value="6m">最近 6 个月</option></select>
           </div>
@@ -1262,7 +1281,14 @@ function assetPage(user) {
         <canvas id="consumeChart" class="asset-chart"></canvas>
       </section>
       <section class="card">
-        <h2 class="asset-title">智能分析<button class="btn sm asset-title__btn" id="aaEntry" type="button">📝 月度复盘</button></h2>
+        <div class="as-card-head"><h2>净资产趋势</h2></div>
+        <canvas id="netChart" class="asset-chart"></canvas>
+      </section>
+      </div>
+
+      <div class="as-side">
+      <section class="card">
+        <div class="as-card-head"><h2>智能分析</h2><button class="btn sm gray" id="aaEntry" type="button">📝 月度复盘</button></div>
         <p class="asset-desc">看看这个月比平时攒得多还是少。</p>
         <div id="aiVs6" class="asset-status-number" data-base-class="asset-status-number">—</div>
         <div class="asset-status-text" id="aiNote">—</div>
@@ -1273,25 +1299,22 @@ function assetPage(user) {
           <div class="asset-metric"><span>增加最少的月份</span><b id="aiLowest" data-base-class="asset-metric__value">—</b></div>
         </div>
       </section>
-    </div>
-
-    <div class="asset-grid asset-grid--75">
       <section class="card">
-        <h2 class="asset-title">净资产趋势</h2>
-        <canvas id="netChart" class="asset-chart"></canvas>
-      </section>
-      <section class="card">
-        <h2 class="asset-title"><span id="compTitle">最新月资产构成</span><span class="asset-title-year" id="compYear"></span></h2>
+        <div class="as-card-head"><h2><span id="compTitle">最新月资产构成</span><span class="asset-title-year" id="compYear"></span></h2></div>
         <p class="asset-desc">按钱包类型汇总，信用支付单独作为负债展示。</p>
-        <div class="asset-composition">
+        <div class="asset-composition as-composition">
           <div id="typeDonut" class="asset-donut"></div>
           <div id="typeLegend" class="asset-legend-list"></div>
         </div>
       </section>
+      </div>
     </div>
 
     <div class="card">
-      <h2 class="asset-title">钱包 <span class="asset-small" id="walletMonthTag"></span><button class="btn sm asset-title__btn" id="walletAdd">+ 新建钱包</button></h2>
+      <div class="as-card-head">
+        <h2>钱包 <span class="asset-small" id="walletMonthTag"></span></h2>
+        <button class="btn sm" id="walletAdd" type="button">＋ 新建钱包</button>
+      </div>
       <div class="asset-notice" id="walletFormula"><strong>合计方式：</strong>普通钱包与投资钱包 − 信用支付负债 = 本月家庭净资产。</div>
       <div class="asset-table-wrap">
         <table class="asset-table">
@@ -1303,22 +1326,25 @@ function assetPage(user) {
     </div>
 
     <div class="card">
-      <h2 class="asset-title">月度各类型合计</h2>
-      <div class="scroll-box">
-        <table class="asset-table">
-          <thead id="mttHead"></thead>
-          <tbody id="mttBody"></tbody>
-        </table>
+      <div class="as-tabs">
+        <button type="button" class="is-on" data-pane="mtt">月度各类型合计</button>
+        <button type="button" data-pane="rec">月度记录</button>
       </div>
-    </div>
-
-    <div class="card">
-      <h2 class="asset-title">月度记录</h2>
-      <div class="scroll-box">
-        <table class="asset-table">
-          <thead><tr><th>月份</th><th>类型</th><th>钱包</th><th>金额</th><th>更新时间</th><th>操作</th></tr></thead>
-          <tbody id="recTbody"></tbody>
-        </table>
+      <div class="as-pane is-on" id="paneMtt">
+        <div class="scroll-box">
+          <table class="asset-table">
+            <thead id="mttHead"></thead>
+            <tbody id="mttBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="as-pane" id="paneRec">
+        <div class="scroll-box">
+          <table class="asset-table">
+            <thead><tr><th>月份</th><th>类型</th><th>钱包</th><th>金额</th><th>更新时间</th><th>操作</th></tr></thead>
+            <tbody id="recTbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 

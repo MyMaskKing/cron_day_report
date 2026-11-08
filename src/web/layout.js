@@ -1161,6 +1161,93 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .fund-hold .dropdown-menu { left: auto; right: 0; }
 }
 
+/* ========== 资产报表看板（净资产 Hero 化 + 双栏，对齐基金/体重看板设计语言）========== */
+/* 顶部标题条：手机也保持单行（仅标题信息，新建按钮在钱包卡标题处）*/
+.as-topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 14px; }
+.as-topbar__intro { flex: 1; min-width: 0; }
+.as-topbar__title { font-size: 16px; font-weight: 850; color: var(--text-strong); }
+.as-topbar__sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+/* Hero 净资产看板 */
+.as-hero {
+  display: flex; align-items: center; gap: 24px;
+  padding: 18px 22px; margin-bottom: 14px;
+  background: var(--brand-tint); border: 1px solid var(--brand-border); border-radius: var(--r-lg);
+}
+.as-hero__main { flex: 1; min-width: 0; }
+.as-hero__meta { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.as-hero__val { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; flex-wrap: wrap; }
+.as-hero__num { font-size: 42px; font-weight: 850; line-height: 1.15; letter-spacing: -.5px; color: var(--brand-strong); font-variant-numeric: tabular-nums; }
+.as-hero__change { display: inline-flex; align-items: baseline; gap: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+.as-hero__chg { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.as-hero__chg-label { font-size: 11.5px; color: var(--muted); }
+.as-hero__chg.is-up { color: var(--ok-text); }
+.as-hero__chg.is-down { color: var(--danger); }
+.as-hero__chg.is-flat { color: var(--muted); }
+.as-hero__pills { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.as-pill { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 14px; min-width: 120px; }
+.as-pill__l { font-size: 11.5px; color: var(--muted); }
+.as-pill__v { font-size: 16px; font-weight: 800; color: var(--text-strong); margin-top: 1px; font-variant-numeric: tabular-nums; }
+.as-pill__v--assets { color: #f97316; }
+.as-pill__v--debt { color: var(--danger); }
+
+/* 年度目标（融入 Hero 右侧；asset-metric--goal 保留供 JS closest 绑定点击）*/
+.as-goal { flex: none; width: 280px; border-left: 1px solid var(--brand-border); padding-left: 24px; cursor: pointer; }
+.as-goal__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.as-goal__edit { cursor: pointer; }
+.as-goal__edit:hover:not(:active) { color: var(--brand-strong); }
+.as-goal__pct { font-size: 22px; font-weight: 850; color: var(--brand-text); font-variant-numeric: tabular-nums; }
+.as-goal__bar { margin: 8px 0 10px; }
+.as-goal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 12px; }
+.as-goal__grid span { color: var(--muted); }
+.as-goal__grid b { display: block; color: var(--text-strong); font-size: 13.5px; margin-top: 1px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* 类型合计 pill 条：桌面 6 列，手机 3 列（覆盖旧 .asset-type-pills 固定 6 列）*/
+.as-type-pills { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 14px; }
+
+/* 双栏 */
+.as-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; margin-bottom: 18px; }
+.as-main, .as-side { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.as-layout .card, .as-layout section.card { margin-bottom: 0; }
+.as-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.as-card-head h2 { flex: 1; font-size: 15px; font-weight: 800; color: var(--text-strong); margin: 0; }
+.as-card-head .btn { flex-shrink: 0; }
+.as-chart-tools { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.as-chart-tools > div { flex: 1; min-width: 120px; }
+.as-chart-tools select, .as-chart-tools input { width: 100%; margin: 0; }
+
+/* 窄侧栏内构成图纵堆（覆盖旧 220px+1fr 横排）*/
+.as-composition { grid-template-columns: 1fr; gap: 14px; justify-items: center; }
+.as-composition .asset-donut { width: 160px; height: 160px; }
+.as-composition .asset-legend-list { width: 100%; }
+
+/* 低频表 Tab 合并卡 */
+.as-tabs { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 3px; gap: 2px; margin-bottom: 12px; }
+.as-tabs button { border: none; background: none; cursor: pointer; font-family: inherit; padding: 6px 14px; font-size: 12.5px; font-weight: 700; border-radius: 7px; color: var(--muted); line-height: 1; white-space: nowrap; }
+.as-tabs button.is-on { background: var(--surface); color: var(--brand-text); box-shadow: 0 1px 2px rgba(15,23,42,.12); }
+.as-pane { display: none; }
+.as-pane.is-on { display: block; }
+
+@media (max-width: 1023px) {
+  .as-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .as-topbar { padding: 10px 14px; margin-bottom: 10px; }
+  .as-hero { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px; margin-bottom: 10px; }
+  .as-hero__num { font-size: 34px; }
+  /* 手机端目标区改横分隔上下堆 */
+  .as-goal { width: 100%; border-left: 0; border-top: 1px solid var(--brand-border); padding-left: 0; padding-top: 14px; }
+  .as-type-pills { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .as-layout { gap: 10px; margin-bottom: 10px; }
+  .as-main, .as-side { gap: 10px; }
+  .as-chart-tools { flex-direction: column; align-items: stretch; gap: 8px; }
+  .as-chart-tools > div { width: 100%; }
+  .as-composition .asset-donut { width: 150px; height: 150px; }
+  /* 钱包卡标题行手机保持一行，按钮不被挤下 */
+  .as-card-head { flex-wrap: nowrap; }
+  .as-card-head .btn { white-space: nowrap; }
+}
+
 /* 手机视图：所有滚动条强制透明隐藏（触屏滑动不受影响）。
    !important 必须保留——自定义滚动条全局规则在本文件后段, 同特异性会反覆盖此规则 */
 @media (max-width: 640px) {

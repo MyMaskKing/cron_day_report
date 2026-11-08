@@ -8551,6 +8551,18 @@ function openAnalysisDetail(month, rows){
 var aaEntry = document.getElementById('aaEntry');
 if (aaEntry) aaEntry.addEventListener('click', function(){ openAnalysisEditor(); });
 
+// 低频表 Tab：月度各类型合计 / 月度记录 两个 pane 显隐互换（纯前端，表格渲染与 id 不变）
+Array.prototype.forEach.call(document.querySelectorAll('.as-tabs button'), function(btn){
+  btn.addEventListener('click', function(){
+    Array.prototype.forEach.call(document.querySelectorAll('.as-tabs button'), function(b){
+      b.classList.toggle('is-on', b === btn);
+    });
+    var pane = btn.dataset.pane;
+    document.getElementById('paneMtt').classList.toggle('is-on', pane === 'mtt');
+    document.getElementById('paneRec').classList.toggle('is-on', pane === 'rec');
+  });
+});
+
 (async function(){
   try { await loadAll(); initAssetFilter(); await loadPush(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
