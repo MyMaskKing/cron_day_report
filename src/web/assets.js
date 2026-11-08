@@ -6175,6 +6175,11 @@ async function loadAll() {
   unit = data.weight_unit || 'jin';
   var us = document.getElementById('unitSel');
   if (us) us.value = unit;
+  // 单位分段控件：隐藏 select 是值载体，seg 按钮负责展示与点击
+  var seg = document.getElementById('unitSeg');
+  if (seg) Array.prototype.forEach.call(seg.querySelectorAll('button'), function(b){
+    b.classList.toggle('on', b.getAttribute('data-v') === unit);
+  });
   renderMembers(data.members);
   // 录入下拉只列启用成员；好友成员只读，不能替对方录入（管理列表 renderMembers 仍显示已停用，灰色可重新启用）
   renderMemberSelect(data.members.filter(function(m){ return !m.disabled && !m.friend; }));
@@ -6302,9 +6307,12 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
   if (!m) { box.innerHTML = ''; return; }
   // 全部态（点「全部」/默认）判断对象是本人成员，标题标「（默认）」；只有自己一个启用成员时无需标注
   var defTag = (wChartFocus == null && mid === selfId && mlist.length > 1) ? '（默认）' : '';
+  // 排行榜入口：手机端落在智能分析标题行（PC 端用侧栏竞赛卡，.jn-race-btn 默认隐藏）
+  var raceBtn = members.filter(function(x){ return !x.disabled; }).length > 1
+    ? '<button type="button" class="jn-race-btn" id="wRaceBtn" onclick="openRaceModal()">🏆 排行榜</button>' : '';
   // 选中成员在当前区间无记录：渲染空态卡（保留成员切换）
   if (!recsOf(filtered, mid).length) {
-    box.innerHTML = '<div class="jn"><div class="jn-head"><div><h3>智能分析 · ' + esc(mdName(m)) + defTag + '</h3>' +
+    box.innerHTML = '<div class="jn"><div class="jn-head"><div><div class="jn-title-row"><h3>智能分析 · ' + esc(mdName(m)) + defTag + '</h3>' + raceBtn + '</div>' +
       '<div class="jn-sub">这段时间还没有 TA 的体重记录</div></div>' + chipsHtml() + '</div></div>';
     bindWeightChips(box, mlist, filtered);
     return;
@@ -6367,7 +6375,7 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
     : rangeText + '（按上面选的时间统计）· 图中橙色虚线是「' + esc(mdName(m)) + '」这段时间的平均体重';
 
   box.innerHTML =
-    '<div class="jn"><div class="jn-head"><div><h3>智能分析 · ' + esc(mdName(m)) + defTag + '</h3>' +
+    '<div class="jn"><div class="jn-head"><div><div class="jn-title-row"><h3>智能分析 · ' + esc(mdName(m)) + defTag + '</h3>' + raceBtn + '</div>' +
       '<div class="jn-sub">' + sub + '</div></div>' + chips + '</div>' +
       '<div class="jn-hero"><div class="jn-hero__num">' + sign1(hero) + U() + '</div>' +
       '<div class="jn-hero__calc">最新 ' + latestV + U() + '（' + md(latest.record_date) + '）· 这段时间平均 ' + avg + U() + '</div></div>' +
@@ -6621,10 +6629,16 @@ document.getElementById('recAdd').addEventListener('click', async function(){
     document.getElementById('recWeight').value = ''; await loadAll(); }
   catch(e){ alertModal(e.message, {ok:false}); }
 });
-// 单位设置
+// 单位设置：分段控件（斤/公斤），隐藏 select#unitSel 仅作值载体
+var unitSeg = document.getElementById('unitSeg');
 var unitSel = document.getElementById('unitSel');
-if (unitSel) unitSel.addEventListener('change', async function(){
-  try { await api('/api/weight/unit', { method:'PUT', body:{ weight_unit: this.value } }); await loadAll(); }
+if (unitSeg) unitSeg.addEventListener('click', async function(ev){
+  var btn = ev.target && ev.target.closest ? ev.target.closest('button[data-v]') : null;
+  if (!btn) return;
+  var v = btn.getAttribute('data-v');
+  if (v === unit) return;
+  if (unitSel) unitSel.value = v;
+  try { await api('/api/weight/unit', { method:'PUT', body:{ weight_unit: v } }); await loadAll(); }
   catch(e){ alertModal(e.message, {ok:false}); }
 });
 
@@ -7130,8 +7144,8 @@ function openRaceModal() {
   if (back) back.addEventListener('click', raceShowBoard);
   renderRaceBody();
 }
-var wRaceBtnEl = document.getElementById('wRaceBtn');
-if (wRaceBtnEl) wRaceBtnEl.addEventListener('click', openRaceModal);
+var wRaceBtnSideEl = document.getElementById('wRaceBtnSide');
+if (wRaceBtnSideEl) wRaceBtnSideEl.addEventListener('click', openRaceModal);
 
 // 超管对比
 // 用户显示名：昵称（账号）；昵称缺失或与账号相同时仅显示账号

@@ -857,7 +857,11 @@ function weightPage(user) {
         </div>
         <div class="weight-qf weight-qf--unit">
           <label>单位</label>
-          <select id="unitSel">
+          <div class="w-unit-seg" id="unitSeg">
+            <button type="button" data-v="jin">斤</button>
+            <button type="button" data-v="kg">公斤</button>
+          </div>
+          <select id="unitSel" class="w-unit-native" tabindex="-1" aria-hidden="true">
             <option value="jin">斤</option>
             <option value="kg">公斤</option>
           </select>
@@ -879,17 +883,17 @@ function weightPage(user) {
         <div class="card">
           <div class="weight-card-head">
             <h2>体重曲线</h2>
-            <div class="weight-chart-tools">
-              <select id="rangePreset">
-                <option value="d7">近7天</option>
-                <option value="d30" selected>近30天</option>
-                <option value="d60">近60天</option>
-                <option value="month">本月</option>
-                <option value="year">本年</option>
-              </select>
-              <input id="fStart" type="date" class="weight-date-input">
-              <input id="fEnd" type="date" class="weight-date-input">
-            </div>
+          </div>
+          <div class="weight-chart-tools">
+            <select id="rangePreset">
+              <option value="d7">近7天</option>
+              <option value="d30" selected>近30天</option>
+              <option value="d60">近60天</option>
+              <option value="month">本月</option>
+              <option value="year">本年</option>
+            </select>
+            <input id="fStart" type="date" class="weight-date-input">
+            <input id="fEnd" type="date" class="weight-date-input">
           </div>
           <div class="weight-chart-wrap">
             <canvas id="weightChart" style="max-height:340px;"></canvas>
@@ -917,7 +921,7 @@ function weightPage(user) {
               <h3 style="font-size:14px;font-weight:700;">🏆 减肥竞赛</h3>
               <p class="muted" style="font-size:12px;margin-top:2px;">基于打卡率与降重积分的健康榜</p>
             </div>
-            <button class="btn sm" id="wRaceBtn">查看排行</button>
+            <button class="btn sm" id="wRaceBtnSide">查看排行</button>
           </div>
         </div>
 

@@ -948,26 +948,51 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 }
 .weight-qf--member { flex: 1 1 140px; }
 .weight-qf--val { width: 120px; }
-.weight-qf--unit { width: 96px; flex-shrink: 0; }
+.weight-qf--unit { flex-shrink: 0; }
 .weight-qf--date { width: 155px; }
 .weight-qf--btn { flex: 0 0 auto; }
 .weight-qf--btn .btn { height: 37px; padding: 0 20px; font-weight: 700; white-space: nowrap; }
 .weight-quick-bar__tip { font-size: 11.5px; color: var(--faint); margin-top: 6px; }
 
+/* 单位切换：分段控件（斤/公斤），select 视觉隐藏仅作值载体 */
+.w-unit-seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 3px; gap: 2px; }
+.w-unit-seg button {
+  border: none; background: none; cursor: pointer; font-family: inherit;
+  padding: 6px 12px; font-size: 12.5px; font-weight: 700; border-radius: 7px;
+  color: var(--muted); line-height: 1; white-space: nowrap;
+}
+.w-unit-seg button.on { background: var(--surface); color: var(--brand-text); box-shadow: 0 1px 2px rgba(15,23,42,.12); }
+.w-unit-native {
+  position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
+  border: 0; padding: 0; margin: 0;
+}
+
 /* 双栏布局 */
 .weight-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
 .weight-main, .weight-side { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .weight-layout .card { margin-bottom: 0; }
-.weight-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.weight-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .weight-card-head h2 { font-size: 15px; font-weight: 800; color: var(--text-strong); margin: 0; }
-.weight-chart-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.weight-card-head .btn { margin: 0; flex-shrink: 0; }
+/* 筛选工具条：下拉 + 两个日期同一行（PC/手机均不换行），跟在标题行下方 */
+.weight-chart-tools { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-bottom: 10px; }
 .weight-chart-tools select, .weight-chart-tools input {
-  padding: 4px 8px; font-size: 12.5px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--surface); color: var(--text); font-family: inherit; margin: 0;
+  padding: 5px 8px; font-size: 12.5px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--text); font-family: inherit; margin: 0; flex-shrink: 0;
 }
-.weight-date-input { width: 130px; }
+.weight-chart-tools select { flex: 1 1 90px; min-width: 0; }
+.weight-date-input { width: 132px; }
 .weight-chart-wrap { position: relative; min-height: 240px; }
 .weight-scroll-box { max-height: 380px; }
+
+/* 智能分析标题行内的排行榜入口：PC 用侧栏竞赛卡，此按钮仅手机显示 */
+.jn-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.jn-title-row h3 { margin: 0; }
+.jn-race-btn {
+  display: none; border: 1px solid var(--brand-border); background: var(--brand-tint);
+  color: var(--brand-text); border-radius: 999px; padding: 4px 12px; font-size: 12px;
+  font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap; margin-left: auto;
+}
 
 /* 减肥竞赛小卡 */
 .weight-race-card { background: var(--surface-3); border: 1px dashed var(--border); }
@@ -978,21 +1003,37 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .weight-layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
+  .weight-container { margin: 14px auto; }
   .weight-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
   .weight-topbar__actions { justify-content: flex-end; }
-  .weight-hero { flex-direction: column; align-items: stretch; gap: 12px; padding: 15px; }
+  .weight-hero { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; margin-bottom: 10px; }
   .weight-hero__val { font-size: 34px; }
   .weight-hero__spark { flex: none; width: 100%; height: 60px; }
+  .weight-quick-bar { padding: 12px; margin-bottom: 10px; }
   .weight-quick-bar__form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .weight-qf--member { grid-column: span 2; width: 100%; }
   .weight-qf--val { width: 100%; }
   .weight-qf--unit { width: 100%; }
+  .w-unit-seg { width: 100%; }
+  .w-unit-seg button { flex: 1; }
   .weight-qf--date { grid-column: span 2; width: 100%; }
   .weight-qf--btn { grid-column: span 2; width: 100%; }
   .weight-qf--btn .btn { width: 100%; }
   .weight-qf__ghost-label { display: none; }
-  .weight-chart-tools { width: 100%; justify-content: flex-end; }
-  .weight-date-input { width: 110px; }
+  /* 筛选条保持单行：下拉弹性、日期缩窄 */
+  .weight-chart-tools { gap: 6px; margin-bottom: 8px; }
+  .weight-date-input { width: 102px; flex: 0 0 102px; }
+  .weight-chart-wrap { min-height: 200px; }
+  /* 收紧双栏间距与智能分析留白 */
+  .weight-layout { gap: 10px; }
+  .weight-main, .weight-side { gap: 10px; }
+  .weight-container .jn { margin-top: 12px; padding-top: 12px; }
+  .weight-container .jn-hero { margin: 8px 0 4px; }
+  .weight-container .jn-deltas { margin-top: 10px; }
+  .weight-container .jn-metrics { margin-top: 10px; }
+  /* 侧栏竞赛卡手机隐藏，入口收进智能分析标题行 */
+  #wRaceBox { display: none !important; }
+  .jn-race-btn { display: inline-flex; align-items: center; }
 }
 
 /* 手机视图：所有滚动条强制透明隐藏（触屏滑动不受影响）。
