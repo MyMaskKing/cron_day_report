@@ -5028,33 +5028,43 @@ async function loadReport() {
   var re = document.getElementById('sumRate');
   re.textContent = sign(t.rate) + '%'; re.style.color = colorOf(t.rate);
 
-  // 明细表（按创建时间倒序）
+  // 持仓卡片列表（按创建时间倒序）：替代旧 8 列宽表，份额/成本/本金收进第三行，信息零丢失
   var tb = document.getElementById('fundTbody');
   items = items.slice().sort(function(a,b){
     return (b.created_at||'').localeCompare(a.created_at||'');
   });
+  var topSub = document.getElementById('fundTopSub');
+  if (topSub) {
+    var arcN = items.filter(function(x){ return x.archived; }).length;
+    topSub.textContent = items.length + ' 只持仓' + (arcN ? ' · ' + arcN + ' 只已封存' : '');
+  }
   tb.innerHTML = items.map(function(it){
     var arcTag = it.archived ? ' <span class="tag">已封存</span>' : '';
-    // 封存行弱化用 class（不能用 opacity：会创建堆叠上下文压住操作下拉，且连菜单一起变淡）
-    return '<tr' + (it.archived ? ' class="row-archived"' : '') + '><td data-label="基金">' + esc(it.name) + arcTag + '<br><span class="muted">' + it.code + '</span></td>' +
-      '<td data-label="份额">' + fmtMoney(it.shares) + '</td>' +
-      '<td data-label="成本净值">' + it.cost_nav + '</td>' +
-      '<td data-label="现价(估)">' + it.current_nav + ' <span style="color:' + colorOf(it.gszzl) + '">(' + sign(it.gszzl) + '%)</span></td>' +
-      '<td data-label="本金">' + fmtMoney(it.cost, {frac:2}) + '</td>' +
-      '<td data-label="现值">' + fmtMoney(it.value, {frac:2}) + '</td>' +
-      '<td data-label="收益" style="color:' + colorOf(it.profit) + '">' + sign(it.profit) + '<br>(' + sign(it.rate) + '%)</td>' +
-      '<td data-label="操作"><div class="dropdown">' +
-        '<button class="btn sm" onclick="toggleDropdown(this)">⋯ 操作</button>' +
-        '<div class="dropdown-menu">' +
-          '<button data-id="' + it.id + '" data-name="' + esc(it.name) + '" data-code="' + esc(it.code) + '" onclick="viewNavHistory(this)">近30净值</button>' +
-          '<button onclick="editFund(' + it.id + ')">编辑</button>' +
-          '<button onclick="buyFundUI(' + it.id + ')">加仓</button>' +
-          '<button onclick="shareLink(' + it.id + ')">加仓链接</button>' +
-          '<button onclick="toggleArchiveFund(' + it.id + ',' + (it.archived ? 1 : 0) + ')">' + (it.archived ? '解封' : '封存') + '</button>' +
-          '<button class="danger" onclick="delFund(' + it.id + ')">删除</button>' +
+    // 封存行弱化用 class（只改文字色，不能用 opacity：会创建堆叠上下文压住操作下拉，且连菜单一起变淡）
+    return '<div class="fund-hold' + (it.archived ? ' is-archived' : '') + '">' +
+      '<div class="fund-hold__row1">' +
+        '<div class="fund-hold__name">' + esc(it.name) + arcTag + '<div class="fund-hold__code">' + it.code + '</div></div>' +
+        '<div class="dropdown">' +
+          '<button class="btn sm gray fund-hold__more" onclick="toggleDropdown(this)">⋯</button>' +
+          '<div class="dropdown-menu">' +
+            '<button data-id="' + it.id + '" data-name="' + esc(it.name) + '" data-code="' + esc(it.code) + '" onclick="viewNavHistory(this)">近30净值</button>' +
+            '<button onclick="editFund(' + it.id + ')">编辑</button>' +
+            '<button onclick="buyFundUI(' + it.id + ')">加仓</button>' +
+            '<button onclick="shareLink(' + it.id + ')">加仓链接</button>' +
+            '<button onclick="toggleArchiveFund(' + it.id + ',' + (it.archived ? 1 : 0) + ')">' + (it.archived ? '解封' : '封存') + '</button>' +
+            '<button class="danger" onclick="delFund(' + it.id + ')">删除</button>' +
+          '</div>' +
         '</div>' +
-      '</div></td></tr>';
-  }).join('') || '<tr><td colspan="8" class="muted">暂无持仓</td></tr>';
+      '</div>' +
+      '<div class="fund-hold__row2">' +
+        '<div><div class="fund-hold__val" style="color:' + colorOf(it.profit) + '">' + sign(it.profit) + '</div>' +
+        '<div class="fund-hold__sub">收益 ' + sign(it.rate) + '%</div></div>' +
+        '<div class="fund-hold__right"><div class="fund-hold__pv">' + fmtMoney(it.value, {frac:2}) + '</div>' +
+        '<div class="fund-hold__sub">现值 · 现价 ' + it.current_nav + ' <span style="color:' + colorOf(it.gszzl) + '">(' + sign(it.gszzl) + '%)</span></div></div>' +
+      '</div>' +
+      '<div class="fund-hold__row3">' + fmtMoney(it.shares) + ' 份 · 成本净值 ' + it.cost_nav + ' · 本金 ' + fmtMoney(it.cost, {frac:2}) + '</div>' +
+    '</div>';
+  }).join('') || '<p class="muted" style="margin:0;">暂无持仓</p>';
   window._items = items;
 
   drawChart(data.items);
@@ -5314,12 +5324,19 @@ function drawChart(items) {
   var labels = items.map(function(i){ return i.name; });
   var values = items.map(function(i){ return i.value; });
   if (chart) chart.destroy();
-  if (!items.length) return;
+  // Hero 迷你环图：空数据时父容器挂 data-empty 走 CSS 占位，不画空饼
+  var wrap = el.closest('.fund-donut-wrap');
+  if (!items.length) { if (wrap) wrap.setAttribute('data-empty', '1'); return; }
+  if (wrap) wrap.removeAttribute('data-empty');
   chart = new Chart(el, {
     type: 'doughnut',
     data: { labels: labels, datasets: [{ data: values,
-      backgroundColor: ['#667eea','#764ba2','#f093fb','#4facfe','#43e97b','#fa709a','#fee140','#30cfd0','#a8edea','#ff9a9e'] }] },
-    options: { plugins: { legend: { position: 'right' }, title: { display: true, text: '持仓现值分布' } } }
+      // 品牌紫阶梯配色（对齐仪表盘/体重看板，替代旧 10 色渐变调色板）
+      backgroundColor: ['#7C3AED','#A855F7','#c084fc','#6d28d9','#ddd6fe','#9333ea','#e9d5ff','#5b21b6','#d8b4fe','#8b5cf6'] }] },
+    options: { plugins: {
+      legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+      title: { display: false }
+    } }
   });
 }
 
@@ -5630,6 +5647,18 @@ document.getElementById('scRun').addEventListener('click', async function(){
   } catch(e){ alertModal(e.message, {ok:false}); }
 });
 
+// 工具卡 Tab：持仓分析 / 情景测算 两个 pane 显隐互换（纯前端，接口不变）
+Array.prototype.forEach.call(document.querySelectorAll('.fund-tool-tabs button'), function(btn){
+  btn.addEventListener('click', function(){
+    Array.prototype.forEach.call(document.querySelectorAll('.fund-tool-tabs button'), function(b){
+      b.classList.toggle('is-on', b === btn);
+    });
+    var pane = btn.dataset.pane;
+    document.getElementById('paneAn').classList.toggle('is-on', pane === 'an');
+    document.getElementById('paneSc').classList.toggle('is-on', pane === 'sc');
+  });
+});
+
 (async function(){
   _initTotal = 4; _initStep = 0;   // loadReport(净值汇总+收益曲线) + loadReportConfig(渠道+推送配置)
   showLoading('加载中…');   // 外层占位：保持计数>0，使 4 个串行请求间进度不被归零重置
@@ -5899,6 +5928,12 @@ function initStrategyPanel(){
     _stratRefreshEntry('');   // 兜底: 显示 CTA 按钮, 用户仍可进入编辑并保存
   });
   _stratBindFabDrag();   // FAB 悬浮按钮可拖动(手机端尤其需要, 避免挡视线)
+  // 顶栏统一入口（旧 FAB/CTA 已由 CSS 隐藏，DOM 与拖拽逻辑保留）：有内容开查看态，空内容直接进编辑
+  var stratTopBtn = document.getElementById('stratTopBtn');
+  if (stratTopBtn) stratTopBtn.addEventListener('click', function(){
+    _stratOpen();
+    if (!_stratLoaded || !_stratLoaded.trim()) _stratShowEdit(_stratLoaded);
+  });
   document.getElementById('stratSetup').addEventListener('click', function(){
     _stratOpen(); _stratShowEdit(_stratLoaded);
   });

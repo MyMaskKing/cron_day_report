@@ -1044,6 +1044,115 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .jn-race-btn { display: inline-flex; align-items: center; }
 }
 
+/* ========== 基金资产看板（方案A：Hero 大数字 + 双栏，对齐体重看板设计语言）========== */
+.fund-topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; margin-bottom: 14px;
+}
+.fund-topbar__intro { flex: 1; min-width: 0; }
+.fund-topbar__title { font-size: 16px; font-weight: 850; color: var(--text-strong); }
+.fund-topbar__sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.fund-topbar__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; white-space: nowrap; }
+.fund-topbar__actions .btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  white-space: nowrap; flex-shrink: 0; height: 32px; padding: 0 12px; margin: 0; line-height: 1;
+}
+
+/* Hero 资产看板 */
+.fund-hero {
+  display: flex; align-items: center; gap: 24px;
+  padding: 18px 22px; margin-bottom: 14px;
+  background: var(--brand-tint); border: 1px solid var(--brand-border); border-radius: var(--r-lg);
+}
+.fund-hero__main { flex: 1; min-width: 0; }
+.fund-hero__meta { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.fund-hero__val { display: flex; align-items: baseline; gap: 10px; margin-top: 2px; flex-wrap: wrap; }
+.fund-hero__num { font-size: 42px; font-weight: 850; line-height: 1.15; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.fund-hero__rate {
+  font-size: 14px; font-weight: 800; padding: 3px 10px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border); font-variant-numeric: tabular-nums;
+}
+.fund-hero__pills { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.fund-pill { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 14px; min-width: 120px; }
+.fund-pill__l { font-size: 11.5px; color: var(--muted); }
+.fund-pill__v { font-size: 16px; font-weight: 800; color: var(--text-strong); margin-top: 1px; font-variant-numeric: tabular-nums; }
+.fund-hero__donut { flex: none; width: 230px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.fund-donut-cap { font-size: 12px; color: var(--muted); font-weight: 600; }
+.fund-donut-wrap { width: 200px; height: 170px; position: relative; }
+.fund-donut-wrap[data-empty="1"] { display: flex; align-items: center; justify-content: center; }
+.fund-donut-wrap[data-empty="1"] canvas { display: none; }
+.fund-donut-wrap[data-empty="1"]::after { content: '暂无持仓分布'; color: var(--muted); font-size: 12.5px; }
+
+/* 双栏 */
+.fund-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+.fund-main, .fund-side { min-width: 0; display: flex; flex-direction: column; }
+.fund-main .card, .fund-side .card { margin-bottom: 16px; }
+.fund-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.fund-card-head h2 { flex: 1; font-size: 15px; font-weight: 800; color: var(--text-strong); margin: 0; }
+.fund-chart-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.fund-chart-tools select {
+  padding: 5px 8px; font-size: 12.5px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--text); font-family: inherit; width: auto; flex-shrink: 0; margin: 0;
+}
+.fund-subhead { margin: 18px 0 8px; font-size: 14px; font-weight: 700; color: var(--text-strong); }
+
+/* 持仓卡片列表（替代旧 8 列宽表，信息零丢失：份额/成本/本金收进卡片第三行）*/
+.fund-hold-list { display: flex; flex-direction: column; gap: 9px; }
+.fund-hold { border: 1px solid var(--border); border-radius: var(--r-md); padding: 11px 12px; background: var(--surface); }
+/* 封存行弱化沿用旧 tr.row-archived 手法：只改文字色，不用 opacity（会创建堆叠上下文压住操作下拉）*/
+.fund-hold.is-archived .fund-hold__name,
+.fund-hold.is-archived .fund-hold__pv,
+.fund-hold.is-archived .fund-hold__val { color: var(--muted); }
+.fund-hold__row1 { display: flex; align-items: flex-start; gap: 8px; }
+.fund-hold__name { font-weight: 750; color: var(--text-strong); font-size: 13.5px; flex: 1; min-width: 0; }
+.fund-hold__code { font-size: 11.5px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+.fund-hold__more { padding: 2px 9px; }
+.fund-hold__row2 { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.fund-hold__val { font-size: 17px; font-weight: 850; font-variant-numeric: tabular-nums; }
+.fund-hold__sub { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.fund-hold__right { text-align: right; }
+.fund-hold__pv { font-size: 15px; font-weight: 800; color: var(--text-strong); text-align: right; font-variant-numeric: tabular-nums; }
+.fund-hold__row3 {
+  font-size: 11.5px; color: var(--muted); margin-top: 7px; padding-top: 7px;
+  border-top: 1px dashed var(--border); font-variant-numeric: tabular-nums;
+}
+.fund-hold-tip { font-size: 11.5px; margin: 8px 0 0; }
+
+/* 工具 Tab（持仓分析 / 情景测算合并卡）*/
+.fund-tool-tabs {
+  display: inline-flex; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 3px; gap: 2px; margin-bottom: 12px;
+}
+.fund-tool-tabs button {
+  border: none; background: none; cursor: pointer; font-family: inherit;
+  padding: 6px 14px; font-size: 12.5px; font-weight: 700; border-radius: 7px;
+  color: var(--muted); line-height: 1; white-space: nowrap;
+}
+.fund-tool-tabs button.is-on { background: var(--surface); color: var(--brand-text); box-shadow: 0 1px 2px rgba(15,23,42,.12); }
+.fund-tool-pane { display: none; }
+.fund-tool-pane.is-on { display: block; }
+/* 窄侧栏内三列表单不被全局 .row 的 140px 最小宽挤换行 */
+.fund-tool-pane .row { gap: 8px; }
+.fund-tool-pane .row > * { min-width: 0; }
+
+/* 投资策略入口统一顶栏：旧悬浮 FAB 与首次引导 CTA 隐藏（DOM 与拖拽逻辑保留，不报错）*/
+#stratFab, #stratSetup { display: none !important; }
+
+@media (max-width: 1023px) {
+  .fund-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .fund-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .fund-topbar__actions { justify-content: flex-end; flex-wrap: wrap; row-gap: 8px; }
+  .fund-hero { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px; margin-bottom: 10px; }
+  .fund-hero__num { font-size: 34px; }
+  .fund-hero__donut { width: 100%; }
+  .fund-donut-wrap { width: 100%; max-width: 260px; margin: 0 auto; }
+  .fund-layout { gap: 10px; }
+  .fund-main .card, .fund-side .card { margin-bottom: 10px; }
+  .fund-tool-pane .row { flex-direction: column; }
+}
+
 /* 手机视图：所有滚动条强制透明隐藏（触屏滑动不受影响）。
    !important 必须保留——自定义滚动条全局规则在本文件后段, 同特异性会反覆盖此规则 */
 @media (max-width: 640px) {

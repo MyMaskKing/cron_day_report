@@ -671,23 +671,46 @@ function channelsPage(user) {
 
 /** 基金追踪页 */
 function fundPage(user) {
-  const body = renderTopbar(user, 'fund') + `<div class="container">
-    <div class="card">
-      <h2>收益汇总
-        <button class="btn sm gray" id="fRefresh" style="float:right;">🔄 刷新净值</button>
-      </h2>
-      <div class="grid-stats">
-        <div class="stat"><div class="num" id="sumCost">0</div><div class="lbl">总本金</div></div>
-        <div class="stat"><div class="num" id="sumValue">0</div><div class="lbl">现值</div></div>
-        <div class="stat"><div class="num" id="sumProfit">0</div><div class="lbl">总收益</div></div>
-        <div class="stat"><div class="num" id="sumRate">0%</div><div class="lbl">收益率</div></div>
+  const body = renderTopbar(user, 'fund') + `<div class="container fund-container">
+    <!-- 1. 顶部操作条：动作收口，替代旧 float:right 按钮 -->
+    <div class="card fund-topbar">
+      <div class="fund-topbar__intro">
+        <div class="fund-topbar__title">基金追踪</div>
+        <div class="fund-topbar__sub" id="fundTopSub">加载中…</div>
       </div>
-      <div style="max-width:420px;margin:20px auto 0;"><canvas id="fundChart"></canvas></div>
+      <div class="fund-topbar__actions">
+        <button class="btn sm gray" id="fRefresh">🔄 刷新净值</button>
+        <button class="btn sm" id="fNew">＋ 添加持仓</button>
+        <button class="btn sm gray" id="stratTopBtn">📝 投资策略</button>
+      </div>
     </div>
 
+    <!-- 2. Hero 资产看板：总收益大数字 + 本金/现值 Pill + 持仓分布环图 -->
+    <div class="card fund-hero">
+      <div class="fund-hero__main">
+        <div class="fund-hero__meta">总收益（元）· 涨红跌绿</div>
+        <div class="fund-hero__val">
+          <span class="fund-hero__num" id="sumProfit">0</span>
+          <span class="fund-hero__rate" id="sumRate">0%</span>
+        </div>
+        <div class="fund-hero__pills">
+          <div class="fund-pill"><div class="fund-pill__l">总本金</div><div class="fund-pill__v" id="sumCost">0</div></div>
+          <div class="fund-pill"><div class="fund-pill__l">现值（估）</div><div class="fund-pill__v" id="sumValue">0</div></div>
+        </div>
+      </div>
+      <div class="fund-hero__donut">
+        <div class="fund-donut-cap">持仓现值分布</div>
+        <div class="fund-donut-wrap"><canvas id="fundChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 3. 双栏：左主（收益曲线/智能分析/明细）右辅（持仓/推送/工具） -->
+    <div class="fund-layout">
+     <div class="fund-main">
     <div class="card">
-      <h2>每日总收益曲线
-        <select id="profitRange" class="btn sm gray" style="float:right;width:auto;">
+      <div class="fund-card-head"><h2>每日总收益曲线</h2></div>
+      <div class="fund-chart-tools">
+        <select id="profitRange">
           <option value="7d">近7天</option>
           <option value="30d">近30天</option>
           <option value="month">本月</option>
@@ -696,7 +719,7 @@ function fundPage(user) {
           <option value="3y">近3年</option>
           <option value="all">全部</option>
         </select>
-      </h2>
+      </div>
       <div id="profitEmpty" class="muted" style="display:none;text-align:center;padding:40px;">暂无每日收益数据，次日 15:00 后自动生成第一条收益记录</div>
       <div class="jn-chart-legend" id="profitLegend" style="max-width:720px;margin:14px auto 0;display:none;">
         <span class="lg"><i></i>当日总收益(元)</span>
@@ -704,21 +727,18 @@ function fundPage(user) {
       </div>
       <div id="profitChartWrap" style="max-width:720px;margin:12px auto 0;"><canvas id="profitChart"></canvas></div>
       <div id="profitInsight"></div>
-      <h3 style="margin:24px 0 8px;font-size:16px;">每日收益明细</h3>
+      <h3 class="fund-subhead">每日收益明细</h3>
       <div class="scroll-box">
         <table><thead><tr style="background:var(--surface-2);"><th>日期</th><th>总收益(元)</th><th>较前一天增长(元)</th></tr></thead><tbody id="profitTbody"></tbody></table>
       </div>
     </div>
+     </div>
 
+     <div class="fund-side">
     <div class="card">
-      <h2>持仓明细
-        <button class="btn sm" id="fNew" style="float:right;">+ 添加持仓</button>
-      </h2>
-      <table>
-        <thead><tr><th>基金</th><th>份额</th><th>成本净值</th><th>现价(估)</th><th>本金</th><th>现值</th><th>收益</th><th>操作</th></tr></thead>
-        <tbody id="fundTbody"></tbody>
-      </table>
-      <p class="muted" style="margin-top:8px;">现价为天天基金估算净值，交易时段为实时估值，收盘后为当日净值。</p>
+      <div class="fund-card-head"><h2>持仓明细</h2></div>
+      <div id="fundTbody" class="fund-hold-list"><p class="muted" style="margin:0;">加载中…</p></div>
+      <p class="muted fund-hold-tip">现价为天天基金估算净值，交易时段为实时估值，收盘后为当日净值。</p>
     </div>
 
     <details class="card push-card">
@@ -740,29 +760,36 @@ function fundPage(user) {
     </details>
 
     <div class="card">
-      <h2>持仓分析 <span class="muted" style="font-size:12px;font-weight:normal;">（规则化提示，非投资建议）</span></h2>
-      <div class="row">
-        <div><label>止损线(%)</label><input id="anStopLoss" type="number" value="-10"></div>
-        <div><label>止盈线(%)</label><input id="anTakeProfit" type="number" value="20"></div>
-        <div><label>集中度告警(%)</label><input id="anConcentration" type="number" value="50"></div>
+      <div class="fund-tool-tabs">
+        <button type="button" class="is-on" data-pane="an">持仓分析</button>
+        <button type="button" data-pane="sc">情景测算</button>
       </div>
-      <button class="btn" id="anRun">生成分析</button>
-      <div id="anResult" style="margin-top:14px;"></div>
+      <div class="fund-tool-pane is-on" id="paneAn">
+        <p class="muted" style="font-size:12px;margin:0 0 10px;">规则化提示，非投资建议</p>
+        <div class="row">
+          <div><label>止损线(%)</label><input id="anStopLoss" type="number" value="-10"></div>
+          <div><label>止盈线(%)</label><input id="anTakeProfit" type="number" value="20"></div>
+          <div><label>集中度告警(%)</label><input id="anConcentration" type="number" value="50"></div>
+        </div>
+        <button class="btn sm" id="anRun" style="margin-top:10px;">生成分析</button>
+        <div id="anResult" style="margin-top:14px;"></div>
+      </div>
+      <div class="fund-tool-pane" id="paneSc">
+        <p class="muted" style="font-size:12px;margin:0 0 10px;">按你的假设推演，非市场预测</p>
+        <div class="row">
+          <div><label>基金代码（可选，留空则用买入净值）</label><input id="scCode" placeholder="如 000001"></div>
+          <div><label>计划投入金额(元)</label><input id="scAmount" type="number" step="0.01" placeholder="如 10000"></div>
+          <div><label>买入净值（留空则按代码取实时估值）</label><input id="scNav" type="number" step="0.0001"></div>
+        </div>
+        <div class="row">
+          <div><label>止盈假设(%)</label><input id="scTakeProfit" type="number" value="20"></div>
+          <div><label>止损假设(%)</label><input id="scStopLoss" type="number" value="-10"></div>
+        </div>
+        <button class="btn sm" id="scRun" style="margin-top:10px;">开始测算</button>
+        <div id="scResult" style="margin-top:14px;"></div>
+      </div>
     </div>
-
-    <div class="card">
-      <h2>情景测算 <span class="muted" style="font-size:12px;font-weight:normal;">（按你的假设推演，非市场预测）</span></h2>
-      <div class="row">
-        <div><label>基金代码（可选，留空则用买入净值）</label><input id="scCode" placeholder="如 000001"></div>
-        <div><label>计划投入金额(元)</label><input id="scAmount" type="number" step="0.01" placeholder="如 10000"></div>
-        <div><label>买入净值（留空则按代码取实时估值）</label><input id="scNav" type="number" step="0.0001"></div>
-      </div>
-      <div class="row">
-        <div><label>止盈假设(%)</label><input id="scTakeProfit" type="number" value="20"></div>
-        <div><label>止损假设(%)</label><input id="scStopLoss" type="number" value="-10"></div>
-      </div>
-      <button class="btn" id="scRun">开始测算</button>
-      <div id="scResult" style="margin-top:14px;"></div>
+     </div>
     </div>
   </div>
 
