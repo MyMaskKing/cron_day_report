@@ -1216,8 +1216,8 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .as-chart-tools > div { flex: 1; min-width: 120px; }
 .as-chart-tools select, .as-chart-tools input { width: 100%; margin: 0; }
 
-/* 窄侧栏内构成图纵堆（覆盖旧 220px+1fr 横排）*/
-.as-composition { grid-template-columns: 1fr; gap: 14px; justify-items: center; }
+/* 窄侧栏内构成图纵堆（覆盖旧 220px+1fr 横排；双 class 提特异性，否则同特异性被后段 .asset-composition 反压）*/
+.as-composition.asset-composition { grid-template-columns: 1fr; gap: 14px; justify-items: center; }
 .as-composition .asset-donut { width: 160px; height: 160px; }
 .as-composition .asset-legend-list { width: 100%; }
 
