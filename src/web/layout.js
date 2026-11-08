@@ -1250,6 +1250,68 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .as-card-head .btn { white-space: nowrap; }
 }
 
+/* ========== 待办看板外壳（2026-11）：topbar + Hero + 全宽清单。
+   仅作用于登录态 /todo 普通页外层；任务行/全屏模式/免密页 class 不重叠，零竞争 ========== */
+.todo-topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; margin-bottom: 14px;
+}
+.todo-topbar__intro { flex: 1; min-width: 0; }
+.todo-topbar__title { font-size: 16px; font-weight: 850; color: var(--text-strong); }
+.todo-topbar__sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.todo-topbar__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.todo-topbar__actions .btn { margin-bottom: 0; white-space: nowrap; }
+
+.todo-hero {
+  display: flex; align-items: center; gap: 24px;
+  padding: 18px 22px; margin-bottom: 14px;
+  background: var(--brand-tint); border: 1px solid var(--brand-border); border-radius: var(--r-lg);
+}
+.todo-hero__main { flex: 1; min-width: 0; }
+.todo-hero__meta { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+/* PC：数字与副标纵向（num 在上、hint 在下）；手机媒体查询改同行底部对齐 */
+.todo-hero__numline { display: flex; flex-direction: column; align-items: flex-start; }
+.todo-hero__num {
+  font-size: 42px; font-weight: 850; line-height: 1.15; letter-spacing: -.5px;
+  color: var(--brand-strong); font-variant-numeric: tabular-nums;
+}
+.todo-hero__hint { font-size: 12.5px; color: var(--muted-2); font-weight: 600; margin-top: 6px; }
+.todo-hero__hint em { font-style: normal; color: var(--danger); font-weight: 800; }
+.todo-hero__dot { font-style: normal; color: var(--border-strong); margin: 0 6px; }
+.todo-hero__pills { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.todo-kpi {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 8px 16px; min-width: 104px; text-align: center;
+}
+.todo-kpi__l { font-size: 11.5px; color: var(--muted); }
+.todo-kpi__v { font-size: 20px; font-weight: 850; margin-top: 2px; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.todo-kpi__v--danger { color: var(--danger); }
+.todo-kpi__v--ok { color: var(--ok-text); }
+
+/* 清单卡头：标题 + 筛选口径灰字（#statsHint 从旧概览卡迁入）*/
+.todo-list-card__head { margin-bottom: 6px; }
+.todo-list-card__head h2 { font-size: 15px; font-weight: 800; color: var(--text-strong); margin: 0 0 2px; }
+.todo-list-card__hint { font-size: 12px; margin: 0; }
+
+@media (max-width: 640px) {
+  .todo-topbar { flex-direction: column; align-items: stretch; gap: 10px; padding: 10px 14px; margin-bottom: 10px; }
+  /* 操作区手机横向滑动（沿用旧 todo-card-head__bar-scroll 成熟模式），滚动条透明 */
+  .todo-topbar__actions {
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding: 2px;
+  }
+  .todo-topbar__actions::-webkit-scrollbar { display: none; }
+  .todo-topbar__actions > * { flex-shrink: 0; }
+  .todo-hero { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; margin-bottom: 10px; }
+  /* 手机：大数字与副标同一行、底部对齐（副标略抬升贴合数字视觉基线）*/
+  .todo-hero__numline { flex-direction: row; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+  .todo-hero__num { font-size: 34px; }
+  .todo-hero__hint { margin: 0 0 5px; font-size: 11.5px; line-height: 1.4; }
+  .todo-hero__pills { margin-left: 0; justify-content: stretch; }
+  .todo-kpi { flex: 1; min-width: 0; padding: 8px 6px; }
+  .todo-kpi__v { font-size: 17px; }
+}
+
 /* 手机视图：所有滚动条强制透明隐藏（触屏滑动不受影响）。
    !important 必须保留——自定义滚动条全局规则在本文件后段, 同特异性会反覆盖此规则 */
 @media (max-width: 640px) {

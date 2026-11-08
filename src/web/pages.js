@@ -1454,30 +1454,42 @@ function fundReportPage(showQuickLogin = true) {
 /** 待办清单页 */
 function todoPage(user) {
   const body = renderTopbar(user, 'todo') + `<div class="container">
-    <div class="card">
-      <h2>概览</h2>
-      <div id="statsHint" class="muted" style="font-size:12px;margin:0 0 8px;"></div>
-      <div class="todo-stats">
-        <div class="todo-stat"><div class="n" id="stPending">0</div><div class="l">未完成</div></div>
-        <div class="todo-stat overdue"><div class="n" id="stOverdue">0</div><div class="l">已逾期</div></div>
-        <div class="todo-stat done"><div class="n" id="stDone">0</div><div class="l">已完成</div></div>
-        <div class="todo-stat"><div class="n" id="stMemo">0</div><div class="l">备忘录</div></div>
+    <!-- 顶部标题条：视图切换/新建/共享/显示 全保留原 id，交互零改动（手机端 actions 横向滑动）-->
+    <div class="card todo-topbar">
+      <div class="todo-topbar__intro">
+        <div class="todo-topbar__title">待办清单</div>
+        <div class="todo-topbar__sub"><span id="todoRootCount">0</span> 个主任务</div>
+      </div>
+      <div class="todo-topbar__actions">
+        <button class="btn sm gray" id="viewToggle">${ICO_CARDS}卡片视图</button>
+        <button class="btn sm" id="tAdd">+ 新建 ▾</button>
+        <button class="btn sm gray" id="tListBtn">👥 共享分类</button>
+        <input type="checkbox" id="hideDone" checked hidden>
+        <button class="btn sm gray" id="displayOpts" title="显示选项">${ICO_SLIDERS}<span class="todo-display-btn__txt">显示 ▾</span></button>
+      </div>
+    </div>
+
+    <!-- Hero 概览：未完成大数字 + 今天/逾期副标 + 三枚 KPI（四个统计 id 全保留，仅换外壳 class）-->
+    <div class="card todo-hero">
+      <div class="todo-hero__main">
+        <div class="todo-hero__meta">未完成任务</div>
+        <div class="todo-hero__numline">
+          <div class="todo-hero__num" id="stPending">0</div>
+          <div class="todo-hero__hint" id="todoTodayHint">今天没有到期任务</div>
+        </div>
+      </div>
+      <div class="todo-hero__pills">
+        <div class="todo-kpi"><div class="todo-kpi__l">已逾期</div><div class="todo-kpi__v todo-kpi__v--danger" id="stOverdue">0</div></div>
+        <div class="todo-kpi"><div class="todo-kpi__l">已完成</div><div class="todo-kpi__v todo-kpi__v--ok" id="stDone">0</div></div>
+        <div class="todo-kpi"><div class="todo-kpi__l">备忘录</div><div class="todo-kpi__v" id="stMemo">0</div></div>
       </div>
     </div>
 
     <div class="card">
-      <h2 class="todo-card-head">
-        <span class="todo-card-head__title">待办清单</span>
-        <span class="todo-card-head__bar">
-          <span class="todo-card-head__bar-scroll">
-            <button class="btn sm gray" id="viewToggle">${ICO_CARDS}卡片视图</button>
-            <button class="btn sm" id="tAdd">+ 新建 ▾</button>
-            <button class="btn sm gray" id="tListBtn">👥 共享分类</button>
-          </span>
-        </span>
-        <input type="checkbox" id="hideDone" checked hidden>
-      <button class="btn sm gray" id="displayOpts" title="显示选项">${ICO_SLIDERS}<span class="todo-display-btn__txt">显示 ▾</span></button>
-      </h2>
+      <div class="todo-list-card__head">
+        <h2>待办清单</h2>
+        <div id="statsHint" class="muted todo-list-card__hint"></div>
+      </div>
       <div class="todo-range todo-filter" id="todoFilter">
         <button data-filter="all">全部</button>
         <button data-filter="planned" class="active">计划中</button>

@@ -9517,7 +9517,7 @@ function todoDoneByFilter(rows, filter, today, range) {
 //   memo:    未完成叶子且无有效 due_date
 // trees: 已按当前 _filter 过滤后的顶层数组
 function todoStatsByVisible(trees, today) {
-  var pending = 0, overdue = 0, memo = 0;
+  var pending = 0, overdue = 0, memo = 0, dueToday = 0;
   function walk(node, inheritedDue) {
     if (node.done) return;
     var own = node.due_date || inheritedDue;
@@ -9528,9 +9528,10 @@ function todoStatsByVisible(trees, today) {
     if (!own) { if (!node.child_due) memo++; return; } // child_due 空容器(分组壳)不计备忘录
     pending++;
     if (today && own < today) overdue++;
+    if (today && own === today) dueToday++; // 今天到期：与逾期同一次叶子遍历，YYYY-MM-DD 字典序即日期序
   }
   trees.forEach(function(root){ walk(root, root.due_date); });
-  return { pending: pending, overdue: overdue, memo: memo };
+  return { pending: pending, overdue: overdue, memo: memo, today: dueToday };
 }
 // 前端版 shiftDate: 与后端 services/todo.service.js 的 shiftDate 逻辑一致
 // dueDate: YYYY-MM-DD; recurrence: 'daily'|'weekly'|'monthly'|'yearly'|'monthly_nth_weekday'
@@ -14634,6 +14635,16 @@ function renderPendingStats() {
   document.getElementById('stPending').textContent = s.pending;
   document.getElementById('stOverdue').textContent = s.overdue;
   document.getElementById('stMemo').textContent = s.memo;
+  // Hero 副标（仅登录态主页有此元素，免密页 getElementById 为 null 静默跳过）
+  var hintEl = document.getElementById('todoTodayHint');
+  if (hintEl) {
+    var segs = [];
+    if (s.today > 0) segs.push('<span>今天到期 ' + s.today + ' 项</span>');
+    if (s.overdue > 0) segs.push('<em>' + s.overdue + ' 项已逾期</em>');
+    hintEl.innerHTML = segs.length ? segs.join('<i class="todo-hero__dot">·</i>') : '<span>今天没有到期任务</span>';
+  }
+  var rootEl = document.getElementById('todoRootCount');
+  if (rootEl) rootEl.textContent = trees.length;
 }
 // 视图 3 态循环需要的一对回调: 取当前 rows / 触发树重绘
 function _todoGetRows() { return _rows; }
