@@ -1347,7 +1347,7 @@ function assetPage(user) {
           <tbody id="walletTbody"></tbody>
         </table>
       </div>
-      <p class="asset-small" style="margin-top:8px;">投资钱包保留本金/持有收益；信用支付计为负债；每个钱包仍可单独录入本月、录入其他月、查看记录和生成免密链接。</p>
+      <p class="asset-small" style="margin-top:8px;">投资钱包保留本金/持有收益；信用支付计为负债；每个钱包仍可单独录入、编辑、查看记录和生成免密链接。</p>
     </div>
 
     <div class="card">

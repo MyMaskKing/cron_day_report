@@ -7959,8 +7959,8 @@ function renderWallets(list) {
       '<td data-label="本月金额" class="asset-money' + amtCls + '">' + (amt != null ? assetMoney(amt) : '<span class="muted">—</span>') + '</td>' +
       '<td data-label="较上月" class="asset-delta' + diffCls + '">' + (diff == null ? '—' : signedMoney(diff) + diffTag) + '</td>' +
       '<td data-label="操作">' +
-        '<button class="btn sm" onclick="wRec(' + w.id + ",'" + w.type + "'" + ')">录入本月</button> ' +
-        '<button class="btn sm asset-btn--secondary" onclick="wRecOther(' + w.id + ",'" + w.type + "'" + ')">其他月</button> ' +
+        '<button class="btn sm" onclick="wRec(' + w.id + ",'" + w.type + "'" + ')">录入</button> ' +
+        '<button class="btn sm asset-btn--secondary" onclick="wEdit(' + w.id + ')">编辑</button> ' +
         '<button class="btn sm gray" onclick="wLogs(' + w.id + ')">记录</button>' +
       '</td></tr>';
   }).join('') || '<tr><td colspan="5" class="muted">暂无钱包</td></tr>';
@@ -8286,16 +8286,13 @@ window.wLogs = function(id){
   var rangeTag = (s || e) ? '（' + (s || '更早') + ' ~ ' + (e || '至今') + '）' : '';
   openModal('记录 · ' + w.name + rangeTag,
     '<table><thead><tr><th>月份</th><th>金额</th><th>更新时间</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-    '<div class="asset-record-admin"><button class="btn sm gray" onclick="closeModal();wEdit(' + id + ')">编辑钱包</button>' +
-    '<button class="btn sm gray" onclick="closeModal();wShare(' + id + ')">录入链接</button>' +
+    '<div class="asset-record-admin"><button class="btn sm gray" onclick="closeModal();wShare(' + id + ')">录入链接</button>' +
     '<button class="btn sm gray" onclick="closeModal();toggleWalletArchived(' + id + ',' + (w.archived ? 1 : 0) + ')">' + (w.archived ? '解封' : '封存') + '</button>' +
     '<button class="btn sm danger" onclick="closeModal();wDel(' + id + ')">删除钱包</button>' +
     '<button class="btn sm gray" onclick="closeModal()">关闭</button></div>');
 };
-// 录入本月（新增一条）
+// 录入（新增一条）：弹窗内月份默认当月、可改选任意月，支持连续录入
 window.wRec = function(id, type){ openRecModal(id, type, curMonth(), null); };
-// 录入其他月（新增一条）：与录入本月同一弹窗，月份字段直接选月，支持连续录入
-window.wRecOther = function(id, type){ openRecModal(id, type, curMonth(), null); };
 // 修改某条已有月度记录（按 id, 可改月份）
 window.recEditRow = function(recId){
   var rec = fullRecords.filter(function(r){ return r.id===recId; })[0];
