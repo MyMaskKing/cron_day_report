@@ -889,13 +889,13 @@ function weightPage(user) {
           <label>成员</label>
           <select id="recMember"></select>
         </div>
-        <div class="weight-qf weight-qf--val">
-          <label id="recWeightLabel">体重(斤)</label>
-          <input id="recWeight" type="number" step="0.1" placeholder="如 130">
-        </div>
         <div class="weight-qf weight-qf--date">
           <label>日期</label>
           <input id="recDate" type="date">
+        </div>
+        <div class="weight-qf weight-qf--val">
+          <label id="recWeightLabel">体重(斤)</label>
+          <input id="recWeight" type="number" step="0.1" placeholder="如 130">
         </div>
         <div class="weight-qf weight-qf--btn">
           <label class="weight-qf__ghost-label">&nbsp;</label>

@@ -948,9 +948,8 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   padding: 8px 10px; font-size: 13.5px; background: var(--surface); color: var(--text);
   font-family: inherit; margin: 0;
 }
-.weight-qf--member { flex: 1 1 140px; }
-.weight-qf--val { width: 120px; }
-.weight-qf--date { width: 155px; }
+/* 成员/日期/体重三个输入项均等三等分，保存按钮自适应宽度 */
+.weight-qf--member, .weight-qf--date, .weight-qf--val { flex: 1 1 0; }
 .weight-qf--btn { flex: 0 0 auto; }
 .weight-qf--btn .btn { height: 37px; padding: 0 20px; font-weight: 700; white-space: nowrap; }
 .weight-quick-bar__tip { font-size: 11.5px; color: var(--faint); margin-top: 6px; }
@@ -1024,10 +1023,8 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .weight-hero__spark { flex: none; width: 100%; height: 60px; }
   .weight-quick-bar { padding: 12px; margin-bottom: 10px; }
   .weight-quick-bar__form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .weight-qf--member { grid-column: span 1; width: 100%; }
-  .weight-qf--val { width: 100%; }
-  .weight-qf--date { grid-column: span 2; width: 100%; }
-  .weight-qf--btn { grid-column: span 2; width: 100%; }
+  /* 2×2：成员|日期 / 体重|保存——体重框与保存按钮同行，聚焦弹键盘时按钮不被遮挡 */
+  .weight-qf--member, .weight-qf--date, .weight-qf--val, .weight-qf--btn { grid-column: span 1; width: 100%; }
   .weight-qf--btn .btn { width: 100%; }
   .weight-qf__ghost-label { display: none; }
   /* 筛选条手机端三行堆叠：下拉、开始、结束各占一行整宽 */
