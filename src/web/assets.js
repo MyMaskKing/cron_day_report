@@ -7960,7 +7960,7 @@ function renderWallets(list) {
       '<td data-label="较上月" class="asset-delta' + diffCls + '">' + (diff == null ? '—' : signedMoney(diff) + diffTag) + '</td>' +
       '<td data-label="操作">' +
         '<button class="btn sm" onclick="wRec(' + w.id + ",'" + w.type + "'" + ')">录入</button> ' +
-        '<button class="btn sm asset-btn--secondary" onclick="wEdit(' + w.id + ')">编辑</button> ' +
+        '<button class="btn sm asset-btn--secondary" onclick="wEdit(' + w.id + ')">编辑钱包</button> ' +
         '<button class="btn sm gray" onclick="wLogs(' + w.id + ')">记录</button>' +
       '</td></tr>';
   }).join('') || '<tr><td colspan="5" class="muted">暂无钱包</td></tr>';
