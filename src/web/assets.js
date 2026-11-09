@@ -7599,7 +7599,11 @@ var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f
         borderColor: COLORS[i % COLORS.length], spanGaps: true, tension: .3 };
     });
     new Chart(document.getElementById('rptChart'), { type:'line', data:{ labels: labels, datasets: datasets },
-      options:{ plugins:{ legend:{ position:'top' } }, scales:{ y:{ title:{ display:true, text:'体重('+uLabel+')' } } } } });
+      // index + intersect:false：手机触摸无需精确命中数据点，按 x 位置出当日 tooltip（同登录态体重曲线）
+      options:{ interaction:{ mode:'index', intersect:false },
+        plugins:{ legend:{ position:'top' },
+          tooltip:{ callbacks:{ label:function(it){ return it.dataset.label + ': ' + it.parsed.y + ' ' + uLabel; } } } },
+        scales:{ y:{ title:{ display:true, text:'体重('+uLabel+')' } } } } });
     renderRptHist(d.members, recs, disp, uLabel);
     document.getElementById('content').style.display = 'block';
   } catch(e){ document.getElementById('content').innerHTML = '<p class="msg err" style="display:block;">' + esc(e.message) + '</p>'; }
