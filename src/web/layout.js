@@ -1343,6 +1343,11 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .mon-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .mon-card-head h2 { flex: 1; font-size: 15px; font-weight: 800; color: var(--text-strong); margin: 0; }
 
+/* 执行日志分页条（logBox 内，前端切片最近 50 条）*/
+.mon-pager { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+.mon-pager__info { font-size: 12.5px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.mon-pager .btn[disabled] { opacity: .5; cursor: not-allowed; }
+
 @media (max-width: 640px) {
   .mon-topbar { flex-direction: column; align-items: stretch; gap: 10px; padding: 10px 14px; margin-bottom: 10px; }
   .mon-topbar__actions { flex-wrap: wrap; }
@@ -1351,6 +1356,8 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .mon-kpi { flex-direction: column; align-items: flex-start; gap: 3px; padding: 10px 12px; }
   .mon-kpi__v { font-size: 19px; }
   .mon-table-card { padding: 13px 12px; }
+  .mon-pager { gap: 8px; margin-top: 12px; }
+  .mon-pager__info { width: 100%; text-align: center; order: 3; }
 }
 
 /* 手机视图：所有滚动条强制透明隐藏（触屏滑动不受影响）。

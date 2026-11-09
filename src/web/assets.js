@@ -4788,19 +4788,51 @@ window.delTask = async function(id){
     catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
+// 执行日志前端分页：接口 listLogs 固定返回最近 50 条（ORDER BY id DESC LIMIT 50），无 offset/总数，
+// 故在前端对返回结果切片分页，零后端改动
+var MONITOR_LOG_PAGE_SIZE = 10;
+var _monitorLogs = [];
+var _monitorLogName = '';
+var _monitorLogPage = 1;
+function monitorLogRowHtml(l) {
+  return '<tr><td data-label="时间" class="muted">' + fmtDbTime(l.created_at) + '</td>' +
+    '<td data-label="结果">' + (l.success ? '<span class="tag ok">成功</span>' : '<span class="tag fail">失败</span>') + '</td>' +
+    '<td data-label="状态">' + esc(l.status) + ' ' + esc(l.status_text||'') + '</td>' +
+    '<td data-label="耗时">' + (l.response_time||0) + 'ms</td><td data-label="大小">' + (l.response_size||0) + '</td></tr>';
+}
+function renderMonitorLogs() {
+  var box = document.getElementById('logBox');
+  var total = _monitorLogs.length;
+  var pages = Math.max(1, Math.ceil(total / MONITOR_LOG_PAGE_SIZE));
+  if (_monitorLogPage > pages) _monitorLogPage = pages;
+  var start = (_monitorLogPage - 1) * MONITOR_LOG_PAGE_SIZE;
+  var rowHtml = _monitorLogs.slice(start, start + MONITOR_LOG_PAGE_SIZE).map(monitorLogRowHtml).join('')
+    || '<tr><td colspan="5" class="muted">暂无日志</td></tr>';
+  var pager = pages > 1 ? '<div class="mon-pager">' +
+      '<button type="button" class="btn sm gray" id="monLogPrev"' + (_monitorLogPage <= 1 ? ' disabled' : '') + '>上一页</button>' +
+      '<span class="mon-pager__info">第 ' + _monitorLogPage + ' / ' + pages + ' 页 · 共 ' + total + ' 条</span>' +
+      '<button type="button" class="btn sm gray" id="monLogNext"' + (_monitorLogPage >= pages ? ' disabled' : '') + '>下一页</button>' +
+    '</div>' : '';
+  box.innerHTML = '<h2>执行日志 · ' + esc(_monitorLogName) + '</h2>' +
+    '<table><thead><tr><th>时间</th><th>结果</th><th>状态</th><th>耗时</th><th>大小</th></tr></thead><tbody>' +
+    rowHtml + '</tbody></table>' + pager;
+  var prevBtn = document.getElementById('monLogPrev');
+  if (prevBtn) prevBtn.addEventListener('click', function(){ _monitorLogPage--; renderMonitorLogs(); });
+  var nextBtn = document.getElementById('monLogNext');
+  if (nextBtn) nextBtn.addEventListener('click', function(){ _monitorLogPage++; renderMonitorLogs(); });
+}
 window.viewLogs = async function(id, name){
   try {
+    // 菜单项位于 .dropdown 内，document 点击监听只关「点击在 .dropdown 外」的菜单；
+    // 编辑/删除有 modal 遮罩盖住菜单，日志不开 modal，须手动关闭，否则下拉一直挂着
+    document.querySelectorAll('.dropdown-menu.show').forEach(function(m){ m.classList.remove('show', 'dropdown-menu--up'); });
     var data = await api('/api/monitor/tasks/' + id + '/logs');
+    _monitorLogs = data.logs || [];
+    _monitorLogName = name;
+    _monitorLogPage = 1; // 每次切换任务重置到第一页
     var box = document.getElementById('logBox');
     box.style.display = 'block';
-    box.innerHTML = '<h2>执行日志 · ' + esc(name) + '</h2>' +
-      '<table><thead><tr><th>时间</th><th>结果</th><th>状态</th><th>耗时</th><th>大小</th></tr></thead><tbody>' +
-      (data.logs.map(function(l){
-        return '<tr><td data-label="时间" class="muted">' + fmtDbTime(l.created_at) + '</td>' +
-          '<td data-label="结果">' + (l.success ? '<span class="tag ok">成功</span>' : '<span class="tag fail">失败</span>') + '</td>' +
-          '<td data-label="状态">' + esc(l.status) + ' ' + esc(l.status_text||'') + '</td>' +
-          '<td data-label="耗时">' + (l.response_time||0) + 'ms</td><td data-label="大小">' + (l.response_size||0) + '</td></tr>';
-      }).join('') || '<tr><td colspan="5" class="muted">暂无日志</td></tr>') + '</tbody></table>';
+    renderMonitorLogs();
     box.scrollIntoView({ behavior:'smooth' });
   } catch(e){ alertModal(e.message, {ok:false}); }
 };
