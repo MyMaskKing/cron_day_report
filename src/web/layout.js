@@ -1314,6 +1314,45 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .todo-kpi__v { font-size: 17px; }
 }
 
+/* ========== 定时任务（监控）轻量管理外壳（2026-11）：topbar + KPI 条 + 任务表。
+   监控是低频配置页不套大 Hero；mon- 为独立前缀，与旧表格/tag/push-card 零重叠 ========== */
+.mon-topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; margin-bottom: 14px;
+}
+.mon-topbar__intro { flex: 1; min-width: 0; }
+.mon-topbar__title { font-size: 16px; font-weight: 850; color: var(--text-strong); }
+.mon-topbar__sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.mon-topbar__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.mon-topbar__actions .btn { margin-bottom: 0; white-space: nowrap; }
+
+.mon-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.mon-kpi {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.mon-kpi__l { font-size: 12.5px; color: var(--muted-2); font-weight: 600; display: inline-flex; align-items: center; }
+.mon-kpi__v { font-size: 24px; font-weight: 850; font-variant-numeric: tabular-nums; color: var(--text-strong); }
+.mon-kpi__v--ok { color: var(--ok-text); }
+.mon-kpi__v--muted { color: var(--muted); }
+.mon-kpi__dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; display: inline-block; }
+.mon-kpi__dot--ok { background: var(--ok-text); }
+.mon-kpi__dot--off { background: var(--faint); }
+
+.mon-table-card { padding: 16px 18px; }
+.mon-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.mon-card-head h2 { flex: 1; font-size: 15px; font-weight: 800; color: var(--text-strong); margin: 0; }
+
+@media (max-width: 640px) {
+  .mon-topbar { flex-direction: column; align-items: stretch; gap: 10px; padding: 10px 14px; margin-bottom: 10px; }
+  .mon-topbar__actions { flex-wrap: wrap; }
+  .mon-topbar__actions .btn { flex: 1; justify-content: center; }
+  .mon-kpis { gap: 8px; margin-bottom: 10px; }
+  .mon-kpi { flex-direction: column; align-items: flex-start; gap: 3px; padding: 10px 12px; }
+  .mon-kpi__v { font-size: 19px; }
+  .mon-table-card { padding: 13px 12px; }
+}
+
 /* 手机视图：所有滚动条强制透明隐藏（触屏滑动不受影响）。
    !important 必须保留——自定义滚动条全局规则在本文件后段, 同特异性会反覆盖此规则 */
 @media (max-width: 640px) {

@@ -4732,6 +4732,16 @@ async function loadTasks() {
       '</div></td></tr>';
   }).join('') || '<tr><td colspan="6" class="muted">暂无任务</td></tr>';
   window._tasks = data.tasks;
+  // 规模 KPI + 顶部副标：与状态列同一 t.enabled 口径现算，零后端；元素缺失静默跳过
+  var tasks = data.tasks || [];
+  var enabledCount = tasks.filter(function(t){ return t.enabled; }).length;
+  var setText = function(id, v){ var el = document.getElementById(id); if (el) el.textContent = v; };
+  setText('monKpiTotal', tasks.length);
+  setText('monKpiEnabled', enabledCount);
+  setText('monKpiDisabled', tasks.length - enabledCount);
+  setText('monSummary', tasks.length
+    ? tasks.length + ' 个监控任务 · ' + enabledCount + ' 个启用中'
+    : '暂无监控任务');
 }
 // 新建/编辑任务弹窗(t 有 id=编辑); 表单元素在弹窗内动态创建, 保存/取消绑定也在此处
 function taskForm(t) {

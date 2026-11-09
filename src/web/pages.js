@@ -621,11 +621,36 @@ function storageAdminPage(user) {
 /** 定时任务管理页 */
 function monitorPage(user) {
   const body = renderTopbar(user, 'monitor') + `<div class="container">
-    <div class="card">
-      <h2>监控任务
-        <button class="btn sm" id="tNew" style="float:right;margin-left:8px;">+ 新建任务</button>
-        <button class="btn sm gray" id="runNow" style="float:right;">立即执行全部</button>
-      </h2>
+    <!-- 顶部标题条：执行/新建 原 id 与 class 语义全保留（btn sm=品牌主操作、gray=次要），仅去 float 改 flex -->
+    <div class="card mon-topbar">
+      <div class="mon-topbar__intro">
+        <div class="mon-topbar__title">定时任务</div>
+        <div class="mon-topbar__sub" id="monSummary"></div>
+      </div>
+      <div class="mon-topbar__actions">
+        <button class="btn sm gray" id="runNow">立即执行全部</button>
+        <button class="btn sm" id="tNew">+ 新建任务</button>
+      </div>
+    </div>
+
+    <!-- 规模 KPI：总任务/启用中/已停用，由 loadTasks 现算（零后端、零新接口）-->
+    <div class="mon-kpis">
+      <div class="mon-kpi">
+        <span class="mon-kpi__l">总任务</span>
+        <span class="mon-kpi__v" id="monKpiTotal">0</span>
+      </div>
+      <div class="mon-kpi">
+        <span class="mon-kpi__l"><i class="mon-kpi__dot mon-kpi__dot--ok"></i>启用中</span>
+        <span class="mon-kpi__v mon-kpi__v--ok" id="monKpiEnabled">0</span>
+      </div>
+      <div class="mon-kpi">
+        <span class="mon-kpi__l"><i class="mon-kpi__dot mon-kpi__dot--off"></i>已停用</span>
+        <span class="mon-kpi__v mon-kpi__v--muted" id="monKpiDisabled">0</span>
+      </div>
+    </div>
+
+    <div class="card mon-table-card">
+      <div class="mon-card-head"><h2>监控任务</h2></div>
       <table>
         <thead><tr><th>名称</th><th>URL</th><th>格式</th><th>通知渠道</th><th>状态</th><th>操作</th></tr></thead>
         <tbody id="taskTbody"></tbody>
