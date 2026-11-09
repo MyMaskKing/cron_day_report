@@ -8321,10 +8321,10 @@ window.wEdit = function(id){
   openModal('编辑钱包',
     '<label>类型</label><select id="eType">' + opts + '</select>' +
     '<label>名称</label><input id="eName" value="' + esc(w.name) + '">' +
-    '<label style="display:flex;align-items:center;gap:8px;margin-top:8px;"><input type="checkbox" id="eArchived" style="width:auto;"' + (w.archived ? ' checked' : '') + '> 已封存（不进入统计与月报，仍可录入）</label>' +
+    (w.archived ? '<p class="muted" style="margin-top:8px;">该钱包已封存（不进入统计与月报，仍可录入）；如需解封，请点「记录」按钮。</p>' : '') +
     '<div style="margin-top:12px;"><button class="btn" id="eConfirm">保存</button> <button class="btn gray" onclick="closeModal()">取消</button></div>', null, true);
   document.getElementById('eConfirm').addEventListener('click', async function(){
-    try { await api('/api/asset/wallets/' + id, { method:'PUT', body:{ type: document.getElementById('eType').value, name: document.getElementById('eName').value, archived: document.getElementById('eArchived').checked } }); closeModal(); await loadAll(); }
+    try { await api('/api/asset/wallets/' + id, { method:'PUT', body:{ type: document.getElementById('eType').value, name: document.getElementById('eName').value } }); closeModal(); await loadAll(); }
     catch(e){ alertModal(e.message, {ok:false}); }
   });
 };
