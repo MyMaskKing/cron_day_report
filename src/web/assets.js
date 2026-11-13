@@ -11352,16 +11352,20 @@ function todoDetailEffDue(node){
   for(var n=node;n;n=n._parent){ if(n.due_date) return n.due_date; }
   return '';
 }
-// 任务闹钟是否仍待响: alarm_minute 存在 + 有效到期日(自身或沿父链继承, 与原生 reconcile 同口径)
-// + 自身及祖先链未完成 + 北京时区到期日当天 minute 时刻尚在未来; 返回触发毫秒, 已过/无效返回 null
-function todoAlarmTriggerMs(node, effDue){
+// 闹钟触发毫秒(不看过期): alarm_minute 存在 + 有效到期日(自身或沿父链继承, 与原生 reconcile 同口径)
+// + 自身及祖先链未完成; 返回北京时区到期日当天 minute 时刻的毫秒, 条件不满足返回 null
+function todoAlarmTriggerTime(node, effDue){
   if (!node || node.alarm_minute == null) return null;
   var d = effDue || todoDetailEffDue(node);
   var m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(d || '');
   if (!m) return null;
   for (var p = node; p; p = p._parent) { if (p.done) return null; }
-  var t = Date.UTC(+m[1], +m[2] - 1, +m[3]) + Number(node.alarm_minute) * 60000 - 8 * 3600000;
-  return t > Date.now() ? t : null;
+  return Date.UTC(+m[1], +m[2] - 1, +m[3]) + Number(node.alarm_minute) * 60000 - 8 * 3600000;
+}
+// 任务闹钟是否仍待响: 在 todoAlarmTriggerTime 基础上要求触发时刻严格晚于现在; 已过/无效返回 null
+function todoAlarmTriggerMs(node, effDue){
+  var t = todoAlarmTriggerTime(node, effDue);
+  return (t != null && t > Date.now()) ? t : null;
 }
 // 卡片/详情面包屑用: 子树内"下一个待响闹钟"(触发时刻最早)。
 // 旧模式闹钟只在主任务自身; child_due 聚合最早到期的未完成子任务, 与 todoRootDue 平行
@@ -11370,6 +11374,19 @@ function todoSubtreeNextAlarm(node){
   (function walk(n){
     var t = todoAlarmTriggerMs(n, todoDetailEffDue(n));
     if (t != null && (!best || t < best.trig)) best = { trig: t, minute: Number(n.alarm_minute) };
+    (n.children || []).forEach(walk);
+  })(node);
+  return best;
+}
+// 任务详情弹窗用: 子树内合格(有闹钟+有效日期+自身及祖先未完成)节点中触发时刻最早者, 不过滤过期,
+// 额外返回 overdue 标志; 选取规则与 todoSubtreeNextAlarm 同为"最早", 仅放开过期并标记
+function todoSubtreeAlarmAny(node){
+  var best = null;
+  (function walk(n){
+    var t = todoAlarmTriggerTime(n, todoDetailEffDue(n));
+    if (t != null && (!best || t < best.trig)) {
+      best = { trig: t, minute: Number(n.alarm_minute), overdue: t <= Date.now() };
+    }
     (n.children || []).forEach(walk);
   })(node);
   return best;
@@ -14432,7 +14449,14 @@ async function openTodoDetail(node, opts) {
       + ICONS.calendar + esc(todoDateLabel(due, today))
       + (dueInherited ? '<span style="opacity:.65;">·跟随上级</span>' : '') + '</span>');
   }
-  if (node.recurrence) meta.push('<span class="todo-metatxt">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
+  // 闹钟: 子树最早闹钟(含已过期, 过期用 td-chip--overdue 淡化; 完成/随上级完成由聚合过滤), 排在日期后
+  var alarmInfo = todoSubtreeAlarmAny(node);
+  if (alarmInfo) {
+    meta.push('<span class="td-chip' + (alarmInfo.overdue ? ' td-chip--overdue' : '') + '" title="'
+      + (alarmInfo.overdue ? '闹钟已过 ' : '闹钟 ') + esc(todoAlarmFormat(alarmInfo.minute)) + '">'
+      + ICONS.bell + esc(todoAlarmFormat(alarmInfo.minute)) + '</span>');
+  }
+  if (node.recurrence) meta.push('<span class="td-chip">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
   if (node.category) meta.push('<span class="todo-metatxt todo-cat-chip">' + esc(node.category) + '</span>');
   if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
   // 优先级标签按节点自身: null/-1(无)或非法值不显示(跟随子任务/各自截止主任务同样不显示)

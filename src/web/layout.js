@@ -2491,9 +2491,11 @@ html[data-theme="dark"] .todo-donezone .flat-crumb,
 #tdEditBtn { float: right; margin: 2px 0 8px 10px; }
 #tdEditBtn svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 3px; }
 .td-title { font-size: 17px; font-weight: 700; color: var(--text-strong); margin-bottom: 10px; padding-right: 8px; }
-.td-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.td-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 .td-chip { font-size: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--label); border-radius: 999px; padding: 3px 10px; display: inline-flex; align-items: center; gap: 4px; }
 .td-chip svg { width: 12px; height: 12px; }
+/* 过期闹钟: 淡化弱化与待响区分(仅任务详情弹窗含过期展示; 卡片/树等视图仍只显示待响) */
+.td-chip.td-chip--overdue { opacity: .55; }
 /* 任务详情弹窗: 第一子层级预览(普通主任务)/最近到期(child_due 主任务) */
 .td-subs { margin: 4px 0 2px; }
 .td-subs__head { font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 0 2px 7px; }
