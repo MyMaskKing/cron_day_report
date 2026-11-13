@@ -13038,7 +13038,8 @@ function todoFormHtml(t, isNew, isChild, fopts) {
       '<div id="tfDescWrap" class="tform-descwrap" style="display:none;">' +
         '<textarea id="tfNote" rows="2" data-autogrow="1" placeholder="补充说明…">' + esc(t.note || '') + '</textarea>' +
       '</div>';
-  var dueNative = todoDueNativeHtml(defDue, true);
+  // 编辑态回传库存闹钟（含已过期）：浏览器无 native 能力时只读展示并原样回传，防止保存误清
+  var dueNative = todoDueNativeHtml(defDue, true, isNew ? null : t.alarm_minute);
   // 值载体·重复: 完整结构保留，点「自定义」时搬到设置条末尾显示
   var recurNative = (recurAvailable && !memoMode) ? todoRecurNativeHtml(t, true) : '';
   // 值载体·优先级 radio（默认中）
@@ -13401,7 +13402,8 @@ function todoInitTform(box) {
         var has = raw !== null && raw !== '';
         alarmIc.classList.toggle('is-on', has);
         if (alarmLabel) alarmLabel.textContent = has ? todoAlarmFormat(parseInt(raw, 10)) : '';
-        if (alarmClearGui) alarmClearGui.classList.toggle('show', has);
+        // 浏览器无 native 能力：闹钟只读，清除小叉不出现（置灰图标与时刻文案仍展示）
+        if (alarmClearGui) alarmClearGui.classList.toggle('show', has && !!todoAlarmNative());
       }
       new MutationObserver(syncAlarm).observe(dueWrap, { attributes: true, attributeFilter: ['data-alarm-minute'] });
       // 小叉代理隐藏的原生清除钮（minute 置空 + render，observer 自动收起叉号/文字）
@@ -13559,7 +13561,6 @@ function todoAlarmFormat(minute) {
 }
 function todoInitAlarmForm(box) {
   var native = todoAlarmNative();
-  if (!native) return;
   var root = box && box.querySelector ? box : document;
   var wrap = root.querySelector('#tfDueWrap');
   var due = wrap ? wrap.querySelector('#tfDue') : null;
@@ -13572,10 +13573,27 @@ function todoInitAlarmForm(box) {
     // 优先库存权威值（重复任务本周期闹钟已过时，本地闹钟已注销取不到，但库里值不变）
     var initRaw = wrap.getAttribute('data-init-minute');
     if (initRaw != null && initRaw !== '') minute = parseInt(initRaw, 10);
-    else {
+    else if (native) {
       var existing = native.getTodoAlarm(scope.value.slice(5));
       if (typeof existing === 'number' && existing >= 0 && existing < 1440) minute = existing;
     }
+  }
+  // 浏览器（无 AppShell）：闹钟只能在安卓端修改，这里只读回显库存值（含已过期），
+  // data-alarm-minute 照常写入载体，todoFormRead 原样回传，避免编辑保存把安卓设置的闹钟清空
+  if (!native) {
+    var renderReadonly = function() {
+      wrap.setAttribute('data-alarm-minute', minute == null ? '' : String(minute));
+      btn.textContent = minute == null ? '🔔 闹钟' : '🔔 ' + todoAlarmFormat(minute);
+      btn.classList.add('gray');
+      btn.disabled = true;
+      btn.style.display = 'inline-flex';
+      btn.style.opacity = '.5';
+      clear.style.display = 'none';
+    };
+    renderReadonly();
+    // 清空日期转备忘录时 openTodoEdit 会程序化 click 本钮清载体（后端 dueDate 空亦强制写 null，双保险）
+    clear.addEventListener('click', function() { minute = null; renderReadonly(); });
+    return;
   }
   function render() {
     wrap.setAttribute('data-alarm-minute', minute == null ? '' : String(minute));
