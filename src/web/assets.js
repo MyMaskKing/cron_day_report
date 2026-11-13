@@ -1520,6 +1520,8 @@ function bindQuickLogin(kind) {
 }
 // 图表横屏全屏查看：给页面每个图表 canvas 加「⛶」按钮，点击把 canvas 移入旋转 90° 的全屏层
 // 依赖 Chart.js v4 的 ResizeObserver：canvas 移入新尺寸容器后自动重绘，无需操作图表实例
+// 竖屏旋转后 Chart 自带坐标换算不感知 CSS transform，触摸会错位；openChartFullscreen 内另有
+// 事件捕获+逆变换转发层修正（见该函数末尾），横屏不旋转无需修正
 // (注意: initChartFullscreen 定义在本片段中段, 见下方同名函数)
 // ============ 日期人性化 label(与后端 services/todo.service.js 逻辑一致) ============
 // 昨天/今天/明天/后天 → 中文; 本周内(ISO 周, 周一为首) → 本周一~本周日; 否则 MM/DD
@@ -1731,6 +1733,18 @@ function initChartFullscreen() {
     wrap.appendChild(btn);
   });
 }
+// 竖屏旋转全屏的触摸坐标逆变换：视口触点 (clientX, clientY) → 未旋转布局下 canvas 本地坐标。
+// 前提：stage 经 top/left:50% + translate(-50%,-50%) 定位、rotate(90deg) 绕视口中心旋转，
+// 且 canvas 是 stage 直接子节点（offsetLeft/Top 相对 stage）；offset* 均为旋转前布局值，不受 transform 影响。
+// CSS 顺时针 90° 逆映射：布局点视口表达 lx=cx+(py-cy)、ly=cy-(px-cx)，再减 canvas 布局原点即本地坐标。
+function _chartFsLocalPoint(stage, canvas, clientX, clientY) {
+  var cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+  var lx = cx + (clientY - cy);
+  var ly = cy - (clientX - cx);
+  var originX = cx - stage.offsetWidth / 2 + canvas.offsetLeft;
+  var originY = cy - stage.offsetHeight / 2 + canvas.offsetTop;
+  return { x: lx - originX, y: ly - originY };
+}
 function openChartFullscreen(cv) {
   // 关键：不碰原图表实例，避免污染其尺寸/比例。全屏时用原图配置新建一个临时实例，关闭时销毁
   var src = (typeof Chart !== 'undefined' && Chart.getChart) ? Chart.getChart(cv) : null;
@@ -1768,6 +1782,36 @@ function openChartFullscreen(cv) {
   var dataCopy;
   try { dataCopy = JSON.parse(JSON.stringify(src.config.data)); } catch(e) { dataCopy = src.config.data; }
   fsChart = new Chart(fsCanvas, { type: src.config.type, data: dataCopy, options: opts });
+  // 竖屏旋转态触摸修正：rotate(90deg) 后 Chart 坐标换算按未旋转包围盒取值会轴向互换且越界，
+  // 在遮罩捕获阶段拦截真实事件，逆变换出 canvas 本地坐标后合成 MouseEvent 转发
+  // （覆写 offsetX/Y：vendor 坐标函数见 offset 非 0 即绕过 getBoundingClientRect 分支）。
+  // 只拦 portrait 且 target 为 fsCanvas 的可信事件；横屏、关闭钮/遮罩、合成事件回环一律放行。
+  // 只 stopPropagation 不 preventDefault：保留气生 click，图表 onClick（如待办钻取）仍按真实 client 坐标判轻点。
+  if (typeof window.MouseEvent === 'function') {
+    var fsEventMap = { touchstart: 'mousemove', touchmove: 'mousemove', mousemove: 'mousemove', click: 'click' };
+    Object.keys(fsEventMap).forEach(function(type){
+      mask.addEventListener(type, function(e){
+        if (!e.isTrusted) return;                                                    // 自己 dispatch 的合成事件回环
+        if (!(window.matchMedia && window.matchMedia('(orientation: portrait)').matches)) return;  // 横屏原生坐标正确
+        if (e.target !== fsCanvas) return;                                           // 关闭钮/遮罩/其他浮层不受影响
+        e.stopPropagation();
+        var srcPoint = (e.touches && e.touches.length) ? e.touches[0] : e;           // 与 vendor 取 touches[0] 同口径
+        var pt = _chartFsLocalPoint(stage, fsCanvas, srcPoint.clientX, srcPoint.clientY);
+        var synthType = fsEventMap[type];
+        var synth = new MouseEvent(synthType, {
+          bubbles: true, cancelable: true, view: window,
+          clientX: srcPoint.clientX, clientY: srcPoint.clientY,
+          screenX: srcPoint.screenX || 0, screenY: srcPoint.screenY || 0,
+          button: e.button || 0,
+          buttons: typeof e.buttons === 'number' ? e.buttons : (synthType === 'mousemove' ? 1 : 0),
+          ctrlKey: !!e.ctrlKey, altKey: !!e.altKey, shiftKey: !!e.shiftKey, metaKey: !!e.metaKey
+        });
+        Object.defineProperty(synth, 'offsetX', { configurable: true, get: function(){ return pt.x; } });
+        Object.defineProperty(synth, 'offsetY', { configurable: true, get: function(){ return pt.y; } });
+        fsCanvas.dispatchEvent(synth);
+      }, true);
+    });
+  }
 }
 // textarea 自动增高：输入内容超过最小高度时按 scrollHeight 撑开
 // 用于长标题/备注编辑，避免固定 2 行导致内容被隐藏
