@@ -440,8 +440,39 @@ var ICONS = {
   // 完成 (纯对勾): 用于按钮 label
   check: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>',
   // 撤销/回退箭头
-  undo: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>'
+  undo: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M9 14L4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>',
+  // 注：edit/plus/trash/paperclip/share 等无尺寸老键仅用于有 CSS 尺寸兜底的容器
+  // （.todo-op/.fab-menu__ic/.td-att-ph 等）；普通文字按钮/标题用 ic() 补 14px 前缀规格
+  // ===== 动态 HTML 功能型 emoji 矢量化补集（统一 14px 规格，容器 CSS 可覆盖尺寸） =====
+  refresh: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eye_off: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c6.5 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3.5 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>',
+  users: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  user: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  bar_chart: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="12" x2="12" y1="20" y2="10"/><line x1="18" x2="18" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="16"/></svg>',
+  link: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+  arrow_up: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="12" x2="12" y1="19" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
+  arrow_down: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="12" x2="12" y1="5" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>',
+  folder: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  map_pin: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  megaphone: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>',
+  target: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+  stop_circle: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9" rx="1"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
+  shuffle: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg>',
+  palette: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>',
+  lightbulb: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>',
+  hourglass: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>',
+  heart_off: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="2" y1="2" x2="22" y2="22"/><path d="M16.5 16.5 12 21l-7-7a5 5 0 0 1-.6-6.3"/><path d="M8.5 4.5A5 5 0 0 1 12 6a5 5 0 0 1 7 6.5"/></svg>',
+  play: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>',
+  history: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>'
 };
+// 无尺寸老键（edit/trash/plus 等）进普通文字按钮/标题（无容器 CSS 兜底）时补 14px 前缀规格；
+// 有 CSS 尺寸规则的容器（.todo-op/.fab-menu__ic 等）继续直接用 ICONS.xxx，勿走此函数
+function ic(name){ return ICONS[name].replace('<svg ', '<svg width="14" height="14" style="vertical-align:-3px;margin-right:4px;" '); }
 // ============ 全局 loading: 双环 + 磨砂 + 慢请求兜底进度条 ============
 // 生命周期覆盖: "点击 → 浏览器导航 → 新页面 HTML 到达 → 页面 JS 执行 → 首屏 api 完成"
 // 关键设计: layout.js 里 #globalLoading 默认 display:flex → 新页面 HTML 一到就 paint 遮罩,
@@ -747,7 +778,7 @@ async function mountDataSwitcher(mod){
     var active = String(uid||'') === String(cur||'');
     return '<button type="button" class="btn sm ' + (active?'':'gray') + '" data-uid="'+(uid||'')+'">'+label+'</button>';
   };
-  var html = '<div style="font-size:13px;">📊 数据源：' + btn('', '我的数据') +
+  var html = '<div style="font-size:13px;">' + ICONS.bar_chart + '数据源：' + btn('', '我的数据') +
     sources.map(function(s){ return btn(s.owner_user_id, '来自 '+esc(s.owner_name)+' 的共享'); }).join('') +
     (cur ? '<div class="muted" style="width:100%;margin-top:4px;">你正在查看/编辑共享数据，推送设置、免密链接等个人功能不可用。</div>' : '') +
     '</div>';
@@ -761,6 +792,25 @@ async function mountDataSwitcher(mod){
     });
   });
   box.insertBefore(bar, box.firstChild);
+}
+// 网络层失败（断网/DNS/拦截，Fetch 规范统一抛 TypeError，各浏览器文案不一且多为英文，
+// 如 Chrome 的 "Failed to fetch"）统一转中文；HTTP 状态码/业务 data.message 错误不走这里
+function netError(e){
+  if (e instanceof TypeError) return new Error('网络连接失败，请检查网络后重试');
+  return e;
+}
+// select 区间偏好：读 localStorage 键，仅当值在当前 option 列表内才采用（防脏值/选项调整），
+// 否则保留服务端 HTML 默认；写回同键。localStorage 不可用时静默降级为单次会话行为
+function restoreSelectPref(el, key){
+  if (!el) return;
+  try {
+    var v = localStorage.getItem(key);
+    if (v && Array.prototype.some.call(el.options, function(o){ return o.value === v; })) el.value = v;
+  } catch(e){}
+}
+function saveSelectPref(el, key){
+  if (!el) return;
+  try { localStorage.setItem(key, el.value); } catch(e){}
 }
 async function api(path, opts) {
   opts = opts || {};
@@ -786,12 +836,15 @@ async function api(path, opts) {
       var _mod = dataShareModOf(path);
       var _as = _mod ? dataShareGet(_mod) : '';
       if (_as) reqHeaders['X-Data-As'] = _as;
-      var res = await fetch(path, {
-        method: method,
-        headers: reqHeaders,
-        body: opts.body ? JSON.stringify(opts.body) : undefined,
-        credentials: 'same-origin'
-      });
+      var res;
+      try {
+        res = await fetch(path, {
+          method: method,
+          headers: reqHeaders,
+          body: opts.body ? JSON.stringify(opts.body) : undefined,
+          credentials: 'same-origin'
+        });
+      } catch (e) { throw netError(e); }
       var data = {};
       try { data = await res.json(); } catch (e) {}
       if (!res.ok) throw new Error(data.message || ('请求失败: ' + res.status));
@@ -1246,7 +1299,7 @@ function confirmModal(title, message, onConfirm) {
 function alertModal(message, opts) {
   opts = opts || {};
   var title = opts.title || (opts.ok === false ? '操作失败' : '操作成功');
-  var icon = opts.ok === false ? '❌' : '✅';
+  var icon = opts.ok === false ? ICONS.warn : ICONS.check_circle;
   var mask = document.createElement('div');
   mask.className = 'modal-mask show';
   mask.style.zIndex = '10001';
@@ -2061,7 +2114,7 @@ function mountMarkdownEditor(textarea, opts) {
   var ICO_FS_OFF = ICONS.fs_expand;
   var ICO_FS_ON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M4 14v6h6"/><path d="M20 10V4h-6"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>';
   root.innerHTML =
-    '<div class="mde-seg"><button type="button" data-m="write" class="on">✏️ 写</button><button type="button" data-m="preview">👁 预览</button><button type="button" class="mde-seg-fs" data-a="fullscreen" title="全屏编辑（Esc 退出）">' + ICO_FS_OFF + '</button></div>' +
+    '<div class="mde-seg"><button type="button" data-m="write" class="on">' + ic('edit') + '写</button><button type="button" data-m="preview">' + ICONS.eye + '预览</button><button type="button" class="mde-seg-fs" data-a="fullscreen" title="全屏编辑（Esc 退出）">' + ICO_FS_OFF + '</button></div>' +
     '<div class="mde-bar">' +
       '<button type="button" class="mde-btn" data-a="bold" title="加粗 Ctrl+B"><b>B</b></button>' +
       '<button type="button" class="mde-btn" data-a="italic" title="斜体 Ctrl+I"><i>i</i></button>' +
@@ -2069,13 +2122,13 @@ function mountMarkdownEditor(textarea, opts) {
       '<span class="mde-sep"></span>' +
       '<button type="button" class="mde-btn" data-a="quote" title="引用">“</button>' +
       '<button type="button" class="mde-btn" data-a="ul" title="无序列表">≡</button>' +
-      '<button type="button" class="mde-btn" data-a="task" title="待办项">☑</button>' +
+      '<button type="button" class="mde-btn" title="待办项" data-a="task"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>' +
       '<span class="mde-sep mde-sep--upload"></span>' +
       '<button type="button" class="mde-btn" data-a="img" title="上传图片">' +
         '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L9 20"/></svg></button>' +
       '<button type="button" class="mde-btn" data-a="layout" title="分栏布局（多列/多排，内容任意）">' +
         '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></button>' +
-      '<button type="button" class="mde-btn" data-a="file" title="添加附件">📎</button>' +
+      '<button type="button" class="mde-btn" data-a="file" title="添加附件"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.05-9.2 9.2a5.5 5.5 0 0 1-7.78-7.78l9.2-9.2a3.67 3.67 0 0 1 5.19 5.19l-9.2 9.2a1.83 1.83 0 0 1-2.6-2.6l8.5-8.48"/></svg></button>' +
       '<input type="file" class="mde-file" hidden>' +
     '</div>' +
     '<div class="mde-panes"><div class="mde-write"></div><div class="mde-preview md-body"></div></div>' +
@@ -2127,7 +2180,7 @@ function mountMarkdownEditor(textarea, opts) {
   function addChip(att, uploading) {
     var c = document.createElement('span');
     c.className = 'mde-chip' + (uploading ? ' up' : '');
-    c.innerHTML = (att.is_image ? '<img alt="">' : '📎') +
+    c.innerHTML = (att.is_image ? '<img alt="">' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="m21.4 11.05-9.2 9.2a5.5 5.5 0 0 1-7.78-7.78l9.2-9.2a3.67 3.67 0 0 1 5.19 5.19l-9.2 9.2a1.83 1.83 0 0 1-2.6-2.6l8.5-8.48"/></svg>') +
       '<span class="mde-chip-nm"></span>' +
       (uploading ? '<span class="mde-chip-st">上传中…</span>' : '<span class="mde-chip-ok">✓</span>');
     c.querySelector('.mde-chip-nm').textContent = att.origin_name;
@@ -2221,6 +2274,7 @@ function mountMarkdownEditor(textarea, opts) {
         insert('\\n[' + nm + '](' + att.url + ')\\n');
       }
     } catch (e) {
+      e = netError(e);
       chip.remove();
       alertModal(e.message || '上传失败', { ok: false });
     }
@@ -2241,6 +2295,7 @@ function mountMarkdownEditor(textarea, opts) {
         var nm = esc(gatt.origin_name || ('image' + (i + 1)));
         cells.push('<div class="ly-cell">\\n\\n![' + nm + '](' + gatt.url + ')\\n\\n</div>');
       } catch (e) {
+        e = netError(e);
         gchip.remove();
         alertModal(e.message || '上传中断', { ok: false });
         return;
@@ -2398,7 +2453,7 @@ function openMarkdownViewer(title, md, opts) {
     var mask = document.createElement('div');
     mask.className = 'modal-mask show announce-modal';
     mask.innerHTML = '<div class="modal-box">' +
-      '<div class="modal-head"><span>📢 站点公告</span></div>' +
+      '<div class="modal-head"><span>' + ICONS.megaphone + '站点公告</span></div>' +
       '<div class="modal-body">' +
         '<div class="announce-md md-body">' + renderMarkdown(content) + '</div>' +
         '<p class="announce-err" style="display:none;margin:10px 0 0;color:var(--danger);font-size:13px;">确认失败，请检查网络后重试。</p>' +
@@ -4010,6 +4065,7 @@ if (bkExport) bkExport.addEventListener('click', async function(){
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
     showMsg(document.getElementById('bkMsg'), '导出完成，已开始下载', true);
   } catch (err) {
+    err = netError(err);
     showMsg(document.getElementById('bkMsg'), err.message || '导出失败', false);
   } finally {
     hideLoading();
@@ -4519,7 +4575,10 @@ function fmCopyText(text) {
 async function fmDoUpload(file) {
   var fd = new FormData();
   fd.append('file', file);
-  var res = await fetch('/api/files/upload', { method: 'POST', body: fd });
+  var res;
+  try {
+    res = await fetch('/api/files/upload', { method: 'POST', body: fd });
+  } catch (e) { throw netError(e); }
   var d = await res.json().catch(function(){ return { success: false, message: '上传失败' }; });
   if (!d.success) throw new Error(d.message || '上传失败');
   return d;
@@ -4541,7 +4600,10 @@ document.getElementById('fmUploadInput').addEventListener('change', function() {
 async function fmDoOverwrite(id, file) {
   var fd = new FormData();
   fd.append('file', file);
-  var res = await fetch('/api/admin/files/' + id + '/overwrite', { method: 'POST', body: fd });
+  var res;
+  try {
+    res = await fetch('/api/admin/files/' + id + '/overwrite', { method: 'POST', body: fd });
+  } catch (e) { throw netError(e); }
   var d = await res.json().catch(function(){ return { success: false, message: '覆盖失败' }; });
   if (!d.success) throw new Error(d.message || '覆盖失败');
   return d;
@@ -4929,9 +4991,9 @@ const CHANNELS_JS = `
 bindLogout();
 bindModal();
 var CH_HELP = {
-  wechat: '<b>📢 企业微信群机器人</b><br>• <b>URL</b>：群机器人 Webhook 地址<br>&nbsp;&nbsp;<code>https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key</code><br>• <b>请求头 JSON</b>、<b>Body 模板</b>：留空',
-  webhook: '<b>🔗 通用 Webhook</b><br>• <b>URL</b>：接收消息的接口地址<br>• <b>请求头 JSON</b>（可选）：<code>{"Authorization":"Bearer xxx"}</code><br>• <b>Body 模板</b>（可选）：用 <code>{{content}}</code> 代表正文，例 <code>{"text":"{{content}}"}</code>',
-  email: '<b>📧 邮件（中转服务转发）</b><br>• <b>URL</b>：邮件中转服务地址<br>• <b>请求头 JSON</b>：<span style="color:var(--danger);">填收件人和主题</span> <code>{"mailto":"x@qq.com","subject":"标题"}</code><br>• <b>Body 模板</b>：留空'
+  wechat: '<b>' + ICONS.megaphone + '企业微信群机器人</b><br>• <b>URL</b>：群机器人 Webhook 地址<br>&nbsp;&nbsp;<code>https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key</code><br>• <b>请求头 JSON</b>、<b>Body 模板</b>：留空',
+  webhook: '<b>' + ICONS.link + '通用 Webhook</b><br>• <b>URL</b>：接收消息的接口地址<br>• <b>请求头 JSON</b>（可选）：<code>{"Authorization":"Bearer xxx"}</code><br>• <b>Body 模板</b>（可选）：用 <code>{{content}}</code> 代表正文，例 <code>{"text":"{{content}}"}</code>',
+  email: '<b>' + ICONS.mail + '邮件（中转服务转发）</b><br>• <b>URL</b>：邮件中转服务地址<br>• <b>请求头 JSON</b>：<span style="color:var(--danger);">填收件人和主题</span> <code>{"mailto":"x@qq.com","subject":"标题"}</code><br>• <b>Body 模板</b>：留空'
 };
 // 官方邮件渠道不存 URL，列表第三列展示收件人（headers_json.mailto）
 function chTargetText(c) {
@@ -5757,8 +5819,8 @@ document.getElementById('scRun').addEventListener('click', async function(){
       '<p>投入 <b>' + d.amount + '</b> 元 · 买入净值 <b>' + d.buyNav + '</b> · 可得约 <b>' + d.shares + '</b> 份</p>' +
       '<table><thead><tr><th>假设涨幅</th><th>对应净值</th><th>持仓现值</th><th>盈亏</th></tr></thead><tbody>' + rows + '</tbody></table>' +
       '<div style="margin-top:10px;background:var(--surface-3);border-radius:6px;padding:10px;font-size:14px;">' +
-        '🎯 止盈 ' + sign(d.targets.takeProfitPct) + '% → 净值 ' + d.targets.takeProfitNav + '，盈利约 ' + d.targets.takeProfitProfit + ' 元<br>' +
-        '🛑 止损 ' + sign(d.targets.stopLossPct) + '% → 净值 ' + d.targets.stopLossNav + '，亏损约 ' + d.targets.stopLossProfit + ' 元' +
+        ICONS.target + '止盈 ' + sign(d.targets.takeProfitPct) + '% → 净值 ' + d.targets.takeProfitNav + '，盈利约 ' + d.targets.takeProfitProfit + ' 元<br>' +
+        ICONS.stop_circle + '止损 ' + sign(d.targets.stopLossPct) + '% → 净值 ' + d.targets.stopLossNav + '，亏损约 ' + d.targets.stopLossProfit + ' 元' +
       '</div>' +
       '<p class="muted" style="font-size:12px;margin-top:8px;">' + esc(d.disclaimer) + '</p>';
   } catch(e){ alertModal(e.message, {ok:false}); }
@@ -5777,13 +5839,16 @@ Array.prototype.forEach.call(document.querySelectorAll('.fund-tool-tabs button')
 });
 
 (async function(){
+  // 区间偏好先于首屏 loadReport 恢复，使首次 applyProfitFilter 即按记忆值渲染，无二次重绘闪烁
+  restoreSelectPref(document.getElementById('profitRange'), 'fundProfitRange');
   _initTotal = 4; _initStep = 0;   // loadReport(净值汇总+收益曲线) + loadReportConfig(渠道+推送配置)
   showLoading('加载中…');   // 外层占位：保持计数>0，使 4 个串行请求间进度不被归零重置
   try { await loadReport(); await loadReportConfig(); }
   catch(e){ if (String(e.message).indexOf('登录')>=0) navTo('/login'); else alertModal(e.message, {ok:false}); }
   finally { _initTotal = 0; hideLoading(); }
-  // 绑定筛选（select 在 loadReport 时 DOM 已就绪）
-  document.getElementById('profitRange').addEventListener('change', applyProfitFilter);
+  // 绑定筛选（select 在 loadReport 时 DOM 已就绪）；切换时持久化区间偏好
+  var _prEl = document.getElementById('profitRange');
+  _prEl.addEventListener('change', function(){ saveSelectPref(_prEl, 'fundProfitRange'); applyProfitFilter(); });
   // 手动刷新净值: 拉最新估算 + 覆盖今日 fund_profit_daily 快照(修 -本金 类污染)
   // 只刷数据不推送; 如需重发日报, 另点"立即发送日报"按钮
   bindClickBusy(document.getElementById('fRefresh'), async function(){
@@ -6357,7 +6422,7 @@ function renderMembers(list) {
     var friendTag = m.friend ? ' <span class="tag" style="padding:0 6px;border-radius:8px;font-size:11px;background:var(--hover-brand);color:var(--brand-text);">好友</span>' : '';
     var offTag = m.disabled ? ' <span class="tag" style="background:var(--surface-2);color:var(--muted);padding:0 6px;border-radius:8px;font-size:11px;">已停用</span>' : '';
     // 自己的启用成员已对好友可见时加小眼睛提示（停用中好友本就看不到，不显示以免误解）
-    var visMark = (!m.shared && !m.friend && !m.disabled && m.friend_visible) ? ' <span title="对好友可见" style="font-size:11px;">👁</span>' : '';
+    var visMark = (!m.shared && !m.friend && !m.disabled && m.friend_visible) ? ' <span title="对好友可见" style="display:inline-flex;align-items:center;vertical-align:-2px;">' + ICONS.eye + '</span>' : '';
     var nameStyle = m.disabled ? 'color:var(--muted);text-decoration:line-through;' : 'color:inherit;';
     // 已停用 / 好友成员不可录入：名字渲染为不可点击的纯文本（共享引用 shared 仍可写，保持可点）
     var clickable = !m.disabled && !m.friend;
@@ -6461,7 +6526,7 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
   var defTag = (wChartFocus == null && mid === selfId && mlist.length > 1) ? '（默认）' : '';
   // 排行榜入口：手机端落在智能分析标题行（PC 端用侧栏竞赛卡，.jn-race-btn 默认隐藏）
   var raceBtn = members.filter(function(x){ return !x.disabled; }).length > 1
-    ? '<button type="button" class="jn-race-btn" id="wRaceBtn" onclick="openRaceModal()">🏆 排行榜</button>' : '';
+    ? '<button type="button" class="jn-race-btn" id="wRaceBtn" onclick="openRaceModal()">' + ICONS.trophy + '排行榜</button>' : '';
   // 选中成员在当前区间无记录：渲染空态卡（保留成员切换）
   if (!recsOf(filtered, mid).length) {
     box.innerHTML = '<div class="jn"><div class="jn-head"><div><div class="jn-title-row"><h3>智能分析 · ' + esc(mdName(m)) + defTag + '</h3>' + raceBtn + '</div>' +
@@ -6622,23 +6687,23 @@ window.mMenu = function(id){
   var html;
   if (m.friend) {
     // 好友成员：只读，唯一操作是解除整段好友关系
-    html = btn('💔 解除好友关系（不影响对方数据）', 'closeModal();fRemove(' + m.owner_id + ')', 'danger');
+    html = btn(ICONS.heart_off + '解除好友关系（不影响对方数据）', 'closeModal();fRemove(' + m.owner_id + ')', 'danger');
   } else {
-    html = btn('✏️ 改名', 'closeModal();mRename(' + id + ')') +
-      btn('🔗 分享 / 填写链接', 'closeModal();mShare(' + id + ')');
+    html = btn(ic('edit') + '改名', 'closeModal();mRename(' + id + ')') +
+      btn(ICONS.link + '分享 / 填写链接', 'closeModal();mShare(' + id + ')');
     if (own) {
       // 停用成员必须先启用才能对好友开放：已开放时仍允许关闭，未开放时按钮禁用
       if (m.disabled) {
-        html += btn(m.friend_visible ? '🙈 对好友隐藏' : '👁 已停用，不可对好友开放',
+        html += btn(m.friend_visible ? ICONS.eye_off + '对好友隐藏' : ICONS.eye + '已停用，不可对好友开放',
           m.friend_visible ? 'closeModal();fToggleVisible(' + id + ',0)' : '', 'gray', !m.friend_visible);
       } else {
-        html += btn(m.friend_visible ? '🙈 对好友隐藏' : '👁 对好友可见', 'closeModal();fToggleVisible(' + id + ',' + (m.friend_visible ? 0 : 1) + ')');
+        html += btn(m.friend_visible ? ICONS.eye_off + '对好友隐藏' : ICONS.eye + '对好友可见', 'closeModal();fToggleVisible(' + id + ',' + (m.friend_visible ? 0 : 1) + ')');
       }
       html +=
-        btn('⬆️ 上移', 'closeModal();mMove(' + id + ',-1)', 'gray', oi <= 0) +
-        btn('⬇️ 下移', 'closeModal();mMove(' + id + ',1)', 'gray', oi < 0 || oi >= ownIds.length - 1) +
-        btn(m.disabled ? '▶️ 启用' : '⏸️ 禁用', 'closeModal();mToggleDisable(' + id + ')') +
-        btn('🗑️ 删除', 'closeModal();mDel(' + id + ')', 'danger');
+        btn(ICONS.arrow_up + '上移', 'closeModal();mMove(' + id + ',-1)', 'gray', oi <= 0) +
+        btn(ICONS.arrow_down + '下移', 'closeModal();mMove(' + id + ',1)', 'gray', oi < 0 || oi >= ownIds.length - 1) +
+        btn(m.disabled ? ICONS.play + '启用' : ICONS.pause + '禁用', 'closeModal();mToggleDisable(' + id + ')') +
+        btn(ic('trash') + '删除', 'closeModal();mDel(' + id + ')', 'danger');
     } else {
       html += btn('移除共享（不影响属主数据）', 'closeModal();mDel(' + id + ')', 'danger');
     }
@@ -6857,11 +6922,11 @@ async function openFriendPanel() {
     var action;
     if (m.disabled) {
       action = m.friend_visible
-        ? '<button class="btn sm" onclick="fSetVisible(' + m.id + ',0)">🙈 对好友隐藏</button>'
+        ? '<button class="btn sm" onclick="fSetVisible(' + m.id + ',0)">' + ICONS.eye_off + '对好友隐藏</button>'
         : '<span class="muted" style="font-size:12px;">已停用，先启用才能开放</span>';
     } else {
       action = '<button class="btn sm ' + (m.friend_visible ? '' : 'gray') + '" onclick="fSetVisible(' + m.id + ',' + (m.friend_visible ? 0 : 1) + ')">' +
-        (m.friend_visible ? '✅ 好友可见' : '对好友开放') + '</button>';
+        (m.friend_visible ? ICONS.check_circle + '好友可见' : '对好友开放') + '</button>';
     }
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">' +
       '<span>' + esc(m.name) + (m.disabled ? ' <span class="muted" style="font-size:12px;">(已停用)</span>' : '') + '</span>' +
@@ -6877,7 +6942,7 @@ async function openFriendPanel() {
     '<div style="margin-bottom:16px;">' + inviteHtml + '</div>' +
     '<div style="margin-bottom:16px;padding-top:14px;border-top:1px dashed var(--border);">' +
       '<h3 style="font-size:14px;margin:0 0 6px;">组队打卡</h3>' + teamHtml + '</div>' +
-    '<div style="background:var(--hover-brand);color:var(--brand-text);border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.6;margin-bottom:14px;">💡 在体重页「体重曲线」旁边点「🏆 竞赛结果」，能看到一张排行榜：你、你的家人、还有好友开放的成员都在上面，按打卡天数、减了多少、稳不稳定来排名。</div>' +
+    '<div style="background:var(--hover-brand);color:var(--brand-text);border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.6;margin-bottom:14px;">' + ICONS.lightbulb + '在体重页「体重曲线」旁边点「' + ICONS.trophy + '竞赛结果」，能看到一张排行榜：你、你的家人、还有好友开放的成员都在上面，按打卡天数、减了多少、稳不稳定来排名。</div>' +
     '<h3 style="font-size:14px;margin:0 0 4px;">谁对好友可见</h3>' +
     '<p class="muted" style="font-size:12px;line-height:1.6;margin:0 0 6px;">加好友时，系统已自动把你最早建的那条档案（一般就是你本人）开放给好友看了；其他家人的档案默认藏着，在这里手动打开后好友才能看到，也可以把本人的关掉。当前开放了 ' + visibleCount + ' 条。</p>' +
     memHtml +
@@ -7172,9 +7237,9 @@ function raceWinsHtml(r) {
   }
   var dArrow = deltaBest.delta < 0 ? '↓' : (deltaBest.delta > 0 ? '↑' : '');
   return '<div class="rc-sec">单项冠军</div><div class="rc-wins">' +
-    card('📅 坚持王', daysBest, daysBest.days, '天', '') +
-    card('⬇️ 减重王', deltaBest, (Math.round(Math.abs(toDisplay(deltaBest.delta)) * 10) / 10), unitLabel(), dArrow) +
-    card('📊 稳定王', cvBest, cvBest ? (Math.round(cvBest.cv * 10) / 10) : null, '%', '') +
+    card(ICONS.calendar + '坚持王', daysBest, daysBest.days, '天', '') +
+    card(ICONS.arrow_down + '减重王', deltaBest, (Math.round(Math.abs(toDisplay(deltaBest.delta)) * 10) / 10), unitLabel(), dArrow) +
+    card(ICONS.bar_chart + '稳定王', cvBest, cvBest ? (Math.round(cvBest.cv * 10) / 10) : null, '%', '') +
     '</div>';
 }
 // 总榜前三领奖台：列固定 亚军/冠军/季军，冠军恒在中间且突出；P=2/1 时缺位留空列保持居中
@@ -7397,16 +7462,17 @@ if (shareSearchEl) shareSearchEl.addEventListener('input', function(){ renderSha
 // 时间筛选
 function initFilter() {
   var sel = document.getElementById('rangePreset');
+  restoreSelectPref(sel, 'weightRangePreset');
   function applyPreset(){
     var r = rangeByPreset(sel.value);
     document.getElementById('fStart').value = r[0];
     document.getElementById('fEnd').value = r[1];
     applyFilter();
   }
-  sel.addEventListener('change', applyPreset);
+  sel.addEventListener('change', function(){ saveSelectPref(sel, 'weightRangePreset'); applyPreset(); });
   document.getElementById('fStart').addEventListener('change', applyFilter);
   document.getElementById('fEnd').addEventListener('change', applyFilter);
-  applyPreset(); // 默认本月
+  applyPreset(); // 默认本月（偏好恢复后即按记忆值）
 }
 
 // 推送配置（体重日报）
@@ -8440,6 +8506,7 @@ if (goalEdit) {
 // 时间筛选（按月，默认最近 12 个月）
 function initAssetFilter() {
   var sel = document.getElementById('afPreset');
+  restoreSelectPref(sel, 'assetRangePreset');
   function fillPreset(){
     var r = assetDateRange(sel.value);
     document.getElementById('afStart').value = r[0];
@@ -8449,7 +8516,7 @@ function initAssetFilter() {
     fillPreset();
     applyAssetFilter();
   }
-  sel.addEventListener('change', applyPreset);
+  sel.addEventListener('change', function(){ saveSelectPref(sel, 'assetRangePreset'); applyPreset(); });
   document.getElementById('afStart').addEventListener('change', applyAssetFilter);
   document.getElementById('afEnd').addEventListener('change', applyAssetFilter);
   applyPreset();
@@ -8500,7 +8567,7 @@ window.openAnalysisEditor = function(month){
     '<div class="row"><div><label>月份</label><input id="aaMonth" type="month"></div></div>' +
     '<textarea id="aaContent"></textarea>' +
     '<div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
-      '<button class="btn sm gray" id="aaHistory" type="button">📜 查看历史记录</button>' +
+      '<button class="btn sm gray" id="aaHistory" type="button">' + ICONS.history + '查看历史记录</button>' +
       '<span><button class="btn gray" id="aaCancel" type="button">取消</button> <button class="btn" id="aaSave" type="button">保存</button></span>' +
     '</div>', null, true);
   var monEl = document.getElementById('aaMonth');
@@ -8575,7 +8642,7 @@ function renderAaHistory() {
   var rows = _aaYear === 'all' ? all : all.filter(function(r){ return r.month.slice(0, 4) === _aaYear; });
   var html =
     '<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
-      '<button class="btn sm" id="aaWrite" type="button">✏️ 写本月复盘</button>' +
+      '<button class="btn sm" id="aaWrite" type="button">' + ic('edit') + '写本月复盘</button>' +
       // 年份下拉必须用普通 select（class 带 btn 会被全站日期选择器接管，'all' 值被重置成当年）
       '<label style="font-size:13px;color:var(--muted);">年份 <select id="aaYear" style="padding:5px 8px;border:1px solid var(--border-strong);border-radius:7px;background:var(--surface);color:var(--text);font-family:inherit;">' + yearOpts + '</select></label>' +
     '</div>';
@@ -11903,7 +11970,7 @@ function todoBuildDueGroupHead(key, count, today) {
   if (key === 'none') {
     head.innerHTML =
       '<span class="todo-due-group__cal todo-due-group__cal--none">—</span>' +
-      '<span class="todo-due-group__name">🗂 未安排</span>' +
+      '<span class="todo-due-group__name">' + ICONS.folder + '未安排</span>' +
       '<span class="todo-due-group__count">' + count + ' 件</span>' +
       '<span class="todo-due-group__caret">▾</span>';
     return head;
@@ -13002,7 +13069,7 @@ function todoDueNativeHtml(defDue, hidden, initMinute, clearable) {
     // 新建 sheet：视觉隐藏载体，平铺即可
     return '<div id="tfDueWrap" class="tform-native" data-alarm-minute=""' + initAttr + '>' +
       '<input id="tfDue" type="date" value="' + defDue + '">' +
-      '<button type="button" id="tfAlarmBtn">🔔 闹钟</button>' +
+      '<button type="button" id="tfAlarmBtn">' + ICONS.bell + '闹钟</button>' +
       '<button type="button" id="tfAlarmClear">取消闹钟</button>' +
     '</div>';
   }
@@ -13017,7 +13084,7 @@ function todoDueNativeHtml(defDue, hidden, initMinute, clearable) {
       '<span class="tf-due-inputwrap' + (clearable ? ' is-clearable' : '') + '">' +
         '<input id="tfDue" type="date" value="' + defDue + '">' + clearHtml +
       '</span>' +
-      '<button type="button" id="tfAlarmBtn" class="btn sm gray" style="flex:none;white-space:nowrap;">🔔 闹钟</button>' +
+      '<button type="button" id="tfAlarmBtn" class="btn sm gray" style="flex:none;white-space:nowrap;">' + ICONS.bell + '闹钟</button>' +
     '</div>' +
     '<button type="button" id="tfAlarmClear" class="btn sm gray" style="display:none;margin-top:6px;width:100%;">取消闹钟</button>' +
   '</div>';
@@ -13195,7 +13262,7 @@ function todoEditFormHtml(t, isChild, fopts) {
   // 截止日期 + 闹钟（常显）
   if (lockedChild) {
     s += '<div style="padding:7px 10px;border:1px solid var(--border,#ddd);border-radius:8px;background:var(--muted-bg,#f7f7f7);color:var(--muted,#888);font-size:13px;line-height:1.5;">'
-      + '📅 截止日期跟随上级任务' + (fopts.inheritDue ? '：<span style="white-space:nowrap;">' + esc(fopts.inheritDue) + '</span>' : '（上级暂未设置日期）') + '</div>';
+      + ICONS.calendar + '截止日期跟随上级任务' + (fopts.inheritDue ? '：<span style="white-space:nowrap;">' + esc(fopts.inheritDue) + '</span>' : '（上级暂未设置日期）') + '</div>';
   } else if (memoEdit) {
     // 备忘录: 仅保留隐藏值载体, 不显示日期/闹钟控件
     s += '<div id="tfDueRow" style="display:none;">' + todoDueNativeHtml('', true) + '</div>';
@@ -13213,7 +13280,7 @@ function todoEditFormHtml(t, isChild, fopts) {
       '<input type="checkbox" id="tfChildDue"' + (childDueOn ? ' checked' : '') + ' style="width:auto;margin:0;flex:none;">' +
       '<span>子任务各自设置截止日期</span></label>' +
       '<p id="tfChildDueTip" class="muted" style="margin:-2px 0 10px;font-size:12px;display:' + (childDueOn ? 'block' : 'none') + ';">' +
-      '📌 本任务不设日期；直接子任务可各自设置截止日期与重复，本任务显示最早到期的子任务日期</p></div>';
+      ICONS.map_pin + '本任务不设日期；直接子任务可各自设置截止日期与重复，本任务显示最早到期的子任务日期</p></div>';
   }
   // 折叠区：优先级 / 分类 / 备注（三角两态常驻）
   // 跟随子任务 / 勾选各自截止时优先级分类不可设, 折叠区只留备注;
@@ -13314,7 +13381,7 @@ function todoFormRead() {
   }
   // 始终携带: null=无分类/个人分类(编辑共享任务时即"移出共享"), 数字=移入该共享分类
   out.shared_cat_id = sharedCatId;
-  // 闹钟时间: 取 🔔 按钮维护在 #tfDueWrap 上的 data-alarm-minute；无值=null
+  // 闹钟时间: 取闹钟按钮维护在 #tfDueWrap 上的 data-alarm-minute；无值=null
   var alarmWrap = document.getElementById('tfDueWrap');
   var alarmRaw = alarmWrap ? alarmWrap.getAttribute('data-alarm-minute') : null;
   out.alarm_minute = (alarmRaw === null || alarmRaw === '') ? null : parseInt(alarmRaw, 10);
@@ -13643,7 +13710,7 @@ function todoInitAlarmForm(box) {
   if (!native) {
     var renderReadonly = function() {
       wrap.setAttribute('data-alarm-minute', minute == null ? '' : String(minute));
-      btn.textContent = minute == null ? '🔔 闹钟' : '🔔 ' + todoAlarmFormat(minute);
+      btn.innerHTML = minute == null ? (ICONS.bell + '闹钟') : (ICONS.bell + todoAlarmFormat(minute));
       btn.classList.add('gray');
       btn.disabled = true;
       btn.style.display = 'inline-flex';
@@ -13658,11 +13725,11 @@ function todoInitAlarmForm(box) {
   function render() {
     wrap.setAttribute('data-alarm-minute', minute == null ? '' : String(minute));
     if (minute == null) {
-      btn.textContent = '🔔 闹钟';
+      btn.innerHTML = ICONS.bell + '闹钟';
       btn.classList.add('gray');
       clear.style.display = 'none';
     } else {
-      btn.textContent = '🔔 ' + todoAlarmFormat(minute);
+      btn.innerHTML = ICONS.bell + todoAlarmFormat(minute);
       btn.classList.remove('gray');
       clear.style.display = 'block';
     }
@@ -13988,7 +14055,7 @@ function todoShowChartDetail(series, index) {
     } else if (it.late) {
       tags += pill('已逾期', 'var(--danger)', 'var(--danger-bg)');
     }
-    var icon = kind === 'done' ? '✅' : (it.late ? '⚠️' : '⏳');
+    var icon = kind === 'done' ? ICONS.check_circle : (it.late ? ICONS.warn : ICONS.hourglass);
     var titleColor = kind === 'done' ? 'var(--muted)' : 'var(--text)';
     var titleDeco = kind === 'done' ? 'text-decoration:line-through;' : '';
     // 默认不展示层级, 仅在有祖先的行尾放「层级」小按钮, 点击在下方展开祖先链(再点收起)
@@ -13997,7 +14064,7 @@ function todoShowChartDetail(series, index) {
       ? '<button type="button" class="todo-dtl-lv" style="flex:0 0 auto;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:10px;padding:0 8px;font-size:11px;line-height:1.8;cursor:pointer;">层级</button>'
       : '';
     var dateHtml = it.due
-      ? '📅 ' + esc(dl)
+      ? ICONS.calendar + esc(dl)
       : '<span title="未设置截止日期，随主任务完成计入">∅ 无日期</span>';
     var rowHtml = '<div class="todo-dtl-row" style="display:flex;align-items:center;gap:6px;padding:7px 2px;">' +
       '<span style="flex:0 0 auto;">' + icon + '</span>' +
@@ -14035,7 +14102,7 @@ function todoShowChartDetail(series, index) {
   var openWord = isMonth ? '月末仍未完成' : '当天未完成（含历史逾期）';
   var total = d.done.length + d.open.length;
   var body = total
-    ? group('✅ ' + doneWord, d.done, 'done') + group('⏳ ' + openWord, d.open, 'open')
+    ? group(ICONS.check_circle + doneWord, d.done, 'done') + group(ICONS.hourglass + openWord, d.open, 'open')
     : '<p class="muted" style="line-height:1.7;">这' + (isMonth ? '个月' : '天') + '没有到期的任务。<br>还没到期的任务，在到期或做完之前不会出现在这里。</p>';
   openModal(title, body);
   // 「层级」按钮: 在所属任务下方展开/收起祖先链(弹窗 innerHTML 每次重建, 直接绑新元素)
@@ -14431,7 +14498,7 @@ function todoToast(msg, tip, tone) {
   t.id = 'todoToast';
   var bg = tone === 'info' ? 'rgba(28,60,130,.93)' : 'rgba(30,34,45,.92)';
   t.style.cssText = 'position:fixed;left:50%;top:20%;transform:translateX(-50%);z-index:100000;pointer-events:none;background:' + bg + ';color:#fff;padding:14px 22px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);text-align:center;max-width:80vw;';
-  var icoHtml = tone === 'info' ? '<span data-toast-ico style="display:inline-block;">🔄</span> ' : '';
+  var icoHtml = tone === 'info' ? '<span data-toast-ico style="display:inline-flex;align-items:center;">' + ICONS.refresh + '</span> ' : '';
   t.innerHTML = '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">' + icoHtml + esc(msg) + '</div><div style="font-size:13px;opacity:.85;">' + esc(tip) + '</div>';
   document.body.appendChild(t);
   if (Element.prototype.animate) {
@@ -14501,7 +14568,7 @@ async function openTodoDetail(node, opts) {
   }
   if (node.recurrence) meta.push('<span class="td-chip">' + ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday)) + '</span>');
   if (node.category) meta.push('<span class="todo-metatxt todo-cat-chip">' + esc(node.category) + '</span>');
-  if (node.shared_cat_id != null) meta.push('<span class="td-chip">👥 共享</span>');
+  if (node.shared_cat_id != null) meta.push('<span class="td-chip">' + ICONS.users + '共享</span>');
   // 优先级标签按节点自身: null/-1(无)或非法值不显示(跟随子任务/各自截止主任务同样不显示)
   if (node.priority === 0 || node.priority === 1 || node.priority === 2) {
     var priName = ['⚪ 低', '🟡 中', '🔴 高'][node.priority];
@@ -14573,9 +14640,9 @@ async function openTodoDetail(node, opts) {
   }
   var timesHtml = timeRows.length ? '<div class="td-times">' + timeRows.join('') + '</div>' : '';
   var body =
-    '<div class="td-title">' + (node._ghost === 1 ? '🔒 ' : '') + esc(node.title) + '</div>' +
+    '<div class="td-title">' + (node._ghost === 1 ? ICONS.lock : '') + esc(node.title) + '</div>' +
     '<div class="td-meta">' + cdChip + meta.join('') + '</div>' +
-    (crumbPath.length ? '<div class="td-crumb">📂 ' + esc(crumbPath.join(' / ')) + '</div>' : '') +
+    (crumbPath.length ? '<div class="td-crumb">' + ICONS.folder + esc(crumbPath.join(' / ')) + '</div>' : '') +
     subsHtml +
     (node.note
       ? '<div class="md-body" id="tdNote">' + renderMarkdown(node.note) + '</div>'
@@ -14787,7 +14854,7 @@ function _todoGetRows() { return _rows; }
 // 编辑弹窗·归属级联折叠框（#tfParentCascade + hidden #tfParent）：
 // 每层一个可折叠 details：summary 左「主任务 / XX 的下级」右选中名（整条即面包屑），点开列该层
 // 未完成节点，点节点=选中并自动展开下一层；第一级=全部未完成主任务（含其他主任务，排除 done/ghost）。
-// 可任意跨树、选上下平级。被编辑节点自身是穿透项（is-self，📍）：点它只展开下一级不改目标，
+// 可任意跨树、选上下平级。被编辑节点自身是穿透项（is-self，定位针标记）：点它只展开下一级不改目标，
 // 选其后代=树旋转；hidden 值=path 中最后一个非 self 节点；=data-current 时 todoFormRead 不带 parent_id。
 function todoInitParentCascade() {
   var box = document.getElementById('tfParentCascade');
@@ -15223,7 +15290,7 @@ function drawTree() {
           '<div id="rrPlanPreview" style="margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);font-size:13px;"></div>';
       }
       var html =
-        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday) + '）</p>' +
+        '<p style="margin:6px 0;">' + ic('edit') + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday) + '）</p>' +
         '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(todoDateLabel(dueDate, _t)) + ' <span style="color:var(--faint);">(' + dueDate + ')</span></p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
         '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + todoDateLabel(defaultNext, _t) + ' <span style="color:var(--faint);font-size:12px;">(' + defaultNext + ')</span>（下一周期，默认）</label>' +
@@ -15408,15 +15475,15 @@ function openSharedCatPanel() {
         ops = '<button class="btn sm danger" onclick="scLeave(' + c.cat_id + ')">退出</button>';
       }
       return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
-        + '<div style="font-weight:600;margin-bottom:6px;">👥 ' + esc(c.name) + ' ' + roleTag
+        + '<div style="font-weight:600;margin-bottom:6px;">' + ICONS.users + esc(c.name) + ' ' + roleTag
         + '<span class="muted" style="font-size:12px;font-weight:normal;">' + (c.role === 'owner' ? '' : '来自 ' + esc(c.owner_name) + ' · ') + c.member_count + ' 人</span></div>'
         + '<div style="text-align:right;">' + ops + '</div>'
         + '</div>';
     }).join('');
     openModal('👥 共享分类',
       '<div style="margin-bottom:12px;">'
-      + '<button class="btn sm" onclick="scCreate()" style="margin-right:6px;">➕ 新建共享分类</button>'
-      + '<button class="btn sm gray" onclick="scJoin()">🔗 加入分类</button>'
+      + '<button class="btn sm" onclick="scCreate()" style="margin-right:6px;">' + ic('plus') + '新建共享分类</button>'
+      + '<button class="btn sm gray" onclick="scJoin()">' + ICONS.link + '加入分类</button>'
       + '</div>'
       + (rows || '<p class="muted">还没有共享分类。新建一个，或凭家人的邀请码加入。</p>')
       + '<div style="text-align:right;margin-top:12px;"><button class="btn gray" onclick="closeModal()">关闭</button></div>');
@@ -15484,7 +15551,7 @@ function scMembers(id) {
       var kick = (m.role !== 'owner')
         ? ' <button class="btn sm gray" onclick="scKick(' + id + ',' + m.user_id + ')">移出</button>' : '';
       return '<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">'
-        + '<span>👤 ' + esc(m.nickname) + ' ' + tag + '</span>' + kick + '</div>';
+        + '<span>' + ICONS.user + esc(m.nickname) + ' ' + tag + '</span>' + kick + '</div>';
     }).join('');
     openModal('成员管理 · ' + d.name,
       rows + '<div style="text-align:right;margin-top:12px;"><button class="btn gray" onclick="closeModal()">关闭</button></div>');
@@ -15650,19 +15717,19 @@ function openDisplayChooser(ev) {
       +   '<span class="fab-menu__t">按到期日分组</span>'
       +   '<span class="fab-menu__mark">' + (_todoGroupByDue ? '✓' : '') + '</span></button>'
       + '<button type="button" class="fab-menu__item" data-k="hide">'
-      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🙈</span>'
+      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.eye_off + '</span>'
       +   '<span class="fab-menu__t">隐藏已完成</span>'
       +   '<span class="fab-menu__mark">' + (hideOn ? '✓' : '') + '</span></button>'
       + '<button type="button" class="fab-menu__item" data-k="sort">'
-      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🔀</span>'
+      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.shuffle + '</span>'
       +   '<span class="fab-menu__t">排序方式</span>'
       +   '<span class="fab-menu__mark" style="font-size:12px;">' + SORT_SHORT[_todoSortMode] + '</span></button>'
       + '<button type="button" class="fab-menu__item" data-k="tl-full">'
-      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🕒</span>'
+      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.clock + '</span>'
       +   '<span class="fab-menu__t">时间轴补齐空日期</span>'
       +   '<span class="fab-menu__mark">' + (_todoTimelineFullAxis ? '✓' : '') + '</span></button>'
       + '<button type="button" class="fab-menu__item" data-k="bg">'
-      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">🎨</span>'
+      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.palette + '</span>'
       +   '<span class="fab-menu__t">切换背景</span></button>';
   }
   function sortHtml() {
@@ -16351,7 +16418,7 @@ function drawTree() {
       var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today, node.recur_interval, node.recur_nth, node.recur_weekday);
       var sameDate = defaultNext === jumpNext;
       var html =
-        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday) + '）</p>' +
+        '<p style="margin:6px 0;">' + ic('edit') + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday) + '）</p>' +
         '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(todoDateLabel(dueDate, _today)) + ' <span style="color:var(--faint);">(' + dueDate + ')</span></p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
         '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + todoDateLabel(defaultNext, _today) + ' <span style="color:var(--faint);font-size:12px;">(' + defaultNext + ')</span>（下一周期，默认）</label>' +
@@ -16731,7 +16798,7 @@ function drawTree(trees) {
       var jumpNext = shiftDateLocal(dueDate, node.recurrence, true, _today, node.recur_interval, node.recur_nth, node.recur_weekday);
       var sameDate = defaultNext === jumpNext;
       var html =
-        '<p style="margin:6px 0;">📝 ' + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday) + '）</p>' +
+        '<p style="margin:6px 0;">' + ic('edit') + esc(node.title) + '（' + todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday) + '）</p>' +
         '<p class="muted" style="margin:4px 0 14px;">本次截止：' + esc(todoDateLabel(dueDate, _today)) + ' <span style="color:var(--faint);">(' + dueDate + ')</span></p>' +
         '<p style="margin:6px 0;">完成后自动生成下一条任务，日期：</p>' +
         '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="0" checked style="width:auto;margin-right:8px;"> ' + todoDateLabel(defaultNext, _today) + ' <span style="color:var(--faint);font-size:12px;">(' + defaultNext + ')</span>（下一周期，默认）</label>' +
