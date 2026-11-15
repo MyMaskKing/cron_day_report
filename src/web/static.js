@@ -24,6 +24,7 @@ import {
 } from './assets.js';
 import { KUAILE_WOFF2_B64 } from './fonts.js';
 import { CHART_VENDOR_JS } from './chart-vendor.js';
+import { MARKED_JS, DOMPURIFY_JS } from './md-vendor.js';
 
 const JS = 'application/javascript';
 const CSS = 'text/css';
@@ -47,6 +48,9 @@ function buildAssets() {
     'common.js': { body: COMMON_JS, type: JS },
     // Chart.js 自托管：免密页在微信/移动网络下不再依赖 jsdelivr CDN
     'chart.js': { body: CHART_VENDOR_JS, type: JS },
+    // marked/DOMPurify 自托管：Markdown 渲染双依赖同源下发，不再依赖 cdnjs
+    'marked.js': { body: MARKED_JS, type: JS },
+    'purify.js': { body: DOMPURIFY_JS, type: JS },
     'todo-core.js': { body: TODO_TREE_CORE, type: JS },
     'page-login.js': { body: LOGIN_JS, type: JS },
     'page-change-password.js': { body: CHANGE_PASSWORD_JS, type: JS },

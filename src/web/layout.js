@@ -75,8 +75,8 @@ function renderPage({ title = '控制台', body = '', script = '', scripts = [],
 </div>
 ${body}
 <script src="${assetUrl('chart.js')}"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<script src="${assetUrl('marked.js')}"></script>
+<script src="${assetUrl('purify.js')}"></script>
 ${jsLinks}
 ${script ? `<script>${script}</script>` : ''}
 </body>
@@ -201,6 +201,11 @@ const BASE_CSS = `
   --ok-bg: #f6ffed;
   --warn: #b45309;        /* 临近到期(明天/本周内)琥珀色 */
   --warn-bg: #fdf2e2;
+  /* 实心语义底(白字按钮/Toast)与金融涨跌文字: 浅色取值与历史 hex 一致, 暗/护眼另定 */
+  --danger-strong: #cf1322;
+  --ok-strong: #389e0d;
+  --up: #cf1322;
+  --down: #389e0d;
   /* child_due「各自截止」模式标识: 品牌浅紫族(与"今天"chip 同语言, 低唤醒), 三主题各自取值 */
   --cd-bg: #F3EEFE;
   --cd-fg: #7C3AED;
@@ -283,6 +288,10 @@ const BASE_CSS = `
   --ok-bg: rgba(74,222,128,.12);
   --warn: #fbbf24;
   --warn-bg: rgba(251,191,36,.15);
+  --danger-strong: #dc2626;
+  --ok-strong: #16a34a;
+  --up: #ff6b6b;
+  --down: #4ade80;
   --cd-bg: rgba(168,85,247,.18);
   --cd-fg: #b97bff;
   --cd-border: rgba(185,123,255,.45);
@@ -363,6 +372,10 @@ const BASE_CSS = `
   --ok-bg: #e9f5ea;
   --warn: #93611a;
   --warn-bg: #f6ead2;
+  --danger-strong: #c0392b;
+  --ok-strong: #2f9e44;
+  --up: #c0392b;
+  --down: #2f9e44;
   --cd-bg: #f0e6f8;
   --cd-fg: #7e22ce;
   --cd-border: #d9cdf5;
@@ -1375,8 +1388,8 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 }
 .btn:hover:not(:active) { filter: brightness(1.08); }
 .btn:active { filter: brightness(.95); }
-.btn.danger { background: #dc2626; font-weight: 600; }
-.btn.danger:hover:not(:active) { background: #b91c1c; }
+/* 危险实心底走主题变量: 暗色/护眼下不再钉死浅色主题的红; hover 继承基类 brightness */
+.btn.danger { background: var(--danger-strong); font-weight: 600; }
 .btn.gray { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); font-weight: 600; }
 /* hover 底色仅真实鼠标设备，避免触摸点击后灰背景粘住 */
 @media (hover: hover) {
@@ -1511,6 +1524,14 @@ th { color: var(--label); font-weight: 600; background: var(--th-bg); }
 .msg { padding: 10px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; display: none; }
 .msg.err { background: var(--danger-bg); color: var(--danger); display: block; }
 .msg.ok { background: var(--ok-bg); color: var(--ok-text); display: block; }
+/* 顶部 Toast（showToast 动态挂载）: 布局样式常驻, 语义底色按 is-ok/is-err 走主题变量 */
+#appToast {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10002; max-width: 92vw;
+  padding: 10px 20px; border-radius: 10px; color: #fff; font-size: 14px; line-height: 1.5; text-align: center;
+  word-break: break-all; box-shadow: 0 6px 20px rgba(0,0,0,.2); opacity: 0; transition: opacity .25s; pointer-events: none;
+}
+#appToast.is-ok { background: var(--ok-strong); }
+#appToast.is-err { background: var(--danger-strong); }
 /* WebDAV 启用开关（switch）：原生 checkbox 隐藏，轨道+圆点纯 CSS 控制 */
 .wb-switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
 .wb-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
@@ -1839,6 +1860,8 @@ input[type="date"], input[type="month"] { cursor: pointer; }
   touch-action: none;
 }
 .strat-fab:hover:not(:active) { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(20,20,40,.28); }
+/* 圆钮内 SVG 图标: 覆盖 ICO 常量的 14px/右外边距, 居中且尺寸对齐原 emoji */
+.strat-fab svg { width: 24px; height: 24px; margin: 0; vertical-align: middle; }
 /* 桌面: 面板本身 resize: both, 右下角可拖拉调尺寸; 位置由 JS 拖动标题栏改 left/top */
 .strat-panel {
   position: fixed; right: 24px; bottom: 88px; z-index: 999;
@@ -2598,10 +2621,10 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 /* 标题行「分析」小按钮：与 h2 文字垂直对齐 */
 .todo-analyze-btn { vertical-align: middle; margin: 0 2px; }
 /* 趋势图标题行的刷新按钮: 纯蓝色图标无背景, hover 淡蓝底(压掉 .btn 的渐变/光晕/涟漪) */
-.btn.todo-chart-refresh { background: none; color: #4a6cf7; padding: 5px 9px; line-height: 0; box-shadow: none; }
+.btn.todo-chart-refresh { background: none; color: var(--link-dim); padding: 5px 9px; line-height: 0; box-shadow: none; }
 .btn.todo-chart-refresh::after { display: none; }
 .btn.todo-chart-refresh:hover:not(:active),
-.btn.todo-chart-refresh:active { background: rgba(74,108,247,.1); box-shadow: none; filter: none; transform: none; }
+.btn.todo-chart-refresh:active { background: var(--hover-brand); box-shadow: none; filter: none; transform: none; }
 .btn.todo-chart-refresh:disabled { opacity: .6; }
 .todo-chart-refresh.loading svg { animation: todo-spin .8s linear infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes todo-spin { to { transform: rotate(360deg); } }

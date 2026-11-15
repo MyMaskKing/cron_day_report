@@ -26,6 +26,19 @@ const ICO_WRENCH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" 
 const ICO_VIEW_CARD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="14" height="14" rx="2"/><path d="M8 2h12a2 2 0 0 1 2 2v12"/></svg>';
 // 滑条调节：显示选项按钮（分组/隐藏已完成），与 Feather 图标族同风格
 const ICO_SLIDERS = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>';
+// 功能型图标补充（Feather/lucide 风 currentColor 描边）：替代同名 emoji，防微信 X5 内核失渲染
+const ICO_REFRESH = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+const ICO_NOTE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+const ICO_USERS = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+const ICO_BAR_CHART = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>';
+const ICO_SMARTPHONE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>';
+const ICO_UPLOAD = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>';
+const ICO_TROPHY = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>';
+const ICO_SCALE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>';
+const ICO_WALLET = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>';
+const ICO_TRENDING = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>';
+const ICO_CLIPBOARD = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>';
+const ICO_WARN = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
 
 /**
  * 待办全屏视图首屏 loading（四个全屏页复用）：
@@ -141,8 +154,8 @@ function loginPage() {
       <label>密码</label>
       <input id="lp" type="password" autocomplete="current-password" required>
       <button class="btn" style="width:100%;" type="submit">登录</button>
-      <a href="/change-password" class="lg-dl-link">🔑 修改密码</a>
-      <a href="/download" class="lg-dl-link">📱 下载 Android App</a>
+      <a href="/change-password" class="lg-dl-link">${ICO_KEY}修改密码</a>
+      <a href="/download" class="lg-dl-link">${ICO_SMARTPHONE}下载 Android App</a>
     </form>
     <form id="regForm" style="display:none;">
       <label>用户名 (3-32位，登录用)</label>
@@ -395,7 +408,7 @@ function adminPage(user) {
         </div>
       </div>
       <hr style="margin:14px 0;border:none;border-top:1px solid var(--border);">
-      <p style="color:var(--danger);font-size:13px;margin-bottom:10px;">⚠ 导入将<strong>清空当前全部数据</strong>并替换为备份内容，操作不可撤销；完成后需重新登录。</p>
+      <p style="color:var(--danger);font-size:13px;margin-bottom:10px;">${ICO_WARN}导入将<strong>清空当前全部数据</strong>并替换为备份内容，操作不可撤销；完成后需重新登录。</p>
       <div class="row">
         <div style="flex:1;">
           <label>选择备份文件（.json）</label>
@@ -558,7 +571,7 @@ function storageAdminPage(user) {
     <div class="card">
       <h2>文件管理
         <button class="btn sm gray" id="fmRefresh" style="float:right;">刷新</button>
-        <button class="btn sm" id="fmUpload" style="float:right;margin-right:8px;">⬆ 手动上传</button>
+        <button class="btn sm" id="fmUpload" style="float:right;margin-right:8px;">${ICO_UPLOAD}手动上传</button>
       </h2>
       <input type="file" id="fmUploadInput" style="display:none;">
       <div id="fmMsg" class="msg"></div>
@@ -704,9 +717,9 @@ function fundPage(user) {
         <div class="fund-topbar__sub" id="fundTopSub">加载中…</div>
       </div>
       <div class="fund-topbar__actions">
-        <button class="btn sm gray" id="fRefresh">🔄 刷新净值</button>
+        <button class="btn sm gray" id="fRefresh">${ICO_REFRESH}刷新净值</button>
         <button class="btn sm" id="fNew">＋ 添加持仓</button>
-        <button class="btn sm gray" id="stratTopBtn">📝 投资策略</button>
+        <button class="btn sm gray" id="stratTopBtn">${ICO_NOTE}投资策略</button>
       </div>
     </div>
 
@@ -822,10 +835,10 @@ function fundPage(user) {
   </div>
 
   <!-- 投资策略: 悬浮按钮 + 可拖拽悬浮框, 内容为 Markdown, 存于当前用户 -->
-  <button id="stratFab" class="strat-fab" title="投资策略" style="display:none;">📝</button>
+  <button id="stratFab" class="strat-fab" title="投资策略" style="display:none;">${ICO_NOTE}</button>
   <div id="stratPanel" class="strat-panel" style="display:none;">
     <div class="strat-head" id="stratHead">
-      <span class="strat-title">📝 我的投资策略</span>
+      <span class="strat-title">${ICO_NOTE}我的投资策略</span>
       <span class="strat-actions">
         <button class="btn sm gray" id="stratEdit">编辑</button>
         <button class="btn sm" id="stratSave" style="display:none;">保存</button>
@@ -838,7 +851,7 @@ function fundPage(user) {
       <textarea id="stratEditor" class="strat-editor" style="display:none;" placeholder="用 Markdown 记录你的投资策略, 例如:&#10;&#10;## 核心原则&#10;- 长期持有指数基金&#10;- 单只不超过 30%&#10;&#10;## 加/减仓规则&#10;- 跌 10% 分批加仓&#10;- 涨 20% 止盈一半"></textarea>
     </div>
   </div>
-  <button id="stratSetup" class="btn" style="position:fixed;right:24px;bottom:24px;z-index:998;box-shadow:0 4px 12px rgba(74,108,247,.35);">📝 记录我的投资策略</button>`;
+  <button id="stratSetup" class="btn" style="position:fixed;right:24px;bottom:24px;z-index:998;box-shadow:0 4px 12px rgba(74,108,247,.35);">${ICO_NOTE}记录我的投资策略</button>`;
   return renderPage({ title: '基金追踪', body, scripts: ['page-fund.js'], theme: user.theme });
 }
 
@@ -887,7 +900,7 @@ function weightPage(user) {
       <div class="weight-topbar__members" id="memberList"></div>
       <div class="weight-topbar__actions">
         <button class="btn sm" id="mAdd">+ 新建成员</button>
-        <button class="btn sm gray" id="fFriend">👥 好友</button>
+        <button class="btn sm gray" id="fFriend">${ICO_USERS}好友</button>
         <div class="w-unit-seg" id="unitSeg">
           <button type="button" data-v="jin">斤</button>
           <button type="button" data-v="kg">公斤</button>
@@ -970,7 +983,7 @@ function weightPage(user) {
         <div class="card weight-race-card" id="wRaceBox" style="display:none;">
           <div class="weight-race-content">
             <div>
-              <h3 style="font-size:14px;font-weight:700;">🏆 减肥竞赛</h3>
+              <h3 style="font-size:14px;font-weight:700;">${ICO_TROPHY}减肥竞赛</h3>
               <p class="muted" style="font-size:12px;margin-top:2px;">基于打卡率与降重积分的健康榜</p>
             </div>
             <button class="btn sm" id="wRaceBtnSide">查看排行</button>
@@ -1029,7 +1042,7 @@ function publicWeightPage(showQuickLogin = true) {
   </style>
   <div class="login-wrap" style="max-width:420px;">
     <div class="card">
-      <h1 style="text-align:center;color:var(--brand-text);font-size:20px;margin-bottom:6px;">⚖️ <span id="memberName"></span></h1>
+      <h1 style="text-align:center;color:var(--brand-text);font-size:20px;margin-bottom:6px;">${ICO_SCALE}<span id="memberName"></span></h1>
       <div id="streakLine" style="text-align:center;font-size:22px;font-weight:700;margin-bottom:4px;display:none;"></div>
       <p id="streakTitle" style="text-align:center;color:var(--ok-text);font-weight:600;margin-bottom:2px;"></p>
       <p id="monthDays" style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px;"></p>
@@ -1313,7 +1326,7 @@ function assetPage(user) {
 
       <div class="as-side">
       <section class="card">
-        <div class="as-card-head"><h2>智能分析</h2><button class="btn sm gray" id="aaEntry" type="button">📝 月度复盘</button></div>
+        <div class="as-card-head"><h2>智能分析</h2><button class="btn sm gray" id="aaEntry" type="button">${ICO_NOTE}月度复盘</button></div>
         <p class="asset-desc">看看这个月比平时攒得多还是少。</p>
         <div id="aiVs6" class="asset-status-number" data-base-class="asset-status-number">—</div>
         <div class="asset-status-text" id="aiNote">—</div>
@@ -1398,7 +1411,7 @@ function assetPage(user) {
 function publicAssetPage(showQuickLogin = true) {
   const body = `<div class="login-wrap" style="max-width:420px;">
     <div class="card">
-      <h1 style="text-align:center;color:var(--brand-text);font-size:20px;margin-bottom:6px;">💰 <span id="walletName"></span></h1>
+      <h1 style="text-align:center;color:var(--brand-text);font-size:20px;margin-bottom:6px;">${ICO_WALLET}<span id="walletName"></span></h1>
       <p style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px;">录入 <span id="monthLabel"></span>金额</p>
       ${showQuickLogin ? `<div style="text-align:center;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>` : ''}
       <div id="msg" class="msg"></div>
@@ -1421,7 +1434,7 @@ function publicAssetPage(showQuickLogin = true) {
 function weightReportPage(showQuickLogin = true) {
   const body = `<div class="container" style="max-width:760px;margin:24px auto;">
     <div class="card">
-      <h2>⚖️ 体重曲线 ${showQuickLogin ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}</h2>
+      <h2>${ICO_SCALE}体重曲线 ${showQuickLogin ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}</h2>
       <div id="content" style="display:none;">
         <canvas id="rptChart" style="max-height:420px;"></canvas>
         <div id="rptHist" style="margin-top:20px;"></div>
@@ -1436,10 +1449,10 @@ function assetReportPage(showQuickLogin = true) {
   const body = `<div class="container" style="max-width:760px;margin:24px auto;">
     ${showQuickLogin ? `<div style="text-align:right;margin-bottom:12px;"><button class="btn sm gray" id="quickLoginBtn">${ICO_KEY}用本人账号登录</button></div>` : ''}
     <div id="content" style="display:none;">
-      <div class="card"><h2>💰 当月各类型合计</h2><div id="typeTotalBox"></div></div>
-      <div class="card"><h2>📈 净资产趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="netChart" style="max-height:340px;"></canvas></div>
+      <div class="card"><h2>${ICO_WALLET}当月各类型合计</h2><div id="typeTotalBox"></div></div>
+      <div class="card"><h2>${ICO_TRENDING}净资产趋势 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="netChart" style="max-height:340px;"></canvas></div>
       <div class="card"><h2>每月净存 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2><canvas id="consumeChart" style="max-height:340px;"></canvas></div>
-      <div class="card"><h2>📋 月度记录 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2>
+      <div class="card"><h2>${ICO_CLIPBOARD}月度记录 <span class="muted" style="font-size:13px;font-weight:normal;">（最近12个月）</span></h2>
         <div class="scroll-box">
           <table>
             <thead><tr><th>月份</th><th>类型</th><th>钱包</th><th>金额</th><th>更新时间</th></tr></thead>
@@ -1457,7 +1470,7 @@ function fundReportPage(showQuickLogin = true) {
   const body = `<div class="container" style="max-width:640px;margin:24px auto;">
     <div class="card">
       <h2 style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <span>📊 持仓分布</span>
+        <span>${ICO_BAR_CHART}持仓分布</span>
         ${showQuickLogin ? `<button class="btn sm gray" id="quickLoginBtn" style="font-weight:normal;">${ICO_KEY}用本人账号登录</button>` : ''}
       </h2>
       <div id="content" style="display:none;">
@@ -1465,7 +1478,7 @@ function fundReportPage(showQuickLogin = true) {
       </div>
     </div>
     <div class="card" id="profitBox" style="display:none;">
-      <h2>📈 近30天总收益曲线</h2>
+      <h2>${ICO_TRENDING}近30天总收益曲线</h2>
       <canvas id="profitChart" style="max-height:300px;"></canvas>
       <h3 style="margin:20px 0 8px;font-size:16px;">每日收益明细</h3>
       <div class="scroll-box">
@@ -1488,7 +1501,7 @@ function todoPage(user) {
       <div class="todo-topbar__actions">
         <button class="btn sm gray" id="viewToggle">${ICO_CARDS}卡片视图</button>
         <button class="btn sm" id="tAdd">+ 新建 ▾</button>
-        <button class="btn sm gray" id="tListBtn">👥 共享分类</button>
+        <button class="btn sm gray" id="tListBtn">${ICO_USERS}共享分类</button>
         <input type="checkbox" id="hideDone" checked hidden>
         <button class="btn sm gray" id="displayOpts" title="显示选项">${ICO_SLIDERS}<span class="todo-display-btn__txt">显示 ▾</span></button>
       </div>
@@ -1534,7 +1547,7 @@ function todoPage(user) {
 
     <div class="card">
       <div class="todo-chart-head">
-        <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:max-content;white-space:nowrap;">每日完成情况 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新图表" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
+        <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:max-content;white-space:nowrap;">每日完成情况 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">${ICO_BAR_CHART}分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新图表" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
         <div class="todo-range" id="chartRange">
           <button data-range="month" class="active">当月</button>
           <button data-range="7d">近7天</button>
@@ -1638,7 +1651,7 @@ function publicTodoPage(prefs = {}) {
   const showQl = prefs.showQuickLogin !== false;
   const body = `${todoOwnerPrefsScript(prefs)}<div class="container" style="max-width:560px;margin:24px auto;">
     <div class="card">
-      <h2>📝 <span id="rootTitle">待办</span> ${showQl ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}</h2>
+      <h2>${ICO_NOTE}<span id="rootTitle">待办</span> ${showQl ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}</h2>
       <p id="ownerLine" class="muted" style="margin-bottom:12px;"></p>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
@@ -1727,7 +1740,7 @@ function todoReportPage(prefs = {}) {
       </div>
       <div class="card">
         <div class="todo-chart-head">
-          <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:max-content;white-space:nowrap;">每日完成情况 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">📊 分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新图表" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
+          <h2 style="margin:0;display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:max-content;white-space:nowrap;">每日完成情况 <button type="button" class="btn sm gray todo-analyze-btn" id="todoAnalyzeBtn">${ICO_BAR_CHART}分析</button><button type="button" class="btn sm todo-chart-refresh" title="刷新图表" style="margin-left:auto;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button></h2>
           <div class="todo-range" id="chartRange">
             <button data-range="month" class="active">当月</button>
             <button data-range="7d">近7天</button>
@@ -1763,7 +1776,7 @@ function todoCollabPage(prefs = {}) {
   const showQl = prefs.showQuickLogin !== false;
   const body = `${todoOwnerPrefsScript(prefs)}<div class="container" style="max-width:640px;margin:24px auto;">
     <div class="card">
-      <h2>📝 <span id="ownerTitle">待办协作</span> ${showQl ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}</h2>
+      <h2>${ICO_NOTE}<span id="ownerTitle">待办协作</span> ${showQl ? `<button class="btn sm gray" id="quickLoginBtn" style="float:right;">${ICO_KEY}用本人账号登录</button>` : ''}</h2>
       <p class="muted" style="margin-bottom:12px;">今日到期与逾期任务，可直接勾选、编辑或添加。</p>
       <div id="msg" class="msg"></div>
       <div id="content" style="display:none;">
@@ -1819,19 +1832,19 @@ function downloadPage(user, mdContent, updatedAt) {
   const dlData = JSON.stringify({ md: mdContent || '', at: updatedAt || '' }).replace(/</g, '\\u003c');
   // user 为 null = 未登录公开访问：不渲染侧栏外壳，标题右侧改放登录入口
   const headBtn = isAdmin
-    ? '<button class="btn sm gray" id="dlEditBtn">✏️ 编辑内容</button>'
-    : (user ? '' : '<a href="/login" class="btn sm gray">🔑 登录</a>');
+    ? '<button class="btn sm gray" id="dlEditBtn">' + ICO_NOTE + '编辑内容</button>'
+    : (user ? '' : '<a href="/login" class="btn sm gray">' + ICO_KEY + '登录</a>');
   const body = (user ? renderTopbar(user, 'download') : '') + `<div class="container">
     <div class="card">
       <div class="dl-head">
-        <h2>📱 APP 下载</h2>
+        <h2>${ICO_SMARTPHONE}APP 下载</h2>
         ${headBtn}
       </div>
       <div id="dlMeta" class="muted dl-meta"></div>
       <script type="application/json" id="dlData">${dlData}<\/script>
       ${has ? '<div id="dlContent" class="md-body"></div>' :
-        `<div class="dl-empty">📱 暂未提供下载内容${isAdmin
-          ? '<div><button class="btn sm" id="dlEmptyEditBtn">✏️ 编辑内容</button></div>' : ''}</div>`}
+        `<div class="dl-empty">${ICO_SMARTPHONE}暂未提供下载内容${isAdmin
+          ? '<div><button class="btn sm" id="dlEmptyEditBtn">' + ICO_NOTE + '编辑内容</button></div>' : ''}</div>`}
     </div>
   </div>`;
   return renderPage({ title: 'APP 下载', body, scripts: ['page-download.js'], theme: user ? user.theme : 'light' });

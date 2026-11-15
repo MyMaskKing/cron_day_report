@@ -817,12 +817,11 @@ function showToast(text, ok) {
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'appToast';
-    bar.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:10002;max-width:92vw;'
-      + 'padding:10px 20px;border-radius:10px;color:#fff;font-size:14px;line-height:1.5;text-align:center;'
-      + 'word-break:break-all;box-shadow:0 6px 20px rgba(0,0,0,.2);opacity:0;transition:opacity .25s;pointer-events:none;';
     document.body.appendChild(bar);
   }
-  bar.style.background = ok === false ? '#cf1322' : '#389e0d';
+  // 布局与语义底色全在 core.css #appToast / is-ok / is-err, 这里只切 class 与淡入淡出
+  bar.classList.toggle('is-err', ok === false);
+  bar.classList.toggle('is-ok', ok !== false);
   bar.textContent = text;
   bar.style.opacity = '1';
   clearTimeout(_toastTimer);
@@ -5115,7 +5114,7 @@ function stepText(t){
 }
 
 function sign(n){ return fmtSign(n); }
-function colorOf(n){ return n>=0 ? '#cf1322' : '#389e0d'; }
+function colorOf(n){ return n>=0 ? 'var(--up)' : 'var(--down)'; }
 
 // ---------- 报表 ----------
 async function loadReport() {
@@ -5320,7 +5319,7 @@ function applyProfitFilter() {
     var s = window._profitSeries[i];
     if (isDateWin && s.date < cutoff) continue;
     if (rng!=='all' && !isDateWin && s.date.slice(0,cutoff.length)!==cutoff) continue;
-    var dc = s.delta != null ? (s.delta>=0?'#cf1322':'#389e0d') : '#999';
+    var dc = s.delta != null ? (s.delta>=0?'var(--up)':'var(--down)') : 'var(--faint)';
     var dt = s.delta != null ? sign(s.delta) : '—';
     rows.push('<tr><td data-label="日期">'+s.date+'</td><td data-label="总收益" style="color:'+colorOf(s.profit)+'">'+sign(s.profit)+' 元</td><td data-label="较前一天增长" style="color:'+dc+'">'+dt+' 元</td></tr>');
   }
@@ -5502,7 +5501,7 @@ window.viewNavHistory = async function(btn){
       var s = series[i];
       var prev = i > 0 ? series[i - 1].nav : null;
       var change = prev ? (s.nav - prev) / prev * 100 : null;
-      var color = change == null ? '#999' : (change >= 0 ? '#cf1322' : '#389e0d');
+      var color = change == null ? 'var(--faint)' : (change >= 0 ? 'var(--up)' : 'var(--down)');
       var text = change == null ? '—' : (sign(change) + '%');
       rows.push('<tr><td data-label="日期">' + s.date + '</td><td data-label="单位净值">' + s.nav.toFixed(4) + '</td><td data-label="较前一日" style="color:' + color + '">' + text + '</td></tr>');
     }
@@ -5703,7 +5702,7 @@ document.getElementById('rcSend').addEventListener('click', async function(){
 });
 
 // ---------- 持仓分析 ----------
-var SIGNAL_COLOR = { danger:'var(--danger)', warn:'#d46b08', success:'var(--ok)', info:'var(--label)' };
+var SIGNAL_COLOR = { danger:'var(--danger)', warn:'var(--warn)', success:'var(--ok)', info:'var(--label)' };
 document.getElementById('anRun').addEventListener('click', async function(){
   var q = '?stopLoss=' + encodeURIComponent(document.getElementById('anStopLoss').value) +
     '&takeProfit=' + encodeURIComponent(document.getElementById('anTakeProfit').value) +
@@ -6102,8 +6101,8 @@ function drawProfitChart(series) {
   for (var i = series.length - 1; i >= 0; i--) {
     var s = series[i];
     var delta = i > 0 ? Math.round((s.profit - series[i-1].profit) * 100) / 100 : null;
-    var pc = s.profit >= 0 ? '#cf1322' : '#389e0d';
-    var dc = delta != null ? (delta >= 0 ? '#cf1322' : '#389e0d') : '#999';
+    var pc = s.profit >= 0 ? 'var(--up)' : 'var(--down)';
+    var dc = delta != null ? (delta >= 0 ? 'var(--up)' : 'var(--down)') : 'var(--faint)';
     var dt = delta != null ? sign(delta) + ' 元' : '—';
     rows.push('<tr><td data-label="日期">' + s.date + '</td>' +
       '<td data-label="持仓收益" style="color:' + pc + '">' + sign(s.profit) + ' 元</td>' +
@@ -6272,8 +6271,8 @@ function renderWeightHero(mid, allRecs) {
   var lastPt = coords[coords.length - 1];
   sparkEl.innerHTML =
     '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
-      '<polyline fill="none" stroke="#7C3AED" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="' + linePts + '"/>' +
-      '<circle cx="' + lastPt[0] + '" cy="' + lastPt[1] + '" r="4" fill="#7C3AED"/>' +
+      '<polyline fill="none" style="stroke:var(--brand-strong)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" points="' + linePts + '"/>' +
+      '<circle cx="' + lastPt[0] + '" cy="' + lastPt[1] + '" r="4" style="fill:var(--brand-strong)"/>' +
     '</svg>';
 }
 
@@ -7542,7 +7541,7 @@ function renderMood(records, today){
   var delta = last.weight - prev.weight;
   var v = pDisplay(Math.abs(delta));
   if (delta < 0) { box.style.color = 'var(--ok)'; box.textContent = '😄 较上次 -' + v + ' ' + pLabel() + '，继续加油！'; }
-  else if (delta > 0) { box.style.color = '#d46b08'; box.textContent = '💪 较上次 +' + v + ' ' + pLabel() + '，明天会更好！'; }
+  else if (delta > 0) { box.style.color = 'var(--warn)'; box.textContent = '💪 较上次 +' + v + ' ' + pLabel() + '，明天会更好！'; }
   else { box.style.color = 'var(--muted)'; box.textContent = '😐 与上次持平，稳住！'; }
 }
 // 五彩纸屑：从页面顶部中间喷洒，短暂飘落后自动清除
@@ -7830,9 +7829,9 @@ function sign(n){ return fmtSign(n); }
       document.getElementById('profitBox').style.display = 'block';
       var rows = [];
       for (var i=series.length-1;i>=0;i--) {
-        var s = series[i], dc = s.delta != null ? (s.delta>=0?'#cf1322':'#389e0d') : '#999';
+        var s = series[i], dc = s.delta != null ? (s.delta>=0?'var(--up)':'var(--down)') : 'var(--faint)';
         var dt = s.delta != null ? sign(s.delta) : '—';
-        var pc = s.profit>=0?'#cf1322':'#389e0d';
+        var pc = s.profit>=0?'var(--up)':'var(--down)';
         rows.push('<tr><td data-label="日期">'+s.date+'</td><td data-label="总收益" style="color:'+pc+'">'+sign(s.profit)+' 元</td><td data-label="较前一天增长" style="color:'+dc+'">'+dt+' 元</td></tr>');
       }
       document.getElementById('profitTbody').innerHTML = rows.join('');
