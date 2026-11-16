@@ -10619,8 +10619,9 @@ function renderTodoTree(container, trees, opts) {
     main.className = 'todo-main';
     var title = document.createElement('div');
     title.className = 'todo-title';
-    // 共享分类任务(顶层行且 shared_cat_id 非空)标题前加人群图标; 个人任务不显示
-    title.innerHTML = (isGhost ? ICONS.lock : (depth === 0 && node.shared_cat_id != null ? ICONS.users : '')) + esc(node.title);
+    // 共享图标：根任务(depth0)或共享叶子(无子女)标题前加人群图标; 中间分组的深层挂载交给 meta 芯片; 个人任务不显示
+    var titleShared = node.shared_cat_id != null && (depth === 0 || !hasChildren);
+    title.innerHTML = (isGhost ? ICONS.lock : (titleShared ? ICONS.users : '')) + esc(node.title);
     if (isGhost) title.style.color = 'var(--faint)';
     if (hasChildren) {
       var lc = todoLeafCount(node);
@@ -10647,9 +10648,9 @@ function renderTodoTree(container, trees, opts) {
     if (node.category) {
       var cc = document.createElement('span'); cc.className = 'todo-metatxt todo-cat-chip'; cc.textContent = node.category; meta.appendChild(cc);
     }
-    // 行级挂载共享分类(个人树深层挂载, 如各自截止容器下个别子任务挂共享): 共享任务无文本分类,
-    // 补人群分类名胶囊; 整树共享(顶层 root 也带 shared_cat_id)时归属由面包屑/顶层表达, 行内不重复
-    if (node.shared_cat_id != null && !(node._root && node._root.shared_cat_id != null)) {
+    // 行级挂载共享分类(个人树深层挂载): 仅中间分组节点(有子女)在此补人群分类名胶囊;
+    // 共享叶子已在标题前缀显示图标(见 titleShared), 不在此重复; 整树共享由顶层标题表达, 行内不重复
+    if (hasChildren && node.shared_cat_id != null && !(node._root && node._root.shared_cat_id != null)) {
       var scNode = todoSharedCat(node.shared_cat_id);
       var scChip = document.createElement('span');
       scChip.className = 'todo-metatxt todo-cat-chip';
@@ -10923,7 +10924,9 @@ function renderTodoAccordion(container, trees, opts) {
     }
     // 叶子行不挂优先级圆点（等级只由主任务色带表达）
     var nameEl = document.createElement('span');
-    nameEl.className = 'todo-acc__leafname'; nameEl.textContent = node.title;
+    nameEl.className = 'todo-acc__leafname';
+    // 共享叶子标题前缀人群图标（各自截止容器下的共享子任务走此 leafNode，判叶子自身列）
+    nameEl.innerHTML = (node.shared_cat_id != null ? ICONS.users : '') + esc(node.title);
     nameEl.addEventListener('click', function(e){
       e.stopPropagation();
       if (opts.onDetail || opts.onEdit) (opts.onDetail || opts.onEdit)(node);
