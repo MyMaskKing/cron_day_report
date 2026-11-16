@@ -11201,21 +11201,13 @@ function todoLeafCard(leaf, opts, scene) {
   var main = document.createElement('div');
   main.className = 'tl-item__main';
   var title = document.createElement('div');
-  title.className = 'tl-item__title'; title.textContent = n.title;
+  title.className = 'tl-item__title';
+  // 共享叶子：标题最前面加人群图标（与组视图标题同口径）；判叶子自身列，深层挂载/solo 拍平均覆盖
+  title.innerHTML = (n.shared_cat_id != null ? ICONS.users : '') + esc(n.title);
   main.appendChild(title);
   var meta = document.createElement('div');
   meta.className = 'tl-item__meta';
   var rootNode = n._root || n;
-  // 共享归属标记：叶子拍平后无顶层标题，靠此 chip 识别共享任务（速览/时间轴均显示）
-  // 判叶子自身列：整树共享时每行都带 shared_cat_id；个人树深层挂载的共享子树只有挂载行带
-  if (n.shared_cat_id != null) {
-    var scInfo = todoSharedCat(n.shared_cat_id);
-    var scEl = document.createElement('span');
-    scEl.className = 'todo-metatxt todo-cat-chip';
-    scEl.innerHTML = ICONS.users + esc(scInfo ? scInfo.name : '共享分类');
-    if (scInfo && scInfo.owner_name) scEl.title = '共享分类 · ' + scInfo.owner_name;
-    meta.appendChild(scEl);
-  }
   if (scene !== 'timeline') {
     // 速览：到期 chip（时间轴日期在轴上，不重复显示）
     var dChip = todoAccDueChip(leaf.effDue, today, !!n.done);
