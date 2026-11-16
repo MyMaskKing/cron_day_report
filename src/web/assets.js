@@ -10653,7 +10653,7 @@ function renderTodoTree(container, trees, opts) {
       var scNode = todoSharedCat(node.shared_cat_id);
       var scChip = document.createElement('span');
       scChip.className = 'todo-metatxt todo-cat-chip';
-      scChip.textContent = (scNode ? scNode.name : '共享分类');
+      scChip.innerHTML = ICONS.users + esc(scNode ? scNode.name : '共享分类');
       if (scNode && scNode.owner_name) scChip.title = '共享分类 · ' + scNode.owner_name;
       meta.appendChild(scChip);
     }
@@ -11026,6 +11026,15 @@ function renderTodoAccordion(container, trees, opts) {
       repEl.innerHTML = ICONS.repeat + esc(todoRecurLabel(node.recurrence, node.recur_interval, node.recur_nth, node.recur_weekday));
       rowEl.appendChild(repEl);
     }
+    // 行级挂载共享分类（与完整树同条件）：整树共享由 depth0 标题图标表达，这里只补个人树深层挂载
+    if (node.shared_cat_id != null && !(node._root && node._root.shared_cat_id != null)) {
+      var accSc = todoSharedCat(node.shared_cat_id);
+      var accScEl = document.createElement('span');
+      accScEl.className = 'todo-metatxt todo-cat-chip';
+      accScEl.innerHTML = ICONS.users + esc(accSc ? accSc.name : '共享分类');
+      if (accSc && accSc.owner_name) accScEl.title = '共享分类 · ' + accSc.owner_name;
+      rowEl.appendChild(accScEl);
+    }
     var opsEl = buildOps(node, depth, rowEl, function(){
       todoOpenDetailAdder(wrap, node, function(payload){ return opts.onAddChildSubmit(node, payload); }, opts.onAddForRoot);
     });
@@ -11196,6 +11205,17 @@ function todoLeafCard(leaf, opts, scene) {
   main.appendChild(title);
   var meta = document.createElement('div');
   meta.className = 'tl-item__meta';
+  var rootNode = n._root || n;
+  // 共享归属标记：叶子拍平后无顶层标题，靠此 chip 识别共享任务（速览/时间轴均显示）
+  // 判叶子自身列：整树共享时每行都带 shared_cat_id；个人树深层挂载的共享子树只有挂载行带
+  if (n.shared_cat_id != null) {
+    var scInfo = todoSharedCat(n.shared_cat_id);
+    var scEl = document.createElement('span');
+    scEl.className = 'todo-metatxt todo-cat-chip';
+    scEl.innerHTML = ICONS.users + esc(scInfo ? scInfo.name : '共享分类');
+    if (scInfo && scInfo.owner_name) scEl.title = '共享分类 · ' + scInfo.owner_name;
+    meta.appendChild(scEl);
+  }
   if (scene !== 'timeline') {
     // 速览：到期 chip（时间轴日期在轴上，不重复显示）
     var dChip = todoAccDueChip(leaf.effDue, today, !!n.done);
@@ -11206,7 +11226,6 @@ function todoLeafCard(leaf, opts, scene) {
       meta.appendChild(dEl);
     }
     // 分类 chip：root 有文本分类且非共享分类
-    var rootNode = n._root || n;
     if (rootNode.category && rootNode.shared_cat_id == null) {
       var catEl = document.createElement('span');
       catEl.className = 'todo-metatxt todo-cat-chip';
@@ -11556,7 +11575,11 @@ function todoFlatRow(item, opts){
     text.appendChild(crumb);
   }
   var title=document.createElement('div');
-  title.className='flat-title';title.textContent=n.title;
+  title.className='flat-title';
+  // 共享归属：拍平行无顶层标题，标题前加人群图标（判叶子自身列，深层挂载也覆盖；ghost 沿用 root 判定）
+  var flatRoot=n._root||n;
+  title.innerHTML=(flatRoot._ghost===1?ICONS.lock:(n.shared_cat_id!=null?ICONS.users:''))+esc(n.title);
+  if(flatRoot._ghost===1)title.style.color='var(--faint)';
   text.appendChild(title);
   row.appendChild(text);
   if(isDone){
