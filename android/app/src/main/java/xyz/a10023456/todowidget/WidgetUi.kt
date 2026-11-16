@@ -447,6 +447,11 @@ private fun GroupTitleRow(g: WidgetGroup, widgetId: Int, isCollapsed: Boolean, f
             )
             Spacer(GlanceModifier.width(2.dp))
         }
+        // 共享分组标题前加人群图标；ghost 投影壳维持 🔒 文案，二者不叠加
+        if (g.shared && !g.ghost) {
+            SharedMark(dark)
+            Spacer(GlanceModifier.width(4.dp))
+        }
         Text(
             if (g.ghost) "🔒 ${g.title}" else g.title,
             style = TextStyle(
@@ -590,6 +595,17 @@ private fun ChipIcon(resId: Int, color: ColorProvider) {
     )
 }
 
+/** 共享任务标题前的人群小图标（vector 白底 + tint 着 sub 色，与网页 ICONS.users 同语义）。 */
+@Composable
+private fun SharedMark(dark: Boolean) {
+    Image(
+        provider = ImageProvider(R.drawable.ic_shared),
+        contentDescription = "共享",
+        colorFilter = ColorFilter.tint(W(dark).sub),
+        modifier = GlanceModifier.size(13.dp)
+    )
+}
+
 /**
  * 标题栏统计胶囊（单胶囊，今日与逾期拆开显示）：
  *   今日>0 且逾期>0 → [日历]3 | [闹钟]1（今日蓝=进行中，竖线灰，逾期图标与数字红）
@@ -659,6 +675,11 @@ private fun ChildRow(child: WidgetItem, widgetId: Int, fontScale: Int, wrapChild
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // 共享叶子标题前加人群图标（判后端下发的 child.shared，深层挂载/solo 回退行同口径）
+                if (child.shared) {
+                    SharedMark(dark)
+                    Spacer(GlanceModifier.width(4.dp))
+                }
                 Text(
                     child.title,
                     style = TextStyle(fontSize = fs(fontScale, 13), color = w.text),

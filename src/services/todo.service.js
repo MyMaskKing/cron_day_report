@@ -299,7 +299,9 @@ function buildWidgetGroups(rows, today, scope, limit) {
           due_label: ownDue ? todoDateBadge(ownDue, today, over) : '',
           // 仅自身绑定 due_date 时给徽章；继承日期为空串，通知靠它做到「日期谁绑定显示在谁」
           own_due_label: n.due_date ? todoDateBadge(n.due_date, today, ownOver) : '',
-          overdue: over
+          overdue: over,
+          // 共享叶子标记（判叶子自身列；后端已把分类物化到子树每行，深层挂载叶子也带），小组件标题前显示人群图标
+          shared: n.shared_cat_id != null
         });
       }
       for (const c of n.children) {
@@ -317,7 +319,9 @@ function buildWidgetGroups(rows, today, scope, limit) {
         id: node.id, title: node.title, path: [],
         due_label: rootLabel,
         own_due_label: rootLabel,
-        overdue: over
+        overdue: over,
+        // solo 回退行（主任务自身即叶子）：同样按自身 shared_cat_id 标记共享
+        shared: node.shared_cat_id != null
       });
       if (node.recurrence) hasRecur = true;
     }

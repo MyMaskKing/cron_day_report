@@ -35,6 +35,8 @@ data class WidgetGroup(
     val overdue: Boolean = false,
     val recurring: Boolean = false,
     val collapsible: Boolean = false,
+    /** 共享分类任务（shared_cat_id 非空）：标题前显示人群图标；旧后端不下发时为 false。 */
+    val shared: Boolean = false,
     /** 投影祖先壳（别人个人树的主任务）：只读，标题加 🔒、不显示添子＋ */
     val ghost: Boolean = false,
     /** 主任务自身绑定日期的徽章；自身未绑定时为空串（区别于 due_label 的聚合/继承口径）。 */
@@ -53,7 +55,9 @@ data class WidgetItem(
     /** 自身绑定日期的徽章；日期继承自祖先时为空串，通知靠它避免日期重复展示。 */
     val own_due_label: String = "",
     /** 是否逾期（未完成且过期），控制日期徽章颜色。 */
-    val overdue: Boolean = false
+    val overdue: Boolean = false,
+    /** 共享分类叶子（判叶子自身 shared_cat_id，深层挂载也带）：标题前显示人群图标；旧后端不下发时为 false。 */
+    val shared: Boolean = false
 )
 
 /** PUT /api/public/todo-all/:token/:id/done 响应 */
