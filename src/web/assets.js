@@ -1197,7 +1197,7 @@ function renderMd(md) {
 // 通用弹窗；maskClass 可选，给遮罩加临时修饰类（如 'modal-mask--lg' 大弹窗），每次打开先摘除
 // pinned=true：防误触模式，点遮罩空白不关闭，只能由弹窗内按钮/右上角 ×/ESC 关闭
 // （待办新建/编辑表单使用，避免长表单输入中误触丢失内容）
-function openModal(title, bodyHtml, maskClass, pinned) {
+function openModal(title, bodyHtml, maskClass, pinned, titleIcon) {
   var mask = document.getElementById('modalMask');
   if (!mask) return;
   mask.classList.remove('modal-mask--lg');
@@ -1206,7 +1206,8 @@ function openModal(title, bodyHtml, maskClass, pinned) {
   if (maskClass) mask.classList.add(maskClass);
   if (pinned) mask.classList.add('modal-mask--pinned');
   var wasOpen = mask.classList.contains('show');
-  document.getElementById('modalTitle').textContent = title || '';
+  // title 一律按纯文本转义（含用户名/钱包名等动态数据）；titleIcon 只接受 ICONS.* 受信任常量
+  document.getElementById('modalTitle').innerHTML = (titleIcon || '') + esc(title || '');
   document.getElementById('modalBody').innerHTML = bodyHtml || '';
   mask.classList.add('show');
   // 已打开时(如 confirmModal 内部再次 openModal)不重复上锁, 避免引用计数与 close 不匹配
@@ -7328,7 +7329,7 @@ function raceShowBoard() {
   if (rl) rl.hidden = true;
   if (b) b.hidden = false;
   var t = document.getElementById('modalTitle');
-  if (t) t.textContent = '🏆 减肥竞赛';
+  if (t) t.innerHTML = ICONS.trophy + '减肥竞赛';
 }
 function openRaceModal() {
   var ctl = '<div class="rc-controls">' +
@@ -7341,7 +7342,7 @@ function openRaceModal() {
   var body =
     '<div id="rcBoard">' + ctl + '<div class="rc-sub" id="rcSub"></div><div id="rcBody"></div></div>' +
     '<div class="rc-rules" id="rcRules" hidden>' + raceRulesHtml() + '</div>';
-  openModal('🏆 减肥竞赛', body);
+  openModal('减肥竞赛', body, null, false, ICONS.trophy);
   var sel = document.getElementById('rcRange');
   if (sel) {
     sel.value = raceRange;
@@ -10076,7 +10077,7 @@ function renderTodoDrawer(rows, onSelect) {
     section4.className = 'todo-drawer__section';
     var title4 = document.createElement('div');
     title4.className = 'todo-drawer__section-title';
-    title4.textContent = '👥 共享分类';
+    title4.innerHTML = ICONS.users + '共享分类';
     section4.appendChild(title4);
     scs.forEach(function(c){
       var key = 'sc:' + c.cat_id;
@@ -10084,7 +10085,7 @@ function renderTodoDrawer(rows, onSelect) {
       it.className = 'todo-drawer__item' + (cur === key ? ' active' : '');
       var l = document.createElement('span');
       l.className = 'todo-drawer__label';
-      l.textContent = '👥 ' + c.name + (c.role === 'owner' ? '' : ' · ' + c.owner_name);
+      l.innerHTML = ICONS.users + esc(c.name + (c.role === 'owner' ? '' : ' · ' + c.owner_name));
       var cc = document.createElement('span');
       cc.className = 'todo-drawer__count';
       cc.textContent = '(' + (scCount[c.cat_id] || 0) + ')';
@@ -10618,8 +10619,8 @@ function renderTodoTree(container, trees, opts) {
     main.className = 'todo-main';
     var title = document.createElement('div');
     title.className = 'todo-title';
-    // 共享分类任务(顶层行且 shared_cat_id 非空)标题前加 👥; 个人任务不显示
-    title.textContent = (isGhost ? '🔒 ' : (depth === 0 && node.shared_cat_id != null ? '👥 ' : '')) + node.title;
+    // 共享分类任务(顶层行且 shared_cat_id 非空)标题前加人群图标; 个人任务不显示
+    title.innerHTML = (isGhost ? ICONS.lock : (depth === 0 && node.shared_cat_id != null ? ICONS.users : '')) + esc(node.title);
     if (isGhost) title.style.color = 'var(--faint)';
     if (hasChildren) {
       var lc = todoLeafCount(node);
@@ -10647,7 +10648,7 @@ function renderTodoTree(container, trees, opts) {
       var cc = document.createElement('span'); cc.className = 'todo-metatxt todo-cat-chip'; cc.textContent = node.category; meta.appendChild(cc);
     }
     // 行级挂载共享分类(个人树深层挂载, 如各自截止容器下个别子任务挂共享): 共享任务无文本分类,
-    // 补 👥 分类名胶囊; 整树共享(顶层 root 也带 shared_cat_id)时归属由面包屑/顶层表达, 行内不重复
+    // 补人群分类名胶囊; 整树共享(顶层 root 也带 shared_cat_id)时归属由面包屑/顶层表达, 行内不重复
     if (node.shared_cat_id != null && !(node._root && node._root.shared_cat_id != null)) {
       var scNode = todoSharedCat(node.shared_cat_id);
       var scChip = document.createElement('span');
@@ -11004,7 +11005,7 @@ function renderTodoAccordion(container, trees, opts) {
     // 子任务不挂优先级圆点（等级只由主任务色带表达）
     var nameEl = document.createElement('span');
     nameEl.className = 'todo-acc__name';
-    nameEl.textContent = (isGhost ? '🔒 ' : (depth === 0 && node.shared_cat_id != null ? '👥 ' : '')) + node.title;
+    nameEl.innerHTML = (isGhost ? ICONS.lock : (depth === 0 && node.shared_cat_id != null ? ICONS.users : '')) + esc(node.title);
     if (isGhost) nameEl.style.color = 'var(--faint)';
     nameEl.addEventListener('click', function(e){
       e.stopPropagation();
@@ -11653,10 +11654,10 @@ function renderTodoCards(container, trees, opts) {
       head.appendChild(check);
     }
 
-    // 标题（共享分类任务加 👥; 个人任务不显示）
+    // 标题（共享分类任务加人群图标; 个人任务不显示）
     var title = document.createElement('div');
     title.className = 'todo-card__title';
-    title.textContent = (root._ghost === 1 ? '🔒 ' : (root.shared_cat_id != null ? '👥 ' : '')) + root.title;
+    title.innerHTML = (root._ghost === 1 ? ICONS.lock : (root.shared_cat_id != null ? ICONS.users : '')) + esc(root.title);
     if (root._ghost === 1) title.style.color = 'var(--faint)';
     head.appendChild(title);
     body.appendChild(head);
@@ -12237,7 +12238,7 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
       back.addEventListener('click', function(){ if (opts.onExitDetail) opts.onExitDetail(); });
       var t = document.createElement('div');
       t.className = 'todo-crumb__title';
-      t.textContent = (root._ghost === 1 ? '🔒 ' : (root.shared_cat_id != null ? '👥 ' : '')) + root.title;
+      t.innerHTML = (root._ghost === 1 ? ICONS.lock : (root.shared_cat_id != null ? ICONS.users : '')) + esc(root.title);
       if (root._ghost === 1) t.style.color = 'var(--faint)';
       crumb.appendChild(back); crumb.appendChild(t);
       if (root.child_due) {
@@ -12245,12 +12246,12 @@ function todoRenderDetail(container, root, opts, crumb, scrollScroller) {
         cdCrumb.className = 'todo-cd-tag'; cdCrumb.innerHTML = ICONS.branch + '各自截止';
         crumb.appendChild(cdCrumb);
       }
-      // 共享分类: 共享任务无个人文本分类, 标题 👥 之外在头部补分类名胶囊(名称取我加入的分类列表)
+      // 共享分类: 共享任务无个人文本分类, 标题人群图标之外在头部补分类名胶囊(名称取我加入的分类列表)
       if (root.shared_cat_id != null) {
         var sc0 = todoSharedCat(root.shared_cat_id);
         var scCrumb = document.createElement('span');
         scCrumb.className = 'todo-metatxt todo-cat-chip';
-        scCrumb.textContent = '👥 ' + (sc0 ? sc0.name : '共享分类');
+        scCrumb.innerHTML = ICONS.users + esc(sc0 ? sc0.name : '共享分类');
         if (sc0 && sc0.owner_name) scCrumb.title = '共享分类 · ' + sc0.owner_name;
         crumb.appendChild(scCrumb);
       }
@@ -14227,7 +14228,7 @@ function openTodoAnalysis(buildUrl) {
     '</div>' +
     '<div class="ta-legend"><span><i class="lg-win"></i>达标</span><span><i class="lg-fail"></i>有逾期</span><span><i class="lg-idle"></i>无任务</span><span><i class="lg-pending"></i>今天</span></div>' +
     '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">怎么看：绿色=当天到期的任务都按时做完了；红色=当天有任务没按时做完（后来补做也仍标红）；灰色=当天没有到期任务，不打断连续；紫色虚线方框=今天还没过完。各标题旁的 ？ 里有详细说明；点日历方块能看当天明细。</p>';
-  openModal('📊 任务分析', body, 'modal-mask--lg');
+  openModal('任务分析', body, 'modal-mask--lg', false, ICONS.bar_chart);
   // 指标卡/标题「?」说明按钮(弹窗 innerHTML 每次重建, 直接绑新元素)
   Array.prototype.forEach.call(document.querySelectorAll('#modalBody .ta-help'), function(btn){
     btn.addEventListener('click', function(){ taExplain(btn.getAttribute('data-help')); });
@@ -14654,7 +14655,7 @@ async function openTodoDetail(node, opts) {
   var headActions = opts.editable
     ? '<button type="button" class="btn sm" id="tdEditBtn">' + ICONS.edit + ' 编辑</button>'
     : '';
-  openModal('📝 任务详情', headActions + body, 'modal-mask--lg');
+  openModal('任务详情', headActions + body, 'modal-mask--lg', false, ic('edit'));
   _todoViewingId = node.id;
   mdTaskToBoxes(document.getElementById('tdNote'));
   if (opts.editable) {
@@ -15298,7 +15299,7 @@ function drawTree() {
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _t) + ' <span style="color:var(--faint);font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         modeSec +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
-      openModal('✅ 完成重复任务', html);
+      openModal('完成重复任务', html, null, false, ICONS.check_circle);
       // 复制模式预览: 随选项实时重绘下一周期清单
       function renderRrPlan(){
         var box = document.getElementById('rrPlanPreview');
@@ -15480,13 +15481,14 @@ function openSharedCatPanel() {
         + '<div style="text-align:right;">' + ops + '</div>'
         + '</div>';
     }).join('');
-    openModal('👥 共享分类',
+    openModal('共享分类',
       '<div style="margin-bottom:12px;">'
       + '<button class="btn sm" onclick="scCreate()" style="margin-right:6px;">' + ic('plus') + '新建共享分类</button>'
       + '<button class="btn sm gray" onclick="scJoin()">' + ICONS.link + '加入分类</button>'
       + '</div>'
       + (rows || '<p class="muted">还没有共享分类。新建一个，或凭家人的邀请码加入。</p>')
-      + '<div style="text-align:right;margin-top:12px;"><button class="btn gray" onclick="closeModal()">关闭</button></div>');
+      + '<div style="text-align:right;margin-top:12px;"><button class="btn gray" onclick="closeModal()">关闭</button></div>',
+      null, false, ICONS.users);
   }).catch(function(e){ alertModal(e.message, {ok:false}); });
 }
 function scCreate() {
@@ -16425,7 +16427,7 @@ function drawTree() {
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _today) + ' <span style="color:var(--faint);font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
-      openModal('✅ 完成重复任务', html);
+      openModal('完成重复任务', html, null, false, ICONS.check_circle);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');
@@ -16805,7 +16807,7 @@ function drawTree(trees) {
         (sameDate ? '' :
           '<label style="display:block;padding:8px 4px;"><input type="radio" name="rjump" value="1" style="width:auto;margin-right:8px;"> ' + todoDateLabel(jumpNext, _today) + ' <span style="color:var(--faint);font-size:12px;">(' + jumpNext + ')</span>（跳到当前周期）</label>') +
         '<div style="text-align:right;margin-top:14px;"><button type="button" class="btn gray" onclick="closeModal()">取消</button> <button type="button" class="btn" id="rrConfirm">完成并生成</button></div>';
-      openModal('✅ 完成重复任务', html);
+      openModal('完成重复任务', html, null, false, ICONS.check_circle);
       bindClickBusy(document.getElementById('rrConfirm'), async function(){
         var jr = document.querySelector('input[name="rjump"]:checked');
         var jumpToCurrent = !!(jr && jr.value === '1');
