@@ -7934,7 +7934,8 @@ function shiftAssetMonth(month, delta) {
 }
 // 月份控件复用全站日历选择器；资产数据按 YYYY-MM 统计
 function assetDateRange(preset) {
-  var endMonth = (fullReport && fullReport.latestMonth) || curMonth();
+  // 结束月固定取当前系统月，不跟随最后一次钱包录入月份
+  var endMonth = curMonth();
   var year = Number(endMonth.slice(0, 4));
   var startMonth = preset === 'year'
     ? year + '-01'
