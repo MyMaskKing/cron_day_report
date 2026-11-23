@@ -6255,6 +6255,8 @@ var wChart = null, cmpChart = null;
 var members = [];
 var unit = 'jin';
 var COLORS = ['#667eea','#f5222d','#52c41a','#faad14','#13c2c2','#722ed1','#eb2f96','#fa8c16'];
+// 成员头像底色：按 member.id 稳定取色（与资产 TYPE_COLOR 同色系，彩底白字首字）
+var MEMBER_COLORS = ['#7C3AED','#34b34a','#f97316','#0ea5e9','#A855F7','#13c2c2'];
 
 function unitLabel(){ return unit === 'kg' ? '公斤' : '斤'; }
 function toDisplay(kg){ return unit === 'jin' ? Math.round(kg * 2 * 10) / 10 : kg; }
@@ -6430,9 +6432,10 @@ function renderMembers(list) {
     var nameHtml = clickable
       ? '<a href="#" onclick="selMember(' + m.id + ');return false;" style="' + nameStyle + 'text-decoration:none;">' + esc(mdName(m)) + '</a>'
       : '<span title="' + (m.friend ? '好友成员，仅可查看' : '成员已停用') + '" style="' + nameStyle + 'cursor:default;">' + esc(mdName(m)) + '</span>';
-    return '<span class="tag user" style="margin:2px 4px;padding:4px 10px;' + (m.disabled ? 'opacity:.75;' : '') + '">' +
-      nameHtml + sharedTag + friendTag + visMark + offTag +
-      ' <a href="#" title="更多操作" onclick="mMenu(' + m.id + ');return false;" style="margin-left:4px;color:var(--muted);font-weight:bold;text-decoration:none;">⋯</a></span>';
+    var avatar = '<span class="w-member-avatar' + (m.disabled ? ' is-off' : '') + '" style="background:' + MEMBER_COLORS[Math.abs(m.id) % MEMBER_COLORS.length] + '">' + esc(mdName(m).charAt(0)) + '</span>';
+    return '<span class="tag user" style="margin:2px 4px;padding:4px 12px 4px 5px;' + (m.disabled ? 'opacity:.75;' : '') + '">' +
+      avatar + nameHtml + sharedTag + friendTag + visMark + offTag +
+      ' <a href="#" title="更多操作" onclick="mMenu(' + m.id + ');return false;" style="margin-left:2px;color:var(--muted);font-weight:bold;text-decoration:none;">⋯</a></span>';
   }).join('') || '<span class="muted">暂无成员</span>';
 }
 function selMember(id) {
@@ -7918,6 +7921,15 @@ var wallets = [];
 var TYPE_LABEL = { bank:'银行卡', alipay:'支付宝', wechat:'微信', investment:'投资', credit:'信用支付', cash:'现金' };
 var TYPE_ORDER = ['bank','alipay','wechat','cash','investment','credit'];
 var TYPE_COLOR = { bank:'#7C3AED', alipay:'#34b34a', wechat:'#0ea5e9', cash:'#f97316', investment:'#A855F7', credit:'#cf1322' };
+// 各钱包类型线性图标（currentColor 白色，配 TYPE_COLOR 彩底圆角块）
+var TYPE_ICONS = {
+  bank: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
+  alipay: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>',
+  wechat: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
+  cash: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/></svg>',
+  investment: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+  credit: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+};
 var nwChart = null, csChart = null, compChart = null;
 function curMonth(){ var d=new Date(Date.now()+8*3600*1000); return d.toISOString().slice(0,7); }
 function assetMoney(v) {
@@ -7982,7 +7994,16 @@ function setGoalProgress(goal) {
   var raw = goal ? Number(goal.progress) : 0;
   var pct = Math.max(0, Math.min(100, isFinite(raw) ? raw : 0));
   var bar = document.getElementById('goalBar');
-  if (bar) bar.style.width = pct.toFixed(1) + '%';
+  if (bar) {
+    // 环形进度（SVG circle）：按周长换算 stroke-dashoffset；保留对旧横条 div 的兜底
+    if (bar.tagName === 'circle') {
+      var C = 2 * Math.PI * 46;
+      bar.style.strokeDasharray = C.toFixed(2);
+      bar.style.strokeDashoffset = (C * (1 - pct / 100)).toFixed(2);
+    } else {
+      bar.style.width = pct.toFixed(1) + '%';
+    }
+  }
   var wrap = document.getElementById('goalProgress');
   if (wrap) {
     var achieved = !!(goal && Number(goal.progress) >= 100);
@@ -8065,7 +8086,7 @@ function renderWallets(list) {
     var amtCls = amt != null && amt < 0 ? ' is-down' : '';
     var diffCls = diff == null ? ' is-flat' : (diff > 0 ? ' is-up' : (diff < 0 ? ' is-down' : ' is-flat'));
     // 封存行弱化用 class（不能用 opacity：会创建堆叠上下文压住操作菜单，且连菜单一起变淡）
-    return '<tr' + (w.archived ? ' class="row-archived"' : '') + '><td data-label="类型">' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt">负债</span>':'') + '</td>' +
+    return '<tr' + (w.archived ? ' class="row-archived"' : '') + '><td data-label="类型"><span class="asset-w-type__label"><span class="asset-type-ic asset-type-ic--sm" style="background:' + TYPE_COLOR[w.type] + '">' + (TYPE_ICONS[w.type] || '') + '</span>' + TYPE_LABEL[w.type] + (w.type==='credit'?' <span class="tag debt">负债</span>':'') + '</span></td>' +
       '<td data-label="钱包名称">' + esc(w.name) + (w.archived ? ' <span class="tag">已封存</span>' : '') + '</td>' +
       '<td data-label="本月金额" class="asset-money' + amtCls + '">' + (amt != null ? assetMoney(amt) : '<span class="muted">—</span>') + '</td>' +
       '<td data-label="较上月" class="asset-delta' + diffCls + '">' + (diff == null ? '—' : signedMoney(diff) + diffTag) + '</td>' +
@@ -8154,11 +8175,21 @@ function renderTypeTotal(list) {
   if (!box) return;
   var balanceMap = {};
   list.forEach(function(t){ balanceMap[t.type] = t.balance; });
+  // 占比分母：仅正资产类型的正余额合计（信用支付是负债，不参与占比）
+  var positiveTotal = TYPE_ORDER
+    .filter(function(type){ return type !== 'credit'; })
+    .reduce(function(sum, type){ return sum + Math.max(0, balanceMap[type] || 0); }, 0);
   box.innerHTML = TYPE_ORDER.map(function(type){
     var v = balanceMap[type] == null ? 0 : balanceMap[type];
-    return '<div class="asset-type-pill">' +
-      '<b class="asset-type-pill__num' + (type === 'credit' ? ' is-down' : '') + '">' + assetMoney(v) + '</b>' +
-      '<span>' + TYPE_LABEL[type] + (type === 'credit' ? '（负债）' : '') + '</span>' +
+    var isCredit = type === 'credit';
+    var pctTxt = isCredit ? '负债' : (positiveTotal ? (Math.max(0, v) / positiveTotal * 100).toFixed(1) + '%' : '');
+    return '<div class="asset-type-cell">' +
+      '<span class="asset-type-ic" style="background:' + TYPE_COLOR[type] + '">' + (TYPE_ICONS[type] || '') + '</span>' +
+      '<span class="asset-type-cell__body">' +
+        '<span class="asset-type-cell__n">' + TYPE_LABEL[type] + (isCredit ? '（负债）' : '') + '</span>' +
+        '<b class="asset-type-cell__v' + (isCredit ? ' is-down' : '') + '">' + assetMoney(v) + '</b>' +
+      '</span>' +
+      '<span class="asset-type-cell__p">' + pctTxt + '</span>' +
     '</div>';
   }).join('');
 }

@@ -987,9 +987,10 @@ function weightPage(user) {
 
         <div class="card weight-race-card" id="wRaceBox" style="display:none;">
           <div class="weight-race-content">
-            <div>
-              <h3 style="font-size:14px;font-weight:700;">${ICO_TROPHY}减肥竞赛</h3>
-              <p class="muted" style="font-size:12px;margin-top:2px;">基于打卡率与降重积分的健康榜</p>
+            <span class="weight-race__ic">${ICO_TROPHY}</span>
+            <div class="weight-race__txt">
+              <h3>减肥竞赛</h3>
+              <p>基于打卡率与降重积分的健康榜</p>
             </div>
             <button class="btn sm" id="wRaceBtnSide">查看排行</button>
           </div>
@@ -1286,13 +1287,14 @@ function assetPage(user) {
         </div>
       </div>
       <div class="as-goal asset-metric--goal">
-        <div class="as-goal__head">
-          <span id="goalEdit" class="as-goal__edit" role="button" tabindex="0" title="点击调整年度目标">年度目标净资产</span>
-          <b class="as-goal__pct" id="goalPercent">—</b>
+        <div class="as-goal__ring" id="goalProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <svg class="as-goal__svg" viewBox="0 0 108 108" aria-hidden="true">
+            <circle class="as-goal__track" cx="54" cy="54" r="46"/>
+            <circle class="as-goal__fill" id="goalBar" cx="54" cy="54" r="46"/>
+          </svg>
+          <div class="as-goal__center"><b id="goalPercent">—</b></div>
         </div>
-        <div id="goalProgress" class="asset-progress as-goal__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <div id="goalBar" class="asset-progress__fill"></div>
-        </div>
+        <span id="goalEdit" class="as-goal__edit" role="button" tabindex="0" title="点击调整年度目标">年度目标净资产</span>
         <div class="as-goal__grid">
           <div><span>目标</span><b id="goalTarget">—</b></div>
           <div><span>距目标还差</span><b id="goalLeft">—</b></div>
