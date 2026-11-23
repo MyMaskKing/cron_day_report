@@ -90,18 +90,18 @@ const BASE_CSS = `
    结构性配色(页面底/文字/容器/边框/输入/语义色)全部走变量, 跟随 data-theme;
    装饰性品牌渐变(topbar/按钮)、模块 accent、优先级色等三套主题保留, 不在此列。 */
 :root {
-  --bg: #F6F5F2;
+  --bg: #F2F2F7;
   /* 主题表面：跟随全站主题的不透明实色（供全屏内"不透明抽屉/浮层"引用，区别于白磨砂） */
   --surface-global: #fff;
   /* 圆角尺度（唯一事实源）：小=控件 / 中=浮层菜单 / 大=卡片 */
   --r-sm: 8px;
   --r-md: 12px;
-  --r-lg: 14px;
+  --r-lg: 16px;
   /* 内置背景图（整图层，直接给全屏容器/选择色块复用） */
   --bgimg-default:
     radial-gradient(1000px 600px at 12% -5%, rgba(255,122,89,.15), transparent 55%),
     radial-gradient(900px 550px at 88% 8%, rgba(168,85,247,.12), transparent 55%),
-    radial-gradient(1100px 700px at 50% 100%, rgba(59,130,246,.10), transparent 55%), #F6F5F2;
+    radial-gradient(1100px 700px at 50% 100%, rgba(59,130,246,.10), transparent 55%), #F2F2F7;
   --bgimg-aurora:
     radial-gradient(720px 480px at 12% -8%, rgba(52,211,153,.30), transparent 62%),
     radial-gradient(620px 480px at 102% 12%, rgba(96,165,250,.26), transparent 60%),
@@ -216,8 +216,8 @@ const BASE_CSS = `
   --gold: #b8860b; --gold-bg: rgba(212,160,23,.12);
   --silver: #6b7280; --silver-bg: rgba(120,130,145,.14);
   --bronze: #9a5b27; --bronze-bg: rgba(184,115,51,.14);
-  --loading-mask: rgba(246,245,242,.65);
-  --sticky-th: rgba(246,245,242,.96);
+  --loading-mask: rgba(242,242,247,.65);
+  --sticky-th: rgba(242,242,247,.96);
   --code-bg: rgba(127,127,127,.15);
 }
 [data-theme="dark"] {
@@ -706,18 +706,20 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .announce-modal .announce-md > :last-child { margin-bottom: 0; }
 .announce-modal .announce-md img { max-width: 100%; }
 .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
-/* 实色卡片: 表面色 + 1px 描边 + 极轻阴影（2025 主流语言, 低端机滚动无合成开销） */
+/* 实色卡片（demo 分组语言）: 表面色 + 大圆角，无描边无阴影，靠页面底色与表面色明度差分层；
+   护眼主题底色与卡面明度差弱，在下方单独保留 1px 描边防糊连 */
 .card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--r-lg);
   padding: 20px; margin-bottom: 18px;
-  box-shadow: 0 1px 2px rgba(20, 20, 40, .04);
   /* card 统一 position:relative + z-index 参与堆叠排序, 否则内部绝对定位弹窗(.mp-menu)
      溢出到下方 card 会被后者遮住; :has 打开弹窗时再提升整卡 */
   position: relative;
   z-index: 1;
 }
+/* 护眼主题：暖纸底(#f3eee0)与卡面(#faf6ea)明度差弱，无描边会糊连，保留轻边界 */
+[data-theme="eye"] .card { border: 1px solid var(--border); }
 /* 当前打开多选弹窗 / 操作下拉菜单的 card 提升到最上层, 弹窗才能压过后续 card */
 .card:has(.mp-menu.show),
 .card:has(.dropdown-menu.show) { z-index: 100; }
@@ -857,6 +859,12 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .dash-kpi__sub { font-size: 11.5px; color: var(--faint); margin-top: 3px; min-height: 15px; font-variant-numeric: tabular-nums; }
 .dash-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
 .dash-main, .dash-side { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+/* 功能分区标题（待办/体重/资产/工具）：弱于卡片 h2 的小号灰字，贴近其下卡片成组 */
+.dash-sec-h {
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  letter-spacing: .01em; margin: 0 0 -6px;
+}
+.dash-sec-h:first-child { margin-top: 0; }
 /* grid/flex 的 gap 统一接管纵向间距，清掉 .card 自带 margin-bottom 避免叠加 */
 .dash-layout .card { margin-bottom: 0; }
 .dash-more { float: right; font-size: 13px; font-weight: 500; }

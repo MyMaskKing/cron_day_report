@@ -290,10 +290,12 @@ function dashboardPage(user) {
 
     <div class="dash-layout">
       <div class="dash-main">
+        <div class="dash-sec-h">待办</div>
         <div class="card">
           <h2>今日待办 <a href="/todo" class="dash-more">查看全部 →</a></h2>
           <div id="dashTodo" class="dash-todo"><p class="muted" style="margin:0;">加载中…</p></div>
         </div>
+        <div class="dash-sec-h">基金</div>
         <div class="card">
           <h2>每日总收益曲线 <span class="dash-card-hint">近30天</span></h2>
           <div id="dashFundEmpty" class="dash-empty" style="display:none;">暂无每日收益数据，次日 15:00 后自动生成第一条收益记录</div>
@@ -301,18 +303,21 @@ function dashboardPage(user) {
         </div>
       </div>
       <div class="dash-side">
+        <div class="dash-sec-h">资产</div>
         <div class="card">
           <h2>最新月资产构成</h2>
           <div id="dashDonutEmpty" class="dash-empty" style="display:none;">暂无资产记录</div>
           <div class="dash-donut"><canvas id="dashDonut" data-fs-skip="1" role="img" aria-label="最新月资产构成"></canvas><div id="dashDonutCenter" class="dash-donut__center" style="display:none;"><div>总资产<br><strong id="dashDonutTotal"></strong></div></div></div>
           <div id="dashDonutLegend" class="dash-legend"></div>
         </div>
+        <div class="dash-sec-h">体重</div>
         <div class="card">
           <h2>体重趋势 <span class="dash-card-hint">近30天</span></h2>
           <div id="dashWeightEmpty" class="dash-empty" style="display:none;">暂无体重记录</div>
           <div class="dash-chart dash-chart--sm"><canvas id="dashWeightChart"></canvas></div>
           <div id="dashWeightDelta" class="dash-side-line"></div>
         </div>
+        <div class="dash-sec-h">工具</div>
         <div class="card dash-entry-card">
           <h2>功能入口</h2>
           <div class="dash-entry">
