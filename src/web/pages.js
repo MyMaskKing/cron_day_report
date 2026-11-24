@@ -1344,14 +1344,12 @@ function assetPage(user) {
           <span id="aiVs6" class="jn-sm__num" data-base-class="jn-sm__num">—</span>
           <span id="aiVerdict" class="jn-sm__chip jn-sm__chip--flat">数据不足</span>
         </div>
-        <div class="jn-sm__bars" id="aiBars">
-          <div class="jn-sm-bar">
-            <div class="jn-sm-bar__top"><span class="l">本月增加</span><span class="v" id="aiCurVal">—</span></div>
-            <div class="jn-sm-bar__track"><i class="jn-sm-bar__fill jn-sm-bar__fill--cur" id="aiCurFill" style="width:0%"></i></div>
-          </div>
-          <div class="jn-sm-bar">
-            <div class="jn-sm-bar__top"><span class="l">近6个月平均每月</span><span class="v" id="aiAvg6" data-base-class="v">—</span></div>
-            <div class="jn-sm-bar__track jn-sm-bar__track--ref"><i class="jn-sm-bar__fill jn-sm-bar__fill--avg" id="aiAvgFill" style="width:0%"></i><span class="jn-sm-bar__tick" id="aiAvgTick" style="left:0%"></span></div>
+        <div class="jn-sm__bars jn-sm__bars--single" id="aiBars">
+          <div class="jn-sm-bar__top"><span class="l">本月增加</span><span class="v" id="aiCurVal">—</span></div>
+          <div class="jn-sm-bar__top"><span class="l">近6个月平均每月</span><span class="v" id="aiAvg6" data-base-class="v">—</span></div>
+          <div class="jn-sm-bar__track jn-sm-bar__track--ref">
+            <i class="jn-sm-bar__fill jn-sm-bar__fill--cur" id="aiCurFill" style="width:0%"></i>
+            <span class="jn-sm-bar__tick" id="aiAvgTick" style="left:0%"></span>
           </div>
         </div>
         <p class="jn-sm__p" id="aiNote">—</p>

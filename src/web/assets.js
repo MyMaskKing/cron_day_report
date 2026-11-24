@@ -5495,14 +5495,14 @@ function renderProfitInsight(winRows) {
     '<div class="jn-sm"><div class="jn-sm__head"><span class="jn-sm__title">' + ICONS.lightbulb + '智能分析</span>' +
       '<button type="button" class="jn-sm__more" id="profitInsightMore">查看更多 ›</button></div>' +
       '<div class="jn-sm__hero"><span class="jn-sm__num ' + heroCls + '">' + sign(hero) + '<small>元</small></span>' + chipHtml + '</div>' +
-      '<div class="jn-sm__bars">' +
-        '<div class="jn-sm-bar"><div class="jn-sm-bar__top"><span class="l">今日收益</span>' +
+      '<div class="jn-sm__bars jn-sm__bars--single">' +
+        '<div class="jn-sm-bar__top"><span class="l">今日收益</span>' +
           '<span class="v" style="color:' + curValCls + '">' + sign(r2(today.profit)) + '</span></div>' +
-          '<div class="jn-sm-bar__track"><i class="jn-sm-bar__fill jn-sm-bar__fill--cur" style="width:' + curW + '%"></i></div></div>' +
-        '<div class="jn-sm-bar"><div class="jn-sm-bar__top"><span class="l">平时平均每天</span>' +
+        '<div class="jn-sm-bar__top"><span class="l">平时平均每天</span>' +
           '<span class="v">' + sign(r2(avg)) + '</span></div>' +
-          '<div class="jn-sm-bar__track jn-sm-bar__track--ref"><i class="jn-sm-bar__fill jn-sm-bar__fill--avg" style="width:' + avgW + '%"></i>' +
-            '<span class="jn-sm-bar__tick" style="left:' + avgW + '%"></span></div></div>' +
+        '<div class="jn-sm-bar__track jn-sm-bar__track--ref">' +
+          '<i class="jn-sm-bar__fill jn-sm-bar__fill--cur" style="width:' + curW + '%"></i>' +
+          '<span class="jn-sm-bar__tick" style="left:' + avgW + '%"></span></div>' +
       '</div>' +
       '<p class="jn-sm__p">' + esc(inlineP) + '</p></div>';
   var moreBtn = document.getElementById('profitInsightMore');
@@ -6654,12 +6654,14 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
       '</div></div>';
 
   // 摘要卡：hero 中性色（体重只呈现方向不做好坏）+ 灰 chip 结论 + 三格区间变化；chips/排行榜入口留卡底驱动曲线
+  // 三格对比的是具体某一天（昨日/上周同日/上月同日的最近记录），标签行必须带出参照日期
   function smCell(label, ref) {
     if (!ref) return '<div class="jn-sm-delta is-off"><div class="jn-sm-delta__l">' + label + '</div>' +
       '<div class="jn-sm-delta__v">数据不足</div></div>';
     var d = round1(latestV - toDisplay(ref.weight));
     var ar = d < 0 ? '↓' : d > 0 ? '↑' : '';
-    return '<div class="jn-sm-delta"><div class="jn-sm-delta__l">' + label + '</div>' +
+    return '<div class="jn-sm-delta"><div class="jn-sm-delta__l"><span>' + label + '</span>' +
+      '<span class="jn-sm-delta__d">' + md(ref.record_date) + '</span></div>' +
       '<div class="jn-sm-delta__v"><span class="ar">' + ar + '</span>' + sign1(d) + U() + '</div></div>';
   }
   var wChip = flat ? '≈ 与区间平均持平'
@@ -8199,13 +8201,12 @@ function renderSummary(report, goal, year) {
   setTrendNum('aiTotal12', total12);
   setAssetText('aiLowest', lowMonth ? lowMonth + ' ' + signedMoney(lowValue) : '—');
 
-  // 智能分析摘要卡：hero 核心差值 + 语义 chip + 双条对比（本月增加 vs 近6月平均）
+  // 智能分析摘要卡：hero 核心差值 + 语义 chip + 单轨对比（紫条=本月值，橙刻度=近6月均值）
   var elVs6 = document.getElementById('aiVs6');
   var elVerdict = document.getElementById('aiVerdict');
   var elBars = document.getElementById('aiBars');
   var elCurVal = document.getElementById('aiCurVal');
   var elCurFill = document.getElementById('aiCurFill');
-  var elAvgFill = document.getElementById('aiAvgFill');
   var elAvgTick = document.getElementById('aiAvgTick');
   // 资产语义：好=绿、差=红；chip 类名沿用基金红涨绿跌命名（--neg 绿 / --pos 红），此处显式映射
   function setVerdict(text, mode) {
@@ -8236,13 +8237,12 @@ function renderSummary(report, goal, year) {
     setVerdict('暂无近6月对比', 'flat');
     if (elBars) elBars.style.display = 'none';
   } else {
-    // 同单位金额可比例：双条 + 均值刻度
+    // 同单位金额可比例：单轨紫条（本月值）+ 橙色均值刻度
     if (elBars) elBars.style.display = 'grid';
     var barScale = Math.max(Math.abs(latestChange), Math.abs(avg6), 1);
     var curW = Math.round(Math.abs(latestChange) / barScale * 100);
     var avgW = Math.round(Math.abs(avg6) / barScale * 100);
     if (elCurFill) elCurFill.style.width = curW + '%';
-    if (elAvgFill) elAvgFill.style.width = avgW + '%';
     if (elAvgTick) elAvgTick.style.left = avgW + '%';
     if (elCurVal) elCurVal.style.color = latestChange > 0 ? 'var(--ok-text)' : 'var(--muted)';
     if (diff6 > 0) {

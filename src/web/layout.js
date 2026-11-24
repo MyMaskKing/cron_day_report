@@ -2841,7 +2841,9 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .jn-sm--bare .jn-sm__chip--flat { background: var(--surface-2); }
 /* 双条对比（基金/资产）：当前值 vs 基准均值，均值轨带 2px 基准刻度 */
 .jn-sm__bars { display: grid; gap: 11px; margin-top: 14px; }
-.jn-sm-bar { display: grid; gap: 5px; }
+/* 单轨对比：两行数值标签 + 一条轨道（紫条=当前值，橙刻度=均值，越界即差距） */
+.jn-sm__bars--single { gap: 4px 0; }
+.jn-sm__bars--single .jn-sm-bar__track { margin-top: 4px; }
 .jn-sm-bar__top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 12px; }
 .jn-sm-bar__top .l { color: var(--muted); }
 .jn-sm-bar__top .v { font-weight: 700; color: var(--text-strong); font-variant-numeric: tabular-nums; }
@@ -2850,13 +2852,16 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .jn-sm-bar__track--ref { overflow: visible; }
 .jn-sm-bar__fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 99px; }
 .jn-sm-bar__fill--cur { background: linear-gradient(90deg, var(--brand), var(--brand-strong)); }
-.jn-sm-bar__fill--avg { background: var(--border); }
-.jn-sm-bar__tick { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--warn); border-radius: 2px; }
+/* 均值刻度：以定位点居中，描一圈卡面色保证压在紫条/灰轨上都可辨 */
+.jn-sm-bar__tick { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--warn); border-radius: 2px;
+  transform: translateX(-1px); box-shadow: 0 0 0 1px var(--surface); }
 /* 周期三格（体重：基数大日变小，等比双条失效，用方向格） */
 .jn-sm__deltas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 13px; }
 .jn-sm-delta { background: var(--surface); border-radius: 10px; padding: 9px 11px; min-width: 0; }
 .jn-sm--bare .jn-sm-delta { background: var(--surface-2); }
-.jn-sm-delta__l { font-size: 11px; color: var(--muted); }
+.jn-sm-delta__l { display: flex; justify-content: space-between; align-items: baseline; gap: 4px;
+  font-size: 11px; color: var(--muted); }
+.jn-sm-delta__d { color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .jn-sm-delta__v { font-size: 16px; font-weight: 800; margin-top: 2px; color: var(--text-strong);
   font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jn-sm-delta__v .ar { color: var(--muted); font-size: 12px; margin-right: 2px; }
