@@ -1097,7 +1097,7 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .fund-hero {
   display: flex; align-items: center; gap: 24px;
   padding: 18px 22px; margin-bottom: 14px;
-  background: var(--brand-tint); border: 1px solid var(--brand-border); border-radius: var(--r-lg);
+  background: var(--surface); border: 0; border-radius: var(--r-lg);
 }
 .fund-hero__main { flex: 1; min-width: 0; }
 .fund-hero__meta { font-size: 12.5px; color: var(--muted); font-weight: 600; }
@@ -1105,10 +1105,10 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .fund-hero__num { font-size: 42px; font-weight: 850; line-height: 1.15; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
 .fund-hero__rate {
   font-size: 14px; font-weight: 800; padding: 3px 10px; border-radius: 999px;
-  background: var(--surface); border: 1px solid var(--border); font-variant-numeric: tabular-nums;
+  background: var(--surface-2); border: 0; font-variant-numeric: tabular-nums;
 }
 .fund-hero__pills { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-.fund-pill { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 8px 14px; min-width: 120px; }
+.fund-pill { background: var(--surface-2); border: 0; border-radius: var(--r-md); padding: 8px 14px; min-width: 120px; }
 .fund-pill__l { font-size: 11.5px; color: var(--muted); }
 .fund-pill__v { font-size: 16px; font-weight: 800; color: var(--text-strong); margin-top: 1px; font-variant-numeric: tabular-nums; }
 /* 环图左 + 自定义 legend 右（对齐 demo，避免 Chart bottom legend 在窄容器内竖排挤压、手机被裁）*/
@@ -1133,14 +1133,16 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .fund-card-head h2 { flex: 1; font-size: 15px; font-weight: 800; color: var(--text-strong); margin: 0; }
 .fund-chart-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .fund-chart-tools select {
-  padding: 5px 8px; font-size: 12.5px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  background: var(--surface); color: var(--text); font-family: inherit; width: auto; flex-shrink: 0; margin: 0;
+  padding: 5px 8px; font-size: 12.5px; border: 0; border-radius: var(--r-sm);
+  background: var(--surface-2); color: var(--text); font-family: inherit; width: auto; flex-shrink: 0; margin: 0;
 }
 .fund-subhead { margin: 18px 0 8px; font-size: 14px; font-weight: 700; color: var(--text-strong); }
 
-/* 持仓卡片列表（替代旧 8 列宽表，信息零丢失：份额/成本/本金收进卡片第三行）*/
-.fund-hold-list { display: flex; flex-direction: column; gap: 9px; }
-.fund-hold { border: 1px solid var(--border); border-radius: var(--r-md); padding: 11px 12px; background: var(--surface); }
+/* 持仓行式列表（替代旧 8 列宽表，信息零丢失：份额/成本/本金收进卡片第三行）；
+   去描边小卡改同卡发丝线分隔（iOS 列表语言），封存弱化仍走 is-archived 文字色 */
+.fund-hold-list { display: flex; flex-direction: column; }
+.fund-hold { border: 0; border-radius: 0; padding: 14px 4px; background: transparent; }
+.fund-hold + .fund-hold { border-top: 1px solid var(--th-border); }
 /* 封存行弱化沿用旧 tr.row-archived 手法：只改文字色，不用 opacity（会创建堆叠上下文压住操作下拉）*/
 .fund-hold.is-archived .fund-hold__name,
 .fund-hold.is-archived .fund-hold__pv,
@@ -1155,14 +1157,14 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .fund-hold__right { text-align: right; }
 .fund-hold__pv { font-size: 15px; font-weight: 800; color: var(--text-strong); text-align: right; font-variant-numeric: tabular-nums; }
 .fund-hold__row3 {
-  font-size: 11.5px; color: var(--muted); margin-top: 7px; padding-top: 7px;
-  border-top: 1px dashed var(--border); font-variant-numeric: tabular-nums;
+  font-size: 11.5px; color: var(--muted); margin-top: 8px;
+  font-variant-numeric: tabular-nums;
 }
 .fund-hold-tip { font-size: 11.5px; margin: 8px 0 0; }
 
 /* 工具 Tab（持仓分析 / 情景测算合并卡）*/
 .fund-tool-tabs {
-  display: inline-flex; background: var(--surface-2); border: 1px solid var(--border);
+  display: inline-flex; background: var(--surface-2); border: 0;
   border-radius: 9px; padding: 3px; gap: 2px; margin-bottom: 12px;
 }
 .fund-tool-tabs button {
@@ -1311,7 +1313,7 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .todo-hero {
   display: flex; align-items: center; gap: 24px;
   padding: 18px 22px; margin-bottom: 14px;
-  background: var(--brand-tint); border: 1px solid var(--brand-border); border-radius: var(--r-lg);
+  background: var(--surface); border: 0; border-radius: var(--r-lg);
 }
 .todo-hero__main { flex: 1; min-width: 0; }
 .todo-hero__meta { font-size: 12.5px; color: var(--muted); font-weight: 600; }
@@ -1329,7 +1331,7 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 .todo-hero__seg--today { color: var(--brand-text); font-weight: 800; }
 .todo-hero__pills { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
 .todo-kpi {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface-2); border: 0; border-radius: var(--r-md);
   padding: 8px 16px; min-width: 104px; text-align: center;
 }
 .todo-kpi__l { font-size: 11.5px; color: var(--muted); }
@@ -2667,10 +2669,10 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 /* 图表卡片头部 + 区间选择 */
 .todo-chart-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .todo-range { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-.todo-range button { border: 1px solid var(--border); background: var(--surface); color: var(--link-dim); font-size: 13px; padding: 5px 12px; border-radius: 999px; cursor: pointer; transition: .15s; }
-.todo-range button:hover:not(:active) { border-color: var(--brand-text); color: var(--brand-text); }
-.todo-range button.active { background: var(--brand-strong); border-color: var(--brand-strong); color: #fff; }
-.todo-range button.active:hover:not(:active) { background: var(--brand-strong); border-color: var(--brand-strong); color: #fff; filter: brightness(1.08); }
+.todo-range button { border: 0; background: var(--surface-2); color: var(--link-dim); font-size: 13px; padding: 6px 13px; border-radius: 999px; cursor: pointer; transition: .15s; }
+.todo-range button:hover:not(:active) { color: var(--brand-text); }
+.todo-range button.active { background: var(--brand-tint); color: var(--brand-strong); }
+.todo-range button.active:hover:not(:active) { background: var(--brand-tint); color: var(--brand-strong); }
 /* 筛选 tab：复用 range pill 样式，与列表间留白 */
 .todo-filter { margin: 4px 0 12px; }
 /* 标题行「分析」小按钮：与 h2 文字垂直对齐 */
@@ -2757,10 +2759,10 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .jn-head .jn-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 /* 成员切换 chip（体重多成员） */
 .jn-members { display: inline-flex; flex-wrap: wrap; gap: 6px; }
-.jn-members button { border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+.jn-members button { border: 0; background: var(--surface); color: var(--muted);
   font-size: 13px; font-weight: 600; padding: 6px 14px; min-height: 34px; border-radius: 999px; cursor: pointer; font-family: inherit;
-  -webkit-tap-highlight-color: transparent; transition: border-color .15s, background .15s, color .15s; }
-.jn-members button.on { background: var(--brand-tint); border-color: var(--brand-border); color: var(--brand-strong); }
+  -webkit-tap-highlight-color: transparent; transition: background .15s, color .15s; }
+.jn-members button.on { background: var(--brand-tint); color: var(--brand-strong); }
 /* hero：当前值 − 区间均值 */
 .jn-hero { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
 .jn-hero__num { font-size: 32px; font-weight: 850; line-height: 1.2; color: var(--text-strong);
@@ -2808,6 +2810,21 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .jn-chart-legend i { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid #667eea; border-radius: 2px; }
 .jn-chart-legend i.avg { border-top: 2px dashed #f97316; }
 .jn-chart-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* 智能分析摘要卡：页面内只展示标题 + 一句主结论（体重多成员保留切换 chips），
+   完整 hero/周期对比/基准指标收进「查看更多」弹窗；三主题均取 surface-2 填充 */
+.jn-sm { margin-top: 16px; background: var(--surface-2); border-radius: var(--r-md); padding: 13px 16px; }
+.jn-sm__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.jn-sm__title { display: inline-flex; align-items: center; gap: 5px; font-size: 13.5px; font-weight: 700; color: var(--text-strong); }
+.jn-sm__title svg { color: var(--brand-text); flex: none; margin-right: 0 !important; }
+.jn-sm__more { border: 0; background: none; padding: 2px; font-family: inherit; font-size: 12.5px; font-weight: 700;
+  color: var(--brand-text); cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+.jn-sm__more:hover:not(:active) { text-decoration: underline; }
+.jn-sm__p { font-size: 13px; line-height: 1.7; color: var(--text); margin: 8px 0 0; }
+.jn-sm .jn-members { margin-top: 10px; }
+@media (max-width: 640px) { .jn-sm { padding: 12px 13px; } }
+/* 完整分析在弹窗内呈现：去掉卡片态的虚线顶边与顶部留白 */
+.modal-body .jn { margin-top: 0; padding-top: 0; border-top: 0; }
 
 /* ===== 减肥竞赛弹窗（体重页 🏆 竞赛结果 · 名次卡/单项冠军/领奖台/胖行榜）===== */
 .rc-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

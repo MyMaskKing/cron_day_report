@@ -1333,15 +1333,19 @@ function assetPage(user) {
 
       <div class="as-side">
       <section class="card">
-        <div class="as-card-head"><h2>智能分析</h2><button class="btn sm gray" id="aaEntry" type="button">${ICO_NOTE}月度复盘</button></div>
+        <div class="as-card-head"><h2>智能分析</h2><button class="btn sm gray" id="aaMore" type="button">查看更多</button><button class="btn sm gray" id="aaEntry" type="button">${ICO_NOTE}月度复盘</button></div>
         <p class="asset-desc">看看这个月比平时攒得多还是少。</p>
         <div id="aiVs6" class="asset-status-number" data-base-class="asset-status-number">—</div>
         <div class="asset-status-text" id="aiNote">—</div>
         <div class="asset-metric-list">
           <div class="asset-metric"><span>近6个月平均每月</span><b id="aiAvg6" data-base-class="asset-metric__value">—</b></div>
+        </div>
+        <div id="aiMore" hidden>
+        <div class="asset-metric-list">
           <div class="asset-metric"><span>近12个月平均每月</span><b id="aiAvg12" data-base-class="asset-metric__value">—</b></div>
           <div class="asset-metric"><span>近12个月共增加</span><b id="aiTotal12" data-base-class="asset-metric__value">—</b></div>
           <div class="asset-metric"><span>增加最少的月份</span><b id="aiLowest" data-base-class="asset-metric__value">—</b></div>
+        </div>
         </div>
       </section>
       <section class="card">

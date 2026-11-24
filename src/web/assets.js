@@ -1253,6 +1253,10 @@ function closeModal() {
   // 弹窗关闭后按当前滚动位置恢复原生下拉刷新开关
   try { if (window._appShellReport) window._appShellReport(); } catch(e) {}
 }
+// 智能分析「查看更多」：页面内只留摘要卡，完整 .jn 分析走大弹窗（720px，三格周期对比不挤）
+function openInsightModal(title, html, titleIcon) {
+  openModal(title, html, 'modal-mask--lg', false, titleIcon);
+}
 // 全局滚动锁: 弹窗(modal + mp-menu)打开时锁, 关闭时恢复.
 // 用引用计数, 因为可能同时打开多个层(如 modal 里再开 confirmModal)
 // iOS Safari 单纯 overflow:hidden 仍能滑动, 需 body.no-scroll (position:fixed) 兼容
@@ -5457,7 +5461,8 @@ function renderProfitInsight(winRows) {
     '近30天 ' + sign(r2(sum(last30))) + ' · 前30天 ' + sign(r2(sum(prev30)))) : offCell('较上月（30日累计）', '累计满 60 天后可见');
 
   var bi = vals.indexOf(Math.max.apply(null, vals)), si = vals.indexOf(Math.min.apply(null, vals));
-  box.innerHTML =
+  // 完整分析（弹窗用）：结构/class 与旧 inline 卡完全一致，仅承载位置改为 modal
+  var fullHtml =
     '<div class="jn"><div class="jn-head"><div><h3>智能分析</h3>' +
       '<div class="jn-sub">看看今天赚的比平时多还是少，再和上周、上月比一比</div></div></div>' +
       '<div class="jn-hero"><div class="jn-hero__num" style="color:' + colorOf(hero) + '">' + sign(hero) + ' 元</div>' +
@@ -5470,6 +5475,15 @@ function renderProfitInsight(winRows) {
         metric('亏最多的一天', sign(vals[si]) + ' 元 · ' + md(winRows[si].date)) +
         metric('赚钱天数', posDays + ' / ' + vals.length + ' 天') +
       '</div></div>';
+  // 页面内摘要卡：只放主结论一句话，完整指标进弹窗
+  box.innerHTML =
+    '<div class="jn-sm"><div class="jn-sm__head"><span class="jn-sm__title">' + ICONS.lightbulb + '智能分析</span>' +
+      '<button type="button" class="jn-sm__more" id="profitInsightMore">查看更多 ›</button></div>' +
+      '<p class="jn-sm__p">' + esc(msg) + '</p></div>';
+  var moreBtn = document.getElementById('profitInsightMore');
+  if (moreBtn) moreBtn.addEventListener('click', function(){
+    openInsightModal('基金收益智能分析', fullHtml, ICONS.lightbulb);
+  });
 }
 
 async function loadProfitHistory() {
@@ -6533,8 +6547,8 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
     ? '<button type="button" class="jn-race-btn" id="wRaceBtn" onclick="openRaceModal()">' + ICONS.trophy + '排行榜</button>' : '';
   // 选中成员在当前区间无记录：渲染空态卡（保留成员切换）
   if (!recsOf(filtered, mid).length) {
-    box.innerHTML = '<div class="jn"><div class="jn-head"><div><div class="jn-title-row"><h3>智能分析 · ' + esc(mdName(m)) + defTag + '</h3>' + raceBtn + '</div>' +
-      '<div class="jn-sub">这段时间还没有 TA 的体重记录</div></div>' + chipsHtml() + '</div></div>';
+    box.innerHTML = '<div class="jn-sm"><div class="jn-sm__head"><div class="jn-title-row"><span class="jn-sm__title">' + ICONS.lightbulb + '智能分析 · ' + esc(mdName(m)) + defTag + '</span>' + raceBtn + '</div></div>' +
+      chipsHtml() + '<p class="jn-sm__p" style="color:var(--muted)">这段时间还没有 TA 的体重记录</p></div>';
     bindWeightChips(box, mlist, filtered);
     return;
   }
@@ -6595,9 +6609,10 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
     ? rangeText + '（按上面选的时间统计）· 曲线图对比所有成员；点名字只看 TA，点「全部」看所有人'
     : rangeText + '（按上面选的时间统计）· 图中橙色虚线是「' + esc(mdName(m)) + '」这段时间的平均体重';
 
-  box.innerHTML =
-    '<div class="jn"><div class="jn-head"><div><div class="jn-title-row"><h3>智能分析 · ' + esc(mdName(m)) + defTag + '</h3>' + raceBtn + '</div>' +
-      '<div class="jn-sub">' + sub + '</div></div>' + chips + '</div>' +
+  // 完整分析（弹窗用）：chips/排行榜入口留在摘要卡驱动曲线，不进弹窗（也避免 wRaceBtn 重复 id）
+  var fullHtml =
+    '<div class="jn"><div class="jn-head"><div><h3>智能分析 · ' + esc(mdName(m)) + defTag + '</h3>' +
+      '<div class="jn-sub">' + sub + '</div></div></div>' +
       '<div class="jn-hero"><div class="jn-hero__num">' + sign1(hero) + U() + '</div>' +
       '<div class="jn-hero__calc">最新 ' + latestV + U() + '（' + md(latest.record_date) + '）· 这段时间平均 ' + avg + U() + '</div></div>' +
       '<div class="jn-note flat">' + esc(msg) + '</div>' +
@@ -6612,6 +6627,17 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
         metric('这段时间最低', vals[lo] + U() + ' · ' + md(recs[lo].record_date)) +
         metric('记录天数', recs.length + ' 天') +
       '</div></div>';
+
+  // 摘要卡：标题行（含手机端排行榜入口）+ 成员切换 chips + 主结论；完整指标进弹窗
+  box.innerHTML =
+    '<div class="jn-sm"><div class="jn-sm__head"><div class="jn-title-row"><span class="jn-sm__title">' + ICONS.lightbulb + '智能分析 · ' + esc(mdName(m)) + defTag + '</span>' + raceBtn + '</div>' +
+      '<button type="button" class="jn-sm__more" id="wInsightMore">查看更多 ›</button></div>' +
+      chips +
+      '<p class="jn-sm__p">' + esc(msg) + '</p></div>';
+  var wMore = document.getElementById('wInsightMore');
+  if (wMore) wMore.addEventListener('click', function(){
+    openInsightModal('智能分析 · ' + mdName(m), fullHtml, ICONS.lightbulb);
+  });
 
   bindWeightChips(box, mlist, filtered);
 }
@@ -8752,6 +8778,16 @@ function openAnalysisDetail(month, rows){
 }
 var aaEntry = document.getElementById('aaEntry');
 if (aaEntry) aaEntry.addEventListener('click', function(){ openAnalysisEditor(); });
+// 智能分析摘要化：4 个基准指标收进 hidden 模板（id 保留，setTrendNum 照常更新），点击克隆去 id 后进弹窗
+var aaMore = document.getElementById('aaMore');
+if (aaMore) aaMore.addEventListener('click', function(){
+  var tpl = document.getElementById('aiMore');
+  if (!tpl) return;
+  var clone = tpl.cloneNode(true);
+  clone.removeAttribute('hidden');
+  Array.prototype.forEach.call(clone.querySelectorAll('[id]'), function(el){ el.removeAttribute('id'); });
+  openModal('资产智能分析', clone.innerHTML, 'modal-mask--lg', false, ICONS.lightbulb);
+});
 
 // 低频表 Tab：月度各类型合计 / 月度记录 两个 pane 显隐互换（纯前端，表格渲染与 id 不变）
 Array.prototype.forEach.call(document.querySelectorAll('.as-tabs button'), function(btn){
