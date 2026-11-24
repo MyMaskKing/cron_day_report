@@ -29,6 +29,7 @@ const ICO_SLIDERS = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none"
 // 功能型图标补充（Feather/lucide 风 currentColor 描边）：替代同名 emoji，防微信 X5 内核失渲染
 const ICO_REFRESH = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
 const ICO_NOTE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+const ICO_LIGHTBULB = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>';
 const ICO_USERS = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
 const ICO_BAR_CHART = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>';
 const ICO_SMARTPHONE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px;"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>';
@@ -1333,18 +1334,33 @@ function assetPage(user) {
 
       <div class="as-side">
       <section class="card">
-        <div class="as-card-head"><h2>智能分析</h2><button class="btn sm gray" id="aaMore" type="button">查看更多</button><button class="btn sm gray" id="aaEntry" type="button">${ICO_NOTE}月度复盘</button></div>
-        <p class="asset-desc">看看这个月比平时攒得多还是少。</p>
-        <div id="aiVs6" class="asset-status-number" data-base-class="asset-status-number">—</div>
-        <div class="asset-status-text" id="aiNote">—</div>
-        <div class="asset-metric-list">
-          <div class="asset-metric"><span>近6个月平均每月</span><b id="aiAvg6" data-base-class="asset-metric__value">—</b></div>
+        <div class="jn-sm jn-sm--bare">
+        <div class="jn-sm__head"><span class="jn-sm__title">${ICO_LIGHTBULB}智能分析</span>
+          <span class="jn-sm__acts">
+            <button class="jn-sm__more" id="aaMore" type="button">查看更多 ›</button>
+            <button class="jn-sm__more" id="aaEntry" type="button">${ICO_NOTE}月度复盘</button>
+          </span></div>
+        <div class="jn-sm__hero">
+          <span id="aiVs6" class="jn-sm__num" data-base-class="jn-sm__num">—</span>
+          <span id="aiVerdict" class="jn-sm__chip jn-sm__chip--flat">数据不足</span>
         </div>
+        <div class="jn-sm__bars" id="aiBars">
+          <div class="jn-sm-bar">
+            <div class="jn-sm-bar__top"><span class="l">本月增加</span><span class="v" id="aiCurVal">—</span></div>
+            <div class="jn-sm-bar__track"><i class="jn-sm-bar__fill jn-sm-bar__fill--cur" id="aiCurFill" style="width:0%"></i></div>
+          </div>
+          <div class="jn-sm-bar">
+            <div class="jn-sm-bar__top"><span class="l">近6个月平均每月</span><span class="v" id="aiAvg6" data-base-class="v">—</span></div>
+            <div class="jn-sm-bar__track jn-sm-bar__track--ref"><i class="jn-sm-bar__fill jn-sm-bar__fill--avg" id="aiAvgFill" style="width:0%"></i><span class="jn-sm-bar__tick" id="aiAvgTick" style="left:0%"></span></div>
+          </div>
+        </div>
+        <p class="jn-sm__p" id="aiNote">—</p>
         <div id="aiMore" hidden>
         <div class="asset-metric-list">
           <div class="asset-metric"><span>近12个月平均每月</span><b id="aiAvg12" data-base-class="asset-metric__value">—</b></div>
           <div class="asset-metric"><span>近12个月共增加</span><b id="aiTotal12" data-base-class="asset-metric__value">—</b></div>
           <div class="asset-metric"><span>增加最少的月份</span><b id="aiLowest" data-base-class="asset-metric__value">—</b></div>
+        </div>
         </div>
         </div>
       </section>

@@ -5475,11 +5475,36 @@ function renderProfitInsight(winRows) {
         metric('亏最多的一天', sign(vals[si]) + ' 元 · ' + md(winRows[si].date)) +
         metric('赚钱天数', posDays + ' / ' + vals.length + ' 天') +
       '</div></div>';
-  // 页面内摘要卡：只放主结论一句话，完整指标进弹窗
+  // 页面内摘要卡：hero 差值 + 结论 chip + 双条对比（今日 vs 平时平均），完整指标进弹窗
+  var barScale = Math.max(Math.abs(today.profit), Math.abs(avg), 1);
+  var curW = Math.round(Math.abs(today.profit) / barScale * 100);
+  var avgW = Math.round(Math.abs(avg) / barScale * 100);
+  var curValCls = today.profit > 0 ? 'var(--danger)' : today.profit < 0 ? 'var(--ok-text)' : 'var(--muted)';
+  // 基金红涨绿跌：hero>0 走红（is-money-pos/chip--pos），hero<0 走绿
+  var heroCls = flat ? 'is-flat' : hero > 0 ? 'is-money-pos' : 'is-money-neg';
+  var chipHtml = flat
+    ? '<span class="jn-sm__chip jn-sm__chip--flat">≈ 与平时持平</span>'
+    : hero > 0
+      ? '<span class="jn-sm__chip jn-sm__chip--pos">↑ 今日高于均值</span>'
+      : '<span class="jn-sm__chip jn-sm__chip--neg">↓ 今日低于均值</span>';
+  var inlineP = (flat
+      ? '今天收益和平时平均差不多（差值 < 3 元）；'
+      : '今天比平时平均' + (hero > 0 ? '多赚 ' + hero : '少赚 ' + (-hero)) + ' 元；') +
+    '这段时间 ' + vals.length + ' 天里有 ' + posDays + ' 天在赚钱。';
   box.innerHTML =
     '<div class="jn-sm"><div class="jn-sm__head"><span class="jn-sm__title">' + ICONS.lightbulb + '智能分析</span>' +
       '<button type="button" class="jn-sm__more" id="profitInsightMore">查看更多 ›</button></div>' +
-      '<p class="jn-sm__p">' + esc(msg) + '</p></div>';
+      '<div class="jn-sm__hero"><span class="jn-sm__num ' + heroCls + '">' + sign(hero) + '<small>元</small></span>' + chipHtml + '</div>' +
+      '<div class="jn-sm__bars">' +
+        '<div class="jn-sm-bar"><div class="jn-sm-bar__top"><span class="l">今日收益</span>' +
+          '<span class="v" style="color:' + curValCls + '">' + sign(r2(today.profit)) + '</span></div>' +
+          '<div class="jn-sm-bar__track"><i class="jn-sm-bar__fill jn-sm-bar__fill--cur" style="width:' + curW + '%"></i></div></div>' +
+        '<div class="jn-sm-bar"><div class="jn-sm-bar__top"><span class="l">平时平均每天</span>' +
+          '<span class="v">' + sign(r2(avg)) + '</span></div>' +
+          '<div class="jn-sm-bar__track jn-sm-bar__track--ref"><i class="jn-sm-bar__fill jn-sm-bar__fill--avg" style="width:' + avgW + '%"></i>' +
+            '<span class="jn-sm-bar__tick" style="left:' + avgW + '%"></span></div></div>' +
+      '</div>' +
+      '<p class="jn-sm__p">' + esc(inlineP) + '</p></div>';
   var moreBtn = document.getElementById('profitInsightMore');
   if (moreBtn) moreBtn.addEventListener('click', function(){
     openInsightModal('基金收益智能分析', fullHtml, ICONS.lightbulb);
@@ -6628,12 +6653,27 @@ function renderWeightInsight(mlist, filtered, mid, selfId) {
         metric('记录天数', recs.length + ' 天') +
       '</div></div>';
 
-  // 摘要卡：标题行（含手机端排行榜入口）+ 成员切换 chips + 主结论；完整指标进弹窗
+  // 摘要卡：hero 中性色（体重只呈现方向不做好坏）+ 灰 chip 结论 + 三格区间变化；chips/排行榜入口留卡底驱动曲线
+  function smCell(label, ref) {
+    if (!ref) return '<div class="jn-sm-delta is-off"><div class="jn-sm-delta__l">' + label + '</div>' +
+      '<div class="jn-sm-delta__v">数据不足</div></div>';
+    var d = round1(latestV - toDisplay(ref.weight));
+    var ar = d < 0 ? '↓' : d > 0 ? '↑' : '';
+    return '<div class="jn-sm-delta"><div class="jn-sm-delta__l">' + label + '</div>' +
+      '<div class="jn-sm-delta__v"><span class="ar">' + ar + '</span>' + sign1(d) + U() + '</div></div>';
+  }
+  var wChip = flat ? '≈ 与区间平均持平'
+    : hero < 0 ? '↓ 轻于区间平均' : '↑ 重于区间平均';
   box.innerHTML =
     '<div class="jn-sm"><div class="jn-sm__head"><div class="jn-title-row"><span class="jn-sm__title">' + ICONS.lightbulb + '智能分析 · ' + esc(mdName(m)) + defTag + '</span>' + raceBtn + '</div>' +
       '<button type="button" class="jn-sm__more" id="wInsightMore">查看更多 ›</button></div>' +
-      chips +
-      '<p class="jn-sm__p">' + esc(msg) + '</p></div>';
+      '<div class="jn-sm__hero"><span class="jn-sm__num">' + sign1(hero) + '<small>' + unitLabel() + '</small></span>' +
+        '<span class="jn-sm__chip jn-sm__chip--flat">' + wChip + '</span></div>' +
+      '<div class="jn-sm__deltas">' +
+        smCell('较昨日', prev) + smCell('较上周', refWeek) + smCell('较上月', refMonth) +
+      '</div>' +
+      '<p class="jn-sm__p">' + esc(msg) + '</p>' +
+      chips + '</div>';
   var wMore = document.getElementById('wInsightMore');
   if (wMore) wMore.addEventListener('click', function(){
     openInsightModal('智能分析 · ' + mdName(m), fullHtml, ICONS.lightbulb);
@@ -7215,7 +7255,7 @@ function renderRaceBody() {
     raceMeHtml(r) + raceWinsHtml(r) + racePodiumHtml(r) +
     '<div class="rc-sec" style="margin-top:12px;">完整榜单</div>' + raceListHtml(r) + raceInsufficientHtml(r);
 }
-// 我的名次卡：大数字名次 + 总分进度条 + 总分/打卡/效果三格；未入榜灰态
+// 我的名次：紧凑横条（名次 + 名/总分进度条 + 总分/打卡/效果三格）；未入榜灰态
 function raceMeHtml(r) {
   if (!r.selfM) return '';
   var x = null;
@@ -7225,24 +7265,20 @@ function raceMeHtml(r) {
   if (!x) {
     var z = r.insufficient.filter(function(q){ return q.m.id === r.selfM.id; })[0];
     return '<div class="rc-me is-off"><div class="rc-me__rank">—</div>' +
-      '<div class="rc-me__mid"><div class="rc-me__label">我的名次</div>' +
-      '<div class="rc-me__name">' + esc(mdName(r.selfM)) + '</div>' +
-      '<div class="rc-me__hint">本区间仅 ' + (z ? z.n : 0) + ' 条记录，满 2 条才计入排名</div></div></div>';
+      '<div class="rc-me__mid"><div class="rc-me__name">' + esc(mdName(r.selfM)) + '</div>' +
+      '<div style="font-size:11px;color:var(--muted);margin-top:4px;">本区间仅 ' + (z ? z.n : 0) + ' 条记录，满 2 条才计入排名</div></div></div>';
   }
   var maxScore = r.qualified[0].score;
-  var hint = x.pos === 1 ? '当前榜首，守擂中' : '距榜首还差 ' + (maxScore - x.score) + ' 分';
   return '<div class="rc-me"><div class="rc-me__rank">' + x.pos + '<small> / ' + r.P + '</small></div>' +
-    '<div class="rc-me__mid"><div class="rc-me__label">我的名次</div>' +
-    '<div class="rc-me__name">' + esc(mdName(x.m)) + '</div>' +
-    '<div class="rc-me__bar"><i style="width:' + Math.round(x.score / maxScore * 100) + '%"></i></div>' +
-    '<div class="rc-me__hint">' + hint + '</div></div>' +
+    '<div class="rc-me__mid"><div class="rc-me__name">' + esc(mdName(x.m)) + '</div>' +
+    '<div class="rc-me__bar"><i style="width:' + Math.round(x.score / maxScore * 100) + '%"></i></div></div>' +
     '<div class="rc-me__stats">' +
       '<div><div class="v">' + x.score + '</div><div class="l">总分</div></div>' +
       '<div><div class="v">' + x.days + '天</div><div class="l">打卡</div></div>' +
       '<div><div class="v">' + raceDeltaHtml(x.delta) + '</div><div class="l">效果</div></div>' +
     '</div></div>';
 }
-// 单项冠军：坚持王（打卡天数）/减重王（首末差，带方向箭头）/稳定王（变异系数，全员 n<3 则数据不足）
+// 单项冠军：发丝线三格（坚持王/减重王/稳定王），全员 n<3 时稳定王数据不足
 function raceWinsHtml(r) {
   function best(key, bigger) {
     return r.qualified.slice().sort(function(a, b){
@@ -7258,60 +7294,62 @@ function raceWinsHtml(r) {
         return a.cv === b.cv ? a.m.id - b.m.id : (a.cv < b.cv ? -1 : 1);
       })[0]
     : null;
-  function card(label, x, v, u, arrow) {
+  function cell(label, icon, x, v, u) {
     if (!x) return '<div class="rc-win rc-win--off"><div class="rc-win__l">' + label + '</div>' +
       '<div class="rc-win__v">—</div><div class="rc-win__n">数据不足</div></div>';
-    return '<div class="rc-win"><div class="rc-win__l">' + label + '</div>' +
-      '<div class="rc-win__v">' + (arrow || '') + v + '<small>' + u + '</small></div>' +
+    return '<div class="rc-win"><div class="rc-win__l">' + icon + label + '</div>' +
+      '<div class="rc-win__v">' + v + '<small>' + u + '</small></div>' +
       '<div class="rc-win__n">' + esc(mdName(x.m)) + '</div></div>';
   }
-  var dArrow = deltaBest.delta < 0 ? '↓' : (deltaBest.delta > 0 ? '↑' : '');
+  var dVal = Math.round(Math.abs(toDisplay(deltaBest.delta)) * 10) / 10;
   return '<div class="rc-sec">单项冠军</div><div class="rc-wins">' +
-    card(ICONS.calendar + '坚持王', daysBest, daysBest.days, '天', '') +
-    card(ICONS.arrow_down + '减重王', deltaBest, (Math.round(Math.abs(toDisplay(deltaBest.delta)) * 10) / 10), unitLabel(), dArrow) +
-    card(ICONS.bar_chart + '稳定王', cvBest, cvBest ? (Math.round(cvBest.cv * 10) / 10) : null, '%', '') +
+    cell('坚持王', ICONS.calendar, daysBest, daysBest.days, '天') +
+    cell('减重王', ICONS.arrow_down, deltaBest, dVal, unitLabel()) +
+    cell('稳定王', ICONS.bar_chart, cvBest, cvBest ? (Math.round(cvBest.cv * 10) / 10) : null, '%') +
     '</div>';
 }
-// 总榜前三领奖台：列固定 亚军/冠军/季军，冠军恒在中间且突出；P=2/1 时缺位留空列保持居中
+// 总榜前三领奖台：CSS 渐变金属环 + 头像名次角标（替代 emoji），冠军恒在中间且突出；
+// 并列第一时左列留空（另一冠军在完整榜中同样挂名次色）；P=2/1 缺位留空列保持居中
 function racePodiumHtml(r) {
-  // 中柱恒为排序首位冠军；并列第一时左列留空（另一冠军在完整榜中同样挂🥇）
   var first = r.qualified[0];
   var second = r.qualified[1] && r.qualified[1].pos === 2 ? r.qualified[1] : null;
   var third = null;
   for (var i = 0; i < r.qualified.length; i++) {
     if (r.qualified[i].pos === 3) { third = r.qualified[i]; break; }
   }
-  var medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
   function col(x, pos) {
-    if (!x) return '<div class="rc-pcol" style="background:transparent;"></div>';
-    var crown = pos === 1 ? '<div class="rc-pcol__crown">👑</div>' : '';
-    return '<div class="rc-pcol rc-pcol--' + pos + '">' + crown +
-      '<div class="rc-pcol__medal">' + medals[pos] + '</div>' +
+    if (!x) return '<div class="rc-pcol"></div>';
+    var crown = pos === 1 ? '<span class="rc-pcol__crown"></span>' : '';
+    return '<div class="rc-pcol rc-pcol--' + pos + '">' +
+      '<div class="rc-pcol__ring">' + crown +
+        '<span class="rc-pcol__av">' + esc(mdName(x.m).slice(0, 1)) + '</span>' +
+        '<span class="rc-pcol__badge">' + pos + '</span></div>' +
       '<div class="rc-pcol__name">' + esc(mdName(x.m)) + '</div>' +
       '<div class="rc-pcol__delta">' + raceDeltaHtml(x.delta) + '</div>' +
-      '<div class="rc-pcol__days">打卡 ' + x.days + ' 天</div></div>';
+      '<div class="rc-pcol__days">打卡 ' + x.days + ' 天</div>' +
+      '<div class="rc-pcol__base"><b>' + x.score + '</b><span>总分</span></div>' +
+    '</div>';
   }
   return '<div class="rc-sec">总榜前三</div><div class="rc-podium">' +
     col(second, 2) + col(first, 1) + col(third, 3) + '</div>' +
-    '<div class="rc-podium-note">' + r.hitLo + ' ~ ' + r.hitHi + '</div>';
+    '<div class="rc-podium-note">' + r.hitLo + ' ~ ' + r.hitHi + ' · 按总分排名</div>';
 }
-// 完整榜单胖行：奖牌/名次、头像、名+好友/共享标签、打卡·波动、减重、总分、行底胖进度条
+// 完整榜单：iOS 发丝线列表（与基金持仓行同语言）。名次用金银铜色数字，去 emoji/胖进度条
 function raceListHtml(r) {
-  var maxScore = r.qualified[0].score;
-  var medals = ['🥇', '🥈', '🥉'];
-  return r.qualified.map(function(x){
+  var rows = r.qualified.map(function(x){
     var isMe = r.selfM && x.m.id === r.selfM.id;
+    var rankCls = x.pos <= 3 ? ' rc-rank--' + x.pos : '';
     var cvTxt = x.cv != null ? '波动 ' + (Math.round(x.cv * 10) / 10) + '%' : '波动 —';
     return '<div class="rc-row' + (isMe ? ' is-me' : '') + '">' +
-      '<span class="rc-rank">' + (x.pos <= 3 ? medals[x.pos - 1] : x.pos) + '</span>' +
+      '<span class="rc-rank' + rankCls + '">' + x.pos + '</span>' +
       raceAvatar(x.m) +
       '<div class="rc-row__who"><div class="rc-row__name">' + esc(mdName(x.m)) + raceTags(x.m) + '</div>' +
       '<div class="rc-row__meta">打卡 ' + x.days + ' 天 · ' + cvTxt + '</div></div>' +
       '<span class="rc-row__delta">' + raceDeltaHtml(x.delta) + '</span>' +
       '<span class="rc-row__score">' + x.score + '</span>' +
-      '<div class="rc-row__bar" style="width:' + Math.round(x.score / maxScore * 100) + '%;"></div>' +
     '</div>';
   }).join('');
+  return '<div class="rc-list">' + rows + '</div>';
 }
 // 数据不足区（区间内 0-1 条记录，不入榜）
 function raceInsufficientHtml(r) {
@@ -8156,11 +8194,68 @@ function renderSummary(report, goal, year) {
   var lowMonth = lowIndex >= 0 ? report.months[lowIndex] : null;
 
   setTrendNum('sChange', latestChange);
-  setTrendNum('aiVs6', diff6);
   setTrendNum('aiAvg6', avg6);
   setTrendNum('aiAvg12', avg12);
   setTrendNum('aiTotal12', total12);
   setAssetText('aiLowest', lowMonth ? lowMonth + ' ' + signedMoney(lowValue) : '—');
+
+  // 智能分析摘要卡：hero 核心差值 + 语义 chip + 双条对比（本月增加 vs 近6月平均）
+  var elVs6 = document.getElementById('aiVs6');
+  var elVerdict = document.getElementById('aiVerdict');
+  var elBars = document.getElementById('aiBars');
+  var elCurVal = document.getElementById('aiCurVal');
+  var elCurFill = document.getElementById('aiCurFill');
+  var elAvgFill = document.getElementById('aiAvgFill');
+  var elAvgTick = document.getElementById('aiAvgTick');
+  // 资产语义：好=绿、差=红；chip 类名沿用基金红涨绿跌命名（--neg 绿 / --pos 红），此处显式映射
+  function setVerdict(text, mode) {
+    if (!elVerdict) return;
+    elVerdict.textContent = text;
+    elVerdict.className = 'jn-sm__chip ' + (mode === 'good' ? 'jn-sm__chip--neg'
+      : mode === 'bad' ? 'jn-sm__chip--pos' : 'jn-sm__chip--flat');
+  }
+  function setHero(v, mode) {
+    if (!elVs6) return;
+    elVs6.textContent = signedMoney(v);
+    elVs6.className = 'jn-sm__num' + (mode === 'good' ? ' is-up' : mode === 'bad' ? ' is-down' : ' is-flat');
+  }
+  if (elCurVal) elCurVal.textContent = signedMoney(latestChange);
+  if (latestChange == null) {
+    // 数据不足：无本月变化，隐藏双条
+    setHero(null, 'flat');
+    setVerdict('数据不足', 'flat');
+    if (elBars) elBars.style.display = 'none';
+  } else if (latestChange < 0) {
+    // 本月减少：hero 即本月变化（红），无对比条
+    setHero(latestChange, 'bad');
+    setVerdict('↓ 本月减少', 'bad');
+    if (elBars) elBars.style.display = 'none';
+  } else if (avg6 == null) {
+    // 有本月变化但历史不足 6 月：只呈现本月，暂不对比
+    setHero(latestChange, latestChange > 0 ? 'good' : 'flat');
+    setVerdict('暂无近6月对比', 'flat');
+    if (elBars) elBars.style.display = 'none';
+  } else {
+    // 同单位金额可比例：双条 + 均值刻度
+    if (elBars) elBars.style.display = 'grid';
+    var barScale = Math.max(Math.abs(latestChange), Math.abs(avg6), 1);
+    var curW = Math.round(Math.abs(latestChange) / barScale * 100);
+    var avgW = Math.round(Math.abs(avg6) / barScale * 100);
+    if (elCurFill) elCurFill.style.width = curW + '%';
+    if (elAvgFill) elAvgFill.style.width = avgW + '%';
+    if (elAvgTick) elAvgTick.style.left = avgW + '%';
+    if (elCurVal) elCurVal.style.color = latestChange > 0 ? 'var(--ok-text)' : 'var(--muted)';
+    if (diff6 > 0) {
+      setHero(diff6, 'good');
+      setVerdict('↑ 高于近6月平均', 'good');
+    } else if (diff6 < 0) {
+      setHero(diff6, 'bad');
+      setVerdict('↓ 低于近6月平均', 'bad');
+    } else {
+      setHero(diff6, 'flat');
+      setVerdict('≈ 与近6月平均持平', 'flat');
+    }
+  }
 
   var note = document.getElementById('aiNote');
   if (note) {
@@ -8179,7 +8274,7 @@ function renderSummary(report, goal, year) {
       msg = '这个月增加的比近 6 个月的平均水平少。';
     }
     note.textContent = msg;
-    note.className = 'asset-status-text';
+    note.className = 'jn-sm__p';
   }
 
   var goalEdit = document.getElementById('goalEdit');
