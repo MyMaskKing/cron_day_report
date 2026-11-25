@@ -321,6 +321,12 @@ private fun tabIndexFor(url: String?, tabs: List<Tab>): Int {
 private val CORE_TAB_PATHS = setOf("/dashboard", "/todo", "/fund", "/weight", "/asset")
 private const val AUX_SLOT_KEY = "_aux"
 
+// 进程级冷启动勉励卡片状态：多 WebView 各自有独立 sessionStorage，需在原生层统一记录“本次冷启动已展示”
+private object AppMottoSession {
+    @Volatile
+    var shownThisColdStart: Boolean = false
+}
+
 private fun slotKeyForUrl(url: String?): String {
     val path = url?.let { runCatching { Uri.parse(it).path }.getOrNull() } ?: return AUX_SLOT_KEY
     return CORE_TAB_PATHS.firstOrNull { path == it || path.startsWith("$it/") } ?: AUX_SLOT_KEY
@@ -978,6 +984,14 @@ private fun AppShell(
                             @JavascriptInterface
                             fun setDefaultHome(home: String) {
                                 Handler(Looper.getMainLooper()).post { dashTab = home == "dashboard" }
+                            }
+
+                            @JavascriptInterface
+                            fun hasMottoShown(): Boolean = AppMottoSession.shownThisColdStart
+
+                            @JavascriptInterface
+                            fun markMottoShown() {
+                                AppMottoSession.shownThisColdStart = true
                             }
 
                         }, "AppShell")

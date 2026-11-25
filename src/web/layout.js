@@ -4731,11 +4731,13 @@ function renderMottoCard(user) {
   var today = ${jsJson(user.mottoToday || '')};
   var device = ${user.appShell ? 'true' : 'false'} ? 'app' : (window.innerWidth <= 640 ? 'mobile' : 'pc');
   var freq = cfg[device] || 'daily';
+  var appShown = !!(window.AppShell && window.AppShell.hasMottoShown && window.AppShell.hasMottoShown());
   var due = false;
-  if (freq === 'every') due = sessionStorage.getItem('mottoOpen') !== '1';
-  else if (freq === 'daily') due = seen[device] !== today && sessionStorage.getItem('mottoDaily') !== today;
+  if (freq === 'every') due = !appShown && sessionStorage.getItem('mottoOpen') !== '1';
+  else if (freq === 'daily') due = !appShown && seen[device] !== today && sessionStorage.getItem('mottoDaily') !== today;
   if (due) {
     ov.classList.add('is-on');
+    if (window.AppShell && window.AppShell.markMottoShown) window.AppShell.markMottoShown();
     if (freq === 'every') sessionStorage.setItem('mottoOpen', '1');
     else sessionStorage.setItem('mottoDaily', today);
   }
@@ -4743,6 +4745,7 @@ function renderMottoCard(user) {
   function closeMotto(){
     if (closing) return; closing = true;
     ov.classList.add('is-closing');
+    if (window.AppShell && window.AppShell.markMottoShown) window.AppShell.markMottoShown();
     sessionStorage.setItem('mottoDaily', today);
     try {
       fetch('/api/auth/motto-seen', { method:'POST', keepalive:true, credentials:'same-origin',
