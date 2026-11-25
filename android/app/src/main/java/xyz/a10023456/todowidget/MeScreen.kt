@@ -487,26 +487,7 @@ fun MeScreen(
                         color = scheme.onSurface
                     )
                     OutlinedButton(onClick = {
-                        val intent = Intent(appContext, AlarmRingingService::class.java).apply {
-                            action = AlarmRingingService.ACTION_START
-                            putExtra(
-                                AlarmRingingService.EXTRA_ALARM,
-                                StoredTaskAlarm(
-                                    key = "test_alarm",
-                                    todoId = "test",
-                                    baseUrl = baseUrl,
-                                    dueDate = "2099-01-01",
-                                    minute = 0,
-                                    title = "闹钟试听",
-                                    triggerAtMillis = System.currentTimeMillis()
-                                )
-                            )
-                        }
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                            appContext.startForegroundService(intent)
-                        } else {
-                            appContext.startService(intent)
-                        }
+                        AlarmRingingService.startTest(appContext)
                     }) { Text("测试") }
                     TextButton(onClick = {
                         if (!TaskAlarmScheduler.openAlarmChannelSettings(appContext)) {

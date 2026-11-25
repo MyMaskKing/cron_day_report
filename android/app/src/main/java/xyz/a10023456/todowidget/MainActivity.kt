@@ -38,6 +38,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -486,7 +487,7 @@ private fun AppShell(
         val effectiveImePx = (imeBottomPx - bottomBarPx).coerceAtLeast(0f)
         kbCss = effectiveImePx / density.density
         // 注入键盘高度并通知网页：弹窗贴键盘上沿（.kb-on）+ 把当前聚焦框滚到键盘上方
-        webViewRef?.evaluateJavascript(
+        activeWebView?.evaluateJavascript(
             "document.documentElement.style.setProperty('--kb-native','${kbCss}px');" +
                 "window.__onKb&&window.__onKb();",
             null
