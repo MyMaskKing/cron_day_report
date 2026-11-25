@@ -93,7 +93,8 @@ object ApiClient {
             return runCatching {
                 val u = JSONObject(body).getJSONObject("user")
                 val role = u.optString("role", "user").takeIf { it == "admin" || it == "user" } ?: "user"
-                val name = u.optString("username", "").trim()
+                val nick = u.optString("nickname", "").trim()
+                val name = nick.ifBlank { u.optString("username", "").trim() }
                 name to role
             }.getOrNull()
         }

@@ -1199,9 +1199,13 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .fund-hero__donut { width: 100%; justify-content: center; }
   .fund-donut-side { max-width: 200px; }
   .fund-layout { gap: 10px; }
-  /* 手机端优先看持仓明细：将右栏（持仓明细+工具）提到收益曲线上方 */
-  .fund-side { order: -1; }
-  .fund-main .card, .fund-side .card { margin-bottom: 10px; }
+  /* 手机端顺序：持仓明细(1) → 每日总收益曲线(2) → 每日推送(3) → 分析测算(4) */
+  .fund-main, .fund-side { display: contents; }
+  .fund-side > .card:first-child { order: 1; }
+  .fund-main > .card:first-child { order: 2; }
+  .fund-side > .push-card { order: 3; }
+  .fund-side > .card:last-child { order: 4; }
+  .fund-layout > * > .card, .fund-layout > * > details { margin-bottom: 0; }
   /* 持仓 ⋯ 菜单保持右对齐：全局手机规则 .dropdown-menu{left:0} 会让右侧按钮的菜单向右冲出视口 */
   .fund-hold .dropdown-menu { left: auto; right: 0; }
 }
@@ -1284,12 +1288,19 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .as-topbar { padding: 10px 14px; margin-bottom: 10px; }
   .as-hero { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px; margin-bottom: 10px; }
   .as-hero__num { font-size: 34px; }
-  /* 手机端目标区紧凑横排：64px 圆环在左，标题与三格指标在右，节省首屏纵向空间 */
-  .as-goal { width: 100%; border-left: 0; border-top: 1px solid var(--th-border); padding-left: 0; padding-top: 12px; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 12px; }
-  .as-goal__ring, .as-goal__svg { width: 64px; height: 64px; }
+  /* 手机端目标区：圆环在左，标题与「目标/还差/最新月份」三列在右（左对齐） */
+  .as-goal {
+    width: 100%; border-left: 0; border-top: 1px solid var(--th-border);
+    padding-left: 0; padding-top: 12px;
+    display: grid; grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-rows: auto auto; column-gap: 14px; row-gap: 6px;
+    align-items: center;
+  }
+  .as-goal__ring { grid-column: 1; grid-row: 1 / 3; justify-self: center; }
+  .as-goal__ring, .as-goal__svg { width: 68px; height: 68px; }
   .as-goal__center b { font-size: 14px; }
-  .as-goal__edit { order: 2; }
-  .as-goal__grid { width: 100%; }
+  .as-goal__edit { grid-column: 2; grid-row: 1; justify-self: start; text-align: left; }
+  .as-goal__grid { grid-column: 2; grid-row: 2; width: 100%; text-align: left; }
   .as-type-pills.asset-type-pills { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   /* 两列后卡宽足够金额完整展示：解除省略号裁剪，保留 nowrap 避免金额断行 */
   .as-type-pills .asset-type-pill__num { overflow: visible; text-overflow: clip; }
