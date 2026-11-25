@@ -812,6 +812,36 @@ function saveSelectPref(el, key){
   if (!el) return;
   try { localStorage.setItem(key, el.value); } catch(e){}
 }
+// 窄屏（<=640px）将 <select> 同步渲染为横向胶囊条：PC 端仍保留原生下拉，双向联动
+function initMobileRangeChips(el){
+  if (!el || el.dataset.chipsInit) return;
+  el.dataset.chipsInit = '1';
+  el.classList.add('m-range-select--enhanced');
+  var wrap = document.createElement('div');
+  wrap.className = 'm-range-chips';
+  function syncActive(){
+    Array.prototype.forEach.call(wrap.children, function(b){
+      b.classList.toggle('is-on', b.dataset.val === el.value);
+    });
+  }
+  Array.prototype.forEach.call(el.options, function(opt){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'm-range-chip';
+    btn.dataset.val = opt.value;
+    btn.textContent = opt.textContent;
+    btn.addEventListener('click', function(){
+      if (el.value === opt.value) return;
+      el.value = opt.value;
+      syncActive();
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    wrap.appendChild(btn);
+  });
+  el.parentNode.insertBefore(wrap, el.nextSibling);
+  el.addEventListener('change', syncActive);
+  syncActive();
+}
 async function api(path, opts) {
   opts = opts || {};
   // ===== 请求指纹防重: 只拦截"在途请求"的重复提交(网速慢/手抖双击) =====
@@ -5888,6 +5918,7 @@ Array.prototype.forEach.call(document.querySelectorAll('.fund-tool-tabs button')
   finally { _initTotal = 0; hideLoading(); }
   // 绑定筛选（select 在 loadReport 时 DOM 已就绪）；切换时持久化区间偏好
   var _prEl = document.getElementById('profitRange');
+  initMobileRangeChips(_prEl);
   _prEl.addEventListener('change', function(){ saveSelectPref(_prEl, 'fundProfitRange'); applyProfitFilter(); });
   // 手动刷新净值: 拉最新估算 + 覆盖今日 fund_profit_daily 快照(修 -本金 类污染)
   // 只刷数据不推送; 如需重发日报, 另点"立即发送日报"按钮
@@ -7533,6 +7564,7 @@ if (shareSearchEl) shareSearchEl.addEventListener('input', function(){ renderSha
 function initFilter() {
   var sel = document.getElementById('rangePreset');
   restoreSelectPref(sel, 'weightRangePreset');
+  initMobileRangeChips(sel);
   function applyPreset(){
     var r = rangeByPreset(sel.value);
     document.getElementById('fStart').value = r[0];
@@ -8661,6 +8693,7 @@ if (goalEdit) {
 function initAssetFilter() {
   var sel = document.getElementById('afPreset');
   restoreSelectPref(sel, 'assetRangePreset');
+  initMobileRangeChips(sel);
   function fillPreset(){
     var r = assetDateRange(sel.value);
     document.getElementById('afStart').value = r[0];

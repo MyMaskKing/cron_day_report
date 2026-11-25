@@ -1052,6 +1052,9 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
 @media (max-width: 640px) {
   .weight-container { margin: 14px auto; }
   .weight-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .weight-topbar__members { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding-bottom: 2px; }
+  .weight-topbar__members::-webkit-scrollbar { display: none; }
+  .weight-topbar__members > * { flex-shrink: 0; }
   .weight-topbar__actions { justify-content: flex-end; flex-wrap: wrap; row-gap: 8px; }
   .weight-topbar__actions .w-unit-seg { margin-left: 0; }
   .weight-hero { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; margin-bottom: 10px; }
@@ -1061,11 +1064,13 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .weight-quick-bar__form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   /* 2×2：成员|日期 / 体重|保存——体重框与保存按钮同行，聚焦弹键盘时按钮不被遮挡 */
   .weight-qf--member, .weight-qf--date, .weight-qf--val, .weight-qf--btn { grid-column: span 1; width: 100%; }
+  .weight-qf input, .weight-qf select, .weight-qf--btn .btn { height: 40px; border-radius: 10px; }
   .weight-qf--btn .btn { width: 100%; }
   .weight-qf__ghost-label { display: none; }
-  /* 筛选条手机端三行堆叠：下拉、开始、结束各占一行整宽 */
-  .weight-chart-tools { flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 8px; }
-  .weight-chart-tools select, .weight-date-input { width: 100%; flex: none; }
+  /* 筛选条手机端：胶囊条占整行，开始/结束日期并排两列 */
+  .weight-chart-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .weight-chart-tools .m-range-chips { grid-column: 1 / -1; }
+  .weight-date-input { width: 100%; flex: none; }
   .weight-chart-wrap { min-height: 180px; }
   /* 收紧双栏间距与智能分析留白 */
   .weight-layout { gap: 10px; }
@@ -1186,13 +1191,16 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .fund-layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
-  .fund-topbar { flex-direction: column; align-items: stretch; gap: 10px; }
-  .fund-topbar__actions { justify-content: flex-end; flex-wrap: wrap; row-gap: 8px; }
+  .fund-topbar { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .fund-topbar__actions { justify-content: flex-end; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; }
+  .fund-topbar__actions::-webkit-scrollbar { display: none; }
   .fund-hero { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px; margin-bottom: 10px; }
   .fund-hero__num { font-size: 34px; }
   .fund-hero__donut { width: 100%; justify-content: center; }
   .fund-donut-side { max-width: 200px; }
   .fund-layout { gap: 10px; }
+  /* 手机端优先看持仓明细：将右栏（持仓明细+工具）提到收益曲线上方 */
+  .fund-side { order: -1; }
   .fund-main .card, .fund-side .card { margin-bottom: 10px; }
   /* 持仓 ⋯ 菜单保持右对齐：全局手机规则 .dropdown-menu{left:0} 会让右侧按钮的菜单向右冲出视口 */
   .fund-hold .dropdown-menu { left: auto; right: 0; }
@@ -1276,9 +1284,12 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .as-topbar { padding: 10px 14px; margin-bottom: 10px; }
   .as-hero { flex-direction: column; align-items: stretch; gap: 14px; padding: 14px; margin-bottom: 10px; }
   .as-hero__num { font-size: 34px; }
-  /* 手机端目标区改横分隔上下堆 */
-  .as-goal { width: 100%; border-left: 0; border-top: 1px solid var(--th-border); padding-left: 0; padding-top: 16px; }
-  .as-goal__ring, .as-goal__svg { width: 96px; height: 96px; }
+  /* 手机端目标区紧凑横排：64px 圆环在左，标题与三格指标在右，节省首屏纵向空间 */
+  .as-goal { width: 100%; border-left: 0; border-top: 1px solid var(--th-border); padding-left: 0; padding-top: 12px; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 12px; }
+  .as-goal__ring, .as-goal__svg { width: 64px; height: 64px; }
+  .as-goal__center b { font-size: 14px; }
+  .as-goal__edit { order: 2; }
+  .as-goal__grid { width: 100%; }
   .as-type-pills.asset-type-pills { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   /* 两列后卡宽足够金额完整展示：解除省略号裁剪，保留 nowrap 避免金额断行 */
   .as-type-pills .asset-type-pill__num { overflow: visible; text-overflow: clip; }
@@ -1290,8 +1301,9 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .as-type-pills .asset-type-cell__p { display: none; }
   .as-layout { gap: 10px; margin-bottom: 10px; }
   .as-main, .as-side { gap: 10px; }
-  .as-chart-tools { flex-direction: column; align-items: stretch; gap: 8px; }
-  .as-chart-tools > div { width: 100%; }
+  .as-chart-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end; }
+  .as-chart-tools > div { width: 100%; min-width: 0; }
+  .as-chart-tools > div:first-child { grid-column: 1 / -1; }
   .as-composition .asset-donut { width: 150px; height: 150px; }
   /* 钱包卡标题行手机保持一行，按钮不被挤下 */
   .as-card-head { flex-wrap: nowrap; }
@@ -4012,11 +4024,28 @@ html { scrollbar-gutter: stable; }
 
 
 /* ============ 移动端适配 (<=640px) ============ */
+/* 窄屏范围胶囊条：PC 隐藏，<=640px 替换原生 select */
+.m-range-chips { display: none; }
 @media (max-width: 640px) {
+  .m-range-select--enhanced { display: none !important; }
+  .m-range-chips {
+    display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch; padding: 2px 0;
+  }
+  .m-range-chips::-webkit-scrollbar { display: none; }
+  .m-range-chip {
+    flex-shrink: 0; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--muted); font-size: 12.5px; font-weight: 600;
+    cursor: pointer; transition: all .15s; font-family: inherit;
+  }
+  .m-range-chip.is-on {
+    background: var(--brand-strong); border-color: var(--brand-strong); color: #fff;
+  }
   /* 旧顶栏已由 .app-side(隐藏)/.m-tabbar 取代, 无 topbar 移动样式 */
   .container { margin: 14px auto; padding: 0 12px; }
   body:has(.m-tabbar) .container { padding-bottom: 80px; }
-  .card { padding: 15px; }
+  .card { padding: 15px; border-radius: 16px; }
   /* 小按钮保持自然高度(与 PC 一致), 避免标题行内被撑成大方块; 需要大触控热区的场景(如待办内联添加钮)各自补 min-height */
   .btn.sm { display: inline-flex; align-items: center; }
   /* 待办筛选/图表区间 8 个胶囊: 单行横滑不换行, 项目不缩减; JS 筛选语义不变 */
@@ -4057,6 +4086,22 @@ html { scrollbar-gutter: stable; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */
   .dropdown-menu { right: auto; left: 0; }
   .modal-mask { padding: 16px 10px; }
+  /* 窄屏通用弹窗默认 BottomSheet 化（长弹窗键盘态 .kb-tall 保留顶部对齐滚动，避免裁切） */
+  .modal-mask:not(.kb-tall):not(.modal-mask--sheet) { padding: 0; align-items: flex-end; }
+  .modal-mask:not(.kb-tall):not(.modal-mask--sheet) .modal-box {
+    width: 100%; max-width: 100%; margin: 0;
+    border-radius: 20px 20px 0 0; max-height: 88vh;
+    display: flex; flex-direction: column;
+    animation: todoSheetUp .22s ease;
+  }
+  .modal-mask:not(.kb-tall):not(.modal-mask--sheet) .modal-head {
+    position: relative; padding: 16px 16px 12px; flex: none;
+  }
+  .modal-mask:not(.kb-tall):not(.modal-mask--sheet) .modal-head::before {
+    content: ""; position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 99px; background: var(--border);
+  }
+  .modal-mask:not(.kb-tall):not(.modal-mask--sheet) .modal-body { overflow-y: auto; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
   /* 键盘弹起·长弹窗: 弹窗靠顶部, 遮罩整体滚动、卡片不裁切(见 .modal-mask.kb-tall 主规则) */
   .modal-mask.kb-tall { padding: 0 10px var(--kb-inset, 0px); }
   /* 滴答清单式待办表单：贴底 sheet。box 绝对定位 bottom 直接跟随 --kb-inset，
