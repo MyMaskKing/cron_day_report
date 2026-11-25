@@ -37,6 +37,13 @@ object Prefs {
 
     fun clearRole(context: Context) = sp(context).edit().remove("account_role").apply()
 
+    fun getUsername(context: Context): String = sp(context).getString("account_username", "") ?: ""
+
+    fun setUsername(context: Context, username: String) =
+        sp(context).edit().putString("account_username", username.trim()).apply()
+
+    fun clearUsername(context: Context) = sp(context).edit().remove("account_username").apply()
+
     fun getToken(context: Context, widgetId: Int): String =
         sp(context).getString("token_$widgetId", "") ?: ""
 

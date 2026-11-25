@@ -60,22 +60,30 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
@@ -158,6 +166,7 @@ class MainActivity : ComponentActivity() {
                     AppShell(
                         initialUrl = deepUrl,
                         savedWebState = savedWebState,
+                        appTheme = appTheme,
                         onWebView = { webViewRef = it },
                         onThemeSelected = { appTheme = it },
                         onTestNotification = { forceEvening -> testNotification(forceEvening) },
@@ -307,6 +316,15 @@ private fun tabIndexFor(url: String?, tabs: List<Tab>): Int {
     return if (idx >= 0) idx else -1
 }
 
+// 核心业务 Tab 各自保活独立 WebView（切 Tab 不重载、保留滚动位置）；非核心页共用 AUX 槽位
+private val CORE_TAB_PATHS = setOf("/dashboard", "/todo", "/fund", "/weight", "/asset")
+private const val AUX_SLOT_KEY = "_aux"
+
+private fun slotKeyForUrl(url: String?): String {
+    val path = url?.let { runCatching { Uri.parse(it).path }.getOrNull() } ?: return AUX_SLOT_KEY
+    return CORE_TAB_PATHS.firstOrNull { path == it || path.startsWith("$it/") } ?: AUX_SLOT_KEY
+}
+
 private fun postTodoAlarmPickResult(webView: WebView, requestId: String, minute: Int) {
     val encodedId = org.json.JSONObject.quote(requestId)
     webView.post {
@@ -322,35 +340,65 @@ private fun postTodoAlarmPickResult(webView: WebView, requestId: String, minute:
 private fun AppShell(
     initialUrl: String?,
     savedWebState: Bundle? = null,
+    appTheme: String = "light",
     onWebView: ((WebView?) -> Unit)? = null,
     onThemeSelected: (String) -> Unit = {},
     onTestNotification: (forceEvening: Boolean) -> Unit = {},
     onTestCustomNotification: (content: String) -> Unit = {}
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val haptic = LocalHapticFeedback.current
     var baseUrl by remember { mutableStateOf(AppConfig.getBaseUrl(context)) }
-    // 当前账号角色：sid 变化时拉 /api/auth/me 更新；「我的」页据此隐藏用户管理
+    // 当前账号角色与用户名：sid 变化时拉 /api/auth/me 更新
     var accountRole by remember { mutableStateOf(Prefs.getRole(context)) }
+    var accountUsername by remember { mutableStateOf(Prefs.getUsername(context)) }
+    var openServerSheetTrigger by remember { mutableIntStateOf(0) }
     // 底部仪表盘 Tab：默认首页=仪表盘时展示（由下方偏好同步与 AppShell 桥驱动）
     var dashTab by rememberSaveable { mutableStateOf(false) }
     val tabs = if (dashTab) listOf(DASH_TAB) + TABS else TABS
     var selected by rememberSaveable { mutableStateOf(tabIndexFor(initialUrl, tabs)) }
     var showMe by rememberSaveable { mutableStateOf(false) }
-    // 冷启动（无深链）加载根路径，服务端按默认首页偏好 302；深链原样打开
-    var targetUrl by rememberSaveable { mutableStateOf(initialUrl ?: (baseUrl + "/")) }
-    var webViewRef by remember { mutableStateOf<WebView?>(null) }
-    // 主文档加载失败覆盖层：null=正常；断网/DNS 等普通失败与 SSL 证书失败分别提示
-    var loadError by remember { mutableStateOf<WebLoadError?>(null) }
-    // 最近一次实际 loadUrl 的地址（自己维护，不用 wv.url——网页 replaceState 清深链参数后
-    // wv.url 不可靠）。深链即使与目标相同也要强制重载，保证 ?edit/?addChild 弹窗每次都重跑。
-    var lastLoadedUrl by remember { mutableStateOf<String?>(null) }
-    // WebViewClient 只在 factory 创建一次，用 rememberUpdatedState 让它始终读到最新 baseUrl
-    val currentBaseUrl by rememberUpdatedState(baseUrl)
 
-    // 已登录冷启动：拉默认首页偏好决定底部仪表盘 Tab 显隐；未登录时等 App 内登录后由 onPageFinished 同步
+    // 冷启动（无深链）加载根路径，服务端按默认首页偏好 302；深链原样打开
+    val startUrl = remember(initialUrl, baseUrl) { initialUrl ?: (baseUrl + "/") }
+    val initialSlotKey = remember(startUrl) { slotKeyForUrl(startUrl) }
+    var slotKeys by remember { mutableStateOf(listOf(initialSlotKey)) }
+    var activeSlotKey by rememberSaveable { mutableStateOf(initialSlotKey) }
+    val slotTargetUrls = remember {
+        mutableStateMapOf<String, String>().apply { put(initialSlotKey, startUrl) }
+    }
+    val slotLastLoadedUrls = remember { mutableStateMapOf<String, String>() }
+    val slotProgress = remember { mutableStateMapOf<String, Int>() }
+    val slotErrors = remember { mutableStateMapOf<String, WebLoadError?>() }
+    val slotWebViews = remember { mutableStateMapOf<String, WebView>() }
+
+    val activeWebView = slotWebViews[activeSlotKey]
+    LaunchedEffect(activeWebView) {
+        onWebView?.invoke(activeWebView)
+    }
+
+    // WebViewClient 只在 factory 创建一次，用 rememberUpdatedState 让它始终读到最新值
+    val currentBaseUrl by rememberUpdatedState(baseUrl)
+    val currentActiveSlotKey by rememberUpdatedState(activeSlotKey)
+    val primaryColorArgb = MaterialTheme.colorScheme.primary.toArgb()
+
+    // 双击底栏当前 Tab 回顶
+    var lastTapTabIdx by remember { mutableIntStateOf(-1) }
+    var lastTapTimeMs by remember { mutableStateOf(0L) }
+
+    // 已登录冷启动：拉默认首页偏好与账号信息（用户名+角色）
     LaunchedEffect(baseUrl) {
         val sid = Prefs.getSid(context)
         if (sid.isBlank()) return@LaunchedEffect
+        val info = withContext(Dispatchers.IO) {
+            runCatching { ApiClient.fetchAccountInfo(baseUrl, sid) }.getOrNull()
+        }
+        if (info != null) {
+            accountUsername = info.first
+            accountRole = info.second
+            Prefs.setUsername(context, info.first)
+            Prefs.setRole(context, info.second)
+        }
         val home = withContext(Dispatchers.IO) {
             runCatching { ApiClient.fetchDefaultHome(baseUrl, sid) }.getOrNull()
         }
@@ -369,7 +417,7 @@ private fun AppShell(
 
     var pendingTodoAlarmPick by remember { mutableStateOf<TodoAlarmPickRequest?>(null) }
     fun showTodoAlarmTimePicker(request: TodoAlarmPickRequest) {
-        val webView = webViewRef ?: return
+        val webView = slotWebViews[activeSlotKey] ?: return
         val now = java.util.Calendar.getInstance()
         val initialMinute = if (request.currentMinute in 0..1439) {
             request.currentMinute
@@ -414,7 +462,7 @@ private fun AppShell(
     ) {
         val request = pendingTodoAlarmPick
         pendingTodoAlarmPick = null
-        val webView = webViewRef
+        val webView = slotWebViews[activeSlotKey]
         if (request != null && webView != null) {
             if (TaskAlarmScheduler.canScheduleExactAlarms(context.applicationContext)) {
                 showTodoAlarmTimePicker(request)
@@ -448,21 +496,20 @@ private fun AppShell(
     // 小组件再次点入的深链：同步选中对应底部 Tab（待办/基金/体重/资产）
     androidx.compose.runtime.DisposableEffect(Unit) {
         // 强制重新加载：同一深链 URL 第二次点入也要重跑网页 init（?edit/?addChild 弹窗）。
-        // wv.url 在 replaceState 清参后不可靠，直接 loadUrl；加时间戳 nonce 保证同 URL 也必重载，
-        // 页面只认 root/edit/addChild 参数、replaceState(pathname) 会把 nonce 一起清掉。
-        fun loadDeepLink(wv: WebView, url: String) {
+        fun loadDeepLink(wv: WebView, url: String, slotKey: String) {
             CookieManager.getInstance().setCookie(baseUrl, "app_shell=1; Path=/")
             val sep = if (url.contains('?')) '&' else '?'
             wv.loadUrl("$url${sep}_t=${System.currentTimeMillis()}", APP_HEADERS)
-            lastLoadedUrl = url // 记逻辑 URL（不含 nonce），供 update 去重
+            slotLastLoadedUrls[slotKey] = url // 记逻辑 URL（不含 nonce），供 update 去重
         }
         DeepLinkBus.listener = { url ->
-            targetUrl = url
+            val slotKey = slotKeyForUrl(url)
+            if (!slotKeys.contains(slotKey)) slotKeys = slotKeys + slotKey
+            slotTargetUrls[slotKey] = url
+            activeSlotKey = slotKey
             selected = tabIndexFor(url, tabs)
             showMe = false
-            webViewRef?.let { wv ->
-                // 详情深链去重：网页当前已在同一主任务详情+同一查看弹层时不重载，
-                // 否则 WebView 历史栈多压一条，退出详情要按两次返回。
+            slotWebViews[slotKey]?.let { wv ->
                 val targetUri = runCatching { Uri.parse(url) }.getOrNull()
                 val targetRoot = targetUri?.getQueryParameter("root")
                 val targetEdit = targetUri?.getQueryParameter("edit")
@@ -479,10 +526,10 @@ private fun AppShell(
                                 field("root") == targetRoot && field("view") == targetEdit
                             }
                         }.getOrDefault(false)
-                        if (!same) loadDeepLink(wv, url)
+                        if (!same) loadDeepLink(wv, url, slotKey)
                     }
                 } else {
-                    loadDeepLink(wv, url)
+                    loadDeepLink(wv, url, slotKey)
                 }
             }
         }
@@ -490,26 +537,22 @@ private fun AppShell(
     }
 
     fun openPath(path: String) {
-        targetUrl = baseUrl + path
-        // 从「我的」进入非业务 Tab 页（定时任务/渠道/设置等）时返回 -1，底部保持「我的」高亮；
-        // 仪表盘 Tab 未展示时 /dashboard 同样归「我的」；点业务 Tab 时算出对应下标
-        selected = tabIndexFor(targetUrl, tabs)
+        val url = baseUrl + path
+        val slotKey = slotKeyForUrl(url)
+        if (!slotKeys.contains(slotKey)) slotKeys = slotKeys + slotKey
+        slotTargetUrls[slotKey] = url
+        activeSlotKey = slotKey
+        selected = tabIndexFor(url, tabs)
         showMe = false
     }
 
     // 系统返回（安卓边缘左滑手势 / 三键返回键）：
-    // 1) 「我的」原生面板打开 → 仅关面板；
-    // 2) 否则交网页按浮层层级消费（日历浮层/结果弹窗/抽屉/图表全屏/modal/待办详情，
-    //    见网页 window._appShellBack），消费一层即结束；
-    // 3) 网页无层可关（false，含全屏列表顶层）→ 吞掉不处理：不退出 App、不回桌面、不做
-    //    WebView goBack（网页内跳转不与底部 Tab 同步，goBack 会造成画面与 Tab 错位）。
     BackHandler(enabled = true) {
         if (showMe) {
             showMe = false
             return@BackHandler
         }
-        // 返回值仅用于网页内部关层；false/JS 未就绪时原生无动作，返回被 BackHandler 吞掉
-        webViewRef?.evaluateJavascript(
+        slotWebViews[activeSlotKey]?.evaluateJavascript(
             "(window._appShellBack && window._appShellBack()) === true",
             null
         )
@@ -517,8 +560,6 @@ private fun AppShell(
 
     Scaffold(
         bottomBar = {
-            // 与网页底部 Tab 同族：中性表面 + 顶部 1px 描边；去掉 M3 大药丸指示器，
-            // 选中=品牌紫图标/文字 + 顶部 2.5dp 短条（与 .m-tabbar 完全一致）
             val navBarBorderColor = MaterialTheme.colorScheme.outlineVariant
             val brandColor = MaterialTheme.colorScheme.primary
             val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -535,16 +576,28 @@ private fun AppShell(
             ) {
                 val sixTabs = tabs.size > 5
                 tabs.forEachIndexed { i, tab ->
-                    // 「我的」高亮：原生我的面板打开(showMe)，或停在从我的进入的非业务页(selected=-1)
                     val isSel = if (tab.path == null) (showMe || selected == -1) else (!showMe && selected == i)
                     NavigationBarItem(
                         selected = isSel,
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             if (tab.path == null) {
                                 showMe = true
+                                lastTapTabIdx = -1
                             } else {
-                                selected = i
-                                openPath(tab.path)
+                                val now = android.os.SystemClock.uptimeMillis()
+                                if (!showMe && selected == i && lastTapTabIdx == i && now - lastTapTimeMs < 450L) {
+                                    slotWebViews[activeSlotKey]?.evaluateJavascript(
+                                        "(function(){window.scrollTo({top:0,behavior:'smooth'});var c=document.querySelector('.todo-fs-list,.container');if(c&&c.scrollTo)c.scrollTo({top:0,behavior:'smooth'});})();",
+                                        null
+                                    )
+                                    lastTapTimeMs = 0L
+                                } else {
+                                    lastTapTabIdx = i
+                                    lastTapTimeMs = now
+                                    selected = i
+                                    openPath(tab.path)
+                                }
                             }
                         },
                         icon = {
@@ -594,9 +647,12 @@ private fun AppShell(
         // 记录底部 Tab 栏实际高度供键盘高度换算（值恒定，同值赋值不触发重组）
         bottomBarPx = with(density) { padding.calculateBottomPadding().toPx() }
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // WebView 始终存在（保留登录态/历史），仅在「我的」页隐藏
-            AndroidView(
-                factory = { ctx ->
+            // 核心业务 Tab 按需懒加载并保活各自 WebView，切换不重载、保留滚动位置
+            slotKeys.forEach { slotKey ->
+                key(slotKey) {
+                    val isActiveSlot = !showMe && activeSlotKey == slotKey
+                    AndroidView(
+                        factory = { ctx ->
                     // 先创建下拉刷新容器，WebView 的 WebViewClient 需要在页面加载完成时收起它的指示器
                     val swipe = LockableSwipeRefreshLayout(ctx)
                     val wv = WebView(ctx).apply {
@@ -634,10 +690,10 @@ private fun AppShell(
                                 }
                             }
 
-                            // 主文档开始加载：收起下拉刷新圈并清除上次失败覆盖层（首次/重试都从这里开始）
                             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                                 super.onPageStarted(view, url, favicon)
-                                loadError = null
+                                slotErrors[slotKey] = null
+                                slotProgress[slotKey] = 10
                                 swipe.isRefreshing = false
                             }
 
@@ -647,10 +703,9 @@ private fun AppShell(
                                 error: WebResourceError
                             ) {
                                 super.onReceivedError(view, request, error)
-                                // 仅主文档失败才盖整页错误层；图片/接口等子资源失败由网页自身处理，避免误遮
                                 if (request.isForMainFrame) {
                                     swipe.isRefreshing = false
-                                    loadError = WebLoadError(ssl = false, code = error.errorCode)
+                                    slotErrors[slotKey] = WebLoadError(ssl = false, code = error.errorCode)
                                 }
                             }
 
@@ -659,16 +714,14 @@ private fun AppShell(
                                 handler: SslErrorHandler,
                                 error: SslError?
                             ) {
-                                // 安全红线：证书错误绝不 handler.proceed() 放行；取消加载并提示，重试可重新握手
                                 handler.cancel()
                                 swipe.isRefreshing = false
-                                loadError = WebLoadError(ssl = true)
+                                slotErrors[slotKey] = WebLoadError(ssl = true)
                             }
 
-                            // 网页内部跳转（如仪表盘「查看全部」→ /todo）同步底部 Tab 选中态；
-                            // 非整页 loadUrl（replaceState）不触发本回调，不会误切
                             override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
                                 super.doUpdateVisitedHistory(view, url, isReload)
+                                if (slotKey != currentActiveSlotKey) return
                                 val path = url?.let { runCatching { Uri.parse(it).path }.getOrNull() } ?: return
                                 val idx = tabs.indexOfFirst {
                                     it.path != null && (path == it.path || path.startsWith(it.path + "/"))
@@ -678,8 +731,6 @@ private fun AppShell(
                                     showMe = false
                                     return
                                 }
-                                // 已登录的非业务页（仪表盘/定时任务/渠道/设置等）归「我的」高亮；
-                                // 登录/初始化页不点亮任何 Tab
                                 val hasSid = CookieManager.getInstance().getCookie(url)
                                     ?.let { Regex("(?:^|;)\\s*sid=([^;]+)").find(it)?.groupValues?.get(1)?.isNotBlank() } == true
                                 if (hasSid && path != "/login" && path != "/setup") selected = -1
@@ -687,33 +738,34 @@ private fun AppShell(
 
                             override fun onPageFinished(view: WebView, url: String?) {
                                 super.onPageFinished(view, url)
-                                // 新页面 document 会重置 CSS 变量，重新注入当前键盘高度（--kb-native）并通知网页
+                                slotProgress[slotKey] = 100
                                 view.evaluateJavascript(
                                     "document.documentElement.style.setProperty('--kb-native','${currentKbCss}px');" +
                                         "window.__onKb&&window.__onKb();",
                                     null
                                 )
-                                // 下拉刷新触发的 reload 完成后收起指示器
                                 swipe.isRefreshing = false
-                                // 同步登录会话给小组件：从 Cookie 取 sid（native 可读 HttpOnly Cookie）
                                 val cookieUrl = url ?: currentBaseUrl
                                 val cookies = CookieManager.getInstance().getCookie(cookieUrl) ?: ""
                                 val sid = Regex("(?:^|;)\\s*sid=([^;]+)").find(cookies)?.groupValues?.get(1)
                                 val oldSid = Prefs.getSid(context)
                                 when {
                                     !sid.isNullOrBlank() && sid != oldSid -> {
-                                        // 登录/会话变更：写入 sid
                                         Prefs.setSid(context, sid)
-                                        // 拉取账号角色（admin 才显示「用户管理」）；失败按普通用户兜底
                                         val roleBaseUrl = currentBaseUrl
                                         kotlinx.coroutines.MainScope().launch(Dispatchers.IO) {
-                                            val role = runCatching {
-                                                ApiClient.fetchRole(roleBaseUrl, sid)
-                                            }.getOrNull() ?: "user"
+                                            val info = runCatching {
+                                                ApiClient.fetchAccountInfo(roleBaseUrl, sid)
+                                            }.getOrNull()
+                                            val role = info?.second ?: "user"
+                                            val username = info?.first.orEmpty()
                                             Prefs.setRole(context, role)
-                                            withContext(Dispatchers.Main) { accountRole = role }
+                                            if (username.isNotBlank()) Prefs.setUsername(context, username)
+                                            withContext(Dispatchers.Main) {
+                                                accountRole = role
+                                                if (username.isNotBlank()) accountUsername = username
+                                            }
                                         }
-                                        // 登录落地由网页 doLogin 按默认首页偏好导航；这里同步偏好以显隐底部仪表盘 Tab
                                         kotlinx.coroutines.MainScope().launch(Dispatchers.IO) {
                                             val home = runCatching {
                                                 ApiClient.fetchDefaultHome(roleBaseUrl, sid)
@@ -722,16 +774,14 @@ private fun AppShell(
                                                 withContext(Dispatchers.Main) { dashTab = home == "dashboard" }
                                             }
                                         }
-                                        // 立即直接拉取所有桌面小组件数据并刷新（WorkManager 一次性任务可能被系统延迟，
-                                        // 这里进程内直连拉取保证登录后马上出数据；成功会清掉旧的 failed 标志）。
-                                        // 与网页内待办变更后的 todoChanged 桥回调走同一入口（RefreshWorker.refreshAllNow）。
                                         RefreshWorker.refreshAllNow(context)
                                     }
                                     sid.isNullOrBlank() && oldSid.isNotBlank() -> {
-                                        // 登出/会话失效：清除并刷新小组件、底部收回仪表盘 Tab
                                         Prefs.clearSid(context)
                                         Prefs.clearRole(context)
+                                        Prefs.clearUsername(context)
                                         accountRole = "user"
+                                        accountUsername = ""
                                         dashTab = false
                                         kotlinx.coroutines.MainScope().launch(Dispatchers.IO) {
                                             withContext(Dispatchers.Main) { TodoAppWidget().updateAll(context) }
@@ -741,6 +791,9 @@ private fun AppShell(
                             }
                         }
                         webChromeClient = object : WebChromeClient() {
+                            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                slotProgress[slotKey] = newProgress
+                            }
                             // 待办备注附件：支持网页 input[type=file] 选图片/任意文件（accept 由网页指定）
                             override fun onShowFileChooser(
                                 webView: WebView?,
@@ -963,18 +1016,18 @@ private fun AppShell(
                         }
                         // 后台回收后重建：普通打开优先恢复历史栈；通知/小组件深链以目标页为准，
                         // 避免恢复到旧页面；restoreState 成功返回 RestoreResult、失败返回 null
-                        val restored = if (initialUrl == null) {
+                        val initUrl = slotTargetUrls[slotKey] ?: (currentBaseUrl + "/")
+                        val restored = if (initialUrl == null && slotKey == initialSlotKey) {
                             savedWebState?.let { restoreState(it) } != null
                         } else {
                             false
                         }
                         if (!restored) {
-                            loadUrl(targetUrl, APP_HEADERS)
+                            loadUrl(initUrl, APP_HEADERS)
                         }
-                        lastLoadedUrl = targetUrl
-                        onWebView?.invoke(this)
+                        slotLastLoadedUrls[slotKey] = initUrl
+                        slotWebViews[slotKey] = this
                     }
-                    // 下拉刷新：网页滚到顶部时下拉触发 reload，onPageFinished 收起指示器
                     swipe.addView(
                         wv,
                         ViewGroup.LayoutParams(
@@ -982,27 +1035,24 @@ private fun AppShell(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                     )
-                    swipe.setColorSchemeColors(0xFF7C3AED.toInt())
+                    swipe.setColorSchemeColors(primaryColorArgb)
                     swipe.setOnRefreshListener { wv.reload() }
-                    webViewRef = wv
                     swipe
                 },
-                update = {
-                    // 不能用 getChildAt(0)：SwipeRefreshLayout 内部自带一个 CircleImageView
-                    // （下拉转圈 mCircleView）占住 index 0，WebView 在 index 1，强转会崩溃。
-                    // 直接用 factory 中保存的 webViewRef。用 lastLoadedUrl 去重而非 wv.url：
-                    // 深链页 replaceState 清参后 wv.url 不可靠，且相同深链由 DeepLinkBus 强制重载。
-                    val wv = webViewRef
-                    if (wv != null && targetUrl != lastLoadedUrl) {
+                update = { swipe ->
+                    swipe.visibility = if (isActiveSlot) View.VISIBLE else View.INVISIBLE
+                    swipe.setColorSchemeColors(primaryColorArgb)
+                    val wv = slotWebViews[slotKey]
+                    val target = slotTargetUrls[slotKey]
+                    if (wv != null && target != null && target != slotLastLoadedUrls[slotKey]) {
                         CookieManager.getInstance().setCookie(baseUrl, "app_shell=1; Path=/")
-                        wv.loadUrl(targetUrl, APP_HEADERS)
-                        lastLoadedUrl = targetUrl
+                        wv.loadUrl(target, APP_HEADERS)
+                        slotLastLoadedUrls[slotKey] = target
                     }
                 },
                 modifier = Modifier.fillMaxSize(),
                 onRelease = { swipe ->
-                    // 组合永久离开（Activity 销毁）时释放 WebView native 内存；
-                    // 浏览状态已在 onSaveInstanceState 保存，destroy 不影响回收后恢复
+                    slotWebViews.remove(slotKey)
                     for (i in 0 until swipe.childCount) {
                         val child = swipe.getChildAt(i)
                         if (child is WebView) {
@@ -1011,11 +1061,25 @@ private fun AppShell(
                             break
                         }
                     }
-                    onWebView?.invoke(null)
                 }
             )
-            // 主文档加载/证书失败覆盖层：替代白屏，给出原因与重试入口；SSL 错误仅提示不放行
-            loadError?.let { err ->
+                }
+            }
+            // 顶部 2.5dp 加载进度条（仅当前激活 WebView 加载中展示）
+            val activeProgress = slotProgress[activeSlotKey] ?: 100
+            if (!showMe && activeProgress in 1..99) {
+                LinearProgressIndicator(
+                    progress = { activeProgress / 100f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.5.dp)
+                        .align(Alignment.TopCenter),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = androidx.compose.ui.graphics.Color.Transparent
+                )
+            }
+            // 主文档加载/证书失败覆盖层：替代白屏，给出原因、重试与切换服务器入口；SSL 错误仅提示不放行
+            slotErrors[activeSlotKey]?.let { err ->
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.surface
@@ -1025,7 +1089,12 @@ private fun AppShell(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text("⚠️", fontSize = 42.sp)
+                        Icon(
+                            painter = painterResource(R.drawable.ic_error_network),
+                            contentDescription = null,
+                            tint = if (err.ssl) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(48.dp)
+                        )
                         Spacer(Modifier.height(14.dp))
                         Text(
                             if (err.ssl) "安全连接失败" else "网络连接失败",
@@ -1038,7 +1107,7 @@ private fun AppShell(
                             if (err.ssl)
                                 "服务器证书校验未通过，可能遇到网络劫持或代理/VPN 干扰。"
                             else
-                                "页面暂时无法加载，请检查网络连接。",
+                                "页面暂时无法加载，请检查网络连接或服务器地址。",
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -1060,9 +1129,17 @@ private fun AppShell(
                                 textAlign = TextAlign.Center
                             )
                         }
-                        Spacer(Modifier.height(20.dp))
-                        Button(onClick = { webViewRef?.reload() }) {
-                            Text("重新加载")
+                        Spacer(Modifier.height(22.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedButton(onClick = {
+                                showMe = true
+                                openServerSheetTrigger++
+                            }) {
+                                Text("切换服务器")
+                            }
+                            Button(onClick = { activeWebView?.reload() }) {
+                                Text("重新加载")
+                            }
                         }
                     }
                 }
@@ -1070,68 +1147,70 @@ private fun AppShell(
             if (showMe) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MeScreen(
-                    baseUrl = baseUrl,
-                    currentUrl = { webViewRef?.url ?: baseUrl },
-                    isAdmin = accountRole == "admin",
-                    onOpenPath = { path -> openPath(path) },
-                    onChangeBaseUrl = { newUrl ->
-                        AppConfig.setBaseUrl(context, newUrl)
-                        CookieManager.getInstance().removeAllCookies(null)
-                        Prefs.clearSid(context)
-                        Prefs.clearRole(context)
-                        accountRole = "user"
-                        baseUrl = AppConfig.normalize(newUrl)
-                        targetUrl = baseUrl + "/todo"
-                        selected = 0
-                        showMe = false
-                        // 由 update 回调统一带 X-App-Shell 头 + 重写 app_shell cookie 后加载
-                    },
-                    onOpenInBrowser = {
-                        // 免密桥接：系统浏览器与 WebView cookie 仓库独立，sid 带不过去；
-                        // 走服务端 /auth/bridge 用当前会话换 cookie 后 302 到当前页（未登录则直接打开原 URL）
-                        val sid = Prefs.getSid(context)
-                        val url = if (sid.isNotBlank()) {
-                            val path = runCatching { Uri.parse(webViewRef?.url ?: baseUrl).path }.getOrNull()
-                            val to = if (!path.isNullOrBlank()) path else "/todo"
-                            baseUrl + "/auth/bridge?sid=" + Uri.encode(sid) + "&to=" + Uri.encode(to)
-                        } else {
-                            webViewRef?.url ?: baseUrl
-                        }
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                    },
-                    onTestNotification = onTestNotification,
-                    onTestCustomNotification = onTestCustomNotification,
-                    onThemeClick = {
-                        // 主题三选一：网页 __applyTheme 统一切 data-theme 并 PUT 同步到账号；
-                        // 原生 Prefs 仅记录本机最近选择，供对话框勾选
-                        val keys = arrayOf("light", "dark", "eye")
-                        val labels = arrayOf("浅色", "暗色", "护眼")
-                        val checked = keys.indexOf(Prefs.getTheme(context)).coerceAtLeast(0)
-                        android.app.AlertDialog.Builder(context)
-                            .setTitle("主题外观")
-                            .setSingleChoiceItems(labels, checked) { dlg, which ->
-                                val t = keys[which]
-                                Prefs.setTheme(context, t)
-                                // 同步驱动原生壳换肤（底栏/我的页/状态栏）+ 网页 data-theme
-                                onThemeSelected(t)
-                                webViewRef?.evaluateJavascript(
-                                    "window.__applyTheme && window.__applyTheme('$t', true);", null
-                                )
-                                dlg.dismiss()
+                        baseUrl = baseUrl,
+                        username = accountUsername,
+                        isLoggedIn = Prefs.getSid(context).isNotBlank(),
+                        currentThemeKey = appTheme,
+                        isAdmin = accountRole == "admin",
+                        openServerSheetTrigger = openServerSheetTrigger,
+                        onOpenPath = { path -> openPath(path) },
+                        onChangeBaseUrl = { newUrl ->
+                            AppConfig.setBaseUrl(context, newUrl)
+                            CookieManager.getInstance().removeAllCookies(null)
+                            Prefs.clearSid(context)
+                            Prefs.clearRole(context)
+                            Prefs.clearUsername(context)
+                            accountRole = "user"
+                            accountUsername = ""
+                            dashTab = false
+                            baseUrl = AppConfig.normalize(newUrl)
+                            val todoUrl = baseUrl + "/todo"
+                            slotKeys.forEach { k -> slotLastLoadedUrls.remove(k) }
+                            slotKeys = listOf("/todo")
+                            slotTargetUrls.clear()
+                            slotTargetUrls["/todo"] = todoUrl
+                            activeSlotKey = "/todo"
+                            selected = 0
+                            showMe = false
+                        },
+                        onOpenInBrowser = {
+                            val sid = Prefs.getSid(context)
+                            val curUrl = activeWebView?.url ?: baseUrl
+                            val url = if (sid.isNotBlank()) {
+                                val path = runCatching { Uri.parse(curUrl).path }.getOrNull()
+                                val to = if (!path.isNullOrBlank()) path else "/todo"
+                                baseUrl + "/auth/bridge?sid=" + Uri.encode(sid) + "&to=" + Uri.encode(to)
+                            } else {
+                                curUrl
                             }
-                            .setNegativeButton("取消", null)
-                            .show()
-                    },
-                    onLogout = {
-                        CookieManager.getInstance().removeAllCookies(null)
-                        Prefs.clearSid(context)
-                        Prefs.clearRole(context)
-                        accountRole = "user"
-                        targetUrl = baseUrl + "/login"
-                        showMe = false
-                        webViewRef?.loadUrl(targetUrl)
-                    }
-                )
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        },
+                        onSelectTheme = { t ->
+                            Prefs.setTheme(context, t)
+                            onThemeSelected(t)
+                            val js = "window.__applyTheme && window.__applyTheme('$t', true);"
+                            slotWebViews.values.forEach { wv -> wv.evaluateJavascript(js, null) }
+                        },
+                        onTestNotification = onTestNotification,
+                        onTestCustomNotification = onTestCustomNotification,
+                        onLogout = {
+                            CookieManager.getInstance().removeAllCookies(null)
+                            Prefs.clearSid(context)
+                            Prefs.clearRole(context)
+                            Prefs.clearUsername(context)
+                            accountRole = "user"
+                            accountUsername = ""
+                            dashTab = false
+                            val loginUrl = baseUrl + "/login"
+                            slotKeys = listOf(AUX_SLOT_KEY)
+                            slotTargetUrls.clear()
+                            slotLastLoadedUrls.clear()
+                            slotTargetUrls[AUX_SLOT_KEY] = loginUrl
+                            activeSlotKey = AUX_SLOT_KEY
+                            showMe = false
+                            slotWebViews[AUX_SLOT_KEY]?.loadUrl(loginUrl, APP_HEADERS)
+                        }
+                    )
                 }
             }
         }

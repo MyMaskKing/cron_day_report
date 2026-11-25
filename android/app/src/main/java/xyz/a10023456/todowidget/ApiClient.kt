@@ -79,10 +79,10 @@ object ApiClient {
     }
 
     /**
-     * 查询当前会话账号角色（admin|user），供原生「我的」页隐藏超管入口。
-     * 失败（网络错误/非 2xx/会话失效/解析失败）返回 null，调用方按 user 兜底。
+     * 查询当前会话账号信息（username, role），供原生「我的」页展示身份与权限入口。
+     * 失败返回 null。
      */
-    fun fetchRole(baseUrl: String, sid: String): String? {
+    fun fetchAccountInfo(baseUrl: String, sid: String): Pair<String, String>? {
         if (sid.isBlank()) return null
         val req = Request.Builder().url("${baseUrlOf(baseUrl)}/api/auth/me").get()
             .header("Cookie", "sid=$sid")
@@ -90,11 +90,20 @@ object ApiClient {
         execute(req).use { resp ->
             if (!resp.isSuccessful) return null
             val body = resp.body?.string().orEmpty()
-            return runCatching { JSONObject(body).getJSONObject("user").getString("role") }
-                .getOrNull()
-                ?.takeIf { it == "admin" || it == "user" }
+            return runCatching {
+                val u = JSONObject(body).getJSONObject("user")
+                val role = u.optString("role", "user").takeIf { it == "admin" || it == "user" } ?: "user"
+                val name = u.optString("username", "").trim()
+                name to role
+            }.getOrNull()
         }
     }
+
+    /**
+     * 查询当前会话账号角色（admin|user），供原生「我的」页隐藏超管入口。
+     * 失败（网络错误/非 2xx/会话失效/解析失败）返回 null，调用方按 user 兜底。
+     */
+    fun fetchRole(baseUrl: String, sid: String): String? = fetchAccountInfo(baseUrl, sid)?.second
 
     /**
      * 查询默认首页偏好（GET /api/auth/profile 的 default_home），供底部仪表盘 Tab 显隐。

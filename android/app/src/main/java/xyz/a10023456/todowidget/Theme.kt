@@ -1,10 +1,13 @@
 package xyz.a10023456.todowidget
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
 /**
  * 原生端品牌主题，与网页新视觉语言对齐（src/web/layout.js 的 CSS token）：
@@ -12,6 +15,19 @@ import androidx.compose.ui.graphics.Color
  *  - 中性白表面 + 1px 描边；暗色 #131319/#1D1E27；护眼沿用网页暖米底
  * 主题 key 与网页一致：light / dark / eye（Prefs.app_theme，由 MeScreen 切换后驱动重组）。
  */
+
+object AppShapes {
+    val Card = RoundedCornerShape(14.dp)
+    val Sheet = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
+    val Small = RoundedCornerShape(10.dp)
+    val Pill = RoundedCornerShape(50)
+}
+
+private val ThemeShapes = Shapes(
+    small = AppShapes.Small,
+    medium = AppShapes.Card,
+    large = RoundedCornerShape(18.dp)
+)
 
 private val Brand = Color(0xFF7C3AED)
 private val BrandDark = Color(0xFFB97BFF)
@@ -77,5 +93,5 @@ fun AppTheme(themeKey: String, content: @Composable () -> Unit) {
         "eye" -> EyeColors
         else -> LightColors
     }
-    MaterialTheme(colorScheme = colors, content = content)
+    MaterialTheme(colorScheme = colors, shapes = ThemeShapes, content = content)
 }

@@ -4818,7 +4818,7 @@ function renderTopbar(user, active = '') {
     const appFab = active === 'todo'
       ? `<button type="button" class="m-fab" aria-label="新建任务">${SIDE_ICONS.plus}</button>`
       : '';
-    return `<style>.container{margin-top:0 !important;}</style>` + appFab +
+    return `<style>.container{margin-top:0 !important;}body,a,button,label,[role="button"]{-webkit-tap-highlight-color:transparent;}body *:not(input):not(textarea):not([contenteditable="true"]){-webkit-touch-callout:none;}</style>` + appFab +
       `<script>window.__ROLE__=${JSON.stringify(user.role)};
 window.__USER_ID__=${JSON.stringify(user.id)};
 document.addEventListener('click',function(e){

@@ -134,6 +134,7 @@ class ConfigActivity : ComponentActivity() {
                             onWrapChild = { v -> previewWrapChild(v) },
                             onSimpleMode = { v -> previewSimpleMode(v) },
                             onWidgetTheme = { v -> previewWidgetTheme(v) },
+                            onClose = { finish() },
                             onSave = { t, s, o, f, w, sm, th -> save(t, s, o, f, w, sm, th) }
                         )
                     }
@@ -311,6 +312,7 @@ private fun ConfigSheet(
     onWrapChild: (Boolean) -> Unit,
     onSimpleMode: (Boolean) -> Unit,
     onWidgetTheme: (String) -> Unit,
+    onClose: () -> Unit,
     onSave: (String, String, Int, Int, Boolean, Boolean, String) -> Unit
 ) {
     var token by remember { mutableStateOf(initialToken) }
@@ -328,7 +330,8 @@ private fun ConfigSheet(
         "all" to "全部未完成"
     )
     val fontLabels = listOf("小", "中", "大")
-    val brand = Color(0xFF7C3AED)
+    val scheme = MaterialTheme.colorScheme
+    val brand = scheme.primary
     val context = LocalContext.current
     val submitToken = if (loggedIn) "" else token
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -359,11 +362,40 @@ private fun ConfigSheet(
             .verticalScroll(rememberScrollState())
             .imePadding()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .padding(horizontal = 20.dp)
+            .padding(top = 10.dp, bottom = 16.dp)
     ) {
-        Text("小组件设置", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(4.dp))
-        Text("服务器：$baseUrl", style = MaterialTheme.typography.bodyMedium)
+        // 顶部拖拽把手
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(36.dp)
+                    .height(4.dp)
+                    .background(scheme.outline, RoundedCornerShape(99.dp))
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("小组件设置", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    baseUrl.removePrefix("https://").removePrefix("http://"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = scheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = onClose) {
+                Text("关闭", color = scheme.onSurfaceVariant)
+            }
+        }
         Spacer(Modifier.height(12.dp))
 
         // 不透明度：拖动即写 SP + publish，桌面真实小组件实时变化
@@ -396,136 +428,81 @@ private fun ConfigSheet(
         }
 
         Spacer(Modifier.height(12.dp))
-        Text("字号", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(4.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            fontLabels.forEachIndexed { i, label ->
-                val selected = fontScale == i
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = if (selected) brand else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable {
-                            fontScale = i
-                            onFontScale(i)
-                        }
-                        .padding(horizontal = 18.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        label,
-                        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                }
+        Text("字号", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        ConfigSegmentedRow(
+            options = fontLabels.mapIndexed { i, label -> i to label },
+            selected = fontScale,
+            onSelect = {
+                fontScale = it
+                onFontScale(it)
             }
-        }
+        )
 
         Spacer(Modifier.height(12.dp))
-        Text("主题", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(4.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // 小组件主题手动切换（浅色/深色），不跟随系统深色
-            listOf("light" to "浅色", "dark" to "深色").forEach { (v, label) ->
-                val selected = widgetTheme == v
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = if (selected) brand else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable {
-                            widgetTheme = v
-                            onWidgetTheme(v)
-                        }
-                        .padding(horizontal = 18.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        label,
-                        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                }
+        Text("主题", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        ConfigSegmentedRow(
+            options = listOf("light" to "浅色", "dark" to "深色"),
+            selected = widgetTheme,
+            onSelect = {
+                widgetTheme = it
+                onWidgetTheme(it)
             }
-        }
+        )
 
         Spacer(Modifier.height(12.dp))
-        Text("子任务标题", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(4.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // 默认单行省略；选"完整换行"则过长标题多行显示不截断
-            listOf(false to "单行省略", true to "完整换行").forEach { (v, label) ->
-                val selected = wrapChild == v
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = if (selected) brand else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable {
-                            wrapChild = v
-                            onWrapChild(v)
-                        }
-                        .padding(horizontal = 18.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        label,
-                        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                }
+        Text("子任务标题", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        ConfigSegmentedRow(
+            options = listOf(false to "单行省略", true to "完整换行"),
+            selected = wrapChild,
+            onSelect = {
+                wrapChild = it
+                onWrapChild(it)
             }
-        }
+        )
 
         Spacer(Modifier.height(12.dp))
-        Text("显示模式", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(4.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // 默认分组卡片；选"简洁列表"则只平铺显示子任务行，无任务组标题/折叠
-            listOf(false to "分组卡片", true to "简洁列表").forEach { (v, label) ->
-                val selected = simpleMode == v
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = if (selected) brand else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable {
-                            simpleMode = v
-                            onSimpleMode(v)
-                        }
-                        .padding(horizontal = 18.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        label,
-                        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                }
+        Text("显示模式", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        ConfigSegmentedRow(
+            options = listOf(false to "分组卡片", true to "简洁列表"),
+            selected = simpleMode,
+            onSelect = {
+                simpleMode = it
+                onSimpleMode(it)
             }
-        }
+        )
 
         Spacer(Modifier.height(16.dp))
-        Text("显示范围", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(4.dp))
-        Column {
+        Text("显示范围", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(6.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             scopes.forEach { (k, label) ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { scope = k }.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                val sel = scope == k
+                Surface(
+                    color = if (sel) scheme.secondaryContainer else scheme.surfaceVariant,
+                    shape = AppShapes.Small,
+                    border = androidx.compose.foundation.BorderStroke(
+                        if (sel) 1.5.dp else 1.dp,
+                        if (sel) scheme.primary else scheme.outlineVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth().clickable { scope = k }
                 ) {
-                    RadioButton(selected = scope == k, onClick = { scope = k })
-                    Spacer(Modifier.width(8.dp))
-                    Text(label, style = MaterialTheme.typography.bodyLarge)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = sel, onClick = { scope = k })
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (sel) scheme.onSecondaryContainer else scheme.onSurface
+                        )
+                    }
                 }
             }
         }
@@ -550,8 +527,49 @@ private fun ConfigSheet(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TextButton(onClick = { onTest(if (loggedIn) "" else token) }) { Text("测试连接") }
             Spacer(Modifier.weight(1f))
-            Button(onClick = save) {
+            Button(onClick = save, shape = AppShapes.Card) {
                 Text("保存")
+            }
+        }
+    }
+}
+
+@Composable
+private fun <T> ConfigSegmentedRow(
+    options: List<Pair<T, String>>,
+    selected: T,
+    onSelect: (T) -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(scheme.surfaceVariant, AppShapes.Small)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        options.forEach { (value, label) ->
+            val isSel = selected == value
+            Surface(
+                color = if (isSel) scheme.surface else Color.Transparent,
+                shape = RoundedCornerShape(8.dp),
+                shadowElevation = if (isSel) 1.dp else 0.dp,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onSelect(value) }
+            ) {
+                Box(
+                    modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isSel) scheme.primary else scheme.onSurfaceVariant,
+                        fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Medium,
+                        fontSize = 13.sp,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
