@@ -1300,7 +1300,14 @@ body.todo-opmenu .m-fab { transform: scale(.4); opacity: 0; pointer-events: none
   .as-goal__ring, .as-goal__svg { width: 68px; height: 68px; }
   .as-goal__center b { font-size: 14px; }
   .as-goal__edit { grid-column: 2; grid-row: 1; justify-self: start; text-align: left; }
-  .as-goal__grid { grid-column: 2; grid-row: 2; width: 100%; text-align: left; }
+  .as-goal__grid {
+    grid-column: 2; grid-row: 2; width: 100%; text-align: left;
+    grid-template-columns: 1fr; gap: 4px;
+  }
+  .as-goal__grid > div {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  }
+  .as-goal__grid b { margin-top: 0; white-space: nowrap; }
   .as-type-pills.asset-type-pills { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   /* 两列后卡宽足够金额完整展示：解除省略号裁剪，保留 nowrap 避免金额断行 */
   .as-type-pills .asset-type-pill__num { overflow: visible; text-overflow: clip; }
@@ -2722,6 +2729,19 @@ a.td-att { display: flex; align-items: center; gap: 10px; background: var(--surf
 .ta-stat .s { font-size: 11px; color: var(--muted); margin-top: 1px; min-height: 14px; }
 .ta-stat.good .n { color: var(--ok-text); }
 .ta-stat.bad .n { color: var(--danger); }
+/* 精简版任务分析弹窗 */
+.ta-top-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.ta-hero-card { background: var(--surface-2); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+.ta-hero-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.ta-hero-big { font-size: 32px; font-weight: 850; line-height: 1.1; color: var(--ok-text); font-variant-numeric: tabular-nums; }
+.ta-hero-badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--surface); color: var(--text); }
+.ta-hero-sub { font-size: 12.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.ta-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.ta-kpi { background: var(--surface); border-radius: 10px; padding: 8px 10px; }
+.ta-kpi b { display: block; font-size: 15px; font-weight: 800; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.ta-kpi span { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.ta-kpi.is-good b { color: var(--ok-text); }
+.ta-kpi.is-bad b { color: var(--danger); }
 /* 指标卡上的圆形「?」说明按钮：弱描边，不抢数字视觉 */
 .ta-help {
   display: inline-flex; align-items: center; justify-content: center;
@@ -3015,6 +3035,14 @@ html[data-theme="eye"] .rc-pcol--1 .rc-pcol__base { box-shadow: inset 0 2px 0 rg
 .rc-row__score { font-size: 14px; font-weight: 850; color: var(--brand-text);
   width: 24px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
 .rc-row.is-me .rc-row__name { color: var(--brand-text); }
+.rc-row.is-top1 { background: rgba(245, 158, 11, 0.07); border-radius: 12px; padding: 11px 10px; }
+.rc-award {
+  display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; background: var(--brand-soft); color: var(--brand-text);
+  margin-left: 5px; vertical-align: middle;
+}
+.rc-award.is-warn { background: #FEF3C7; color: #B45309; }
+[data-theme="dark"] .rc-award.is-warn { background: rgba(251, 191, 36, 0.16); color: #FBBF24; }
 @media (max-width: 640px) {
   .rc-me { flex-wrap: wrap; gap: 8px; }
   .rc-me__stats { width: 100%; justify-content: space-between; text-align: left; padding-left: 33px; }

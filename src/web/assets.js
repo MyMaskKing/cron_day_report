@@ -7283,10 +7283,10 @@ function renderRaceBody() {
     box.innerHTML = '<div class="rc-empty">该区间内所有人的记录都不足 2 条<br>暂无法排名，换个更长的区间试试</div>' + raceInsufficientHtml(r);
     return;
   }
-  // 我的名次卡（B 风，未入榜显灰态）→ 单项冠军 → 银金铜领奖台 → 胖行总榜 → 数据不足
+  // 我的名次卡 + 一体化榜单（含前 3 名奖牌与单项王标签，避免重复占屏）+ 数据不足
   box.innerHTML =
-    raceMeHtml(r) + raceWinsHtml(r) + racePodiumHtml(r) +
-    '<div class="rc-sec" style="margin-top:12px;">完整榜单</div>' + raceListHtml(r) + raceInsufficientHtml(r);
+    raceMeHtml(r) +
+    '<div class="rc-sec" style="margin-top:12px;">排行榜</div>' + raceListHtml(r) + raceInsufficientHtml(r);
 }
 // 我的名次：紧凑横条（名次 + 名/总分进度条 + 总分/打卡/效果三格）；未入榜灰态
 function raceMeHtml(r) {
@@ -7367,19 +7367,34 @@ function racePodiumHtml(r) {
     col(second, 2) + col(first, 1) + col(third, 3) + '</div>' +
     '<div class="rc-podium-note">' + r.hitLo + ' ~ ' + r.hitHi + ' · 按总分排名</div>';
 }
-// 完整榜单：iOS 发丝线列表（与基金持仓行同语言）。名次用金银铜色数字，去 emoji/胖进度条
+// 一体化榜单：前 3 名奖牌 + 单项王标签直接挂在成员名旁，一目了然
 function raceListHtml(r) {
+  function bestId(key, bigger) {
+    var list = r.qualified.filter(function(x){ return x[key] != null; });
+    if (!list.length) return null;
+    return list.slice().sort(function(a, b){
+      if (a[key] === b[key]) return a.m.id - b.m.id;
+      return bigger ? (a[key] > b[key] ? -1 : 1) : (a[key] < b[key] ? -1 : 1);
+    })[0].m.id;
+  }
+  var daysBestId = bestId('days', true);
+  var deltaBestId = bestId('delta', false);
+  var cvBestId = bestId('cv', false);
+  var medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
   var rows = r.qualified.map(function(x){
     var isMe = r.selfM && x.m.id === r.selfM.id;
     var rankCls = x.pos <= 3 ? ' rc-rank--' + x.pos : '';
-    var cvTxt = x.cv != null ? '波动 ' + (Math.round(x.cv * 10) / 10) + '%' : '波动 —';
-    return '<div class="rc-row' + (isMe ? ' is-me' : '') + '">' +
-      '<span class="rc-rank' + rankCls + '">' + x.pos + '</span>' +
+    var posHtml = medals[x.pos] || x.pos;
+    var awards = '';
+    if (x.m.id === deltaBestId) awards += '<span class="rc-award is-warn">⚡ 减重王</span>';
+    if (x.m.id === daysBestId) awards += '<span class="rc-award">🔥 坚持王</span>';
+    if (x.m.id === cvBestId) awards += '<span class="rc-award">⚖ 稳定王</span>';
+    return '<div class="rc-row' + (isMe ? ' is-me' : '') + (x.pos === 1 ? ' is-top1' : '') + '">' +
+      '<span class="rc-rank' + rankCls + '">' + posHtml + '</span>' +
       raceAvatar(x.m) +
-      '<div class="rc-row__who"><div class="rc-row__name">' + esc(mdName(x.m)) + raceTags(x.m) + '</div>' +
-      '<div class="rc-row__meta">打卡 ' + x.days + ' 天 · ' + cvTxt + '</div></div>' +
+      '<div class="rc-row__who"><div class="rc-row__name">' + esc(mdName(x.m)) + raceTags(x.m) + awards + '</div>' +
+      '<div class="rc-row__meta">打卡 ' + x.days + ' 天 · 综合 ' + x.score + ' 分</div></div>' +
       '<span class="rc-row__delta">' + raceDeltaHtml(x.delta) + '</span>' +
-      '<span class="rc-row__score">' + x.score + '</span>' +
     '</div>';
   }).join('');
   return '<div class="rc-list">' + rows + '</div>';
@@ -14416,32 +14431,30 @@ var _taDays = 30;
 function openTodoAnalysis(buildUrl) {
   _taDays = 30;
   var body =
-    '<h3 class="ta-h ta-h-first">关键数据</h3>' +
-    '<div class="ta-stats">' +
-      '<div class="ta-stat" id="taStreakCard"><div class="n"><span id="taStreak">-</span><small>天</small></div><div class="l">连续按时做完 <button type="button" class="ta-help" data-help="streak">?</button></div><div class="s" id="taBest"></div></div>' +
-      '<div class="ta-stat good"><div class="n" id="taWinRate">-</div><div class="l">最终做完比例 <button type="button" class="ta-help" data-help="win">?</button></div><div class="s">过期补做也算</div></div>' +
-      '<div class="ta-stat good"><div class="n" id="taOnTimeRate">-</div><div class="l">按时做完比例 <button type="button" class="ta-help" data-help="ontime">?</button></div><div class="s">补做的不算</div></div>' +
-      '<div class="ta-stat" id="taOverCard"><div class="n" id="taOverRate">-</div><div class="l">逾期比例 <button type="button" class="ta-help" data-help="over">?</button></div><div class="s">不含今天</div></div>' +
+    '<div class="ta-top-row">' +
+      '<span class="muted" style="font-size:12px;">统计周期</span>' +
+      '<div class="todo-range" id="taRange"><button data-days="30" class="active">近30天</button><button data-days="60">近60天</button></div>' +
     '</div>' +
-    '<div class="jn">' +
-      '<div class="jn-head"><div><h3>智能分析</h3>' +
-        '<div class="jn-sub">看看最近 7 天比平时做得好还是差，再和上周、上月比一比</div></div>' +
-        '<div class="todo-range" id="taRange"><button data-days="30" class="active">近30天</button><button data-days="60">近60天</button></div>' +
+    '<div class="ta-hero-card">' +
+      '<div class="ta-hero-top">' +
+        '<div><div style="font-size:12px;color:var(--muted);">按时完成率</div><div class="ta-hero-big" id="taOnTimeRate">—</div></div>' +
+        '<span class="ta-hero-badge" id="taHero">–</span>' +
       '</div>' +
-      '<div class="jn-hero"><div class="jn-hero__num" id="taHero">–</div>' +
-        '<div class="jn-hero__calc" id="taHeroCalc"></div></div>' +
-      '<div class="jn-note flat" id="taNote"></div>' +
-      '<div class="jn-deltas" id="taDeltas"></div>' +
-      '<div class="jn-metrics" id="taMetrics"></div>' +
+      '<div class="ta-hero-sub" id="taNote">加载中…</div>' +
+      '<div class="ta-kpis">' +
+        '<div class="ta-kpi" id="taStreakCard"><b id="taStreak">-</b><span id="taBest">连续达标</span></div>' +
+        '<div class="ta-kpi is-good"><b id="taWinRate">-</b><span>最终完成(含补做)</span></div>' +
+        '<div class="ta-kpi" id="taOverCard"><b id="taOverRate">-</b><span>逾期未完</span></div>' +
+      '</div>' +
     '</div>' +
-    '<div class="ta-head"><h3 class="ta-h">达标日历 <button type="button" class="ta-help" data-help="heat">?</button></h3>' +
-      '<span class="muted" style="font-size:12px;" id="taCalSub"></span></div>' +
+    '<div class="jn-deltas" id="taDeltas" style="margin-bottom:14px;"></div>' +
+    '<div class="ta-head"><h3 class="ta-h">达标日历</h3>' +
+      '<span class="muted" style="font-size:12px;" id="taCalSub">点击方块看当天明细</span></div>' +
     '<div class="ta-heat-wrap">' +
       '<div class="ta-dow"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>' +
       '<div class="ta-heat" id="taHeat"></div>' +
     '</div>' +
-    '<div class="ta-legend"><span><i class="lg-win"></i>达标</span><span><i class="lg-fail"></i>有逾期</span><span><i class="lg-idle"></i>无任务</span><span><i class="lg-pending"></i>今天</span></div>' +
-    '<p class="muted" style="font-size:12px;margin:12px 0 0;line-height:1.6;">怎么看：绿色=当天到期的任务都按时做完了；红色=当天有任务没按时做完（后来补做也仍标红）；灰色=当天没有到期任务，不打断连续；紫色虚线方框=今天还没过完。各标题旁的 ？ 里有详细说明；点日历方块能看当天明细。</p>';
+    '<div class="ta-legend"><span><i class="lg-win"></i>全部按时</span><span><i class="lg-fail"></i>有逾期</span><span><i class="lg-idle"></i>无任务</span><span><i class="lg-pending"></i>今天</span></div>';
   openModal('任务分析', body, 'modal-mask--lg', false, ICONS.bar_chart);
   // 指标卡/标题「?」说明按钮(弹窗 innerHTML 每次重建, 直接绑新元素)
   Array.prototype.forEach.call(document.querySelectorAll('#modalBody .ta-help'), function(btn){
@@ -14458,30 +14471,25 @@ function openTodoAnalysis(buildUrl) {
   function renderTodoInsight(a) {
     var x = a.insight || {};
     var hero = document.getElementById('taHero');
-    if (x.heroPp == null) { hero.textContent = '—'; hero.style.color = ''; }
+    if (x.heroPp == null) { hero.textContent = '近7天 —'; hero.style.color = ''; }
     else {
-      hero.textContent = (x.heroPp > 0 ? '高 ' : '低 ') + Math.abs(x.heroPp) + '%';
-      hero.style.color = x.tone === 'bad' ? 'var(--danger)' : x.tone === 'good' ? 'var(--ok)' : '';
+      hero.textContent = '近7天 ' + (x.heroPp >= 0 ? '+' : '') + x.heroPp + '%';
+      hero.style.color = x.tone === 'bad' ? 'var(--danger)' : x.tone === 'good' ? 'var(--ok-text)' : '';
     }
-    document.getElementById('taHeroCalc').textContent =
-      '近7天 ' + pct(x.rate7) + ' · 这段时间平均 ' + pct(x.rateRange);
 
     var note = document.getElementById('taNote');
     var msg;
     if (x.heroPp == null) {
-      msg = '再用几天、攒一些到期任务后，这里会自动给出分析。';
+      msg = '再用几天、攒一些到期任务后，这里会自动给出对比结论。';
     } else if (x.tone === 'bad') {
-      msg = '近 7 天有 ' + pct(x.rate7) + ' 的任务按时做完，比近' + a.days + '天的平均（' + pct(x.rateRange) + '）低 ' +
-        Math.abs(x.heroPp) + '%。';
-      if (x.lastFailDate) msg += '最近一次没按时做完是 ' + mdShort(x.lastFailDate) + '，建议先把那几天落下的任务清掉。';
+      msg = '最近 7 天按时率 ' + pct(x.rate7) + '，低于近' + a.days + '天平均（' + pct(x.rateRange) + '）';
+      if (x.lastFailDate) msg += '，最近逾期在 ' + mdShort(x.lastFailDate);
     } else if (x.tone === 'good') {
-      msg = '近 7 天有 ' + pct(x.rate7) + ' 的任务按时做完，比这段时间的平均（' + pct(x.rateRange) + '）高 ' +
-        x.heroPp + '%；已经连续 ' + a.currentStreak + ' 天全部按时做完，保持得不错！';
+      msg = '最近 7 天按时率 ' + pct(x.rate7) + '，高于近' + a.days + '天平均（' + pct(x.rateRange) + '），节奏很稳';
     } else {
-      msg = '近 7 天有 ' + pct(x.rate7) + ' 的任务按时做完，和这段时间的平均（' + pct(x.rateRange) + '）差不多。';
+      msg = '最近 7 天按时率 ' + pct(x.rate7) + '，与近' + a.days + '天平均（' + pct(x.rateRange) + '）持平';
     }
     note.textContent = msg;
-    note.className = 'jn-note ' + (x.tone || 'flat');
 
     function cell(l, v, sub, vCls, off) {
       return '<div class="jn-delta' + (off ? ' is-off' : '') + '"><div class="jn-delta__l">' + l + '</div>' +
@@ -14493,32 +14501,15 @@ function openTodoAnalysis(buildUrl) {
       var ar = n > 0 ? '↑' : n < 0 ? '↓' : '';
       return cell(label, '<span class="ar">' + ar + '</span>' + Math.abs(n) + '%', sub, n >= 0 ? 'is-up' : 'is-down');
     }
-    // 较昨日：当天到期几件/完成几件；无到期任务为中性
-    var y = x.yesterday, b = x.beforeYesterday;
-    var bSub = b ? '前天 ' + b.done + '/' + b.planned + ' 件' : '';
-    var d1;
-    if (y && y.planned > 0) {
-      d1 = cell('较昨日（' + mdShort(y.date) + '）', y.done + '/' + y.planned + ' 件', bSub,
-        y.done >= y.planned ? 'is-up' : 'is-down');
-    } else {
-      d1 = cell('较昨日（' + mdShort(y && y.date) + '）', '无到期任务', bSub, '');
-    }
-    var d2 = ppCell('较上周（按时率）', x.wowPp, '本周 ' + pct(x.rate7) + ' · 上周 ' + pct(x.ratePrev7));
-    // 30 天窗口没有上一个 30 天周期：置灰引导切换
-    var d3 = x.momPp == null
-      ? cell('较上月（按时率）', '切到「近60天」就能看', '攒满 60 天数据后可见', '', true)
-      : ppCell('较上月（按时率）', x.momPp, '近30天和前30天对比');
+    var y = x.yesterday;
+    var d1 = (y && y.planned > 0)
+      ? cell('昨天', y.done + '/' + y.planned + ' 件', mdShort(y.date), y.done >= y.planned ? 'is-up' : 'is-down')
+      : cell('昨天', '无任务', y ? mdShort(y.date) : '', '');
+    var d2 = ppCell('较上周', x.wowPp, '本周 ' + pct(x.rate7));
+    var d3 = x.momPp != null
+      ? ppCell('较上月', x.momPp, '近30天对比')
+      : cell('日均到期', x.avgDue == null ? '—' : x.avgDue + ' 件', '有任务日均', '');
     document.getElementById('taDeltas').innerHTML = d1 + d2 + d3;
-
-    function metric(label, value, isBase) {
-      return '<div class="jn-metric' + (isBase ? ' jn-metric--base' : '') + '"><span>' + label + '</span><b>' + value + '</b></div>';
-    }
-    var failText = x.failCount + ' 天' + (x.lastFailDate ? '，最近 ' + mdShort(x.lastFailDate) : '');
-    document.getElementById('taMetrics').innerHTML =
-      metric('平均每天到期（只算有任务的日子）', x.avgDue == null ? '—' : x.avgDue + ' 件', true) +
-      metric('平均每天做完（只算有任务的日子）', x.avgDone == null ? '—' : x.avgDone + ' 件') +
-      metric('没按时做完的日子', failText) +
-      metric('最长连续按时做完', a.longestStreak + ' 天');
   }
 
   // 点击日历方块展示当日明细（与方块 title 同口径；手机端无 hover，点击是主要查看方式）
@@ -14560,15 +14551,14 @@ function openTodoAnalysis(buildUrl) {
   }
 
   function render(a) {
-    document.getElementById('taStreak').textContent = a.currentStreak;
-    document.getElementById('taBest').textContent = a.longestStreak ? '最长 ' + a.longestStreak + ' 天' : '';
+    document.getElementById('taStreak').textContent = a.currentStreak + ' 天';
+    document.getElementById('taBest').textContent = a.longestStreak ? '连续达标(最长' + a.longestStreak + '天)' : '连续达标';
     document.getElementById('taWinRate').textContent = pct(a.winRate);
     document.getElementById('taOnTimeRate').textContent = pct(a.onTimeRate);
     document.getElementById('taOverRate').textContent = pct(a.overdueRate);
-    // 连续 0 天中性色；逾期率 0 用正向绿，大于 0 用红
-    document.getElementById('taStreakCard').classList.toggle('good', a.currentStreak > 0);
-    document.getElementById('taOverCard').classList.toggle('bad', a.overdueRate > 0);
-    document.getElementById('taOverCard').classList.toggle('good', !(a.overdueRate > 0));
+    document.getElementById('taStreakCard').classList.toggle('is-good', a.currentStreak > 0);
+    document.getElementById('taOverCard').classList.toggle('is-bad', a.overdueRate > 0);
+    document.getElementById('taOverCard').classList.toggle('is-good', !(a.overdueRate > 0));
 
     var heat = document.getElementById('taHeat');
     heat.innerHTML = '';
