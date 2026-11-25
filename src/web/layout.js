@@ -3795,11 +3795,15 @@ body { padding-bottom: var(--kb-inset, 0px); }
 }
 .tdp-quick:hover:not(:active) { border-color: var(--brand-text); color: var(--brand-text); }
 @media (max-width: 767px) {
-  .tdp-mask { align-items: flex-end; padding: 0; }
-  .tdp-box { max-width: 100%; border-radius: 18px 18px 0 0; animation: tdpSheetUp .24s ease; }
+  .tdp-mask { align-items: flex-end; padding: 0; animation: tdpFade .28s ease; }
+  .tdp-box { max-width: 100%; border-radius: 18px 18px 0 0; animation: tdpSheetUp .34s cubic-bezier(.16,1,.3,1); }
+  .tdp-mask.tdp-closing { animation: tdpFadeOut .26s ease; }
+  .tdp-mask.tdp-closing .tdp-box { animation: tdpSheetOut .26s cubic-bezier(.4,0,1,1); }
   .tdp-body { padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); }
 }
 @keyframes tdpSheetUp { from { transform: translateY(100%); } }
+@keyframes tdpSheetOut { to { transform: translateY(100%); } }
+@keyframes tdpFadeOut { to { opacity: 0; } }
 @media (min-width: 641px) {
   /* PC 居中弹窗 body padding 20px：负 margin 归零，分隔线不溢出卡片 */
   .tform-barwrap { margin: 8px 0 0; }
@@ -4058,6 +4062,8 @@ html { scrollbar-gutter: stable; }
   .fs-boot-bar { animation: none; opacity: 0; }
   .fs-boot-bar i { animation: none; }
   #todoTree.fs-boot-in > *:nth-child(-n+6) { animation: fsCardInRM .2s ease both; animation-delay: 0ms !important; }
+  /* 弹窗/日期选择器: 全部瞬时显隐(JS 侧 matchMedia 同步瞬时收尾, 不靠兜底定时器, 无迟滞) */
+  .modal-mask, .modal-mask *, .tdp-mask, .tdp-mask * { animation: none !important; }
 }
 @keyframes fsCardInRM { from { opacity: 0; } to { opacity: 1; } }
 
@@ -4125,14 +4131,20 @@ html { scrollbar-gutter: stable; }
   /* 窄屏下拉菜单左对齐, modal 内边距收小 */
   .dropdown-menu { right: auto; left: 0; }
   .modal-mask { padding: 16px 10px; }
+  /* 灵感动效仅窄屏: 遮罩淡入淡出（PC 居中弹窗保持硬切, 由 JS matchMedia 同步控制是否挂 closing） */
+  .modal-mask.show { animation: modalMaskIn .28s ease; }
+  .modal-mask.closing { animation: modalMaskOut .26s ease; }
+  @keyframes modalMaskIn { from { opacity: 0; } }
+  @keyframes modalMaskOut { to { opacity: 0; } }
   /* 窄屏通用弹窗默认 BottomSheet 化（长弹窗键盘态 .kb-tall 保留顶部对齐滚动，避免裁切） */
   .modal-mask:not(.kb-tall):not(.modal-mask--sheet) { padding: 0; align-items: flex-end; }
   .modal-mask:not(.kb-tall):not(.modal-mask--sheet) .modal-box {
     width: 100%; max-width: 100%; margin: 0;
     border-radius: 20px 20px 0 0; max-height: 88vh;
     display: flex; flex-direction: column;
-    animation: todoSheetUp .22s ease;
+    animation: modalSheetIn .34s cubic-bezier(.16,1,.3,1);
   }
+  .modal-mask:not(.kb-tall):not(.modal-mask--sheet).closing .modal-box { animation: modalSheetOut .26s cubic-bezier(.4,0,1,1); }
   .modal-mask:not(.kb-tall):not(.modal-mask--sheet) .modal-head {
     position: relative; padding: 16px 16px 12px; flex: none;
   }
@@ -4153,11 +4165,27 @@ html { scrollbar-gutter: stable; }
     display: flex; flex-direction: column;
     max-width: 100%; width: 100%; margin: 0;
     max-height: calc(100% - var(--kb-inset, 0));
-    border-radius: 18px 18px 0 0; animation: todoSheetUp .24s ease;
+    border-radius: 18px 18px 0 0; animation: modalSheetIn .34s cubic-bezier(.16,1,.3,1);
   }
+  .modal-mask--sheet.closing .modal-box { animation: modalSheetOut .26s cubic-bezier(.4,0,1,1); }
   .modal-mask--sheet .modal-head { padding: 12px 16px; flex: none; }
   .modal-mask--sheet .modal-body { padding: 10px 16px 5px; overflow-y: auto; }
-  @keyframes todoSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes modalSheetIn { from { transform: translateY(100%); } }
+  @keyframes modalSheetOut { to { transform: translateY(100%); } }
+  /* 内容级联进场: 只作用 modal-body 直接子级, 延迟经变量分档、第 5 个起封顶; both 仅压住 delay 期起始帧。
+     待办表单 sheet 豁免(打开即聚焦+键盘避让, 不能让输入框参与位移动画); closing 时整体随 sheet 退出, 级联立即停在终态。
+     仅窄屏生效, PC 弹窗内容不做级联 */
+  .modal-mask.show .modal-body > * {
+    animation: modalRise .34s cubic-bezier(.16,1,.3,1) both;
+    animation-delay: var(--rise-d, .24s);
+  }
+  .modal-mask.show .modal-body > *:nth-child(1) { --rise-d: .06s; }
+  .modal-mask.show .modal-body > *:nth-child(2) { --rise-d: .11s; }
+  .modal-mask.show .modal-body > *:nth-child(3) { --rise-d: .16s; }
+  .modal-mask.show .modal-body > *:nth-child(4) { --rise-d: .21s; }
+  .modal-mask--sheet.show .modal-body > *,
+  .modal-mask.closing .modal-body > * { animation: none; }
+  @keyframes modalRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   /* 多选面板窄屏: 改为居中 modal 弹窗 (JS 侧已把 .mp-menu 移到 body 末尾, 彻底脱离 card 堆叠上下文,
      否则 .card 的 z-index/backdrop-filter 会封印内部 fixed 元素, 导致遮罩必然盖住面板)
      居中显示、大触点、显式"完成"按钮, 比底部弹出更好操作 */
@@ -4169,7 +4197,7 @@ html { scrollbar-gutter: stable; }
     box-shadow: 0 20px 60px rgba(0,0,0,.28);
     z-index: 1200;
   }
-  .mp-menu.show { grid-template-columns: repeat(4, 1fr); gap: 6px; min-width: 0; animation: mpModalIn .2s ease; }
+  .mp-menu.show { grid-template-columns: repeat(4, 1fr); gap: 6px; min-width: 0; animation: mpModalIn .34s cubic-bezier(.16,1,.3,1); }
   /* 渠道等自定义文本长度不定, 窄屏收成 1 列 + 允许换行, 避免撑爆 400px 容器出现横向滚动条 */
   .mp-menu-list.show { grid-template-columns: 1fr; }
   .mp-menu-list .mp-item { justify-content: flex-start; white-space: normal; word-break: break-all; text-align: left; }
@@ -4187,7 +4215,7 @@ html { scrollbar-gutter: stable; }
   body:has(.mp-menu.show)::before {
     content: ''; position: fixed; inset: 0;
     background: rgba(0,0,0,.5); z-index: 1100;
-    animation: mpMaskIn .2s ease;
+    animation: mpMaskIn .28s ease;
   }
 }
 @keyframes mpModalIn { from { transform: translate(-50%, -50%) scale(.92); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }

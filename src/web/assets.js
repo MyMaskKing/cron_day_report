@@ -1230,6 +1230,8 @@ function renderMd(md) {
 function openModal(title, bodyHtml, maskClass, pinned, titleIcon) {
   var mask = document.getElementById('modalMask');
   if (!mask) return;
+  // 退场动画中被重新打开: 先取消收尾(清定时器/监听、摘 closing), 保证新内容立即重播进场动画
+  modalCancelClose(mask);
   mask.classList.remove('modal-mask--lg');
   mask.classList.remove('modal-mask--pinned');
   mask.classList.remove('modal-mask--sheet');
@@ -1270,18 +1272,61 @@ function openModal(title, bodyHtml, maskClass, pinned, titleIcon) {
     }, 60);
   }
 }
+// 系统是否开启"减弱动态效果"（安卓 WebView/微信 X5 均支持 matchMedia）
+function prefersReducedMotion() {
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+// 弹窗灵感动效只在手机窄屏（与 CSS sheet 化断点 640 一致）启用；PC 居中弹窗瞬时收尾
+function isSheetViewport() {
+  return !!(window.matchMedia && window.matchMedia('(max-width:640px)').matches);
+}
+// 弹窗退场动画：挂 closing 类播 CSS 退场，动画结束再执行 onDone（隐藏遮罩/解锁滚动/移除节点）。
+// 句柄挂 mask 元素，同一遮罩被重新打开时由 modalCancelClose 取消，避免新旧动画打架。
+function modalPlayClose(mask, onDone) {
+  if (!mask || !mask.classList.contains('show') || mask.classList.contains('closing')) return;
+  // PC 宽屏或减弱动效：不播动画瞬时收尾，避免兜底定时器造成可感知迟滞
+  if (prefersReducedMotion() || !isSheetViewport()) { if (onDone) onDone(); return; }
+  var box = mask.querySelector('.modal-box');
+  mask.classList.add('closing');
+  function finish() {
+    if (mask._modalCloseTimer) { clearTimeout(mask._modalCloseTimer); mask._modalCloseTimer = null; }
+    if (box && mask._modalCloseOnEnd) { box.removeEventListener('animationend', mask._modalCloseOnEnd); mask._modalCloseOnEnd = null; }
+    mask._modalCloseFinish = null;
+    mask.classList.remove('closing');
+    if (onDone) onDone();
+  }
+  function onEnd(e) {
+    // 只认 box 自身退场动画结束；遮罩动画同时长或更短，必然先结束
+    if (e.target === box && mask.classList.contains('closing')) finish();
+  }
+  mask._modalCloseFinish = finish;
+  if (box) { mask._modalCloseOnEnd = onEnd; box.addEventListener('animationend', onEnd); }
+  mask._modalCloseTimer = setTimeout(finish, 450); // 兜底：个别内核 animationend 丢失也不会卡死遮罩
+}
+// 取消未完成的退场（同一遮罩被重新打开时）：恢复即时显示，已排定的隐藏/解锁不再执行
+function modalCancelClose(mask) {
+  if (!mask || !mask.classList.contains('closing')) return;
+  if (mask._modalCloseTimer) { clearTimeout(mask._modalCloseTimer); mask._modalCloseTimer = null; }
+  var box = mask.querySelector('.modal-box');
+  if (box && mask._modalCloseOnEnd) { box.removeEventListener('animationend', mask._modalCloseOnEnd); mask._modalCloseOnEnd = null; }
+  mask._modalCloseFinish = null;
+  mask.classList.remove('closing');
+}
 function closeModal() {
   var mask = document.getElementById('modalMask');
   if (!mask) return;
-  var wasOpen = mask.classList.contains('show');
+  // 已在退场中：忽略重复调用（连点 ×/系统返回/ESC 同路径），收尾由第一次调用负责
+  if (!mask.classList.contains('show') || mask.classList.contains('closing')) return;
   // 任务表单关闭(保存或取消)即清草稿; 进程被杀不经过这里, 草稿得以保留
   try { if (typeof window.__todoDraftClose === 'function') window.__todoDraftClose(); } catch (e) {}
   // 查看弹层随任意路径关闭(X/遮罩/Esc/跳编辑/勾选完成)同步清除当前 id
   _todoViewingId = null;
-  mask.classList.remove('show');
-  if (wasOpen) unlockBodyScroll();
-  // 弹窗关闭后按当前滚动位置恢复原生下拉刷新开关
-  try { if (window._appShellReport) window._appShellReport(); } catch(e) {}
+  modalPlayClose(mask, function() {
+    mask.classList.remove('show');
+    unlockBodyScroll();
+    // 弹窗关闭后按当前滚动位置恢复原生下拉刷新开关
+    try { if (window._appShellReport) window._appShellReport(); } catch(e) {}
+  });
 }
 // 智能分析「查看更多」：页面内只留摘要卡，完整 .jn 分析走大弹窗（720px，三格周期对比不挤）
 function openInsightModal(title, html, titleIcon) {
@@ -1345,7 +1390,14 @@ function alertModal(message, opts) {
       '<div style="text-align:right;margin-top:18px;"><button class="btn amOk">确定</button></div>' +
     '</div></div>';
   var locked = false;
-  function shut(){ mask.remove(); document.removeEventListener('keydown', onKey, true); if (locked) { locked = false; unlockBodyScroll(); } }
+  function shut(){
+    document.removeEventListener('keydown', onKey, true);
+    // 与通用弹窗同一退场状态机；closing 守卫保证 amOk 与 ESC 同按时 onDone 只执行一次
+    modalPlayClose(mask, function() {
+      mask.remove();
+      if (locked) { locked = false; unlockBodyScroll(); }
+    });
+  }
   function onKey(e){ if (e.key === 'Escape') shut(); }
   mask.querySelector('.amOk').addEventListener('click', shut);
   document.addEventListener('keydown', onKey, true);
@@ -14159,7 +14211,23 @@ function todoOpenDatePicker(opts) {
   }
   function close() {
     document.removeEventListener('keydown', onKey, true);
-    if (root && root.parentNode) root.parentNode.removeChild(root);
+    if (!root || !root.parentNode) return;
+    // 关闭路径(选日期/×/遮罩/ESC/系统返回)统一走退场动画，动画结束才移除节点
+    if (root.classList.contains('tdp-closing')) return;
+    function removeRoot() { if (root.parentNode) root.parentNode.removeChild(root); }
+    // tdp 的 sheet 断点是 767；宽屏居中弹窗或减弱动效时瞬时移除
+    var narrow = window.matchMedia && window.matchMedia('(max-width:767px)').matches;
+    if (prefersReducedMotion() || !narrow) { removeRoot(); return; }
+    var box = root.querySelector('.tdp-box');
+    root.classList.add('tdp-closing');
+    var timer = setTimeout(finish, 450); // 兜底：animationend 丢失也不留残节点
+    function onEnd(e) { if (e.target === box && root.classList.contains('tdp-closing')) finish(); }
+    function finish() {
+      clearTimeout(timer);
+      if (box) box.removeEventListener('animationend', onEnd);
+      removeRoot();
+    }
+    if (box) box.addEventListener('animationend', onEnd);
   }
   function finish(v) {
     close();
