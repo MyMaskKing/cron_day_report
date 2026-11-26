@@ -2583,13 +2583,6 @@ html[data-theme="dark"] .todo-donezone .flat-crumb,
     font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
   }
   .todo-acc-bar__btn:active { background: var(--surface-2); }
-  .todo-acc.todo-bandcard { overflow: visible; }
-  .todo-bandcard > .todo-acc__row--root {
-    position: sticky; top: 8px; z-index: 3;
-    background: var(--surface);
-    border-radius: 16px 16px 0 0;
-  }
-  body.todo-fs-on .todo-bandcard > .todo-acc__row--root { top: 61px; }
 
   /* —— 3. 速览：四段语义分组（段头落背景走 --onbg）+ 段内合并单张白卡 —— */
   .flat-sec + .flat-sec { margin-top: 14px; }
@@ -2669,7 +2662,6 @@ html[data-theme="dark"] .todo-donezone .flat-crumb,
   .timeline-view:not(.tl-legacy) .tl-day__rail { grid-area: 1 / 1 / 3 / 2; }
   .timeline-view:not(.tl-legacy) .tl-day__label {
     grid-area: 1 / 2;
-    position: sticky; top: 8px; z-index: 3;
     justify-self: start;
     display: inline-flex; align-items: center; gap: 6px;
     width: auto; margin: 0 0 2px; padding: 3px 11px;
@@ -2677,7 +2669,6 @@ html[data-theme="dark"] .todo-donezone .flat-crumb,
     background: var(--surface); border: 1px solid var(--border); border-radius: 99px;
     color: var(--text-strong);
   }
-  body.todo-fs-on .timeline-view:not(.tl-legacy) .tl-day__label { top: 61px; }
   .timeline-view:not(.tl-legacy) .tl-day__label b { display: inline; font-size: 12.5px; color: var(--text-strong); }
   /* pill 是白底：强制回退实色，不能用深背景专用的 --over-fg/--today-fg/--soon-fg */
   .timeline-view:not(.tl-legacy) .tl-day.is-over .tl-day__label b { color: var(--danger); }
