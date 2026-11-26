@@ -2575,8 +2575,12 @@ html[data-theme="dark"] .todo-donezone .flat-crumb,
   .todo-card__sub-mark.is-done::after { content: '✓'; color: #fff; font-size: 9.5px; font-weight: 700; }
   .todo-card__sub-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* —— 2. 手风琴：快捷工具条 + 根组头吸顶（解除 bandcard 裁切，白底不穿背景） —— */
+  /* —— 2. 手风琴：快捷工具条 —— */
   .todo-acc-bar { display: flex; gap: 8px; margin: 2px 0 10px; }
+  /* 按日分组时工具条挂在 .todo-due-groups 顶部：压缩其与首个日期组头的间距；
+     原 .todo-due-group__head:first-child 因工具条前置而失效，用相邻兄弟选择器补回紧凑度 */
+  .todo-due-groups > .todo-acc-bar { margin-bottom: 4px; }
+  .todo-due-groups > .todo-acc-bar + .todo-due-group__head { margin-top: 6px; }
   .todo-acc-bar__btn {
     padding: 6px 12px; border-radius: 9px; border: 1px solid var(--border);
     background: var(--surface); color: var(--text);
