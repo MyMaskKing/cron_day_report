@@ -11151,6 +11151,39 @@ function todoAccDueChip(dueDate, today, done) {
 }
 // 手风琴视图：仪表盘式圆点行（行间细分隔线、无卡片框），悬停浮现操作组；
 // opts 契约与 renderTodoTree 完全一致（today/onToggle/onAddChildSubmit/onReorder/onDel/onShare/onDetail/readOnly/onlyDone/forcedRootDue/startDepth）
+// 手风琴视图级工具条（仅展开今日 / 全部折叠；手机端显示、PC 由 CSS 隐藏）：纯视图态折叠，不发请求、不整树重绘。
+// 抽成模块级供未分组渲染与按日分组渲染共用，保证一个手风琴视图只建一个条；
+// querySelectorAll 深度扫描 .todo-bandcard，按日分组时卡片在各组体内部也能命中。
+function todoBuildAccBar(container, rootMap, today) {
+  var accBar = document.createElement('div');
+  accBar.className = 'todo-acc-bar';
+  var accBtnToday = document.createElement('button');
+  accBtnToday.type = 'button';
+  accBtnToday.className = 'todo-acc-bar__btn';
+  accBtnToday.textContent = '仅展开今日';
+  var accBtnFold = document.createElement('button');
+  accBtnFold.type = 'button';
+  accBtnFold.className = 'todo-acc-bar__btn';
+  accBtnFold.textContent = '全部折叠';
+  accBar.appendChild(accBtnToday);
+  accBar.appendChild(accBtnFold);
+  container.appendChild(accBar);
+  function applyAccFolds(onlyToday) {
+    Array.prototype.forEach.call(container.querySelectorAll('.todo-bandcard'), function (wrap) {
+      var caretBtn = wrap.querySelector('.todo-acc__caret');
+      var kids = wrap.querySelector('.todo-acc__kids');
+      // solo 组 caret 是 leaf 占位、kids 不可折叠，跳过
+      if (!caretBtn || caretBtn.classList.contains('leaf') || !kids) return;
+      var id = wrap.getAttribute('data-id');
+      var fold = onlyToday ? !todoSubtreeDueToday(rootMap[id], today) : true;
+      _todoCollapsed[id] = fold;
+      caretBtn.classList.toggle('is-collapsed', fold);
+      kids.classList.toggle('collapsed', fold);
+    });
+  }
+  accBtnToday.addEventListener('click', function () { applyAccFolds(true); });
+  accBtnFold.addEventListener('click', function () { applyAccFolds(false); });
+}
 function renderTodoAccordion(container, trees, opts) {
   opts = opts || {};
   var today = opts.today || '';
@@ -11160,38 +11193,9 @@ function renderTodoAccordion(container, trees, opts) {
   // 顶层 root 映射：供工具条按 id 取节点判「今天到期」
   var rootMap = {};
 
-  // 手机端快捷工具条（PC CSS 隐藏）：纯视图态折叠，不发请求、不整树重绘
-  if (!isDetail) {
-    var accBar = document.createElement('div');
-    accBar.className = 'todo-acc-bar';
-    var accBtnToday = document.createElement('button');
-    accBtnToday.type = 'button';
-    accBtnToday.className = 'todo-acc-bar__btn';
-    accBtnToday.textContent = '仅展开今日';
-    var accBtnFold = document.createElement('button');
-    accBtnFold.type = 'button';
-    accBtnFold.className = 'todo-acc-bar__btn';
-    accBtnFold.textContent = '全部折叠';
-    accBar.appendChild(accBtnToday);
-    accBar.appendChild(accBtnFold);
-    container.appendChild(accBar);
-    function applyAccFolds(onlyToday) {
-      Array.prototype.forEach.call(container.children, function (wrap) {
-        if (!wrap.classList || !wrap.classList.contains('todo-bandcard')) return;
-        var caretBtn = wrap.querySelector('.todo-acc__caret');
-        var kids = wrap.querySelector('.todo-acc__kids');
-        // solo 组 caret 是 leaf 占位、kids 不可折叠，跳过
-        if (!caretBtn || caretBtn.classList.contains('leaf') || !kids) return;
-        var id = wrap.getAttribute('data-id');
-        var fold = onlyToday ? !todoSubtreeDueToday(rootMap[id], today) : true;
-        _todoCollapsed[id] = fold;
-        caretBtn.classList.toggle('is-collapsed', fold);
-        kids.classList.toggle('collapsed', fold);
-      });
-    }
-    accBtnToday.addEventListener('click', function () { applyAccFolds(true); });
-    accBtnFold.addEventListener('click', function () { applyAccFolds(false); });
-  }
+  // 手机端快捷工具条（PC CSS 隐藏）：纯视图态折叠，不发请求、不整树重绘。
+  // 按日分组(insideDueGroup)时工具条由 todoRenderGroupedByDue 在最外层统一建，组体子渲染不重复建。
+  if (!isDetail && !opts.insideDueGroup) todoBuildAccBar(container, rootMap, today);
 
   // 悬停操作组：拖拽(可选) / 添加子任务 / 详情 / 协作(仅顶层) / 删除 / 更多(手机弹层)
   function buildOps(node, depth, rowEl, onAddClick) {
@@ -12486,6 +12490,14 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
   }
   container.innerHTML = '';
   container.className = 'todo-due-groups';
+  // 手风琴的视图级工具条在最外层只建一个（各组体渲染器靠 insideDueGroup 跳过自建，避免每个日期组一条）
+  var subOpts = opts;
+  if (view === 'accordion') {
+    var accRootMap = {};
+    trees.forEach(function (t) { accRootMap[t.id] = t; });
+    todoBuildAccBar(container, accRootMap, today);
+    subOpts = Object.assign({}, opts, { insideDueGroup: true });
+  }
   groups.forEach(function (g) {
     var head = todoBuildDueGroupHead(g.key, g.roots.length, today);
     var body = document.createElement('div');
@@ -12510,7 +12522,7 @@ function todoRenderGroupedByDue(container, trees, opts, view) {
     container.appendChild(head);
     container.appendChild(summary);
     container.appendChild(body);
-    todoRenderRootsByView(body, g.roots, opts, view);
+    todoRenderRootsByView(body, g.roots, subOpts, view);
   });
 }
 // 视图调度器：opts.view + opts.detailRootId 决定渲染哪种
