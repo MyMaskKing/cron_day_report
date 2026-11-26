@@ -9512,6 +9512,36 @@ function todoLeafCount(node) {
   })(node);
   return { total: total, done: done };
 }
+// 卡片视图手机预览：与 todoLeafCount 同口径遍历最终叶子（完成的中间层整支剔除），
+// 额外携带前 2 个叶子的标题/完成态供进度条与预览行渲染
+function todoCardPreview(node) {
+  var total = 0, done = 0, leaves = [];
+  (function walk(n){
+    n.children.forEach(function(c){
+      if (c.done && c.children.length > 0) return;
+      if (c.children.length === 0) {
+        total++;
+        if (c.done) done++;
+        if (leaves.length < 2) leaves.push({ title: c.title, done: !!c.done });
+      } else walk(c);
+    });
+  })(node);
+  return { total: total, done: done, leaves: leaves };
+}
+// 手风琴「仅展开今日」判据：子树内是否存在今天到期的未完成最终叶子（有效日期沿祖先链继承）
+function todoSubtreeDueToday(node, today) {
+  if (!today) return false;
+  var hit = false;
+  (function walk(n){
+    if (hit || n.done) return;
+    if (n.children.length === 0) {
+      if (todoDetailEffDue(n) === today) hit = true;
+      return;
+    }
+    n.children.forEach(walk);
+  })(node);
+  return hit;
+}
 // 子树完成信息(遍历含 node 自身): any=是否存在已完成节点; last=最大的 done_at(无则 null)
 // 用于"已完成"筛选收纳含已完成子任务的 child_due 容器, 及卡片"最近完成"chip
 function todoSubtreeDoneInfo(node) {
@@ -9618,6 +9648,26 @@ function todoSaveTimelineFullAxis(v) {
   catch (e) { /* 存储被禁仅本次生效 */ }
 }
 var _todoTimelineFullAxis = todoLoadTimelineFullAxis();
+// 卡片进度条+子任务预览开关：localStorage 'todoCardPreview'；opt-in，未存默认关闭，仅显式 '1' 开启
+function todoLoadCardPreview() {
+  try { return localStorage.getItem('todoCardPreview') === '1'; }
+  catch (e) { return false; }
+}
+function todoSaveCardPreview(v) {
+  try { localStorage.setItem('todoCardPreview', v ? '1' : '0'); }
+  catch (e) { /* 存储被禁仅本次生效 */ }
+}
+var _todoCardPreview = todoLoadCardPreview();
+// 时间轴紧凑模式（贴边两列+吸顶 pill+定位今天）开关：localStorage 'todoTimelineCompact'；opt-in，未存默认关闭
+function todoLoadTimelineCompact() {
+  try { return localStorage.getItem('todoTimelineCompact') === '1'; }
+  catch (e) { return false; }
+}
+function todoSaveTimelineCompact(v) {
+  try { localStorage.setItem('todoTimelineCompact', v ? '1' : '0'); }
+  catch (e) { /* 存储被禁仅本次生效 */ }
+}
+var _todoTimelineCompact = todoLoadTimelineCompact();
 // 隐藏已完成：localStorage 'todoHideDone'；未存按 true（与历史 checkbox 写死 checked 同口径）
 function todoLoadHideDone() {
   try { return localStorage.getItem('todoHideDone') !== '0'; }
@@ -9628,7 +9678,7 @@ function todoSaveHideDone(v) {
   catch (e) { /* 存储被禁仅本次生效 */ }
 }
 var _todoHideDone = todoLoadHideDone();
-// 「显示」菜单四值整包同步：DB(users.todo_view_opts) 为准，localStorage 四个键作本机缓存（首帧用）。
+// 「显示」菜单六值整包同步：DB(users.todo_view_opts) 为准，localStorage 六个键作本机缓存（首帧用）。
 // 应用一份设置（profile 校正）：写运行时变量 → 同步 #hideDone/#hideDoneFs → 回写缓存；
 // 与缓存现状有差异且传入 onDrawTree 时重绘一次。onDrawTree 缺省（公开页/仪表盘）只同步状态。
 function todoApplyViewOpts(o, onDrawTree) {
@@ -9637,16 +9687,23 @@ function todoApplyViewOpts(o, onDrawTree) {
   var hide = o.hide_done !== false;
   var group = o.group_by_due === true;
   var fullAxis = o.timeline_full_axis === true;
+  var cardPreview = o.card_preview === true;
+  var tlCompact = o.timeline_compact === true;
   var changed = sort !== _todoSortMode || hide !== _todoHideDone
-    || group !== _todoGroupByDue || fullAxis !== _todoTimelineFullAxis;
+    || group !== _todoGroupByDue || fullAxis !== _todoTimelineFullAxis
+    || cardPreview !== _todoCardPreview || tlCompact !== _todoTimelineCompact;
   _todoSortMode = sort;
   _todoHideDone = hide;
   _todoGroupByDue = group;
   _todoTimelineFullAxis = fullAxis;
+  _todoCardPreview = cardPreview;
+  _todoTimelineCompact = tlCompact;
   todoSaveSortMode(sort);
   todoSaveHideDone(hide);
   todoSaveGroupByDue(group);
   todoSaveTimelineFullAxis(fullAxis);
+  todoSaveCardPreview(cardPreview);
+  todoSaveTimelineCompact(tlCompact);
   var orig = document.getElementById('hideDone');
   if (orig && orig.checked !== hide) {
     orig.checked = hide;
@@ -9671,7 +9728,9 @@ function todoScheduleSaveViewOpts() {
           sort: _todoSortMode,
           hide_done: _todoHideDone,
           group_by_due: _todoGroupByDue,
-          timeline_full_axis: _todoTimelineFullAxis
+          timeline_full_axis: _todoTimelineFullAxis,
+          card_preview: _todoCardPreview,
+          timeline_compact: _todoTimelineCompact
         }
       }).catch(function () {});
     } catch (e) { /* 离线等场景静默，缓存保留本机状态 */ }
@@ -11098,6 +11157,41 @@ function renderTodoAccordion(container, trees, opts) {
   container.innerHTML = '';
   // 详情态（forcedRootDue 显式传入，同老树判定）
   var isDetail = Object.prototype.hasOwnProperty.call(opts, 'forcedRootDue');
+  // 顶层 root 映射：供工具条按 id 取节点判「今天到期」
+  var rootMap = {};
+
+  // 手机端快捷工具条（PC CSS 隐藏）：纯视图态折叠，不发请求、不整树重绘
+  if (!isDetail) {
+    var accBar = document.createElement('div');
+    accBar.className = 'todo-acc-bar';
+    var accBtnToday = document.createElement('button');
+    accBtnToday.type = 'button';
+    accBtnToday.className = 'todo-acc-bar__btn';
+    accBtnToday.textContent = '仅展开今日';
+    var accBtnFold = document.createElement('button');
+    accBtnFold.type = 'button';
+    accBtnFold.className = 'todo-acc-bar__btn';
+    accBtnFold.textContent = '全部折叠';
+    accBar.appendChild(accBtnToday);
+    accBar.appendChild(accBtnFold);
+    container.appendChild(accBar);
+    function applyAccFolds(onlyToday) {
+      Array.prototype.forEach.call(container.children, function (wrap) {
+        if (!wrap.classList || !wrap.classList.contains('todo-bandcard')) return;
+        var caretBtn = wrap.querySelector('.todo-acc__caret');
+        var kids = wrap.querySelector('.todo-acc__kids');
+        // solo 组 caret 是 leaf 占位、kids 不可折叠，跳过
+        if (!caretBtn || caretBtn.classList.contains('leaf') || !kids) return;
+        var id = wrap.getAttribute('data-id');
+        var fold = onlyToday ? !todoSubtreeDueToday(rootMap[id], today) : true;
+        _todoCollapsed[id] = fold;
+        caretBtn.classList.toggle('is-collapsed', fold);
+        kids.classList.toggle('collapsed', fold);
+      });
+    }
+    accBtnToday.addEventListener('click', function () { applyAccFolds(true); });
+    accBtnFold.addEventListener('click', function () { applyAccFolds(false); });
+  }
 
   // 悬停操作组：拖拽(可选) / 添加子任务 / 详情 / 协作(仅顶层) / 删除 / 更多(手机弹层)
   function buildOps(node, depth, rowEl, onAddClick) {
@@ -11232,6 +11326,7 @@ function renderTodoAccordion(container, trees, opts) {
     // A 方案：真顶层主任务（非详情子树）卡片化，等级由顶部色带编码（与卡片视图同源）
     var cardRoot = depth === 0 && !isDetail;
     var rootPri = cardRoot ? todoRootPri(node) : null;
+    if (cardRoot) rootMap[node.id] = node;
     var wrap = document.createElement('div');
     // bandcard 是卡片容器(白底/圆角), 恒加; pri-X 仅在有代表优先级时追加顶部色带
     wrap.className = 'todo-node todo-acc' + (cardRoot ? ' todo-bandcard' + (rootPri != null ? ' pri-' + rootPri : '') : '')
@@ -11523,12 +11618,44 @@ function renderTodoFlat(container, trees, opts) {
     container.innerHTML = '<div class="todo-empty">🎉 暂无待办，点击上方按钮新建</div>';
     return;
   }
-  // 3. 未勾选「按到期日分组」：仅排序的纯卡片流，不显示日期组头
+  // 3. 未勾选「按到期日分组」：按 已逾期/今天/未来/未安排 四段语义分组（空段不渲染）；
+  //    PC 端 .flat-sec 由 CSS display:contents 抹平为连续卡片流，视觉与旧纯卡片流一致
   if (!_todoGroupByDue) {
-    var flatList = document.createElement('div');
-    flatList.className = 'tl-card-list';
-    leaves.forEach(function (it) { flatList.appendChild(todoLeafCard(it, opts, 'flat')); });
-    container.appendChild(flatList);
+    var secBuckets = { overdue: [], today: [], future: [], none: [] };
+    leaves.forEach(function (it) {
+      if (!it.effDue) secBuckets.none.push(it);
+      else if (it.effDue < today) secBuckets.overdue.push(it);
+      else if (it.effDue === today) secBuckets.today.push(it);
+      else secBuckets.future.push(it);
+    });
+    var SEC_META = [
+      ['overdue', '已逾期'],
+      ['today', '今天'],
+      ['future', '未来'],
+      ['none', '未安排']
+    ];
+    SEC_META.forEach(function (meta) {
+      var arr = secBuckets[meta[0]];
+      if (!arr.length) return;
+      var sec = document.createElement('div');
+      sec.className = 'flat-sec flat-sec--' + meta[0];
+      var head = document.createElement('div');
+      head.className = 'flat-sec__head';
+      var nameEl = document.createElement('span');
+      nameEl.className = 'flat-sec__name';
+      nameEl.textContent = meta[1];
+      var countEl = document.createElement('span');
+      countEl.className = 'flat-sec__count';
+      countEl.textContent = arr.length + ' 项';
+      head.appendChild(nameEl);
+      head.appendChild(countEl);
+      sec.appendChild(head);
+      var flatList = document.createElement('div');
+      flatList.className = 'tl-card-list';
+      arr.forEach(function (it) { flatList.appendChild(todoLeafCard(it, opts, 'flat')); });
+      sec.appendChild(flatList);
+      container.appendChild(sec);
+    });
     return;
   }
   // 4. 勾选后再按日期分桶: 同日叶子(可能跨主任务、在 leaves 中不相邻)并入同组;
@@ -11565,11 +11692,47 @@ function renderTodoFlat(container, trees, opts) {
 }
 
 // ============ 时间轴视图（timeline：竖轴挂日期节点，右侧挂子任务卡；点卡片面包屑进主任务详情） ============
+// 滚动到「今天」日期行：FS 内相对 .todo-fs-main 留 64px（让过吸顶 fs-top 与日期 pill），
+// 普通页相对窗口留 16px；减弱动态效果时瞬时定位
+function todoScrollToToday(container) {
+  var el = container.querySelector('.tl-day.is-today');
+  if (!el) return;
+  var scroller = todoScrollScroller(container);
+  var top;
+  if (scroller.classList && scroller.classList.contains('todo-fs-main')) {
+    top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 64;
+  } else {
+    top = (window.scrollY || window.pageYOffset || 0) + el.getBoundingClientRect().top - 16;
+  }
+  top = Math.max(0, top);
+  if (!prefersReducedMotion() && typeof scroller.scrollTo === 'function') {
+    scroller.scrollTo({ top: top, behavior: 'smooth' });
+  } else {
+    scroller.scrollTop = top;
+  }
+}
 function renderTodoTimeline(container, trees, opts) {
   opts = opts || {};
   var today = opts.today || '';
   container.innerHTML = '';
+  // 紧凑模式为 opt-in 开关：仅显式开启才用贴边两列+定位工具条；默认挂 tl-legacy，窄屏 CSS 回退旧三列布局
+  var compactTl = _todoTimelineCompact === true;
+  container.classList.toggle('tl-legacy', !compactTl);
   function tlPad(n){ return (n < 10 ? '0' : '') + n; }
+
+  // 手机端工具条（PC CSS 隐藏）：定位到今天；无今日桶时禁用。补齐空日开关仍在 FAB 显示菜单，不重复造控件
+  if (compactTl) {
+    var tlBar = document.createElement('div');
+    tlBar.className = 'tl-tools';
+    var tlLocate = document.createElement('button');
+    tlLocate.type = 'button';
+    tlLocate.className = 'tl-locate-btn';
+    tlLocate.innerHTML = ICONS.target + '定位到今天';
+    tlLocate.disabled = true;
+    tlLocate.addEventListener('click', function () { todoScrollToToday(container); });
+    tlBar.appendChild(tlLocate);
+    container.appendChild(tlBar);
+  }
 
   // 收集最终叶子（trees 已由主列表抽离 done 整枝）：
   // child_due 空容器（顶层无子女且勾选各自截止）不挂轴；叶子有效日期沿祖先链继承（与速览同口径）
@@ -11660,6 +11823,8 @@ function renderTodoTimeline(container, trees, opts) {
     if (!buckets.has(it.effDue)) buckets.set(it.effDue, []);
     buckets.get(it.effDue).push(it);
   });
+  // 存在今天的日期桶才允许定位（紧凑模式关闭时无工具条，tlLocate 为空）
+  if (tlLocate) tlLocate.disabled = !(today && buckets.has(today));
 
   if (_todoTimelineFullAxis && buckets.size) {
     // 枚举范围取全部日期的 min/max(不依赖 bucket 顺序, 倒序时首尾会互换);
@@ -11942,6 +12107,36 @@ function renderTodoCards(container, trees, opts) {
     if (root._ghost === 1) title.style.color = 'var(--faint)';
     head.appendChild(title);
     body.appendChild(head);
+
+    // 手机端进度条 + 子任务预览（PC 由 CSS 隐藏）；口径同 todoLeafCount，无子任务不渲染；
+    // card_preview 为 opt-in 开关，仅显式开启才渲染（默认关闭，保持旧卡片）
+    if (hasChildren && _todoCardPreview === true) {
+      var pv = todoCardPreview(root);
+      if (pv.total > 0) {
+        var prog = document.createElement('div');
+        prog.className = 'todo-card__prog';
+        var progFill = document.createElement('div');
+        progFill.className = 'todo-card__prog-fill';
+        progFill.style.width = Math.round(pv.done / pv.total * 100) + '%';
+        prog.appendChild(progFill);
+        body.appendChild(prog);
+        var subs = document.createElement('div');
+        subs.className = 'todo-card__subs';
+        pv.leaves.forEach(function (s) {
+          var sub = document.createElement('div');
+          sub.className = 'todo-card__sub';
+          var mark = document.createElement('span');
+          mark.className = 'todo-card__sub-mark' + (s.done ? ' is-done' : '');
+          var subTitle = document.createElement('span');
+          subTitle.className = 'todo-card__sub-title';
+          subTitle.textContent = s.title;
+          sub.appendChild(mark);
+          sub.appendChild(subTitle);
+          subs.appendChild(sub);
+        });
+        body.appendChild(subs);
+      }
+    }
 
     // meta 行：分类/重复/完成时间为弱化灰字, 日期 + 叶子进度保留语义 chip
     var meta = document.createElement('div'); meta.className = 'todo-card__meta';
@@ -15986,6 +16181,19 @@ function openDisplayChooser(ev) {
   menu.className = 'fab-menu';
   var SORT_SHORT = { default: '默认', due_asc: '早→晚', due_desc: '晚→早' };
   function mainHtml() {
+    // 卡片进度预览/时间轴紧凑两项是手机窄屏专属：其新样式仅在 @media max-width:640px 显示，
+    // PC 宽屏由 CSS 隐藏（见 layout.js），宽屏不展示这两个开关，避免「能勾选却看不到效果」。
+    // 判据与 layout.js 媒体查询同源用 matchMedia；菜单每次打开重新生成本 HTML，宽度变化实时生效。
+    var isNarrow = window.matchMedia && window.matchMedia('(max-width:640px)').matches;
+    var mobileOnly = !isNarrow ? '' :
+        '<button type="button" class="fab-menu__item" data-k="card-preview">'
+      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.cards + '</span>'
+      +   '<span class="fab-menu__t">卡片进度预览</span>'
+      +   '<span class="fab-menu__mark">' + (_todoCardPreview ? '✓' : '') + '</span></button>'
+      + '<button type="button" class="fab-menu__item" data-k="tl-compact">'
+      +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.target + '</span>'
+      +   '<span class="fab-menu__t">时间轴紧凑模式</span>'
+      +   '<span class="fab-menu__mark">' + (_todoTimelineCompact ? '✓' : '') + '</span></button>';
     return '<button type="button" class="fab-menu__item" data-k="group">'
       +   '<span class="fab-menu__ic">' + ICONS.calendar + '</span>'
       +   '<span class="fab-menu__t">按到期日分组</span>'
@@ -16002,6 +16210,7 @@ function openDisplayChooser(ev) {
       +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.clock + '</span>'
       +   '<span class="fab-menu__t">时间轴补齐空日期</span>'
       +   '<span class="fab-menu__mark">' + (_todoTimelineFullAxis ? '✓' : '') + '</span></button>'
+      + mobileOnly
       + '<button type="button" class="fab-menu__item" data-k="bg">'
       +   '<span class="fab-menu__ic" style="background:var(--surface-2);color:var(--muted-2);">' + ICONS.palette + '</span>'
       +   '<span class="fab-menu__t">切换背景</span></button>';
@@ -16061,6 +16270,12 @@ function openDisplayChooser(ev) {
         if (b.dataset.k === 'tl-full') {
           _todoTimelineFullAxis = !_todoTimelineFullAxis;
           todoSaveTimelineFullAxis(_todoTimelineFullAxis);
+        } else if (b.dataset.k === 'card-preview') {
+          _todoCardPreview = !_todoCardPreview;
+          todoSaveCardPreview(_todoCardPreview);
+        } else if (b.dataset.k === 'tl-compact') {
+          _todoTimelineCompact = !_todoTimelineCompact;
+          todoSaveTimelineCompact(_todoTimelineCompact);
         } else if (b.dataset.k === 'group') {
           _todoGroupByDue = !_todoGroupByDue;
           todoSaveGroupByDue(_todoGroupByDue);

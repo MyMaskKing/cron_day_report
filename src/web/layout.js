@@ -444,7 +444,7 @@ html[data-bg="solid-sky"] body.todo-fs-on .todo-fs-main { --onbg:#324a66; --onbg
 
 /* 卡片描边分离（不用投影）：只覆盖【右、下】两边，保留 border-top(卡片顶色带)/border-left(速览·时间轴左色带) 不被冲掉。
    低对比渐变上白卡也能清晰分张；六视图统一。深色实色覆盖见 --card-border-c。 */
-body.todo-fs-on :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.tl-item) {
+body.todo-fs-on :is(.todo-card,.todo-bandcard,.tl-card,.todo-row,.tl-item,.tl-card-list) {
   border-right-color: var(--card-border-c, rgba(30,40,60,.18));
   border-bottom-color: var(--card-border-c, rgba(30,40,60,.18));
 }
@@ -2549,6 +2549,148 @@ html[data-theme="dark"] .todo-donezone .flat-crumb,
   .tl-item__body { padding: 9px 10px 8px 13px; gap: 8px; }
   .tl-item__title { font-size: 13.5px; }
 }
+
+/* ============ 五视图手机端优化（对齐 todo-5views-demo：仅 ≤640px 生效，PC 像素不变） ============ */
+/* 新增 DOM 在 PC 默认隐藏；.flat-sec 在 PC 抹平为无盒容器，速览仍是连续卡片流 */
+.todo-card__prog, .todo-card__subs, .todo-acc-bar, .flat-sec__head, .tl-tools { display: none; }
+@media (min-width: 641px) {
+  .flat-sec { display: contents; }
+}
+@media (max-width: 640px) {
+  /* —— 1. 卡片视图：进度条 + 最多 2 行子任务预览 —— */
+  .todo-card, .todo-bandcard { border-radius: 16px; }
+  .todo-card__prog {
+    display: block; height: 4px; border-radius: 99px;
+    background: var(--surface-2); margin: 8px 0 2px; overflow: hidden;
+  }
+  .todo-card__prog-fill { height: 100%; border-radius: 99px; background: var(--brand); }
+  .todo-card__subs { display: flex; flex-direction: column; gap: 4px; margin-top: 7px; }
+  .todo-card__sub { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 12px; color: var(--muted); }
+  .todo-card__sub-mark {
+    flex: none; width: 14px; height: 14px; border-radius: 50%;
+    border: 1.6px solid var(--check-ring);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .todo-card__sub-mark.is-done { background: var(--brand); border-color: var(--brand); }
+  .todo-card__sub-mark.is-done::after { content: '✓'; color: #fff; font-size: 9.5px; font-weight: 700; }
+  .todo-card__sub-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* —— 2. 手风琴：快捷工具条 + 根组头吸顶（解除 bandcard 裁切，白底不穿背景） —— */
+  .todo-acc-bar { display: flex; gap: 8px; margin: 2px 0 10px; }
+  .todo-acc-bar__btn {
+    padding: 6px 12px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text);
+    font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .todo-acc-bar__btn:active { background: var(--surface-2); }
+  .todo-acc.todo-bandcard { overflow: visible; }
+  .todo-bandcard > .todo-acc__row--root {
+    position: sticky; top: 8px; z-index: 3;
+    background: var(--surface);
+    border-radius: 16px 16px 0 0;
+  }
+  body.todo-fs-on .todo-bandcard > .todo-acc__row--root { top: 61px; }
+
+  /* —— 3. 速览：四段语义分组（段头落背景走 --onbg）+ 段内合并单张白卡 —— */
+  .flat-sec + .flat-sec { margin-top: 14px; }
+  .flat-sec__head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 2px 4px; margin-bottom: 6px;
+    font-size: 12px; font-weight: 700;
+  }
+  .flat-sec__name, .flat-sec__head { color: var(--onbg, var(--muted)); }
+  .flat-sec--overdue .flat-sec__name { color: var(--over-fg, var(--danger)); }
+  .flat-sec--today .flat-sec__name { color: var(--today-fg, var(--brand-text)); }
+  .flat-sec__count { font-weight: 600; color: var(--onbg-soft, var(--muted-2)); }
+  .flat-view .tl-card-list {
+    gap: 0; margin-top: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+  }
+  /* 行间发丝线；保留左/顶优先级色带，只收掉单卡描边、投影与圆角 */
+  .flat-view .tl-card-list .tl-item {
+    border-top: 0; border-right: 0; border-radius: 0; box-shadow: none;
+    border-bottom: 1px solid var(--th-border);
+  }
+  .flat-view .tl-card-list .tl-item:last-child { border-bottom: 0; }
+  /* 面包屑整条灰栏压成小胶囊（点击进主任务详情保留） */
+  .flat-view .tl-crumb {
+    width: auto; margin: 7px 10px 0; padding: 4px 9px;
+    border-radius: 8px; border-bottom: 0;
+  }
+  .flat-view .tl-crumb__go { display: none; }
+
+  /* —— 4. 完整树：第 3 层起缩进减半、d4 封顶 40px（引导线与添加框三条规则同步） —— */
+  .todo-tree .todo-node[data-depth="2"] > .todo-row { margin-left: 24px; }
+  .todo-tree .todo-node[data-depth="3"] > .todo-row { margin-left: 32px; }
+  .todo-tree .todo-node[data-depth="4"] > .todo-row,
+  .todo-tree .todo-node[data-depth="5"] > .todo-row,
+  .todo-tree .todo-node[data-depth="6"] > .todo-row,
+  .todo-tree .todo-node[data-depth="7"] > .todo-row,
+  .todo-tree .todo-node[data-depth="8"] > .todo-row { margin-left: 40px; }
+  .todo-tree .todo-node[data-depth="2"]::before { left: 15px; }
+  .todo-tree .todo-node[data-depth="3"]::before { left: 23px; }
+  .todo-tree .todo-node[data-depth="4"]::before,
+  .todo-tree .todo-node[data-depth="5"]::before,
+  .todo-tree .todo-node[data-depth="6"]::before,
+  .todo-tree .todo-node[data-depth="7"]::before,
+  .todo-tree .todo-node[data-depth="8"]::before { left: 31px; }
+  .todo-tree .todo-node[data-depth="1"] > .todo-children > .todo-detail-adder { margin-left: 24px; }
+  .todo-tree .todo-node[data-depth="2"] > .todo-children > .todo-detail-adder { margin-left: 32px; }
+  .todo-tree .todo-node[data-depth="3"] > .todo-children > .todo-detail-adder,
+  .todo-tree .todo-node[data-depth="4"] > .todo-children > .todo-detail-adder,
+  .todo-tree .todo-node[data-depth="5"] > .todo-children > .todo-detail-adder,
+  .todo-tree .todo-node[data-depth="6"] > .todo-children > .todo-detail-adder,
+  .todo-tree .todo-node[data-depth="7"] > .todo-children > .todo-detail-adder { margin-left: 40px; }
+  .todo-tree .todo-node[data-depth="2"] > .todo-detail-adder { margin-left: 24px; }
+  .todo-tree .todo-node[data-depth="3"] > .todo-detail-adder { margin-left: 32px; }
+  .todo-tree .todo-node[data-depth="4"] > .todo-detail-adder,
+  .todo-tree .todo-node[data-depth="5"] > .todo-detail-adder,
+  .todo-tree .todo-node[data-depth="6"] > .todo-detail-adder,
+  .todo-tree .todo-node[data-depth="7"] > .todo-detail-adder,
+  .todo-tree .todo-node[data-depth="8"] > .todo-detail-adder { margin-left: 40px; }
+
+  /* —— 5. 时间轴：轴贴边两列布局 + 日期白 pill 吸顶 + 定位今天工具条 —— */
+  .tl-tools { display: flex; align-items: center; margin: 2px 0 8px; }
+  .tl-locate-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--brand-border); background: var(--surface);
+    color: var(--brand-text); font-family: inherit; font-size: 12px; font-weight: 600;
+    padding: 6px 12px; border-radius: 99px; cursor: pointer;
+  }
+  .tl-locate-btn svg { width: 14px; height: 14px; }
+  .tl-locate-btn:active { background: var(--brand-tint); }
+  .tl-locate-btn:disabled { opacity: .45; cursor: default; }
+  .timeline-view:not(.tl-legacy) .tl-day {
+    grid-template-columns: 18px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 8px;
+  }
+  .timeline-view:not(.tl-legacy) .tl-day__rail { grid-area: 1 / 1 / 3 / 2; }
+  .timeline-view:not(.tl-legacy) .tl-day__label {
+    grid-area: 1 / 2;
+    position: sticky; top: 8px; z-index: 3;
+    justify-self: start;
+    display: inline-flex; align-items: center; gap: 6px;
+    width: auto; margin: 0 0 2px; padding: 3px 11px;
+    text-align: left; white-space: nowrap;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 99px;
+    color: var(--text-strong);
+  }
+  body.todo-fs-on .timeline-view:not(.tl-legacy) .tl-day__label { top: 61px; }
+  .timeline-view:not(.tl-legacy) .tl-day__label b { display: inline; font-size: 12.5px; color: var(--text-strong); }
+  /* pill 是白底：强制回退实色，不能用深背景专用的 --over-fg/--today-fg/--soon-fg */
+  .timeline-view:not(.tl-legacy) .tl-day.is-over .tl-day__label b { color: var(--danger); }
+  .timeline-view:not(.tl-legacy) .tl-day.is-today .tl-day__label b { color: var(--brand-text); }
+  .timeline-view:not(.tl-legacy) .tl-day.is-soon .tl-day__label b { color: var(--warn); }
+  .timeline-view:not(.tl-legacy) .tl-day.is-empty .tl-day__label b { color: var(--muted-2); font-weight: 500; }
+  /* 标签内第三行倒计时（无 class 的 span）在胶囊内隐藏，避免撑坏单行 pill */
+  .timeline-view:not(.tl-legacy) .tl-day__label > span { display: none; }
+  .timeline-view:not(.tl-legacy) .tl-day__cards {
+    grid-area: 2 / 2;
+    gap: 8px; padding: 0 0 10px;
+  }
+}
 /* 速览深层叶子行后动态挂载的添加框：平时整体隐藏，点该行「添加子任务」进入 editing 才出现（PC/手机一致） */
 .flat-leaf-adder-holder .todo-detail-adder:not(.editing) { display: none; }
 .flat-leaf-adder-holder .todo-detail-adder.editing { display: block; }
@@ -2598,7 +2740,7 @@ html[data-theme="dark"] .todo-donezone .flat-crumb,
 /* 附件存储页手机端全选：桌面端用表头 checkbox，此标签仅窄屏显示 */
 .fm-mobile-sel { display: none; align-items: center; gap: 6px; font-size: 13px; color: var(--label); }
 /* 任务详情弹窗 */
-#tdEditBtn { float: right; margin: 2px 0 8px 10px; }
+#tdEditBtn { float: right; margin: 2px 0 8px 10px; position: relative; z-index: 1; }
 #tdEditBtn svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 3px; }
 .td-title { font-size: 17px; font-weight: 700; color: var(--text-strong); margin-bottom: 10px; padding-right: 8px; }
 .td-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }

@@ -122,9 +122,9 @@ function normalizeTodoViewList(raw) {
 // 待办全屏「显示」菜单排序合法值（与前端 todoSortMode 一致）；非法回退 default
 const TODO_SORT_MODES = ['default', 'due_asc', 'due_desc'];
 // 菜单设置缺省值：与前端历史行为一致（手动排序 / 隐藏已完成开 / 到期分组关 / 时间轴补齐关）
-const TODO_VIEW_OPTS_DEFAULT = { sort: 'default', hide_done: true, group_by_due: false, timeline_full_axis: false };
+const TODO_VIEW_OPTS_DEFAULT = { sort: 'default', hide_done: true, group_by_due: false, timeline_full_axis: false, card_preview: false, timeline_compact: false };
 /**
- * 归一化待办全屏「显示」菜单设置：解析 JSON 串/对象 → 四字段白名单校验 + 缺省填充。
+ * 归一化待办全屏「显示」菜单设置：解析 JSON 串/对象 → 六字段白名单校验 + 缺省填充。
  * 非法/空 → 全默认对象（永不返回 null/缺字段）；未知字段剥离。
  */
 function normalizeTodoViewOpts(raw) {
@@ -140,7 +140,10 @@ function normalizeTodoViewOpts(raw) {
     sort: TODO_SORT_MODES.includes(o.sort) ? o.sort : 'default',
     hide_done: typeof o.hide_done === 'boolean' ? o.hide_done : true,
     group_by_due: typeof o.group_by_due === 'boolean' ? o.group_by_due : false,
-    timeline_full_axis: typeof o.timeline_full_axis === 'boolean' ? o.timeline_full_axis : false
+    timeline_full_axis: typeof o.timeline_full_axis === 'boolean' ? o.timeline_full_axis : false,
+    // 卡片进度预览/时间轴紧凑模式：opt-in，仅显式 true 才开启，缺省/老数据默认关
+    card_preview: o.card_preview === true,
+    timeline_compact: o.timeline_compact === true
   };
 }
 
