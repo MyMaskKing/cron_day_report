@@ -28,6 +28,7 @@ class TodoAppWidgetReceiver : GlanceAppWidgetReceiver() {
     ) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
         RefreshWorker.enqueue(context)
+        WidgetRefreshScheduler.scheduleNext(context)
         // 初次添加/系统更新时各拉一次：已登录 App 或已配 token 即可
         val ready = Prefs.isLoggedIn(context)
         appWidgetIds.forEach { id ->
@@ -56,6 +57,9 @@ class TodoAppWidgetReceiver : GlanceAppWidgetReceiver() {
                     .isEmpty()
             }.getOrDefault(false)
         }
-        if (empty) RefreshWorker.cancelPeriodic(context)
+        if (empty) {
+            RefreshWorker.cancelPeriodic(context)
+            WidgetRefreshScheduler.cancel(context)
+        }
     }
 }

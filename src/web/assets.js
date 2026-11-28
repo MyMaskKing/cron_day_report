@@ -216,8 +216,32 @@ const COMMON_JS = `
   function pStr(p){ return fmt(p.y,p.mo,p.d); }
   function addDays(s,n){ var p=parse(s); return new Date(Date.UTC(p.y,p.mo-1,p.d)+n*86400000).toISOString().slice(0,10); }
   function wdOf(s){ var p=parse(s); return WD[new Date(Date.UTC(p.y,p.mo-1,p.d)).getUTCDay()]; }
-  var pop=null, cur=null, vY=0, vMo=0, view='day';
-  function close(){ if(pop){ pop.remove(); pop=null; cur=null; openSeq++; } }
+  var mask=null, pop=null, cur=null, vY=0, vMo=0, view='day', closeTimer=0;
+  function isSheet(){ return window.matchMedia && window.matchMedia('(max-width:767px)').matches; }
+  function cancelClose(){
+    if (closeTimer){ clearTimeout(closeTimer); closeTimer = 0; }
+    if (mask) mask.classList.remove('dp-closing');
+  }
+  function finishClose(){
+    cancelClose();
+    if (mask){ mask.style.display = 'none'; }
+    if (pop){ pop.style.display = 'none'; }
+    cur = null; openSeq++;
+  }
+  function close(){
+    if (!mask || mask.style.display === 'none') return;
+    if (!isSheet() || (typeof prefersReducedMotion === 'function' && prefersReducedMotion())) {
+      finishClose();
+      return;
+    }
+    if (mask.classList.contains('dp-closing')) return;
+    mask.classList.add('dp-closing');
+    var done = false;
+    function onDone(){ if (done) return; done = true; if (pop) pop.removeEventListener('animationend', onAnim); finishClose(); }
+    function onAnim(e){ if (e.target === pop && mask.classList.contains('dp-closing')) onDone(); }
+    if (pop) pop.addEventListener('animationend', onAnim);
+    closeTimer = setTimeout(onDone, 450);
+  }
   function disabled(ds, input){
     if (input.type === 'month') return (input.min && ds < input.min) || (input.max && ds > input.max);
     var mn=parse(input.min), mx=parse(input.max);
@@ -241,7 +265,8 @@ const COMMON_JS = `
   }
   function position(){
     if(!pop||!cur) return;
-    var p = clampPos(cur.getBoundingClientRect(), vvBox(), pop.offsetWidth || 300, pop.offsetHeight || 320);
+    if (isSheet()) { pop.style.left = ''; pop.style.top = ''; return; }
+    var p = clampPos(cur.getBoundingClientRect(), vvBox(), pop.offsetWidth || 312, pop.offsetHeight || 360);
     pop.style.left = p.left + 'px'; pop.style.top = p.top + 'px';
   }
   // rAF 节流重定位(键盘动画/视口变化期间会连续触发)
@@ -256,18 +281,43 @@ const COMMON_JS = `
     window.visualViewport.addEventListener('scroll', rafPos);
   }
   window.addEventListener('resize', rafPos);
-  function navBar(title, goto){
-    return '<div class="dp-nav"><button type="button" class="dp-navb" data-dir="-1">‹</button>' +
-      '<span class="dp-ym"' + (goto ? ' data-goto="'+goto+'"' : '') + '>'+title+'</span>' +
-      '<button type="button" class="dp-navb" data-dir="1">›</button></div>';
+  function navBar(title, goto, showNow){
+    return '<div class="dp-nav"><button type="button" class="dp-navb" data-dir="-1" aria-label="上一页">‹</button>' +
+      '<span class="dp-nav__mid"><span class="dp-ym"' + (goto ? ' data-goto="'+goto+'"' : '') + '>'+title+'</span>' +
+      (showNow ? '<button type="button" class="dp-today-now" data-now="1">回到本月</button>' : '') +
+      '</span><button type="button" class="dp-navb" data-dir="1" aria-label="下一页">›</button></div>';
+  }
+  function headBar(today, sel){
+    var valText = '未选择日期', empty = true;
+    if (cur && cur.type === 'month' && sel) {
+      valText = sel.y + '年' + sel.mo + '月'; empty = false;
+    } else if (sel) {
+      var ds = pStr(sel), tag = '';
+      if (ds === today) tag = ' · 今天';
+      else if (ds === addDays(today, 1)) tag = ' · 明天';
+      else if (ds === addDays(today, -1)) tag = ' · 昨天';
+      valText = sel.y + '年' + sel.mo + '月' + sel.d + '日 周' + wdOf(ds) + tag;
+      empty = false;
+    }
+    var canClear = cur && !cur.required && !empty;
+    return '<div class="dp-handle"></div>' +
+      '<div class="dp-head">' +
+        '<span class="dp-head__val' + (empty ? ' is-empty' : '') + '">' + valText + '</span>' +
+        '<div class="dp-head__acts">' +
+          (canClear ? '<button type="button" class="dp-clear" data-clear="1">清除</button>' : '') +
+          '<button type="button" class="dp-x" data-close="1" aria-label="关闭">&times;</button>' +
+        '</div>' +
+      '</div>';
   }
   function renderDay(today, sel){
-    var quick = [['今天', today], ['明天', addDays(today,1)], ['下周今天', addDays(today,7)]];
+    var quick = [['昨天', addDays(today,-1)], ['今天', today], ['明天', addDays(today,1)], ['下周今天', addDays(today,7)]];
     var chips = quick.map(function(q){
       var p = parse(q[1]), dis = disabled(q[1], cur);
       return '<button type="button" class="dp-chip' + (sel&&pStr(sel)===q[1]?' active':'') + (dis?' dis':'') + '" data-d="'+q[1]+'"'+(dis?' disabled':'')+'>' +
         '<span>'+q[0]+'</span><small>'+p.mo+'/'+p.d+' 周'+wdOf(q[1])+'</small></button>';
     }).join('');
+    var tp = parse(today);
+    var showNow = !(tp && tp.y === vY && tp.mo === vMo);
     var firstWd = new Date(Date.UTC(vY, vMo-1, 1)).getUTCDay();
     var daysIn = new Date(Date.UTC(vY, vMo, 0)).getUTCDate();
     var prevDays = new Date(Date.UTC(vY, vMo-1, 0)).getUTCDate();
@@ -275,14 +325,16 @@ const COMMON_JS = `
     for(var i=firstWd-1;i>=0;i--) cells += '<span class="dp-cell mute">'+(prevDays-i)+'</span>';
     for(var d=1;d<=daysIn;d++){
       var ds = fmt(vY,vMo,d), dis = disabled(ds,cur);
+      var wd = (firstWd + d - 1) % 7;
       var cls = 'dp-cell';
+      if (wd===0 || wd===6) cls += ' is-wknd';
       if (ds===today) cls += ' today';
       if (sel && pStr(sel)===ds) cls += ' sel';
       if (dis) cls += ' dis';
       cells += '<button type="button" class="'+cls+'" data-d="'+ds+'"'+(dis?' disabled':'')+'>'+d+'</button>';
     }
     return '<div class="dp-quick">'+chips+'</div>' +
-      navBar(vY+'年'+vMo+'月', 'month') +
+      navBar(vY+'年'+vMo+'月', 'month', showNow) +
       '<div class="dp-wd">'+WD.map(function(w){return '<span>'+w+'</span>';}).join('')+'</div>' +
       '<div class="dp-grid">'+cells+'</div>';
   }
@@ -297,7 +349,7 @@ const COMMON_JS = `
       if (dis) cls += ' dis';
       return '<button type="button" class="'+cls+'" data-mo="'+mo+'"'+(dis?' disabled':'')+'>'+m+'</button>';
     }).join('');
-    return navBar(vY+'年', 'year') + '<div class="dp-grid dp-grid--mon">'+cells+'</div>';
+    return navBar(vY+'年', 'year', false) + '<div class="dp-grid dp-grid--mon">'+cells+'</div>';
   }
   function renderYear(today){
     var tp = parse(today);
@@ -308,13 +360,19 @@ const COMMON_JS = `
       if (vY===y) cls += ' sel';
       cells += '<button type="button" class="'+cls+'" data-yr="'+y+'">'+y+'</button>';
     }
-    return navBar(start+'-'+(start+11), null) + '<div class="dp-grid dp-grid--mon">'+cells+'</div>';
+    return navBar(start+'-'+(start+11), null, false) + '<div class="dp-grid dp-grid--mon">'+cells+'</div>';
   }
   function render(){
     if(!pop||!cur) return;
     var today = bjToday(), sel = parse(cur.value);
-    pop.innerHTML = view==='month' ? renderMonth(today, sel) : view==='year' ? renderYear(today) : renderDay(today, sel);
+    pop.innerHTML = headBar(today, sel) + (view==='month' ? renderMonth(today, sel) : view==='year' ? renderYear(today) : renderDay(today, sel));
     position();
+  }
+  function stepNav(dir){
+    if (view==='day'){ vMo += dir; if(vMo<1){vMo=12;vY--;} if(vMo>12){vMo=1;vY++;} }
+    else if (view==='month'){ vY += dir; }
+    else { vY += dir*12; }
+    render();
   }
   // 键盘是否开启: visualViewport 推算高度 与 原生注入 --kb-native(App WebView 的 vv 不反映键盘)取大;
   // 口径与 COMMON_JS 的 curKb 一致
@@ -349,13 +407,34 @@ const COMMON_JS = `
     if (seq !== openSeq || cur !== input) return;
     var base = parse(input.value) || parse(bjToday());
     vY = base.y; vMo = base.mo; view = input.type === 'month' ? 'month' : 'day';
-    if (!pop){
+    if (!mask){
+      mask = document.createElement('div');
+      mask.className = 'dp-mask';
       pop = document.createElement('div');
       pop.className = 'dp-pop';
-      document.body.appendChild(pop);
+      mask.appendChild(pop);
+      document.body.appendChild(mask);
+      mask.addEventListener('click', function(e){ if (e.target === mask && isSheet()) close(); });
+      var swX = 0, swY = 0, swActive = false;
+      pop.addEventListener('touchstart', function(e){
+        if (!e.touches || e.touches.length !== 1) return;
+        swX = e.touches[0].clientX; swY = e.touches[0].clientY; swActive = true;
+      }, { passive: true });
+      pop.addEventListener('touchend', function(e){
+        if (!swActive || !e.changedTouches || !e.changedTouches.length) return;
+        swActive = false;
+        var dx = e.changedTouches[0].clientX - swX;
+        var dy = e.changedTouches[0].clientY - swY;
+        if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+          stepNav(dx < 0 ? 1 : -1);
+        }
+      }, { passive: true });
       pop.addEventListener('click', function(e){
         var el = e.target;
         function q(s){ return el.closest ? el.closest(s) : null; }
+        if (q('[data-close]')){ close(); return; }
+        if (q('[data-clear]')){ choose(''); return; }
+        if (q('[data-now]')){ var tp=parse(bjToday()); vY=tp.y; vMo=tp.mo; view='day'; render(); return; }
         var day=q('[data-d]'), mo=q('[data-mo]'), yr=q('[data-yr]'), goto=q('[data-goto]'), nav=q('.dp-navb');
         if (day){ choose(day.getAttribute('data-d')); return; }
         if (mo){
@@ -366,14 +445,12 @@ const COMMON_JS = `
         if (yr){ vY = parseInt(yr.getAttribute('data-yr'),10); view='month'; render(); return; }
         if (goto){ view = goto.getAttribute('data-goto'); render(); return; }
         if (nav){
-          var dir = parseInt(nav.getAttribute('data-dir'),10);
-          if (view==='day'){ vMo += dir; if(vMo<1){vMo=12;vY--;} if(vMo>12){vMo=1;vY++;} }
-          else if (view==='month'){ vY += dir; }
-          else { vY += dir*12; }
-          render();
+          stepNav(parseInt(nav.getAttribute('data-dir'),10));
         }
       });
     }
+    cancelClose();
+    mask.style.display = isSheet() ? 'flex' : 'block';
     pop.style.display = 'block';
     render();
   }
@@ -1820,6 +1897,11 @@ function consumeAppBackLayer() {
   if (tdp) {
     var tdpClose = tdp.querySelector('#tdpClose');
     if (tdpClose) { tdpClose.click(); return true; }
+  }
+  var dpMask = document.querySelector('.dp-mask');
+  if (dpMask && dpMask.style.display !== 'none') {
+    var dpClose = dpMask.querySelector('[data-close]');
+    if (dpClose) { dpClose.click(); return true; }
   }
   // 2. alertModal 独立结果弹窗(动态创建的无 id .modal-mask; 静态遮罩是 #modalMask)
   var amOk = document.querySelector('.modal-mask.show .amOk');
@@ -14337,12 +14419,31 @@ function todoOpenDatePicker(opts) {
   var viewY = parseInt(ap[0], 10), viewM = parseInt(ap[1], 10); // 月 1..12
   var mode = 'day'; // day=日视图；month=选月；year=选年（动作对齐编辑弹窗的系统选择器）
   var selected = hasVal ? opts.value : '';
+  var WD_NAMES = ['日','一','二','三','四','五','六'];
   function pad(n){ return (n < 10 ? '0' : '') + n; }
   function ymdOf(y, m, d){ return y + '-' + pad(m) + '-' + pad(d); }
   // base 日期加 n 天（UTC 进位，自动处理跨月/跨年）
   function addDays(y, m, d, n) {
     var dt = new Date(Date.UTC(y, m - 1, d + n));
     return ymdOf(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+  }
+  function nextMondayOf(y, m, d) {
+    var wd = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+    var diff = wd === 0 ? 1 : (8 - wd);
+    return addDays(y, m, d, diff);
+  }
+  function formatSub(ymd) {
+    if (!ymd) return '未设置截止日期';
+    var p = ymd.split('-');
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+    var wd = WD_NAMES[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+    var tp = today.split('-');
+    var tom = addDays(+tp[0], +tp[1], +tp[2], 1);
+    var curY = parseInt(tp[0], 10);
+    var prefix = (y !== curY ? y + '年' : '') + m + '月' + d + '日 · 周' + wd;
+    if (ymd === today) return prefix + ' · 今天';
+    if (ymd === tom) return prefix + ' · 明天';
+    return prefix;
   }
   var root, bodyEl;
   function draw() {
@@ -14391,30 +14492,47 @@ function todoOpenDatePicker(opts) {
       '</span>' +
       '<button type="button" class="tdp-nav__btn" id="tdpNext" aria-label="下一月">›</button></div>';
     h += '<div class="tdp-grid">';
-    ['日','一','二','三','四','五','六'].forEach(function(d){ h += '<div class="tdp-dow">' + d + '</div>'; });
+    WD_NAMES.forEach(function(d){ h += '<div class="tdp-dow">' + d + '</div>'; });
     var firstWd = new Date(Date.UTC(viewY, viewM - 1, 1)).getUTCDay();
     // 固定 42 格：从上月周日起；上下月补位日灰色显示，但仍可直接点选
     var start = new Date(Date.UTC(viewY, viewM - 1, 1 - firstWd));
     for (var i = 0; i < 42; i++) {
       var c = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + i));
       var ds = ymdOf(c.getUTCFullYear(), c.getUTCMonth() + 1, c.getUTCDate());
+      var wd = c.getUTCDay();
       var cls = 'tdp-cell';
+      if (wd === 0 || wd === 6) cls += ' is-wknd';
       if (c.getUTCMonth() + 1 !== viewM) cls += ' is-out';
       if (ds === today) cls += ' is-today';
       if (ds === selected) cls += ' is-sel';
       h += '<button type="button" class="' + cls + '" data-d="' + ds + '">' + c.getUTCDate() + '</button>';
     }
     h += '</div>';
-    h += '<div class="tdp-foot">' +
-      '<button type="button" class="tdp-quick" id="tdpQToday">今天</button>' +
-      '<button type="button" class="tdp-quick" id="tdpQTomorrow">明天</button>' +
-      '<button type="button" class="tdp-quick" id="tdpQNextWeek">下周今天</button></div>';
+    var qList = [
+      { id: 'tdpQToday', label: '今天', d: today },
+      { id: 'tdpQTomorrow', label: '明天', d: addDays(+tp[0], +tp[1], +tp[2], 1) },
+      { id: 'tdpQNextMon', label: '下周一', d: nextMondayOf(+tp[0], +tp[1], +tp[2]) },
+      { id: 'tdpQNextWeek', label: '下周今天', d: addDays(+tp[0], +tp[1], +tp[2], 7) }
+    ];
+    h += '<div class="tdp-foot">';
+    qList.forEach(function(q){
+      var qp = q.d.split('-');
+      var qwd = WD_NAMES[new Date(Date.UTC(+qp[0], +qp[1] - 1, +qp[2])).getUTCDay()];
+      h += '<button type="button" class="tdp-quick' + (selected === q.d ? ' is-active' : '') + '" id="' + q.id + '">' +
+        '<span>' + q.label + '</span><small>' + (+qp[1]) + '/' + (+qp[2]) + ' 周' + qwd + '</small></button>';
+    });
+    h += '</div>';
     bodyEl.innerHTML = h;
   }
   function shiftMonth(k) {
     var idx = (viewY * 12 + (viewM - 1)) + k;
     viewY = Math.floor(idx / 12); viewM = (idx % 12) + 1;
     draw();
+  }
+  function stepNav(dir) {
+    if (mode === 'day') shiftMonth(dir);
+    else if (mode === 'month') { viewY += dir; draw(); }
+    else { viewY += dir * 12; draw(); }
   }
   function close() {
     document.removeEventListener('keydown', onKey, true);
@@ -14447,30 +14565,82 @@ function todoOpenDatePicker(opts) {
   root = document.createElement('div');
   root.className = 'tdp-mask';
   root.innerHTML = '<div class="tdp-box">' +
-      '<div class="tdp-head"><span>选择截止日期</span><button type="button" class="tdp-x" id="tdpClose" aria-label="关闭">&times;</button></div>' +
+      '<div class="tdp-handle"></div>' +
+      '<div class="tdp-head">' +
+        '<div class="tdp-head__info">' +
+          '<span class="tdp-head__title">选择截止日期</span>' +
+          '<span class="tdp-head__sub' + (selected ? '' : ' is-empty') + '" id="tdpSub">' + formatSub(selected) + '</span>' +
+        '</div>' +
+        '<div class="tdp-head__acts">' +
+          (selected ? '<button type="button" class="tdp-clear" id="tdpClear">清除</button>' : '') +
+          '<button type="button" class="tdp-x" id="tdpClose" aria-label="关闭">&times;</button>' +
+        '</div>' +
+      '</div>' +
       '<div class="tdp-body"></div>' +
     '</div>';
   document.body.appendChild(root);
   bodyEl = root.querySelector('.tdp-body');
   draw();
   var box = root.querySelector('.tdp-box');
+  var headEl = root.querySelector('.tdp-head');
+  var handleEl = root.querySelector('.tdp-handle');
+  // 顶部手柄/标题区下滑关闭手势（仅手机端）
+  var dragY0 = 0, dragDy = 0, dragging = false;
+  function onHeadStart(e) {
+    if (!e.touches || e.touches.length !== 1) return;
+    if (!(window.matchMedia && window.matchMedia('(max-width:767px)').matches)) return;
+    dragY0 = e.touches[0].clientY; dragDy = 0; dragging = true;
+    box.style.transition = 'none';
+  }
+  function onHeadMove(e) {
+    if (!dragging || !e.touches || !e.touches.length) return;
+    dragDy = Math.max(0, e.touches[0].clientY - dragY0);
+    if (dragDy > 0) box.style.transform = 'translateY(' + dragDy + 'px)';
+  }
+  function onHeadEnd() {
+    if (!dragging) return;
+    dragging = false;
+    box.style.transition = '';
+    if (dragDy > 70) { box.style.transform = ''; close(); }
+    else { box.style.transform = ''; }
+  }
+  [headEl, handleEl].forEach(function(el){
+    if (!el) return;
+    el.addEventListener('touchstart', onHeadStart, { passive: true });
+    el.addEventListener('touchmove', onHeadMove, { passive: true });
+    el.addEventListener('touchend', onHeadEnd, { passive: true });
+  });
+  // 日历区左右轻扫切月/切页
+  var swX = 0, swY = 0, swOn = false;
+  bodyEl.addEventListener('touchstart', function(e){
+    if (!e.touches || e.touches.length !== 1) return;
+    swX = e.touches[0].clientX; swY = e.touches[0].clientY; swOn = true;
+  }, { passive: true });
+  bodyEl.addEventListener('touchend', function(e){
+    if (!swOn || !e.changedTouches || !e.changedTouches.length) return;
+    swOn = false;
+    var dx = e.changedTouches[0].clientX - swX;
+    var dy = e.changedTouches[0].clientY - swY;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      stepNav(dx < 0 ? 1 : -1);
+    }
+  }, { passive: true });
   root.addEventListener('click', function(e){ if (e.target === root) close(); });
   box.addEventListener('click', function(e){
     var t = e.target.closest ? e.target.closest('button') : null;
     if (!t || !box.contains(t)) return;
     var tp = today.split('-');
     if (t.id === 'tdpClose') close();
+    else if (t.id === 'tdpClear') finish('');
     else if (t.id === 'tdpGoYear') { mode = 'year'; draw(); }
     else if (t.id === 'tdpGoMonth') { mode = 'month'; draw(); }
     else if (t.id === 'tdpPrev' || t.id === 'tdpNext') {
-      var dir = t.id === 'tdpPrev' ? -1 : 1;
-      if (mode === 'day') shiftMonth(dir);
-      else if (mode === 'month') { viewY += dir; draw(); }
-      else { viewY += dir * 12; draw(); }
+      stepNav(t.id === 'tdpPrev' ? -1 : 1);
     }
     else if (t.id === 'tdpNow') { mode = 'day'; viewY = parseInt(tp[0], 10); viewM = parseInt(tp[1], 10); draw(); }
     else if (t.id === 'tdpQToday') finish(today);
     else if (t.id === 'tdpQTomorrow') finish(addDays(+tp[0], +tp[1], +tp[2], 1));
+    else if (t.id === 'tdpQNextMon') finish(nextMondayOf(+tp[0], +tp[1], +tp[2]));
     else if (t.id === 'tdpQNextWeek') finish(addDays(+tp[0], +tp[1], +tp[2], 7));
     else if (t.getAttribute('data-m')) { viewM = parseInt(t.getAttribute('data-m'), 10); mode = 'day'; draw(); }
     else if (t.getAttribute('data-y')) { viewY = parseInt(t.getAttribute('data-y'), 10); mode = 'day'; draw(); }

@@ -3,6 +3,7 @@ package xyz.a10023456.todowidget
 import android.content.Context
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.updateAll
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -34,14 +35,28 @@ class RefreshWorker(
         // （覆盖旧版本注册的残留周期；正常删除路径在 onDeleted 已取消）
         if (ids.isEmpty()) {
             cancelPeriodic(applicationContext)
+            WidgetRefreshScheduler.cancel(applicationContext)
             return Result.success()
         }
+        val loggedIn = Prefs.isLoggedIn(applicationContext)
         val refreshedIds = mutableListOf<Int>()
+        var anyTransientFailure = false
         ids.forEach { id ->
-            if (WidgetRepo.refresh(applicationContext, id)) refreshedIds.add(id)
+            val configured = loggedIn || Prefs.isConfigured(applicationContext, id)
+            if (!configured) return@forEach
+            if (WidgetRepo.refresh(applicationContext, id)) {
+                refreshedIds.add(id)
+            } else {
+                val msg = Prefs.getFailedMsg(applicationContext, id)
+                val isFatal = Regex("""HTTP\s*(401|403|404)\b""").containsMatchIn(msg)
+                if (!isFatal) anyTransientFailure = true
+            }
         }
         ReminderNotifier.check(applicationContext, refreshedIds)
         withContext(Dispatchers.Main) { TodoAppWidget().updateAll(applicationContext) }
+        if (anyTransientFailure && runAttemptCount < 3) {
+            return Result.retry()
+        }
         return Result.success()
     }
 
@@ -56,11 +71,12 @@ class RefreshWorker(
                 .build()
             val request = PeriodicWorkRequestBuilder<RefreshWorker>(30, TimeUnit.MINUTES)
                 .setConstraints(constraints)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
                 .build()
-            // UPDATE（非 KEEP）：老版本 15 分钟周期在升级后替换为 30 分钟（WorkManager 2.8+）
+            // KEEP：避免每次 onUpdate 重置 30 分钟计时器
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
+                ExistingPeriodicWorkPolicy.KEEP,
                 request
             )
         }

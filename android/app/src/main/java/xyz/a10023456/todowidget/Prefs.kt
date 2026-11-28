@@ -136,6 +136,22 @@ object Prefs {
     fun getLastUpdated(context: Context, widgetId: Int): Long =
         sp(context).getLong("updated_$widgetId", 0L)
 
+    /**
+     * 判断小组件缓存是否过期：无缓存、距上次更新超过 [maxAgeMs]，或已跨本地自然日（如跨夜到次日早晨），
+     * 满足其一即返回 true。
+     */
+    fun isCacheStale(context: Context, widgetId: Int, maxAgeMs: Long): Boolean {
+        if (getCache(context, widgetId) == null) return true
+        val updated = getLastUpdated(context, widgetId)
+        if (updated <= 0L) return true
+        val now = System.currentTimeMillis()
+        if (now - updated > maxAgeMs) return true
+        val zone = java.time.ZoneId.systemDefault()
+        val updatedDate = java.time.Instant.ofEpochMilli(updated).atZone(zone).toLocalDate()
+        val today = java.time.LocalDate.now(zone)
+        return updatedDate != today
+    }
+
     /** 失败时同时记录原始错误信息（异常 message），供界面映射为友好文案；恢复成功由 setCache 清除。 */
     fun setFailed(context: Context, widgetId: Int, failed: Boolean, msg: String? = null) {
         val e = sp(context).edit().putBoolean("failed_$widgetId", failed)

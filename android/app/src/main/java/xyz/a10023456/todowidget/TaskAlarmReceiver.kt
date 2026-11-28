@@ -22,7 +22,12 @@ class TaskAlarmBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         when (intent?.action) {
             Intent.ACTION_BOOT_COMPLETED,
-            Intent.ACTION_MY_PACKAGE_REPLACED -> TaskAlarmScheduler.rescheduleAll(context.applicationContext)
+            Intent.ACTION_MY_PACKAGE_REPLACED -> {
+                val appCtx = context.applicationContext
+                TaskAlarmScheduler.rescheduleAll(appCtx)
+                RefreshWorker.enqueue(appCtx)
+                WidgetRefreshScheduler.scheduleNext(appCtx)
+            }
         }
     }
 }

@@ -21,6 +21,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
+        android:name=".TodoWidgetApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -84,6 +85,10 @@
 
         <receiver
             android:name=".ReminderActionReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".WidgetRefreshReceiver"
             android:exported="false" />
 
         <service

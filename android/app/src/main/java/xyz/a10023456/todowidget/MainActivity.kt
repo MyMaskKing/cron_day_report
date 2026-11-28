@@ -265,9 +265,7 @@ class MainActivity : ComponentActivity() {
                     .map { it.resolveAppWidgetId(this@MainActivity) }
                     .filter { it >= 0 }
                     .any {
-                        Prefs.getCache(this@MainActivity, it) == null ||
-                            System.currentTimeMillis() -
-                            Prefs.getLastUpdated(this@MainActivity, it) > RESUME_STALE_MS
+                        Prefs.isCacheStale(this@MainActivity, it, RESUME_STALE_MS)
                     }
             }.getOrDefault(false)
             if (stale) RefreshWorker.enqueueImmediate(this@MainActivity)

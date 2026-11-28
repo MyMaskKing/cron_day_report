@@ -279,6 +279,7 @@ class ConfigActivity : ComponentActivity() {
             Prefs.setWidgetTheme(this@ConfigActivity, appWidgetId, widgetTheme)
             WidgetStateStore.publish(this@ConfigActivity, appWidgetId)
             RefreshWorker.enqueue(this@ConfigActivity)
+            WidgetRefreshScheduler.scheduleNext(this@ConfigActivity)
             // 交互式保存：少量重试，避免弱网下弹窗长时间不关闭
             val refreshed = WidgetRepo.refresh(this@ConfigActivity, appWidgetId, maxAttempts = 2)
             if (refreshed) ReminderNotifier.check(this@ConfigActivity, listOf(appWidgetId))

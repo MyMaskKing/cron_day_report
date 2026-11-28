@@ -146,11 +146,9 @@ private fun maybeAutoRefresh(context: Context, appWidgetId: Int) {
     if (appWidgetId < 0) return
     val ready = Prefs.isLoggedIn(context) || Prefs.isConfigured(context, appWidgetId)
     if (!ready) return
-    val updated = Prefs.getLastUpdated(context, appWidgetId)
-    val stale = Prefs.getCache(context, appWidgetId) == null ||
-        System.currentTimeMillis() - updated > AUTO_REFRESH_STALE_MS
+    val stale = Prefs.isCacheStale(context, appWidgetId, AUTO_REFRESH_STALE_MS)
     if (stale) {
-        android.util.Log.d("TodoWidget", "auto refresh enqueued: widget=$appWidgetId, updated=$updated")
+        android.util.Log.d("TodoWidget", "auto refresh enqueued: widget=$appWidgetId")
         WidgetActionWorker.enqueue(
             context, appWidgetId, WidgetActionWorker.ACTION_REFRESH, silent = true
         )
