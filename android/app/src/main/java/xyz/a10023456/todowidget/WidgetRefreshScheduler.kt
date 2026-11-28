@@ -110,6 +110,9 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
                 if (needRefresh) {
                     RefreshWorker.enqueueImmediate(appCtx)
                 }
+            } catch (e: Throwable) {
+                // 裸 CoroutineScope 无默认异常处理器，异常逃逸会拖垮后台进程；兜底记日志，finish 仍在 finally 执行
+                Log.w("TodoWidget", "WidgetRefreshReceiver refresh failed: ${e.message}")
             } finally {
                 pendingResult.finish()
             }

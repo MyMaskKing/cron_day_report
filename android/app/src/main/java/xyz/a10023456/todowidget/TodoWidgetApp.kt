@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import kotlinx.coroutines.CoroutineScope
@@ -32,22 +33,27 @@ class TodoWidgetApp : Application() {
             if (intent?.action != Intent.ACTION_USER_PRESENT) return
             val appCtx = context.applicationContext
             CoroutineScope(Dispatchers.IO).launch {
-                val ids = runCatching {
-                    GlanceAppWidgetManager(appCtx)
-                        .getGlanceIds(TodoAppWidget::class.java)
-                        .map { it.resolveAppWidgetId(appCtx) }
-                        .filter { it >= 0 }
-                }.getOrDefault(emptyList())
-                if (ids.isEmpty()) return@launch
+                try {
+                    val ids = runCatching {
+                        GlanceAppWidgetManager(appCtx)
+                            .getGlanceIds(TodoAppWidget::class.java)
+                            .map { it.resolveAppWidgetId(appCtx) }
+                            .filter { it >= 0 }
+                    }.getOrDefault(emptyList())
+                    if (ids.isEmpty()) return@launch
 
-                WidgetRefreshScheduler.scheduleNext(appCtx)
-                val loggedIn = Prefs.isLoggedIn(appCtx)
-                val stale = ids.any { id ->
-                    (loggedIn || Prefs.isConfigured(appCtx, id)) &&
-                        Prefs.isCacheStale(appCtx, id, UNLOCK_STALE_MS)
-                }
-                if (stale) {
-                    RefreshWorker.enqueueImmediate(appCtx)
+                    WidgetRefreshScheduler.scheduleNext(appCtx)
+                    val loggedIn = Prefs.isLoggedIn(appCtx)
+                    val stale = ids.any { id ->
+                        (loggedIn || Prefs.isConfigured(appCtx, id)) &&
+                            Prefs.isCacheStale(appCtx, id, UNLOCK_STALE_MS)
+                    }
+                    if (stale) {
+                        RefreshWorker.enqueueImmediate(appCtx)
+                    }
+                } catch (e: Throwable) {
+                    // 裸 CoroutineScope 无默认异常处理器，异常逃逸会拖垮后台进程；解锁刷新失败仅记日志
+                    Log.w("TodoWidget", "user-present refresh failed: ${e.message}")
                 }
             }
         }

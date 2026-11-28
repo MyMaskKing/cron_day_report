@@ -216,8 +216,16 @@ const COMMON_JS = `
   function pStr(p){ return fmt(p.y,p.mo,p.d); }
   function addDays(s,n){ var p=parse(s); return new Date(Date.UTC(p.y,p.mo-1,p.d)+n*86400000).toISOString().slice(0,10); }
   function wdOf(s){ var p=parse(s); return WD[new Date(Date.UTC(p.y,p.mo-1,p.d)).getUTCDay()]; }
-  var mask=null, pop=null, cur=null, vY=0, vMo=0, view='day', closeTimer=0, guardOpenClick=false;
+  var mask=null, pop=null, cur=null, vY=0, vMo=0, view='day', closeTimer=0, guardOpenClick=false, guardTimer=0;
   function isSheet(){ return window.matchMedia && window.matchMedia('(max-width:767px)').matches; }
+  // 吞掉「打开弹层的同一次手势」的穿透 click（移动端兼容 click 可能被重定向到 mask 或 pop 内任意元素）。
+  // 仅在打开后、下一次 pointerdown 前生效；500ms 兜底自愈，防止个别内核不派发兼容 click 时标志残留。
+  function consumeOpenClick(){
+    if (!guardOpenClick) return false;
+    guardOpenClick = false;
+    if (guardTimer){ clearTimeout(guardTimer); guardTimer = 0; }
+    return true;
+  }
   function cancelClose(){
     if (closeTimer){ clearTimeout(closeTimer); closeTimer = 0; }
     if (mask) mask.classList.remove('dp-closing');
@@ -416,9 +424,9 @@ const COMMON_JS = `
       document.body.appendChild(mask);
       mask.addEventListener('click', function(e){
         if (e.target !== mask || !isSheet()) return;
-        // 打开弹层的同一次 tap：pointerdown 已触发 open，移动端兼容性 click 会被重定向到刚插入的全屏 mask，
-        // 这里吞掉该穿透 click（由 guardOpenClick 标记），避免弹层闪现即关；新手势的 pointerdown 会先清掉标记
-        if (guardOpenClick){ guardOpenClick = false; return; }
+        // 打开弹层的同一次 tap：pointerdown 已触发 open，移动端兼容性 click 会被重定向到刚插入的遮罩，
+        // 吞掉该穿透 click 避免弹层闪现即关；新手势的 pointerdown 会先清掉防护
+        if (consumeOpenClick()) return;
         close();
       });
       var swX = 0, swY = 0, swActive = false;
@@ -436,6 +444,9 @@ const COMMON_JS = `
         }
       }, { passive: true });
       pop.addEventListener('click', function(e){
+        // 真机 WebView 可能把打开同次 tap 的兼容 click 直接命中 pop 内的日期格/清除钮，
+        // 与 mask 同一道防护吞掉它，避免刚打开就误选日期或被清空；真实点击的 pointerdown 已先清除防护
+        if (consumeOpenClick()) return;
         var el = e.target;
         function q(s){ return el.closest ? el.closest(s) : null; }
         if (q('[data-close]')){ close(); return; }
@@ -459,6 +470,8 @@ const COMMON_JS = `
     mask.style.display = isSheet() ? 'flex' : 'block';
     pop.style.display = 'block';
     guardOpenClick = true;
+    if (guardTimer) clearTimeout(guardTimer);
+    guardTimer = setTimeout(function(){ guardOpenClick = false; guardTimer = 0; }, 500);
     render();
   }
   function choose(ds){
@@ -471,6 +484,7 @@ const COMMON_JS = `
   function isDate(t){ return t && t.tagName==='INPUT' && (t.type==='date' || t.type==='month'); }
   document.addEventListener('pointerdown', function(e){
     guardOpenClick = false; // 任何新按下都代表新手势，解除打开穿透防护（先于该手势的 click 执行）
+    if (guardTimer){ clearTimeout(guardTimer); guardTimer = 0; }
     var t = e.target;
     if (isDate(t)){ e.preventDefault(); open(t); return; }
     if (pop && !(t.closest && t.closest('.dp-pop'))) close();
