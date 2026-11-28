@@ -216,7 +216,7 @@ const COMMON_JS = `
   function pStr(p){ return fmt(p.y,p.mo,p.d); }
   function addDays(s,n){ var p=parse(s); return new Date(Date.UTC(p.y,p.mo-1,p.d)+n*86400000).toISOString().slice(0,10); }
   function wdOf(s){ var p=parse(s); return WD[new Date(Date.UTC(p.y,p.mo-1,p.d)).getUTCDay()]; }
-  var mask=null, pop=null, cur=null, vY=0, vMo=0, view='day', closeTimer=0;
+  var mask=null, pop=null, cur=null, vY=0, vMo=0, view='day', closeTimer=0, guardOpenClick=false;
   function isSheet(){ return window.matchMedia && window.matchMedia('(max-width:767px)').matches; }
   function cancelClose(){
     if (closeTimer){ clearTimeout(closeTimer); closeTimer = 0; }
@@ -414,7 +414,13 @@ const COMMON_JS = `
       pop.className = 'dp-pop';
       mask.appendChild(pop);
       document.body.appendChild(mask);
-      mask.addEventListener('click', function(e){ if (e.target === mask && isSheet()) close(); });
+      mask.addEventListener('click', function(e){
+        if (e.target !== mask || !isSheet()) return;
+        // 打开弹层的同一次 tap：pointerdown 已触发 open，移动端兼容性 click 会被重定向到刚插入的全屏 mask，
+        // 这里吞掉该穿透 click（由 guardOpenClick 标记），避免弹层闪现即关；新手势的 pointerdown 会先清掉标记
+        if (guardOpenClick){ guardOpenClick = false; return; }
+        close();
+      });
       var swX = 0, swY = 0, swActive = false;
       pop.addEventListener('touchstart', function(e){
         if (!e.touches || e.touches.length !== 1) return;
@@ -452,6 +458,7 @@ const COMMON_JS = `
     cancelClose();
     mask.style.display = isSheet() ? 'flex' : 'block';
     pop.style.display = 'block';
+    guardOpenClick = true;
     render();
   }
   function choose(ds){
@@ -463,6 +470,7 @@ const COMMON_JS = `
   }
   function isDate(t){ return t && t.tagName==='INPUT' && (t.type==='date' || t.type==='month'); }
   document.addEventListener('pointerdown', function(e){
+    guardOpenClick = false; // 任何新按下都代表新手势，解除打开穿透防护（先于该手势的 click 执行）
     var t = e.target;
     if (isDate(t)){ e.preventDefault(); open(t); return; }
     if (pop && !(t.closest && t.closest('.dp-pop'))) close();
